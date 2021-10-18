@@ -67,6 +67,7 @@ library
     cardano-ledger-shelley-ma,
     cardano-prelude,
     cardano-protocol-tpraos,
+    pretty-simple,
     cardano-slotting,
     containers,
     data-default,

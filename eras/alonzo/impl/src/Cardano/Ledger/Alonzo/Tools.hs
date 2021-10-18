@@ -36,7 +36,7 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import GHC.Records (HasField (..))
 import qualified Plutus.V1.Ledger.Api as P
-
+import Debug.Pretty.Simple 
 -- | Failures that can be returned by 'evaluateTransactionExecutionUnits'.
 data ScriptFailure c
   = -- | A redeemer was supplied that does not point to a
@@ -88,8 +88,9 @@ evaluateTransactionExecutionUnits ::
   --  The value is monadic, depending on the epoch info.
   m (Map RdmrPtr (Either (ScriptFailure c) ExUnits))
 evaluateTransactionExecutionUnits pp tx utxo ei sysS costModels = do
+  pTraceM "Nicolas Henin in the matrix !"
   txinfo <- txInfo pp ei sysS utxo tx
-  pure $ Map.mapWithKey (findAndCount txinfo) (unRedeemers $ getField @"txrdmrs" ws)
+  pure $ Map.mapWithKey (findAndCount (pTraceShow txinfo txinfo)) (unRedeemers $ getField @"txrdmrs" ws)
   where
     txb = getField @"body" tx
     ws = getField @"wits" tx
