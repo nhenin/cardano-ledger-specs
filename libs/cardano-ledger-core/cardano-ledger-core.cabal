@@ -63,6 +63,11 @@ library
     Cardano.Ledger.Core
     Cardano.Ledger.Credential
     Cardano.Ledger.DRep
+    Cardano.Ledger.DynamicPricing
+    Cardano.Ledger.DynamicPricing.Controller
+    Cardano.Ledger.DynamicPricing.InclusionStrategy
+    Cardano.Ledger.DynamicPricing.Pricing
+    Cardano.Ledger.DynamicPricing.State
     Cardano.Ledger.Genesis
     Cardano.Ledger.HKD
     Cardano.Ledger.Hashes
@@ -309,6 +314,7 @@ test-suite tests
     Test.Cardano.Ledger.AddressSpec
     Test.Cardano.Ledger.BaseTypesSpec
     Test.Cardano.Ledger.BinarySpec
+    Test.Cardano.Ledger.DynamicPricing.ControllerSpec
     Test.Cardano.Ledger.JsonSpec
     Test.Cardano.Ledger.PlutusSpec
     Test.Cardano.Ledger.State.StakePoolSpec
