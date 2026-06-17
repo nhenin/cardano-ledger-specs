@@ -36,6 +36,8 @@ module Cardano.Ledger.DynamicPricing.State (
   emptyInclusionUsage,
 
   -- * End-of-block repricing (DIVUP)
+  BlockCapacity (..),
+  defaultControllerParams,
   reprice,
   endOfBlock,
 ) where
@@ -51,6 +53,13 @@ import Cardano.Ledger.Binary.Coders (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Credential (Credential)
+import Cardano.Ledger.DynamicPricing.Controller (
+  ControllerParams (..),
+  MaxChangeDenominator (..),
+  TargetUtilisation (..),
+  Utilisation (..),
+  stepPrice,
+ )
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
@@ -58,6 +67,7 @@ import Cardano.Ledger.DynamicPricing.Pricing (
   TxSizeInBytes (..),
   mkInclusionPrices,
   optimistic,
+  priceDiscriminationFloor,
   priceOf,
   urgent,
  )
@@ -68,6 +78,8 @@ import Data.Default (Default (..))
 import Data.Kind (Type)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromMaybe)
+import Data.Ratio ((%))
 import Data.Typeable (Typeable)
 import Data.Word (Word8)
 import Cardano.Ledger.Keys (KeyRole (Staking))
@@ -246,29 +258,73 @@ recordTx strategy size fee exUnits ps =
 currentPrice :: Inclusion -> DynamicPricing era -> InclusionPrice
 currentPrice strategy = priceOf strategy . publishedPrices
 
--- | End-of-block repricing (spec: @updateTiers@, still the identity there).
+-- | The block-body capacity the utilisation signal is measured against, in
+-- bytes. Praos-only: one RB worth (the BBODY rule derives it from the protocol
+-- parameters).
+newtype BlockCapacity = BlockCapacity {unBlockCapacity :: Integer}
+  deriving (Eq, Show, Generic)
+
+-- | The controller calibration the ledger runs: Will's sweep winner
+-- (@target = 1\/2@, @D = 4@ ⇒ at most ±25%\/block). Eventually a protocol
+-- parameter; a constant for the prototype.
+defaultControllerParams :: ControllerParams
+defaultControllerParams =
+  ControllerParams (TargetUtilisation (1 % 2)) (MaxChangeDenominator 4)
+
+-- | End-of-block repricing (spec: @updateTiers@): one EIP-1559 controller step
+-- per lane (Will's mechanism-design doc), republished through
+-- 'mkInclusionPrices' so the 16× price-discrimination floor always holds.
 --
--- TODO(prototype): per-strategy EIP-1559 controller from the abstract-sim
--- (@src\/Pricing.hs@):
+-- The utilisation signal is capacity-weighted, per lane:
 --
--- @
---   newPrice   = oldPrice × max 0 (1 + adjustment)
---   adjustment = ((utilisation − target) ÷ target) ÷ maxChangeDenominator
--- @
+--   * 'Urgent'     ← the priority lane's own fill (urgent bytes \/ capacity);
+--   * 'Optimistic' ← the aggregate fill (all bytes \/ capacity).
 --
--- with target = 0.5, maxChangeDenominator = 8 (so at most ±12.5% per block,
--- rounded deterministically on lovelace), republished through
--- 'mkInclusionPrices' so the price-discrimination floor holds. Open question
--- (Giorgos' deck, slide 12): the utilisation signal for 'Optimistic'.
-reprice :: DynamicPricing era -> InclusionPrices
-reprice = publishedPrices
+-- The 'Optimistic' signal is a prototype placeholder: the right signal for the
+-- optimistic lane is still open (Giorgos' deck, slide 12 — Q4). Window
+-- smoothing over several blocks is likewise deferred (calibration choice).
+reprice ::
+  ControllerParams ->
+  -- | The lane floor price (today's @minFeeA@; the controller's @c = 1@).
+  InclusionPrice ->
+  -- | The block-body capacity to measure utilisation against.
+  BlockCapacity ->
+  DynamicPricing era ->
+  InclusionPrices
+reprice params floorPrice (BlockCapacity capacity) ps =
+  publishFloored
+    (stepPrice params floorPrice urgentUtil (urgent prices))
+    (stepPrice params floorPrice aggregateUtil (optimistic prices))
+  where
+    prices = publishedPrices ps
+    cap = max 1 capacity
+    laneBytes strategy =
+      maybe 0 (toInteger . unTxSizeInBytes . bytesUsed) (Map.lookup strategy (blockUsage ps))
+    urgentUtil = Utilisation (laneBytes Urgent % cap)
+    aggregateUtil = Utilisation ((laneBytes Urgent + laneBytes Optimistic) % cap)
+
+-- | Publish two stepped prices, re-imposing the discrimination floor: if the
+-- controller pushed 'Urgent' below @priceDiscriminationFloor × Optimistic@,
+-- raise it back so 'mkInclusionPrices' always succeeds.
+publishFloored :: InclusionPrice -> InclusionPrice -> InclusionPrices
+publishFloored steppedUrgent o@(InclusionPrice (Coin op)) =
+  fromMaybe
+    (error "DynamicPricing.reprice: floored prices still violate the discrimination floor")
+    (mkInclusionPrices (max steppedUrgent flooredUrgent) o)
+  where
+    flooredUrgent = InclusionPrice (Coin (priceDiscriminationFloor * op))
 
 -- | Block boundary (spec: the @DIVUP@ rule): apply 'reprice', reset usage.
 -- The spec's @sdChecks@ premise (the optimistic usage fits RB limits) lives
 -- with the BBODY rule, not here.
-endOfBlock :: DynamicPricing era -> DynamicPricing era
-endOfBlock ps =
+endOfBlock ::
+  ControllerParams ->
+  InclusionPrice ->
+  BlockCapacity ->
+  DynamicPricing era ->
+  DynamicPricing era
+endOfBlock params floorPrice capacity ps =
   ps
-    { publishedPrices = reprice ps
+    { publishedPrices = reprice params floorPrice capacity ps
     , blockUsage = Map.empty
     }

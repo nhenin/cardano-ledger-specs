@@ -73,11 +73,15 @@ import Cardano.Ledger.Dijkstra.Rules.Ledger (DijkstraLedgerPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.Ledgers ()
 import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.Utxow (DijkstraUtxowPredFailure)
+import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.DynamicPricing (
+  BlockCapacity (..),
   DynamicPricing (..),
   Inclusion (..),
+  InclusionPrice (..),
   InclusionUsage (..),
   TxSizeInBytes (..),
+  defaultControllerParams,
   endOfBlock,
  )
 import Cardano.Ledger.DynamicPricing.State (PricingState)
@@ -374,9 +378,10 @@ instance
 -- * B1 (@sdChecks@): the optimistic usage fits the on-chain block budgets.
 --   Praos-only: every block is an RB, so the premise always applies; the
 --   EB exemption arrives with the consensus phase.
--- * B2 (@endOfBlock@): republish the prices ('reprice', still the identity)
---   and reset the usage counters. The prices published here are what the
---   UTXO rule judges the NEXT block's transactions against.
+-- * B2 (@endOfBlock@): republish the prices ('reprice' — Will's per-lane
+--   EIP-1559 controller, fed the capacity-weighted utilisation) and reset the
+--   usage counters. The prices published here are what the UTXO rule judges
+--   the NEXT block's transactions against.
 divupTransition ::
   forall era.
   ( State (EraRule "BBODY" era) ~ ShelleyBbodyState era
@@ -395,6 +400,8 @@ divupTransition (BbodyState ls blocksMade) = do
       TxSizeInBytes optimisticBytes = bytesUsed usage
       maxBytes = pp ^. ppMaxBBSizeL
       maxExUnits = pp ^. ppMaxBlockExUnitsL
+      floorPrice = InclusionPrice (fromCompact (unCoinPerByte (pp ^. ppTxFeePerByteL)))
+      capacity = BlockCapacity (toInteger maxBytes)
   optimisticBytes <= maxBytes
     ?! injectFailure
       (OptimisticOverflowsBlock Mismatch {mismatchSupplied = optimisticBytes, mismatchExpected = maxBytes})
@@ -403,7 +410,10 @@ divupTransition (BbodyState ls blocksMade) = do
       ( OptimisticOverflowsBlockExUnits
           Mismatch {mismatchSupplied = exUnitsUsed usage, mismatchExpected = maxExUnits}
       )
-  pure $! BbodyState (ls & lsUTxOStateL . utxosPricingL %~ endOfBlock) blocksMade
+  pure $!
+    BbodyState
+      (ls & lsUTxOStateL . utxosPricingL %~ endOfBlock defaultControllerParams floorPrice capacity)
+      blocksMade
 
 dijkstraBbodyTransition ::
   forall era.

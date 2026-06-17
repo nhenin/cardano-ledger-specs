@@ -20,9 +20,11 @@
 module Cardano.Ledger.DynamicPricing (
   module Cardano.Ledger.DynamicPricing.InclusionStrategy,
   module Cardano.Ledger.DynamicPricing.Pricing,
+  module Cardano.Ledger.DynamicPricing.Controller,
   module Cardano.Ledger.DynamicPricing.State,
 ) where
 
+import Cardano.Ledger.DynamicPricing.Controller
 import Cardano.Ledger.DynamicPricing.InclusionStrategy
 import Cardano.Ledger.DynamicPricing.Pricing
 import Cardano.Ledger.DynamicPricing.State
