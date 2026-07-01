@@ -143,6 +143,9 @@ instance Typeable l => DecCBOR (DijkstraTxBodyRaw l DijkstraEra) where
         27
           | STopTx <- sTxLevel ->
               field (inclusionDijkstraTxBodyRawL .~) From
+        28
+          | STopTx <- sTxLevel ->
+              ofield (feeRefundAccountDijkstraTxBodyRawL .~) From
         n -> invalidField n
       requiredFields :: STxBothLevels l DijkstraEra -> [(Word, String)]
       requiredFields sTxLevel

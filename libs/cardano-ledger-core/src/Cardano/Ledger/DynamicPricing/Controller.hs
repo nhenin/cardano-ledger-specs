@@ -17,7 +17,8 @@
 -- symmetric even when @target ≠ 0.5@.
 --
 -- This module is the controller only: the utilisation signal is computed by
--- the BBODY rule, and the cross-lane price-discrimination floor (16×) is
+-- the BBODY rule, and the cross-lane price-discrimination floor
+-- ('priceDiscriminationFloor') is
 -- re-imposed by 'Cardano.Ledger.DynamicPricing.Pricing.mkInclusionPrices'
 -- after both lanes have stepped.
 module Cardano.Ledger.DynamicPricing.Controller (

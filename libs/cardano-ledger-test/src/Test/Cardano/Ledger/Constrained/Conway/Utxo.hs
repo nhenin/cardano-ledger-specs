@@ -137,7 +137,8 @@ utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, ueCertState} =
        _utxosFees
        utxosGovState
        _utxosStakeDistr
-       _utxosDonation ->
+       _utxosDonation
+       _utxosPricing ->
           [ assert $ utxosUtxo ==. lit uecUTxO
           , match utxosGovState $ \props _ constitution _ _ _ _ ->
               match constitution $ \_ policy ->

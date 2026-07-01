@@ -33,6 +33,7 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Coin (Coin (..), CompactForm (CompactCoin))
 import Cardano.Ledger.Credential (Credential (..))
+import Cardano.Ledger.DynamicPricing.State (emptyPricing)
 import Cardano.Ledger.Keys (asWitness)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Core
@@ -103,6 +104,7 @@ initUTxO n =
     def
     mempty
     mempty
+    emptyPricing
 
 -- Protocal Parameters used for the benchmarknig tests.
 -- Note that the fees and deposits are set to zero for

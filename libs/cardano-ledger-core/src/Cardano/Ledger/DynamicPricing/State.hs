@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -30,13 +29,23 @@ module Cardano.Ledger.DynamicPricing.State (
   currentPrice,
   addPendingRefund,
   drainPendingRefunds,
+  retainPendingRefunds,
 
   -- * Per-block usage accounting
+  BlockUsage (..),
   InclusionUsage (..),
+  emptyBlockUsage,
   emptyInclusionUsage,
+  recordInclusionUsage,
+  usageOf,
+
+  -- * Fee refunds
+  PendingRefunds (..),
+  emptyPendingRefunds,
 
   -- * End-of-block repricing (DIVUP)
   BlockCapacity (..),
+  InclusionCapacities (..),
   defaultControllerParams,
   reprice,
   endOfBlock,
@@ -53,36 +62,47 @@ import Cardano.Ledger.Binary.Coders (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Credential (Credential)
-import Cardano.Ledger.DynamicPricing.Controller (
-  ControllerParams (..),
-  MaxChangeDenominator (..),
-  TargetUtilisation (..),
-  Utilisation (..),
-  stepPrice,
- )
-import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
+import Cardano.Ledger.DynamicPricing.Controller (ControllerParams)
+import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion)
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
   InclusionPrices,
-  TxSizeInBytes (..),
+  TxSizeInBytes,
   mkInclusionPrices,
   optimistic,
-  priceDiscriminationFloor,
   priceOf,
   urgent,
  )
-import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
+import Cardano.Ledger.DynamicPricing.Refunds (
+  PendingRefunds (..),
+  drainRefunds,
+  emptyPendingRefunds,
+  pendingRefundsFromMap,
+  recordPendingRefund,
+ )
+import Cardano.Ledger.DynamicPricing.Repricing (
+  BlockCapacity (..),
+  InclusionCapacities (..),
+  defaultControllerParams,
+  repriceBlockUsage,
+ )
+import Cardano.Ledger.DynamicPricing.Usage (
+  BlockUsage (..),
+  InclusionUsage (..),
+  emptyBlockUsage,
+  emptyInclusionUsage,
+  recordInclusionUsage,
+  usageOf,
+ )
+import Cardano.Ledger.Keys (KeyRole (Staking))
+import Cardano.Ledger.Plutus.ExUnits (ExUnits)
 import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Default (Default (..))
 import Data.Kind (Type)
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe)
-import Data.Ratio ((%))
 import Data.Typeable (Typeable)
 import Data.Word (Word8)
-import Cardano.Ledger.Keys (KeyRole (Staking))
 import GHC.Generics (Generic)
 import NoThunks.Class (NoThunks)
 
@@ -92,6 +112,7 @@ class
   , Show (PricingState era)
   , NFData (PricingState era)
   , NoThunks (PricingState era)
+  , Typeable (PricingState era)
   , EncCBOR (PricingState era)
   , DecCBOR (PricingState era)
   , Default (PricingState era)
@@ -133,10 +154,10 @@ instance Typeable era => DecCBOR (NoPricing era) where
 data DynamicPricing era = DynamicPricing
   { publishedPrices :: !InclusionPrices
   -- ^ The price of each inclusion strategy (deck: DP1\/DP2).
-  , blockUsage :: !(Map Inclusion InclusionUsage)
+  , blockUsage :: !BlockUsage
   -- ^ Usage of the block currently being processed (spec: the
   -- @totalSize\/totalFees\/totalExUnits@ maps).
-  , pendingRefunds :: !(Map (Credential Staking) Coin)
+  , pendingRefunds :: !PendingRefunds
   -- ^ Refunds owed to bidders (the unused headroom of their bids), flushed
   -- into account balances by the LEDGER rule after every transaction
   -- (spec: @feeRewards@).
@@ -155,7 +176,7 @@ instance ToJSON (DynamicPricing era) where
     object
       [ "urgent" .= unInclusionPrice (urgent (publishedPrices dp))
       , "optimistic" .= unInclusionPrice (optimistic (publishedPrices dp))
-      , "blockUsage" .= Map.toList (Map.mapKeys show (blockUsage dp))
+      , "blockUsage" .= blockUsage dp
       , "pendingRefunds" .= pendingRefunds dp
       ]
 
@@ -174,8 +195,8 @@ instance Typeable era => DecCBOR (DynamicPricing era) where
 mkDynamicPricing ::
   InclusionPrice ->
   InclusionPrice ->
-  Map Inclusion InclusionUsage ->
-  Map (Credential Staking) Coin ->
+  BlockUsage ->
+  PendingRefunds ->
   DynamicPricing era
 mkDynamicPricing u o = DynamicPricing (unsafePrices u o)
 
@@ -187,40 +208,6 @@ unsafePrices u o =
     Just prices -> prices
     Nothing -> error "DynamicPricing: decoded prices violate the price-discrimination floor"
 
--- | Resources consumed within the current block by the transactions of one
--- inclusion strategy. Reset at every block boundary by 'endOfBlock'.
-data InclusionUsage = InclusionUsage
-  { bytesUsed :: !TxSizeInBytes
-  , feesCollected :: !Coin
-  , exUnitsUsed :: !ExUnits
-  }
-  deriving (Eq, Show, Generic)
-
-instance NoThunks InclusionUsage
-
-instance NFData InclusionUsage
-
-instance ToJSON InclusionUsage where
-  toJSON (InclusionUsage b f e) =
-    object ["bytes" .= unTxSizeInBytes b, "fees" .= f, "exUnits" .= e]
-
-instance EncCBOR InclusionUsage where
-  encCBOR (InclusionUsage b f e) =
-    encode $ Rec InclusionUsage !> To b !> To f !> To e
-
-instance DecCBOR InclusionUsage where
-  decCBOR = decode $ RecD InclusionUsage <! From <! From <! From
-
-emptyInclusionUsage :: InclusionUsage
-emptyInclusionUsage = InclusionUsage 0 (Coin 0) mempty
-
-instance Semigroup InclusionUsage where
-  InclusionUsage b1 f1 e1 <> InclusionUsage b2 f2 e2 =
-    InclusionUsage (b1 + b2) (f1 <> f2) (e1 <> e2)
-
-instance Monoid InclusionUsage where
-  mempty = emptyInclusionUsage
-
 -- | Starting state. 'Optimistic' opens at today's @minFeeA@ rate
 -- (44 lovelace\/byte); 'Urgent' opens at 16× that (the sim's
 -- @initialCoefficient@ for the priority controller).
@@ -229,90 +216,60 @@ initialPricingState =
   DynamicPricing
     { publishedPrices =
         unsafePrices (InclusionPrice (Coin (16 * 44))) (InclusionPrice (Coin 44))
-    , blockUsage = Map.empty
-    , pendingRefunds = Map.empty
+    , blockUsage = emptyBlockUsage
+    , pendingRefunds = emptyPendingRefunds
     }
 
 -- | Record a refund owed to a bidder (U3 of the fee split): the unused
 -- headroom between the bid and the charged quote.
 addPendingRefund :: Credential Staking -> Coin -> DynamicPricing era -> DynamicPricing era
 addPendingRefund cred amount ps =
-  ps {pendingRefunds = Map.insertWith (<>) cred amount (pendingRefunds ps)}
+  ps {pendingRefunds = recordPendingRefund cred amount (pendingRefunds ps)}
 
 -- | Hand over all pending refunds (the LEDGER rule credits them to account
 -- balances after every transaction; spec: the @feeRewards@ flush).
 drainPendingRefunds :: DynamicPricing era -> (Map (Credential Staking) Coin, DynamicPricing era)
-drainPendingRefunds ps = (pendingRefunds ps, ps {pendingRefunds = Map.empty})
+drainPendingRefunds ps =
+  (refunds, ps {pendingRefunds = drained})
+  where
+    (refunds, drained) = drainRefunds (pendingRefunds ps)
+
+-- | Keep refunds that could not yet be credited. The LEDGER rule uses this
+-- for unregistered refund accounts.
+retainPendingRefunds :: Map (Credential Staking) Coin -> DynamicPricing era -> DynamicPricing era
+retainPendingRefunds refunds ps =
+  ps {pendingRefunds = pendingRefundsFromMap refunds}
 
 -- | Account for one transaction delivered under an inclusion strategy
 -- (spec: @processTxTiers@).
-recordTx :: Inclusion -> TxSizeInBytes -> Coin -> ExUnits -> DynamicPricing era -> DynamicPricing era
+recordTx ::
+  Inclusion -> TxSizeInBytes -> Coin -> ExUnits -> DynamicPricing era -> DynamicPricing era
 recordTx strategy size fee exUnits ps =
-  ps
-    { blockUsage =
-        Map.insertWith (<>) strategy (InclusionUsage size fee exUnits) (blockUsage ps)
-    }
+  ps {blockUsage = recordInclusionUsage strategy size fee exUnits (blockUsage ps)}
 
 -- | The current public price of an inclusion strategy. Total — the protocol
 -- always has a price for every strategy.
 currentPrice :: Inclusion -> DynamicPricing era -> InclusionPrice
 currentPrice strategy = priceOf strategy . publishedPrices
 
--- | The block-body capacity the utilisation signal is measured against, in
--- bytes. Praos-only: one RB worth (the BBODY rule derives it from the protocol
--- parameters).
-newtype BlockCapacity = BlockCapacity {unBlockCapacity :: Integer}
-  deriving (Eq, Show, Generic)
-
--- | The controller calibration the ledger runs: Will's sweep winner
--- (@target = 1\/2@, @D = 4@ ⇒ at most ±25%\/block). Eventually a protocol
--- parameter; a constant for the prototype.
-defaultControllerParams :: ControllerParams
-defaultControllerParams =
-  ControllerParams (TargetUtilisation (1 % 2)) (MaxChangeDenominator 4)
-
 -- | End-of-block repricing (spec: @updateTiers@): one EIP-1559 controller step
 -- per lane (Will's mechanism-design doc), republished through
--- 'mkInclusionPrices' so the 16× price-discrimination floor always holds.
+-- 'mkInclusionPrices' so the price-discrimination floor always holds.
 --
--- The utilisation signal is capacity-weighted, per lane:
---
---   * 'Urgent'     ← the priority lane's own fill (urgent bytes \/ capacity);
---   * 'Optimistic' ← the aggregate fill (all bytes \/ capacity).
---
--- The 'Optimistic' signal is a prototype placeholder: the right signal for the
--- optimistic lane is still open (Giorgos' deck, slide 12 — Q4). Window
--- smoothing over several blocks is likewise deferred (calibration choice).
+-- Each lane's utilisation is its OWN fill against its pricing target
+-- ('InclusionCapacities'; Praos-only steers both against the shared RB). See
+-- 'repriceBlockUsage' for the signal; this wrapper only supplies the published
+-- prices and block usage from the pricing state.
 reprice ::
   ControllerParams ->
   -- | The lane floor price (today's @minFeeA@; the controller's @c = 1@).
   InclusionPrice ->
-  -- | The block-body capacity to measure utilisation against.
-  BlockCapacity ->
+  -- | The per-lane block-body capacities to measure utilisation against.
+  InclusionCapacities ->
   DynamicPricing era ->
   InclusionPrices
-reprice params floorPrice (BlockCapacity capacity) ps =
-  publishFloored
-    (stepPrice params floorPrice urgentUtil (urgent prices))
-    (stepPrice params floorPrice aggregateUtil (optimistic prices))
-  where
-    prices = publishedPrices ps
-    cap = max 1 capacity
-    laneBytes strategy =
-      maybe 0 (toInteger . unTxSizeInBytes . bytesUsed) (Map.lookup strategy (blockUsage ps))
-    urgentUtil = Utilisation (laneBytes Urgent % cap)
-    aggregateUtil = Utilisation ((laneBytes Urgent + laneBytes Optimistic) % cap)
-
--- | Publish two stepped prices, re-imposing the discrimination floor: if the
--- controller pushed 'Urgent' below @priceDiscriminationFloor × Optimistic@,
--- raise it back so 'mkInclusionPrices' always succeeds.
-publishFloored :: InclusionPrice -> InclusionPrice -> InclusionPrices
-publishFloored steppedUrgent o@(InclusionPrice (Coin op)) =
-  fromMaybe
-    (error "DynamicPricing.reprice: floored prices still violate the discrimination floor")
-    (mkInclusionPrices (max steppedUrgent flooredUrgent) o)
-  where
-    flooredUrgent = InclusionPrice (Coin (priceDiscriminationFloor * op))
+reprice params floorPrice capacities ps =
+  repriceBlockUsage params floorPrice capacities (publishedPrices ps) (blockUsage ps)
 
 -- | Block boundary (spec: the @DIVUP@ rule): apply 'reprice', reset usage.
 -- The spec's @sdChecks@ premise (the optimistic usage fits RB limits) lives
@@ -320,11 +277,11 @@ publishFloored steppedUrgent o@(InclusionPrice (Coin op)) =
 endOfBlock ::
   ControllerParams ->
   InclusionPrice ->
-  BlockCapacity ->
+  InclusionCapacities ->
   DynamicPricing era ->
   DynamicPricing era
-endOfBlock params floorPrice capacity ps =
+endOfBlock params floorPrice capacities ps =
   ps
-    { publishedPrices = reprice params floorPrice capacity ps
-    , blockUsage = Map.empty
+    { publishedPrices = reprice params floorPrice capacities ps
+    , blockUsage = emptyBlockUsage
     }

@@ -44,6 +44,7 @@ import Cardano.Ledger.Chain (
  )
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Keys (GenDelegPair (..), GenDelegs (..), coerceKeyRole)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.AdaPots (
@@ -441,6 +442,7 @@ instance
   , ToExpr (GovState era)
   , ToExpr (CertState era)
   , ToExpr (InstantStake era)
+  , ToExpr (PricingState era)
   ) =>
   ToExpr (ChainState era)
 

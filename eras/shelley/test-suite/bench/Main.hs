@@ -125,7 +125,7 @@ touchCertState :: CertState c -> Int
 touchCertState _ = 1
 
 touchUTxOState :: Cardano.Ledger.Shelley.LedgerState.UTxOState cryto -> Int
-touchUTxOState (UTxOState _utxo _deposited _fees _ppups _ _) = 2
+touchUTxOState (UTxOState _utxo _deposited _fees _ppups _ _ _) = 2
 
 profileCreateRegKeys :: IO ()
 profileCreateRegKeys = do

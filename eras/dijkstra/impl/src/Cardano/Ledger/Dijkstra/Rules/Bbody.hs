@@ -52,6 +52,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
 import Cardano.Ledger.Binary.Coders (Decode (..), Encode (..), decode, encode, (!>), (<!))
 import Cardano.Ledger.Block (Block (..))
+import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Conway.PParams (ConwayEraPParams (..))
 import Cardano.Ledger.Conway.Rules (
   ConwayBbodyPredFailure,
@@ -73,16 +74,18 @@ import Cardano.Ledger.Dijkstra.Rules.Ledger (DijkstraLedgerPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.Ledgers ()
 import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.Utxow (DijkstraUtxowPredFailure)
-import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.DynamicPricing (
   BlockCapacity (..),
   DynamicPricing (..),
   Inclusion (..),
+  InclusionCapacities (..),
   InclusionPrice (..),
   InclusionUsage (..),
   TxSizeInBytes (..),
   defaultControllerParams,
   endOfBlock,
+  optimisticBlockFactor,
+  usageOf,
  )
 import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Plutus.ExUnits (pointWiseExUnits)
@@ -107,9 +110,8 @@ import Control.State.Transition (
  )
 import Control.State.Transition.Extended (TRC (..), failBecause, (?!))
 import Data.Sequence (Seq)
-import GHC.Generics (Generic)
-import qualified Data.Map.Strict as Map
 import Data.Word (Word32)
+import GHC.Generics (Generic)
 import Lens.Micro ((%~), (&), (^.))
 import NoThunks.Class (NoThunks (..))
 
@@ -122,11 +124,13 @@ data DijkstraBbodyPredFailure era
   | BodyRefScriptsSizeTooBig (Mismatch RelLTEQ Int)
   | PrevEpochNonceNotPresent
   | PerasCertValidationFailed PerasCert Nonce
-  | -- | Dynamic pricing (B1, spec: @sdChecks@): the optimistic usage of the
-    -- block exceeds the on-chain block byte budget.
+  | -- | Dynamic pricing (B1, spec: @sdChecks@): the optimistic usage exceeds the
+    -- endorser-block (EB) byte budget — the optimistic lane's own budget, not the
+    -- RB's. The RB byte budget stays the inherited block-body-size check.
     OptimisticOverflowsBlock (Mismatch RelLTEQ Word32)
-  | -- | Dynamic pricing (B1, spec: @sdChecks@): the optimistic usage of the
-    -- block exceeds the on-chain block ExUnits budget.
+  | -- | Dynamic pricing (B1, spec: @sdChecks@): the optimistic usage exceeds the
+    -- endorser-block (EB) ExUnits budget. The RB ExUnits budget stays the
+    -- inherited 'TooManyExUnits' check over the whole block.
     OptimisticOverflowsBlockExUnits (Mismatch RelLTEQ ExUnits)
   deriving (Generic)
 
@@ -375,13 +379,15 @@ instance
 -- | Close the block for dynamic pricing (spec: the @DIVUP@ rule), running
 -- AFTER the block's transactions so it sees the accumulated usage:
 --
--- * B1 (@sdChecks@): the optimistic usage fits the on-chain block budgets.
---   Praos-only: every block is an RB, so the premise always applies; the
---   EB exemption arrives with the consensus phase.
+-- * B1 (@sdChecks@): the optimistic usage fits the endorser-block (EB) hard cap
+--   ('optimisticBlockFactor' × RB). Dormant in Praos-only — the shared RB and
+--   the inherited 'TooManyExUnits' (whole-block ExUnits) bind first — it bites
+--   once optimistic txs move to a separate EB in the consensus phase.
 -- * B2 (@endOfBlock@): republish the prices ('reprice' — Will's per-lane
---   EIP-1559 controller, fed the capacity-weighted utilisation) and reset the
---   usage counters. The prices published here are what the UTXO rule judges
---   the NEXT block's transactions against.
+--   EIP-1559 controller). Each lane prices on its OWN fill against the shared RB
+--   target, so the two lanes move independently and an urgent flood no longer
+--   drags the optimistic price up. The prices published here are what the UTXO
+--   rule judges the NEXT block's transactions against.
 divupTransition ::
   forall era.
   ( State (EraRule "BBODY" era) ~ ShelleyBbodyState era
@@ -396,23 +402,42 @@ divupTransition ::
 divupTransition (BbodyState ls blocksMade) = do
   TRC (BbodyEnv pp _, _, _) <- judgmentContext
   let pricing = ls ^. lsUTxOStateL . utxosPricingL
-      usage = Map.findWithDefault mempty Optimistic (blockUsage pricing)
-      TxSizeInBytes optimisticBytes = bytesUsed usage
+      optimisticUsage = usageOf Optimistic (blockUsage pricing)
+      TxSizeInBytes optimisticBytes = bytesUsed optimisticUsage
       maxBytes = pp ^. ppMaxBBSizeL
       maxExUnits = pp ^. ppMaxBlockExUnitsL
       floorPrice = InclusionPrice (fromCompact (unCoinPerByte (pp ^. ppTxFeePerByteL)))
-      capacity = BlockCapacity (toInteger maxBytes)
-  optimisticBytes <= maxBytes
-    ?! injectFailure
-      (OptimisticOverflowsBlock Mismatch {mismatchSupplied = optimisticBytes, mismatchExpected = maxBytes})
-  pointWiseExUnits (<=) (exUnitsUsed usage) maxExUnits
+      ExUnits maxMem maxSteps = maxExUnits
+      -- Pricing target: Praos-only has one physical block, so BOTH lanes steer
+      -- against the shared RB with their own fill. That is what keeps the
+      -- optimistic price dynamic — an optimistic-heavy block crosses its target,
+      -- whereas a 2x RB denominator could never be reached and would pin it.
+      capacities =
+        InclusionCapacities
+          { urgentCapacity = BlockCapacity (toInteger maxBytes)
+          , optimisticCapacity = BlockCapacity (toInteger maxBytes)
+          }
+      -- Overflow hard cap: the optimistic lane's endorser-block ceiling, a
+      -- prototype multiple of the RB ('optimisticBlockFactor'). Dormant in
+      -- Praos-only (the RB / 'TooManyExUnits' binds first); it bites once
+      -- optimistic txs move to a separate EB. (EIP-1559 target-vs-limit split.)
+      optimisticMaxBytes = fromIntegral optimisticBlockFactor * maxBytes
+      optimisticMaxExUnits =
+        ExUnits (optimisticBlockFactor * maxMem) (optimisticBlockFactor * maxSteps)
+  optimisticBytes
+    <= optimisticMaxBytes
+      ?! injectFailure
+        ( OptimisticOverflowsBlock
+            Mismatch {mismatchSupplied = optimisticBytes, mismatchExpected = optimisticMaxBytes}
+        )
+  pointWiseExUnits (<=) (exUnitsUsed optimisticUsage) optimisticMaxExUnits
     ?! injectFailure
       ( OptimisticOverflowsBlockExUnits
-          Mismatch {mismatchSupplied = exUnitsUsed usage, mismatchExpected = maxExUnits}
+          Mismatch {mismatchSupplied = exUnitsUsed optimisticUsage, mismatchExpected = optimisticMaxExUnits}
       )
   pure $!
     BbodyState
-      (ls & lsUTxOStateL . utxosPricingL %~ endOfBlock defaultControllerParams floorPrice capacity)
+      (ls & lsUTxOStateL . utxosPricingL %~ endOfBlock defaultControllerParams floorPrice capacities)
       blocksMade
 
 dijkstraBbodyTransition ::

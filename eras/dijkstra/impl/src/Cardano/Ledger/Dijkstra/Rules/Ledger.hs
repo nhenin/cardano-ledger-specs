@@ -74,12 +74,6 @@ import Cardano.Ledger.Conway.Rules (
  )
 import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Conway.State
-import Cardano.Ledger.DynamicPricing.State (
-  DynamicPricing,
-  PricingState,
-  drainPendingRefunds,
-  pendingRefunds,
- )
 import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   DijkstraGOV,
@@ -106,6 +100,12 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.Utxow (DijkstraUtxowPredFailure)
 import Cardano.Ledger.Dijkstra.TxBody
 import Cardano.Ledger.Dijkstra.TxCert
+import Cardano.Ledger.DynamicPricing.State (
+  DynamicPricing,
+  PricingState,
+  drainPendingRefunds,
+  retainPendingRefunds,
+ )
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   UTxOState (..),
@@ -452,7 +452,7 @@ flushPendingRefunds ls
         & lsCertStateL . certDStateL . accountsL
           %~ addToBalanceAccounts (Map.map compactCoinOrError registered)
         & lsUTxOStateL . utxosPricingL
-          .~ drained {pendingRefunds = unregistered}
+          .~ retainPendingRefunds unregistered drained
   where
     (refunds, drained) = drainPendingRefunds (ls ^. lsUTxOStateL . utxosPricingL)
     accounts = ls ^. lsCertStateL . certDStateL . accountsL . accountsMapL

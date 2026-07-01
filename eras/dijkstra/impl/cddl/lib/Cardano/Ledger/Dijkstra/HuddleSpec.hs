@@ -937,6 +937,8 @@ instance HuddleRule "transaction_body" DijkstraEra where
         , opt (idx 23 ==> huddleRule @"sub_transactions" p) //- "sub-transactions (NEW)"
         , opt (idx 25 ==> huddleRule @"direct_deposits" p) //- "direct deposits"
         , opt (idx 26 ==> huddleRule @"account_balance_intervals" p) //- "account balance intervals"
+        , opt (idx 27 ==> int 0 / int 1) //- "inclusion: urgent (0) / optimistic (1; omitted by encoder)"
+        , opt (idx 28 ==> huddleRule @"reward_account" p) //- "fee refund account"
         ]
 
 instance HuddleRule "transaction_witness_set" DijkstraEra where

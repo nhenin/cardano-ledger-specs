@@ -111,7 +111,7 @@ newtype Quote = Quote {unQuote :: Coin}
 -- [Spec (@tierCoeff × minfee ≤ txFee@)] the multiplier scales the /full/
 -- minimum fee — constant part, bytes AND script costs. Consequence: the
 -- premium tracks total resource consumption, but the fixed part scales too
--- (at 16×, every urgent transaction pays ~2.5₳ of constant fee before its
+-- (at 16×, every urgent transaction would pay ~2.5₳ of constant fee before its
 -- first byte), and \"price per byte\" stops being the published unit, which
 -- breaks the mechanism-design doc's framing (\"the per-byte rate is the
 -- dynamic part\", @minFeeB@ \"never multiplied\").
@@ -161,8 +161,10 @@ instance NFData InclusionPrices
 -- prices drift.
 --
 -- Sim default (@multiplierFloor@); eventually a protocol parameter.
+-- Demo calibration: 3× (down from the sim's 16×) so the premium reads clearly
+-- on the dashboard without dwarfing the optimistic lane.
 priceDiscriminationFloor :: Integer
-priceDiscriminationFloor = 16
+priceDiscriminationFloor = 3
 
 -- | Publish the prices, enforcing
 -- @urgent ≥ priceDiscriminationFloor × optimistic@.

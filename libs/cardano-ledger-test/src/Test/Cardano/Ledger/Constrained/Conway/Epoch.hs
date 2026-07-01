@@ -39,7 +39,7 @@ epochStateSpec ::
 epochStateSpec epochNo = constrained $ \es ->
   match es $ \_accountState ledgerState _snapShots _nonMyopic ->
     match ledgerState $ \utxoState certState ->
-      match utxoState $ \_utxo _deposited _fees govState _stakeDistr _donation ->
+      match utxoState $ \_utxo _deposited _fees govState _stakeDistr _donation _pricing ->
         match govState $ \ [var|proposals|] _committee constitution _curPParams _prevPParams _futPParams drepPulsingState ->
           [ match constitution $ \_ policy ->
               proposals `satisfies` proposalsSpec epochNo policy certState

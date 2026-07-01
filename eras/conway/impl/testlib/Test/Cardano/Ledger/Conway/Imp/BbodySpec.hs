@@ -66,16 +66,19 @@ spec = do
       refIns <- replicateM n $ produceRefScript (fromPlutusScript plutusScript)
       pure $ mkTxWithRefInputs txIn (NE.fromList refIns)
 
-    submitFailingBlock
-      txs
-      [ injectFailure
-          ( BodyRefScriptsSizeTooBig $
-              Mismatch
-                { mismatchSupplied = scriptSize * sum txScriptCounts
-                , mismatchExpected = maxRefScriptSizePerBlock
-                }
-          )
-      ]
+    -- This test asserts the ref-scripts-size check. Later eras may add orthogonal
+    -- whole-block checks on the same oversized block (e.g. Dijkstra's optimistic
+    -- lane byte budget), so require the failure is present, not the only one.
+    (predFailures, _block) <- expectLeftDeepExpr =<< withTxsInBlockEither (mapM_ submitTx_ txs)
+    NE.toList predFailures
+      `shouldContainExpr` [ injectFailure
+                              ( BodyRefScriptsSizeTooBig $
+                                  Mismatch
+                                    { mismatchSupplied = scriptSize * sum txScriptCounts
+                                    , mismatchExpected = maxRefScriptSizePerBlock
+                                    }
+                              )
+                          ]
 
   it "BodyRefScriptsSizeTooBig with reference scripts in the same block" $
     whenMajorVersionAtLeast @11 $ do
@@ -100,16 +103,16 @@ spec = do
             mkBasicTx mkBasicTxBody
               & bodyTxL . referenceInputsTxBodyL .~ Set.fromList refIns
 
-      withTxsInFailingBlock
-        buildTxs
-        [ injectFailure
-            ( BodyRefScriptsSizeTooBig $
-                Mismatch
-                  { mismatchSupplied = scriptSize * sum txScriptCounts
-                  , mismatchExpected = maxRefScriptSizePerBlock
-                  }
-            )
-        ]
+      (predFailures, _block) <- expectLeftDeepExpr =<< withTxsInBlockEither buildTxs
+      NE.toList predFailures
+        `shouldContainExpr` [ injectFailure
+                                ( BodyRefScriptsSizeTooBig $
+                                    Mismatch
+                                      { mismatchSupplied = scriptSize * sum txScriptCounts
+                                      , mismatchExpected = maxRefScriptSizePerBlock
+                                      }
+                                )
+                            ]
 
   it "totalRefScriptSizeInBlock" $ do
     script <- RequireSignature @era <$> freshKeyHash

@@ -90,6 +90,13 @@ import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Conway.TxBody
 import Cardano.Ledger.Conway.TxCert
 import Cardano.Ledger.Credential
+import Cardano.Ledger.DynamicPricing.State (
+  DynamicPricing,
+  EraPricing (..),
+  NoPricing (..),
+  PricingState,
+  initialPricingState,
+ )
 import Cardano.Ledger.HKD
 import Cardano.Ledger.Hashes (GenDelegPair (..), GenDelegs (..))
 import Cardano.Ledger.Keys (BootstrapWitness, WitVKey, coerceKeyRole)
@@ -1468,10 +1475,35 @@ instance HasSimpleRep SnapShots
 
 instance HasSpec SnapShots
 
-instance (Typeable (CertState era), EraTxOut era) => HasSimpleRep (LedgerState era)
+instance Typeable era => HasSpec (NoPricing era) where
+  type TypeSpec (NoPricing era) = ()
+  emptySpec = ()
+  combineSpec _ _ = TrueSpec
+  genFromTypeSpec _ = pureGen $ pure NoPricing
+  cardinalTypeSpec _ = TrueSpec
+  shrinkWithTypeSpec _ _ = []
+  fixupWithTypeSpec _ _ = Nothing
+  conformsTo _ _ = True
+  toPreds _ _ = assert True
+
+instance Typeable era => HasSpec (DynamicPricing era) where
+  type TypeSpec (DynamicPricing era) = ()
+  emptySpec = ()
+  combineSpec _ _ = TrueSpec
+  genFromTypeSpec _ = pureGen $ pure initialPricingState
+  cardinalTypeSpec _ = TrueSpec
+  shrinkWithTypeSpec _ _ = []
+  fixupWithTypeSpec _ _ = Nothing
+  conformsTo _ _ = True
+  toPreds _ _ = assert True
+
+instance
+  (Typeable (CertState era), Typeable (PricingState era), EraTxOut era) =>
+  HasSimpleRep (LedgerState era)
 
 instance
   ( EraTxOut era
+  , EraPricing era
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1480,17 +1512,26 @@ instance
   , IsNormalType (CertState era)
   , HasSpec (InstantStake era)
   , HasSpec (CertState era)
+  , HasSpec (PricingState era)
   ) =>
   HasSpec (LedgerState era)
 
-instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
+instance
+  ( Typeable (InstantStake era)
+  , Typeable (GovState era)
+  , Typeable (PricingState era)
+  , Typeable era
+  ) =>
+  HasSimpleRep (UTxOState era)
 
 instance
   ( EraTxOut era
+  , EraPricing era
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
   , HasSpec (InstantStake era)
+  , HasSpec (PricingState era)
   ) =>
   HasSpec (UTxOState era)
 
@@ -1832,10 +1873,11 @@ instance Typeable era => HasSimpleRep (ConwayDelegEnv era)
 
 instance (HasSpec (PParams era), Era era) => HasSpec (ConwayDelegEnv era)
 
-instance Era era => HasSimpleRep (EpochState era)
+instance (Era era, Typeable (PricingState era)) => HasSimpleRep (EpochState era)
 
 instance
   ( EraTxOut era
+  , EraPricing era
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1844,6 +1886,7 @@ instance
   , IsNormalType (CertState era)
   , HasSpec (InstantStake era)
   , HasSpec (CertState era)
+  , HasSpec (PricingState era)
   ) =>
   HasSpec (EpochState era)
 
@@ -1883,10 +1926,16 @@ instance HasSimpleRep PulsingRewUpdate where
 
 instance HasSpec PulsingRewUpdate
 
-instance (Typeable (StashedAVVMAddresses era), Era era) => HasSimpleRep (NewEpochState era)
+instance
+  ( Typeable (StashedAVVMAddresses era)
+  , Typeable (PricingState era)
+  , Era era
+  ) =>
+  HasSimpleRep (NewEpochState era)
 
 instance
   ( EraTxOut era
+  , EraPricing era
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1896,6 +1945,7 @@ instance
   , IsNormalType (CertState era)
   , HasSpec (CertState era)
   , HasSpec (InstantStake era)
+  , HasSpec (PricingState era)
   ) =>
   HasSpec (NewEpochState era)
 

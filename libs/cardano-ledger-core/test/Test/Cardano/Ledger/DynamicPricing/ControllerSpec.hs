@@ -10,6 +10,7 @@ import Cardano.Ledger.DynamicPricing.Pricing (InclusionPrice (..), optimistic, u
 import Cardano.Ledger.DynamicPricing.State (
   BlockCapacity (..),
   DynamicPricing (..),
+  InclusionCapacities (..),
   defaultControllerParams,
   endOfBlock,
   initialPricingState,
@@ -83,16 +84,30 @@ spec = describe "DynamicPricing.Controller" $ do
     stepPrice (params 4 (1 % 2)) (InclusionPrice (Coin 44)) (Utilisation 0) (InclusionPrice (Coin 44))
       `shouldBe` InclusionPrice (Coin 44)
 
-  it "reprice: a saturated block ratchets both lanes up by 1/D (16× floor held)" $ do
+  it "reprice: an Urgent-saturated block ratchets only the urgent lane (optimistic holds)" $ do
     let ps0 = initialPricingState :: DynamicPricing ()
         ps = recordTx Urgent 1000 (Coin 0) mempty ps0
-        prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) (BlockCapacity 1000) ps
-    -- initial urgent 704, optimistic 44; full block ⇒ ×1.25 ⇒ 880 / 55.
+        caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
+        prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
+    -- Urgent lane full (1000/1000) ⇒ ×1.25 ⇒ 704→880. The optimistic lane is
+    -- empty, so its price holds at the floor: an urgent flood no longer drags the
+    -- optimistic price up (lane-only signal, not the aggregate).
     urgent prices `shouldBe` InclusionPrice (Coin 880)
+    optimistic prices `shouldBe` InclusionPrice (Coin 44)
+
+  it "reprice: an Optimistic-saturated block ratchets the optimistic lane up (it is dynamic)" $ do
+    let ps0 = initialPricingState :: DynamicPricing ()
+        ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
+        caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
+        prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
+    -- Optimistic lane full (1000/1000) ⇒ ×1.25 ⇒ 44→55: the optimistic price is
+    -- genuinely dynamic. It would be pinned at the floor if measured against a
+    -- 2× RB endorser-block denominator it can never fill in Praos-only.
     optimistic prices `shouldBe` InclusionPrice (Coin 55)
 
   it "endOfBlock resets the usage counters" $ do
     let ps0 = initialPricingState :: DynamicPricing ()
         ps = recordTx Urgent 1000 (Coin 0) mempty ps0
-        ps' = endOfBlock defaultControllerParams (InclusionPrice (Coin 44)) (BlockCapacity 1000) ps
+        caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
+        ps' = endOfBlock defaultControllerParams (InclusionPrice (Coin 44)) caps ps
     blockUsage ps' `shouldBe` mempty
