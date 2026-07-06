@@ -10,7 +10,7 @@
 module Cardano.Ledger.DynamicPricing.Repricing (
   BlockCapacity (..),
   InclusionCapacities (..),
-  optimisticBlockFactor,
+  optimisticBlockCapacity,
   defaultControllerParams,
   repriceBlockUsage,
 ) where
@@ -37,32 +37,31 @@ import Cardano.Ledger.DynamicPricing.Usage (BlockUsage, bytesUsed, usageOf)
 import Data.Maybe (fromMaybe)
 import Data.Ratio ((%))
 import GHC.Generics (Generic)
-import Numeric.Natural (Natural)
 
 -- | A block-body capacity the utilisation signal is measured against, in bytes.
 newtype BlockCapacity = BlockCapacity {unBlockCapacity :: Integer}
   deriving stock (Eq, Show, Generic)
 
 -- | The block-body capacity each lane's pricing utilisation is measured against
--- — one target per inclusion strategy. Praos-only has one physical block, so
--- both default to the Praos block (the RB) the lanes share: measuring each lane
--- against its OWN fill (not the aggregate) is what lets the two lanes price
--- independently and dynamically. Once endorser-block transport exists,
--- 'optimisticCapacity' becomes the EB's own (larger) budget.
+-- — one target per inclusion strategy. Each inclusion steers against its OWN
+-- budget with its own fill: the urgent one against the regular block's, the
+-- optimistic one against 'optimisticBlockCapacity' (the endorser block's own,
+-- much larger, budget). Measuring per lane is what lets the two prices move
+-- independently; at realistic traffic the optimistic budget is far from its
+-- target, so that price rests at the floor — the mechanism's real behaviour.
 data InclusionCapacities = InclusionCapacities
   { urgentCapacity :: !BlockCapacity
   , optimisticCapacity :: !BlockCapacity
   }
   deriving stock (Eq, Show, Generic)
 
--- | Prototype endorser-block (EB) sizing: the optimistic lane's hard overflow
--- ceiling is this multiple of the RB budget — its future EB hard cap. Dormant in
--- Praos-only (the shared RB and the block-total checks bind first); it bites once
--- optimistic txs move to a separate endorser block. Distinct from the pricing
--- target, which steers against the RB so the lane prices dynamically (the
--- EIP-1559 limit-vs-target split).
-optimisticBlockFactor :: Natural
-optimisticBlockFactor = 2
+-- | The optimistic inclusion's own block-body budget: the real mainnet
+-- calibration (the CIP-164 endorser-block closure-size limit, 12 MB), an
+-- absolute budget — unlike the urgent one it is not a protocol-parameter
+-- multiple of the regular block. Eventually a protocol parameter; a constant
+-- for the prototype.
+optimisticBlockCapacity :: BlockCapacity
+optimisticBlockCapacity = BlockCapacity 12000000
 
 -- | The controller calibration the ledger runs: Will's sweep winner
 -- (@target = 1/2@, @D = 4@, so at most +/-25% per block). Eventually a

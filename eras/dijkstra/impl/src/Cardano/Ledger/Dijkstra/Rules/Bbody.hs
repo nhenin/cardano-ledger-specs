@@ -84,7 +84,7 @@ import Cardano.Ledger.DynamicPricing (
   TxSizeInBytes (..),
   defaultControllerParams,
   endOfBlock,
-  optimisticBlockFactor,
+  optimisticBlockCapacity,
   usageOf,
  )
 import Cardano.Ledger.DynamicPricing.State (PricingState)
@@ -380,13 +380,14 @@ instance
 -- AFTER the block's transactions so it sees the accumulated usage:
 --
 -- * B1 (@sdChecks@): the optimistic usage fits the endorser-block (EB) hard cap
---   ('optimisticBlockFactor' × RB). Dormant in Praos-only — the shared RB and
---   the inherited 'TooManyExUnits' (whole-block ExUnits) bind first — it bites
---   once optimistic txs move to a separate EB in the consensus phase.
+--   ('optimisticBlockCapacity' — the CIP-164 closure-size limit, the real
+--   mainnet budget). Dormant in Praos-only — the shared RB and the inherited
+--   'TooManyExUnits' (whole-block ExUnits) bind first — it bites once
+--   optimistic txs move to a separate EB in the consensus phase.
 -- * B2 (@endOfBlock@): republish the prices ('reprice' — Will's per-lane
---   EIP-1559 controller). Each lane prices on its OWN fill against the shared RB
---   target, so the two lanes move independently and an urgent flood no longer
---   drags the optimistic price up. The prices published here are what the UTXO
+--   EIP-1559 controller). Each lane prices on its OWN fill against its OWN
+--   budget (urgent: the RB; optimistic: the EB's), so the two lanes move
+--   independently and an urgent flood no longer drags the optimistic price up. The prices published here are what the UTXO
 --   rule judges the NEXT block's transactions against.
 divupTransition ::
   forall era.
@@ -408,22 +409,25 @@ divupTransition (BbodyState ls blocksMade) = do
       maxExUnits = pp ^. ppMaxBlockExUnitsL
       floorPrice = InclusionPrice (fromCompact (unCoinPerByte (pp ^. ppTxFeePerByteL)))
       ExUnits maxMem maxSteps = maxExUnits
-      -- Pricing target: Praos-only has one physical block, so BOTH lanes steer
-      -- against the shared RB with their own fill. That is what keeps the
-      -- optimistic price dynamic — an optimistic-heavy block crosses its target,
-      -- whereas a 2x RB denominator could never be reached and would pin it.
+      -- Pricing target: each lane steers against its OWN budget — the urgent
+      -- one against the regular block, the optimistic one against
+      -- 'optimisticBlockCapacity' (the endorser block's real mainnet budget).
+      -- At realistic traffic the optimistic fill sits far below its target, so
+      -- that price rests at the floor: the mechanism's real behaviour.
       capacities =
         InclusionCapacities
           { urgentCapacity = BlockCapacity (toInteger maxBytes)
-          , optimisticCapacity = BlockCapacity (toInteger maxBytes)
+          , optimisticCapacity = optimisticBlockCapacity
           }
-      -- Overflow hard cap: the optimistic lane's endorser-block ceiling, a
-      -- prototype multiple of the RB ('optimisticBlockFactor'). Dormant in
-      -- Praos-only (the RB / 'TooManyExUnits' binds first); it bites once
-      -- optimistic txs move to a separate EB. (EIP-1559 target-vs-limit split.)
-      optimisticMaxBytes = fromIntegral optimisticBlockFactor * maxBytes
+      -- Overflow hard cap: the endorser block's own byte budget
+      -- ('optimisticBlockCapacity', the CIP-164 closure-size limit). The
+      -- execution-unit ceiling scales with how many regular blocks fit in that
+      -- budget, pending a real per-endorser-block execution budget.
+      optimisticMaxBytes = fromInteger (unBlockCapacity optimisticBlockCapacity)
+      optimisticExUnitsFactor =
+        fromInteger $ unBlockCapacity optimisticBlockCapacity `div` max 1 (toInteger maxBytes)
       optimisticMaxExUnits =
-        ExUnits (optimisticBlockFactor * maxMem) (optimisticBlockFactor * maxSteps)
+        ExUnits (optimisticExUnitsFactor * maxMem) (optimisticExUnitsFactor * maxSteps)
   optimisticBytes
     <= optimisticMaxBytes
       ?! injectFailure
