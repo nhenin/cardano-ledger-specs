@@ -19,6 +19,7 @@ module Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUTXO,
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
+  recheckBidCoversQuote,
 ) where
 
 import Cardano.Ledger.Allegra.Rules (AllegraUtxoPredFailure, shelleyToAllegraUtxoPredFailure)
@@ -84,6 +85,7 @@ import Cardano.Ledger.DynamicPricing (
   recordTx,
   txSizeInBytes,
  )
+import Cardano.Ledger.Dijkstra.Governance ()
 import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import Cardano.Ledger.Shelley.Rules (
@@ -500,3 +502,23 @@ conwayToDijkstraUtxoPredFailure = \case
   Conway.IncorrectTotalCollateralField dc c -> IncorrectTotalCollateralField dc c
   Conway.BabbageOutputTooSmallUTxO txouts -> BabbageOutputTooSmallUTxO txouts
   Conway.BabbageNonDisjointRefInputs txin -> BabbageNonDisjointRefInputs txin
+
+-- | The U1 predicate alone — the bid against the CURRENT quote — for mempool
+-- re-validation under a moved tip. O(1): no rule machinery, no UTxO work.
+-- 'Nothing' means the bid still covers the quote. The full LEDGER re-run this
+-- replaces cost O(mempool) per block and starved admissions under a deep
+-- backlog.
+recheckBidCoversQuote ::
+  PParams DijkstraEra ->
+  UTxOState DijkstraEra ->
+  Tx TopTx DijkstraEra ->
+  Maybe (DijkstraUtxoPredFailure DijkstraEra)
+recheckBidCoversQuote pp utxos tx
+  | quote <= bid = Nothing
+  | otherwise =
+      Just $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}
+ where
+  txBody = tx ^. bodyTxL
+  bid = txBody ^. feeTxBodyL
+  Quote quote = quoteFor pp tx (currentPrice (txBody ^. inclusionTxBodyL) (utxosPricing utxos))
+
