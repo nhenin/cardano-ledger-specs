@@ -90,10 +90,21 @@ repriceBlockUsage ::
   BlockUsage ->
   InclusionPrices
 repriceBlockUsage params floorPrice capacities prices usage =
-  publishFloored
-    (stepPrice params floorPrice (utilOf Urgent (urgentCapacity capacities)) (urgent prices))
-    (stepPrice params floorPrice (utilOf Optimistic (optimisticCapacity capacities)) (optimistic prices))
+  publishFloored steppedUrgent steppedOptimistic
   where
+    steppedUrgent =
+      stepPrice params floorPrice (utilOf Urgent (urgentCapacity capacities)) (urgent prices)
+    -- Each lane's price moves on ITS OWN block's verdict. The urgent lane is
+    -- judged every block (a regular block comes every round, an empty one
+    -- really means an idle lane). The optimistic lane is judged only when one
+    -- of its endorser blocks actually COUNTS in this block — certification
+    -- pacing leaves most rounds with no optimistic block to judge, and
+    -- treating those as "the lane ran empty" made the price ping-pong at the
+    -- floor while the pool sat full (measured live). No verdict, no move.
+    steppedOptimistic
+      | laneBytes Optimistic == 0 = optimistic prices
+      | otherwise =
+          stepPrice params floorPrice (utilOf Optimistic (optimisticCapacity capacities)) (optimistic prices)
     laneBytes strategy =
       toInteger . unTxSizeInBytes . bytesUsed $ usageOf strategy usage
     utilOf strategy (BlockCapacity capacity) =
