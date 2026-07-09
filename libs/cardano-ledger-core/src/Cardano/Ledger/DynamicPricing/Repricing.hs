@@ -92,15 +92,27 @@ repriceBlockUsage ::
 repriceBlockUsage params floorPrice capacities prices usage =
   publishFloored steppedUrgent steppedOptimistic
   where
-    steppedUrgent =
-      stepPrice params floorPrice (utilOf Urgent (urgentCapacity capacities)) (urgent prices)
-    -- Each lane's price moves on ITS OWN block's verdict. The urgent lane is
-    -- judged every block (a regular block comes every round, an empty one
-    -- really means an idle lane). The optimistic lane is judged only when one
-    -- of its endorser blocks actually COUNTS in this block — certification
-    -- pacing leaves most rounds with no optimistic block to judge, and
-    -- treating those as "the lane ran empty" made the price ping-pong at the
-    -- floor while the pool sat full (measured live). No verdict, no move.
+    -- Each lane's price moves only on a reprice that carries ITS OWN transport's
+    -- bytes. The ranking block (urgent) and a certified endorser block
+    -- (optimistic) are applied in SEPARATE reprices: a ranking-block reprice
+    -- carries urgent bytes and zero optimistic; a certification reprice carries
+    -- the endorser block's optimistic bytes and zero urgent (measured live).
+    --
+    -- Urgent holds on a pure certification reprice — zero urgent bytes but
+    -- optimistic bytes present. Otherwise it steps: a full ranking block raises
+    -- the price, and a genuinely empty ranking block (both lanes zero, no urgent
+    -- demand) decays it. Without this, every certification was read as "the
+    -- urgent lane ran empty" and dropped the price 25% between full blocks — the
+    -- sawtooth seen under saturation, the mirror of the optimistic ping-pong.
+    steppedUrgent
+      | laneBytes Urgent == 0 && laneBytes Optimistic > 0 = urgent prices
+      | otherwise =
+          stepPrice params floorPrice (utilOf Urgent (urgentCapacity capacities)) (urgent prices)
+    -- The optimistic lane is judged only when one of its endorser blocks
+    -- actually COUNTS (a certification reprice with optimistic bytes). Rounds
+    -- with no optimistic block to judge — ranking-block reprices and idle rounds
+    -- — hold, instead of reading "the lane ran empty" and ping-ponging at the
+    -- floor while the pool sat full (Giorgos's rule; measured live).
     steppedOptimistic
       | laneBytes Optimistic == 0 = optimistic prices
       | otherwise =
