@@ -318,6 +318,7 @@ test-suite tests
     Test.Cardano.Ledger.BaseTypesSpec
     Test.Cardano.Ledger.BinarySpec
     Test.Cardano.Ledger.DynamicPricing.ControllerSpec
+    Test.Cardano.Ledger.DynamicPricing.PricingSpec
     Test.Cardano.Ledger.DynamicPricing.UsageSpec
     Test.Cardano.Ledger.JsonSpec
     Test.Cardano.Ledger.PlutusSpec

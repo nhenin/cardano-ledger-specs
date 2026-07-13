@@ -6,12 +6,19 @@ module Test.Cardano.Ledger.DynamicPricing.ControllerSpec (spec) where
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.DynamicPricing.Controller
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
-import Cardano.Ledger.DynamicPricing.Pricing (InclusionPrice (..), optimistic, urgent)
+import Cardano.Ledger.DynamicPricing.Pricing (
+  InclusionPrice (..),
+  mkInclusionPrices,
+  optimistic,
+  urgent,
+ )
 import Cardano.Ledger.DynamicPricing.State (
   BlockCapacity (..),
   DynamicPricing (..),
   InclusionCapacities (..),
   defaultControllerParams,
+  emptyBlockUsage,
+  emptyPendingRefunds,
   endOfBlock,
   initialPricingState,
   recordTx,
@@ -76,12 +83,13 @@ spec = describe "DynamicPricing.Controller" $ do
             forAll genPrice $ \price ->
               stepPrice (params d t) floorPrice (Utilisation u) price >= floorPrice
 
-  it "winner calibration (target 1/2, D 4): a full block raises the price 25%" $
-    stepPrice (params 4 (1 % 2)) noFloor (Utilisation 1) (InclusionPrice (Coin 100))
-      `shouldBe` InclusionPrice (Coin 125)
+  it "shipped calibration (target 1/2, D 8): a full block raises the price 12.5%" $
+    -- 200 × 9/8 = 225 exactly — no half-to-even rounding in the headline case.
+    stepPrice (params 8 (1 % 2)) noFloor (Utilisation 1) (InclusionPrice (Coin 200))
+      `shouldBe` InclusionPrice (Coin 225)
 
-  it "winner calibration: an empty block cuts the price 25% but the floor holds" $
-    stepPrice (params 4 (1 % 2)) (InclusionPrice (Coin 44)) (Utilisation 0) (InclusionPrice (Coin 44))
+  it "shipped calibration: an empty block cuts the price 12.5% but the floor holds" $
+    stepPrice (params 8 (1 % 2)) (InclusionPrice (Coin 44)) (Utilisation 0) (InclusionPrice (Coin 44))
       `shouldBe` InclusionPrice (Coin 44)
 
   it "reprice: an Urgent-saturated block ratchets only the urgent lane (optimistic holds)" $ do
@@ -89,10 +97,10 @@ spec = describe "DynamicPricing.Controller" $ do
         ps = recordTx Urgent 1000 (Coin 0) mempty ps0
         caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
         prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
-    -- Urgent lane full (1000/1000) ⇒ ×1.25 ⇒ 704→880. The optimistic lane is
+    -- Urgent lane full (1000/1000) ⇒ ×1.125 ⇒ 704→792. The optimistic lane is
     -- empty, so its price holds at the floor: an urgent flood no longer drags the
     -- optimistic price up (lane-only signal, not the aggregate).
-    urgent prices `shouldBe` InclusionPrice (Coin 880)
+    urgent prices `shouldBe` InclusionPrice (Coin 792)
     optimistic prices `shouldBe` InclusionPrice (Coin 44)
 
   it "reprice: an Optimistic-saturated block ratchets the optimistic lane up (it is dynamic)" $ do
@@ -100,10 +108,38 @@ spec = describe "DynamicPricing.Controller" $ do
         ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
         caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
         prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
-    -- Optimistic lane full (1000/1000) ⇒ ×1.25 ⇒ 44→55: the optimistic price is
-    -- genuinely dynamic. It would be pinned at the floor if measured against a
-    -- 2× RB endorser-block denominator it can never fill in Praos-only.
-    optimistic prices `shouldBe` InclusionPrice (Coin 55)
+    -- Optimistic lane full (1000/1000) ⇒ ×1.125 ⇒ 44→49.5, which rounds
+    -- half-to-even to 50: the optimistic price is genuinely dynamic. It would be
+    -- pinned at the floor if measured against a 2× RB endorser-block denominator
+    -- it can never fill in Praos-only.
+    optimistic prices `shouldBe` InclusionPrice (Coin 50)
+
+  it "reprice: a certification round (optimistic bytes only) HOLDS the urgent price" $ do
+    let ps0 = initialPricingState :: DynamicPricing ()
+        ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
+        caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
+        prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
+    -- A certified endorser block is applied on its own: the round carries optimistic
+    -- bytes and no urgent ones. Stepping the urgent lane here would read "my lane ran
+    -- empty" and cut it a full step between two full ranking blocks — the sawtooth
+    -- measured live under saturation. It must hold at its genesis rate instead.
+    urgent prices `shouldBe` InclusionPrice (Coin (16 * 44))
+
+  it "reprice: the discrimination floor lifts urgent when the optimistic lane climbs under it" $
+    -- Urgent opens exactly on the floor (132 = 3 × 44) and holds, since the round
+    -- carries no urgent bytes. The optimistic lane is full, so it steps 44 ⇒ ×1.125
+    -- ⇒ 50, and 3 × 50 = 150 now sits ABOVE the held urgent price. Publishing the
+    -- pair as stepped would make the fast lane the cheap one; worse, `unsafePrices`
+    -- calls `error` on such a pair, so a node would later crash decoding its own state.
+    case mkInclusionPrices (InclusionPrice (Coin 132)) (InclusionPrice (Coin 44)) of
+      Nothing -> expectationFailure "132 = 3 × 44 sits on the floor and must be publishable"
+      Just startPrices -> do
+        let ps0 = DynamicPricing startPrices emptyBlockUsage emptyPendingRefunds :: DynamicPricing ()
+            ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
+            caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
+            prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
+        optimistic prices `shouldBe` InclusionPrice (Coin 50)
+        urgent prices `shouldBe` InclusionPrice (Coin 150)
 
   it "endOfBlock resets the usage counters" $ do
     let ps0 = initialPricingState :: DynamicPricing ()
