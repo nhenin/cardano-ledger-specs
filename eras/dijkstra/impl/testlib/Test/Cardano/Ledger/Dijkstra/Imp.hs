@@ -11,6 +11,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp where
 import Cardano.Ledger.Conway.Rules
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
+import Cardano.Ledger.DynamicPricing (DynamicPricing, PricingState)
 import Cardano.Ledger.Shelley.Rules
 import Test.Cardano.Ledger.Common
 import qualified Test.Cardano.Ledger.Conway.Imp as ConwayImp
@@ -27,6 +28,7 @@ spec ::
   , Event (EraRule "EPOCH" era) ~ ConwayEpochEvent era
   , Event (EraRule "NEWEPOCH" era) ~ ConwayNewEpochEvent era
   , Event (EraRule "HARDFORK" era) ~ ConwayHardForkEvent era
+  , PricingState era ~ DynamicPricing era
   ) =>
   Spec
 spec = do
@@ -35,7 +37,9 @@ spec = do
 
 dijkstraEraGenericSpec ::
   forall era.
-  DijkstraEraImp era =>
+  ( DijkstraEraImp era
+  , PricingState era ~ DynamicPricing era
+  ) =>
   SpecWith (ImpInit (LedgerSpec era))
 dijkstraEraGenericSpec = do
   describe "LEDGER" Ledger.spec
