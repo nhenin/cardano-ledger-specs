@@ -8,9 +8,7 @@ import Cardano.Ledger.DynamicPricing.Controller
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
-  mkInclusionPrices,
-  optimistic,
-  urgent,
+  InclusionPrices (..),
  )
 import Cardano.Ledger.DynamicPricing.State (
   BlockCapacity (..),
@@ -97,10 +95,11 @@ spec = describe "DynamicPricing.Controller" $ do
         ps = recordTx Urgent 1000 (Coin 0) mempty ps0
         caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
         prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
-    -- Urgent lane full (1000/1000) ⇒ ×1.0625 ⇒ 704→748. The optimistic lane is
-    -- empty, so its price holds at the floor: an urgent flood no longer drags the
-    -- optimistic price up (lane-only signal, not the aggregate).
-    urgent prices `shouldBe` InclusionPrice (Coin 748)
+    -- Urgent lane full (1000/1000) ⇒ ×1.0625 ⇒ 88→93.5, which rounds
+    -- half-to-even to 94. The optimistic lane is empty, so its price holds at
+    -- the floor: an urgent flood no longer drags the optimistic price up
+    -- (lane-only signal, not the aggregate).
+    urgent prices `shouldBe` InclusionPrice (Coin 94)
     optimistic prices `shouldBe` InclusionPrice (Coin 44)
 
   it "reprice: an Optimistic-saturated block ratchets the optimistic lane up (it is dynamic)" $ do
@@ -123,23 +122,21 @@ spec = describe "DynamicPricing.Controller" $ do
     -- bytes and no urgent ones. Stepping the urgent lane here would read "my lane ran
     -- empty" and cut it a full step between two full ranking blocks — the sawtooth
     -- measured live under saturation. It must hold at its genesis rate instead.
-    urgent prices `shouldBe` InclusionPrice (Coin (16 * 44))
+    urgent prices `shouldBe` InclusionPrice (Coin (2 * 44))
 
-  it "reprice: the discrimination floor lifts urgent when the optimistic lane climbs under it" $
-    -- Urgent opens exactly on the floor (132 = 3 × 44) and holds, since the round
-    -- carries no urgent bytes. The optimistic lane is full, so it steps 44 ⇒ ×1.0625
-    -- ⇒ 47, and 3 × 47 = 141 now sits ABOVE the held urgent price. Publishing the
-    -- pair as stepped would make the fast lane the cheap one; worse, `unsafePrices`
-    -- calls `error` on such a pair, so a node would later crash decoding its own state.
-    case mkInclusionPrices (InclusionPrice (Coin 132)) (InclusionPrice (Coin 44)) of
-      Nothing -> expectationFailure "132 = 3 × 44 sits on the floor and must be publishable"
-      Just startPrices -> do
-        let ps0 = DynamicPricing startPrices emptyBlockUsage emptyPendingRefunds :: DynamicPricing ()
-            ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
-            caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
-            prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
-        optimistic prices `shouldBe` InclusionPrice (Coin 47)
-        urgent prices `shouldBe` InclusionPrice (Coin 141)
+  it "reprice: a temporary quote crossing is published as stepped (no cross-lane floor)" $ do
+    -- Urgent sits at the lane floor (44) and holds, since the round carries no
+    -- urgent bytes. The optimistic lane is full, so it steps 44 ⇒ ×1.0625 ⇒ 47
+    -- and CROSSES the held urgent price. The CIP's recommended construction
+    -- permits this state: the controllers are independent, nothing lifts or
+    -- clamps either lane.
+    let startPrices = InclusionPrices (InclusionPrice (Coin 44)) (InclusionPrice (Coin 44))
+        ps0 = DynamicPricing startPrices emptyBlockUsage emptyPendingRefunds :: DynamicPricing ()
+        ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
+        caps = InclusionCapacities (BlockCapacity 1000) (BlockCapacity 1000)
+        prices = reprice defaultControllerParams (InclusionPrice (Coin 44)) caps ps
+    optimistic prices `shouldBe` InclusionPrice (Coin 47)
+    urgent prices `shouldBe` InclusionPrice (Coin 44)
 
   it "endOfBlock resets the usage counters" $ do
     let ps0 = initialPricingState :: DynamicPricing ()

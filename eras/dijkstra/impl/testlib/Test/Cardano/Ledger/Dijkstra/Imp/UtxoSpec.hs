@@ -21,8 +21,10 @@ import Cardano.Ledger.Dijkstra.Core (
 import Cardano.Ledger.Dijkstra.Rules (DijkstraUtxoPredFailure (..))
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.DynamicPricing (
-  DynamicPricing,
+  DynamicPricing (..),
   Inclusion (..),
+  InclusionPrice (..),
+  InclusionPrices (..),
   MinimumTxFee (..),
   PricingState,
   Quote (..),
@@ -32,11 +34,11 @@ import Cardano.Ledger.DynamicPricing (
   pendingRefunds,
   quoteFor,
  )
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), esLStateL, lsUTxOStateL, nesEsL)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), esLStateL, lsUTxOStateL, nesEsL, utxosPricingL)
 import Cardano.Ledger.Tools (ensureMinCoinTxOut)
 import Cardano.Ledger.Val ((<->))
 import qualified Data.Map.Strict as Map
-import Lens.Micro ((&), (.~), (^.))
+import Lens.Micro ((%~), (&), (.~), (^.))
 import Test.Cardano.Ledger.Dijkstra.ImpTest (
   DijkstraEraImp,
   ImpInit,
@@ -45,6 +47,7 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (
   freshKeyHash,
   getsNES,
   getsPParams,
+  modifyNES,
   sendCoinTo,
   submitFailingTx,
   submitFailingTxM,
@@ -63,11 +66,15 @@ spec = do
     it "U1: rejects a bid below the lane's quote" $ do
       (_, addr) <- freshKeyAddr
       txIn <- sendCoinTo addr (Coin 10000000)
+      -- Pin the urgent rate well above the classic min-fee rate: the fixup
+      -- raises the bid only to the CLASSIC min fee, so declaring Urgent
+      -- leaves the fixed-up bid under the quote and U1 fires, with no
+      -- hand-set fee — whatever the genesis calibration happens to be.
+      modifyNES $
+        nesEsL . esLStateL . lsUTxOStateL . utxosPricingL
+          %~ \ps -> ps {publishedPrices = InclusionPrices (InclusionPrice (Coin 440)) (optimistic (publishedPrices ps))}
       pp <- getsPParams id
       pricing <- utxosPricing <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
-      -- The fixup raises the bid only to the CLASSIC min fee, while the urgent
-      -- quote opens at 16x the optimistic rate — so declaring Urgent leaves the
-      -- fixed-up bid under the quote and U1 fires, with no hand-set fee at all.
       let tx =
             mkBasicTx mkBasicTxBody
               & bodyTxL . inputsTxBodyL .~ [txIn]
@@ -85,7 +92,7 @@ spec = do
       utxosBefore <- getsNES (nesEsL . esLStateL . lsUTxOStateL)
       -- An explicit generous bid keeps the urgent quote covered (the fixup keeps
       -- a nonzero supplied fee), so the tx is accepted and the split runs with a
-      -- premium that is genuinely positive: urgent rate 16x44 >> minFeeA.
+      -- premium that is genuinely positive: urgent rate 2x44 > minFeeA.
       let tx =
             mkBasicTx mkBasicTxBody
               & bodyTxL . inputsTxBodyL .~ [txIn]

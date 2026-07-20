@@ -20,6 +20,7 @@ module Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
   recheckBidCoversQuote,
+  admissionBidCoversQuote,
 ) where
 
 import Cardano.Ledger.Allegra.Rules (AllegraUtxoPredFailure, shelleyToAllegraUtxoPredFailure)
@@ -80,10 +81,12 @@ import Cardano.Ledger.DynamicPricing (
   Quote (..),
   addPendingRefund,
   currentPrice,
+  defaultControllerParams,
   minimumTxFee,
   quoteFor,
   recordTx,
   txSizeInBytes,
+  worstCaseNextPrice,
  )
 import Cardano.Ledger.Dijkstra.Governance ()
 import Cardano.Ledger.DynamicPricing.State (PricingState)
@@ -521,4 +524,28 @@ recheckBidCoversQuote pp utxos tx
   txBody = tx ^. bodyTxL
   bid = txBody ^. feeTxBodyL
   Quote quote = quoteFor pp tx (currentPrice (txBody ^. inclusionTxBodyL) (utxosPricing utxos))
+
+-- | The admission-side headroom (node policy, the CIP's rule — NOT a ledger
+-- rule): the bid must cover the quote one worst-case controller step ahead,
+-- so a transaction that cannot survive a single adverse price update is
+-- refused at the door instead of queueing until it goes stale. Only mempool
+-- admission calls this; block validation (U1) and re-validation
+-- ('recheckBidCoversQuote') stay on the current quote — tightening those
+-- would reject on-chain-valid blocks.
+admissionBidCoversQuote ::
+  PParams DijkstraEra ->
+  UTxOState DijkstraEra ->
+  Tx TopTx DijkstraEra ->
+  Maybe (DijkstraUtxoPredFailure DijkstraEra)
+admissionBidCoversQuote pp utxos tx
+  | quote <= bid = Nothing
+  | otherwise =
+      Just $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}
+ where
+  txBody = tx ^. bodyTxL
+  bid = txBody ^. feeTxBodyL
+  headroomRate =
+    worstCaseNextPrice defaultControllerParams $
+      currentPrice (txBody ^. inclusionTxBodyL) (utxosPricing utxos)
+  Quote quote = quoteFor pp tx headroomRate
 

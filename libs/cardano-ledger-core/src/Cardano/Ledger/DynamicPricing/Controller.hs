@@ -17,10 +17,8 @@
 -- symmetric even when @target ≠ 0.5@.
 --
 -- This module is the controller only: the utilisation signal is computed by
--- the BBODY rule, and the cross-lane price-discrimination floor
--- ('priceDiscriminationFloor') is
--- re-imposed by 'Cardano.Ledger.DynamicPricing.Pricing.mkInclusionPrices'
--- after both lanes have stepped.
+-- the BBODY rule. The lanes publish independently — no cross-lane floor,
+-- temporary quote crossings permitted (the CIP's recommended construction).
 module Cardano.Ledger.DynamicPricing.Controller (
   -- * The signal and the knobs
   Utilisation (..),
@@ -30,6 +28,7 @@ module Cardano.Ledger.DynamicPricing.Controller (
 
   -- * One controller step
   stepPrice,
+  worstCaseNextPrice,
 ) where
 
 import Cardano.Ledger.Coin (Coin (..))
@@ -93,3 +92,11 @@ stepPrice
 -- | @clamp lo hi@ confines a value to @[lo, hi]@.
 clamp :: Ord a => a -> a -> a -> a
 clamp lo hi = max lo . min hi
+
+-- | The largest price one controller step can publish from the given one:
+-- the full-utilisation step up. Admission headroom checks bids against the
+-- quote at this rate, so an admitted transaction survives at least one
+-- adverse update. No lower bound applies — an up-step never falls below a
+-- floor the current price already respects.
+worstCaseNextPrice :: ControllerParams -> InclusionPrice -> InclusionPrice
+worstCaseNextPrice params = stepPrice params (InclusionPrice (Coin 0)) (Utilisation 1)

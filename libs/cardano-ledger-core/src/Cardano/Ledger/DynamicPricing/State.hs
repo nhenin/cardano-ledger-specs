@@ -66,12 +66,9 @@ import Cardano.Ledger.DynamicPricing.Controller (ControllerParams)
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion)
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
-  InclusionPrices,
+  InclusionPrices (..),
   TxSizeInBytes,
-  mkInclusionPrices,
-  optimistic,
   priceOf,
-  urgent,
  )
 import Cardano.Ledger.DynamicPricing.Refunds (
   PendingRefunds (..),
@@ -198,24 +195,16 @@ mkDynamicPricing ::
   BlockUsage ->
   PendingRefunds ->
   DynamicPricing era
-mkDynamicPricing u o = DynamicPricing (unsafePrices u o)
-
--- Decoding trusts the encoder: the floor invariant held when the state was
--- produced. TODO(prototype): fail the decoder instead of clamping.
-unsafePrices :: InclusionPrice -> InclusionPrice -> InclusionPrices
-unsafePrices u o =
-  case mkInclusionPrices u o of
-    Just prices -> prices
-    Nothing -> error "DynamicPricing: decoded prices violate the price-discrimination floor"
+mkDynamicPricing u o = DynamicPricing (InclusionPrices u o)
 
 -- | Starting state. 'Optimistic' opens at today's @minFeeA@ rate
--- (44 lovelace\/byte); 'Urgent' opens at 16× that (the sim's
--- @initialCoefficient@ for the priority controller).
+-- (44 lovelace\/byte); 'Urgent' opens at 2× that (the CIP's initial
+-- coefficient for the urgent controller).
 initialPricingState :: DynamicPricing era
 initialPricingState =
   DynamicPricing
     { publishedPrices =
-        unsafePrices (InclusionPrice (Coin (16 * 44))) (InclusionPrice (Coin 44))
+        InclusionPrices (InclusionPrice (Coin (2 * 44))) (InclusionPrice (Coin 44))
     , blockUsage = emptyBlockUsage
     , pendingRefunds = emptyPendingRefunds
     }
@@ -253,8 +242,8 @@ currentPrice :: Inclusion -> DynamicPricing era -> InclusionPrice
 currentPrice strategy = priceOf strategy . publishedPrices
 
 -- | End-of-block repricing (spec: @updateTiers@): one EIP-1559 controller step
--- per lane (Will's mechanism-design doc), republished through
--- 'mkInclusionPrices' so the price-discrimination floor always holds.
+-- per lane (Will's mechanism-design doc). The lanes publish independently —
+-- no cross-lane floor (the CIP's recommended construction).
 --
 -- Each lane's utilisation is its OWN fill against its pricing target
 -- ('InclusionCapacities'; Praos-only steers both against the shared RB). See

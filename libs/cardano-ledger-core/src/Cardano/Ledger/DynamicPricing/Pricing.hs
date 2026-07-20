@@ -24,9 +24,7 @@
 module Cardano.Ledger.DynamicPricing.Pricing (
   -- * Prices
   InclusionPrice (..),
-  InclusionPrices (urgent, optimistic),
-  mkInclusionPrices,
-  priceDiscriminationFloor,
+  InclusionPrices (..),
   priceOf,
 
   -- * Measuring a transaction
@@ -141,8 +139,11 @@ quoteFor pp tx (InclusionPrice (Coin rate)) =
 -- per inclusion strategy — no more, no less. Total by construction (no
 -- lookup can fail, no inconsistent key\/value pairing is representable).
 --
--- The raw constructor is not exported: build with 'mkInclusionPrices',
--- which guarantees the price-discrimination invariant.
+-- The two controllers are independent and no cross-lane floor is imposed:
+-- the 'Urgent' price may temporarily sit below the 'Optimistic' one (the
+-- CIP's recommended construction — a permitted controller state, not an
+-- invariant violation). The 3× discrimination floor the demo used to
+-- enforce was rejected by the multiplier-floor experiment.
 data InclusionPrices = InclusionPrices
   { urgent :: !InclusionPrice
   -- ^ Deck: DP1.
@@ -154,29 +155,6 @@ data InclusionPrices = InclusionPrices
 instance NoThunks InclusionPrices
 
 instance NFData InclusionPrices
-
--- | The price-discrimination guarantee (mechanism-design doc): 'Urgent'
--- always costs at least this many times 'Optimistic', whatever the load
--- regime — so the premium service keeps meaning something even when both
--- prices drift.
---
--- Sim default (@multiplierFloor@); eventually a protocol parameter.
--- Demo calibration: 3× (down from the sim's 16×) so the premium reads clearly
--- on the dashboard without dwarfing the optimistic lane.
-priceDiscriminationFloor :: Integer
-priceDiscriminationFloor = 3
-
--- | Publish the prices, enforcing
--- @urgent ≥ priceDiscriminationFloor × optimistic@.
-mkInclusionPrices ::
-  -- | 'Urgent' price (deck: DP1).
-  InclusionPrice ->
-  -- | 'Optimistic' price (deck: DP2).
-  InclusionPrice ->
-  Maybe InclusionPrices
-mkInclusionPrices u@(InclusionPrice (Coin p)) o@(InclusionPrice (Coin s))
-  | p >= priceDiscriminationFloor * s = Just (InclusionPrices u o)
-  | otherwise = Nothing
 
 -- | Read the price of one inclusion strategy. Total — the protocol always
 -- quotes every strategy.

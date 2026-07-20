@@ -15,7 +15,6 @@ module Cardano.Ledger.DynamicPricing.Repricing (
   repriceBlockUsage,
 ) where
 
-import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.DynamicPricing.Controller (
   ControllerParams (..),
   MaxChangeDenominator (..),
@@ -26,15 +25,10 @@ import Cardano.Ledger.DynamicPricing.Controller (
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
-  InclusionPrices,
+  InclusionPrices (..),
   TxSizeInBytes (..),
-  mkInclusionPrices,
-  optimistic,
-  priceDiscriminationFloor,
-  urgent,
  )
 import Cardano.Ledger.DynamicPricing.Usage (BlockUsage, bytesUsed, usageOf)
-import Data.Maybe (fromMaybe)
 import Data.Ratio ((%))
 import GHC.Generics (Generic)
 
@@ -73,8 +67,9 @@ defaultControllerParams =
   ControllerParams (TargetUtilisation (1 % 2)) (MaxChangeDenominator 16)
 
 -- | End-of-block repricing (spec: @updateTiers@): one EIP-1559 controller step
--- per lane (Will's mechanism-design doc), republished through
--- 'mkInclusionPrices' so the price-discrimination floor always holds.
+-- per lane (Will's mechanism-design doc). The lanes publish independently —
+-- no cross-lane floor, temporary quote crossings permitted (the CIP's
+-- recommended construction).
 --
 -- The utilisation signal is capacity-weighted, per lane: each lane's OWN fill
 -- against its own pricing target ('InclusionCapacities'). Praos-only steers both
@@ -92,7 +87,7 @@ repriceBlockUsage ::
   BlockUsage ->
   InclusionPrices
 repriceBlockUsage params floorPrice capacities prices usage =
-  publishFloored steppedUrgent steppedOptimistic
+  InclusionPrices steppedUrgent steppedOptimistic
   where
     -- Each lane's price moves only on a reprice that carries ITS OWN transport's
     -- bytes. The ranking block (urgent) and a certified endorser block
@@ -123,14 +118,3 @@ repriceBlockUsage params floorPrice capacities prices usage =
       toInteger . unTxSizeInBytes . bytesUsed $ usageOf strategy usage
     utilOf strategy (BlockCapacity capacity) =
       Utilisation (laneBytes strategy % max 1 capacity)
-
--- | Publish two stepped prices, re-imposing the discrimination floor: if the
--- controller pushed 'Urgent' below @priceDiscriminationFloor * Optimistic@,
--- raise it back so 'mkInclusionPrices' always succeeds.
-publishFloored :: InclusionPrice -> InclusionPrice -> InclusionPrices
-publishFloored steppedUrgent o@(InclusionPrice (Coin op)) =
-  fromMaybe
-    (error "DynamicPricing.reprice: floored prices still violate the discrimination floor")
-    (mkInclusionPrices (max steppedUrgent flooredUrgent) o)
-  where
-    flooredUrgent = InclusionPrice (Coin (priceDiscriminationFloor * op))
