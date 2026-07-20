@@ -49,8 +49,8 @@ newtype TargetUtilisation = TargetUtilisation {unTargetUtilisation :: Rational}
   deriving stock (Eq, Ord, Show, Generic)
 
 -- | The max-change denominator @D@: the largest fractional move one step may
--- make is @1 \/ D@. Will's sweep winner uses @4@ (±25%\/block); the spec doc
--- illustrates with @8@ (±12.5%). Must be @≥ 1@.
+-- make is @1 \/ D@. The CIP's recommended construction runs @16@ (±6.25%\/block),
+-- with @8@-@16@ the validated envelope. Must be @≥ 1@.
 newtype MaxChangeDenominator = MaxChangeDenominator {unMaxChangeDenominator :: Int}
   deriving stock (Eq, Ord, Show, Generic)
 

@@ -63,14 +63,14 @@ data InclusionCapacities = InclusionCapacities
 optimisticBlockCapacity :: BlockCapacity
 optimisticBlockCapacity = BlockCapacity 12000000
 
--- | The controller calibration the ledger runs: Will's simulator calibration
--- (@target = 1/2@, @D = 8@, so at most +/-12.5% per block — the value his
--- defaults, fixtures and every design variant run; his doc's worked example
--- too). We ran @D = 4@ early on for a livelier demo staircase. Eventually a
--- protocol parameter; a constant for the prototype.
+-- | The controller calibration the ledger runs: the CIP's recommended
+-- construction (@target = 1/2@, @D = 16@, so at most +/-6.25% per block).
+-- We ran @D = 4@ then @D = 8@ earlier for a livelier demo staircase; both
+-- sit inside the CIP's validated 8-16 envelope. Eventually a protocol
+-- parameter; a constant for the prototype.
 defaultControllerParams :: ControllerParams
 defaultControllerParams =
-  ControllerParams (TargetUtilisation (1 % 2)) (MaxChangeDenominator 8)
+  ControllerParams (TargetUtilisation (1 % 2)) (MaxChangeDenominator 16)
 
 -- | End-of-block repricing (spec: @updateTiers@): one EIP-1559 controller step
 -- per lane (Will's mechanism-design doc), republished through
