@@ -21,7 +21,7 @@ import Cardano.Ledger.DynamicPricing.Controller (
   TargetUtilisation (..),
   stepPrice,
  )
-import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
+import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..), InclusionDelivery (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
   InclusionPrices (..),
@@ -109,14 +109,16 @@ repriceBlockUsage ::
   InclusionPrice ->
   -- | The per-lane block-body capacities to measure utilisation against.
   InclusionCapacities ->
+  -- | How the closing block delivered its transactions — the round kind.
+  InclusionDelivery ->
   InclusionPrices ->
   PricingSignals ->
   BlockUsage ->
   (InclusionPrices, PricingSignals)
-repriceBlockUsage params floorPrice capacities prices signals usage =
+repriceBlockUsage params floorPrice capacities delivery prices signals usage =
   (InclusionPrices steppedUrgent steppedOptimistic, signals')
   where
-    certificationReprice = laneBytes Optimistic > 0
+    certificationReprice = delivery == Certified
     signals' =
       PricingSignals
         { urgentWindow =

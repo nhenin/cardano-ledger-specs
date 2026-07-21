@@ -31,12 +31,12 @@ import Cardano.Ledger.Alonzo.Rules (
   AlonzoUtxoPredFailure,
   AlonzoUtxosPredFailure,
   AlonzoUtxowPredFailure,
-  alonzoBbodyTransition,
  )
+import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
 import Cardano.Ledger.Alonzo.Scripts (ExUnits (..))
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx)
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx, totExUnits)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoEraTxWits (..))
-import Cardano.Ledger.BHeaderView (BHeaderView (..))
+import Cardano.Ledger.BHeaderView (BHeaderView (..), isOverlaySlot)
 import Cardano.Ledger.Babbage.Core (BabbageEraTxBody)
 import Cardano.Ledger.Babbage.Rules (BabbageUtxoPredFailure, BabbageUtxowPredFailure)
 import Cardano.Ledger.BaseTypes (
@@ -47,6 +47,7 @@ import Cardano.Ledger.BaseTypes (
   Relation (..),
   ShelleyBase,
   StrictMaybe (..),
+  epochInfoPure,
   validatePerasCert,
  )
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
@@ -79,17 +80,22 @@ import Cardano.Ledger.DynamicPricing (
   DynamicPricing (..),
   Inclusion (..),
   InclusionCapacities (..),
+  InclusionDelivery (..),
   InclusionPrice (..),
   InclusionUsage (..),
   TxSizeInBytes (..),
   defaultControllerParams,
   endOfBlock,
   optimisticBlockCapacity,
+  setBlockDelivery,
   usageOf,
  )
 import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Plutus.ExUnits (pointWiseExUnits)
+import Cardano.Ledger.Keys (coerceKeyRole)
+import Cardano.Ledger.Shelley.BlockBody (incrBlocks)
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), lsUTxOStateL, utxosPricingL)
+import Cardano.Ledger.Slot (epochInfoEpoch, epochInfoFirst)
 import Cardano.Ledger.Shelley.Rules (
   BbodyEnv (..),
   ShelleyBbodyPredFailure,
@@ -102,12 +108,16 @@ import Cardano.Ledger.Shelley.Rules (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Control.DeepSeq (NFData)
+import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition (
   Embed (..),
   STS (..),
   TransitionRule,
   judgmentContext,
+  liftSTS,
+  trans,
  )
+import qualified Data.Sequence.Strict as StrictSeq
 import Control.State.Transition.Extended (TRC (..), failBecause, (?!))
 import Data.Sequence (Seq)
 import Data.Word (Word32)
@@ -372,9 +382,103 @@ instance
   transitionRules =
     [ dijkstraBbodyTransition @era
         >> Conway.conwayBbodyTransition @era
-        >> alonzoBbodyTransition @era
+        >> dijkstraLedgersBbodyTransition @era
         >>= divupTransition @era
     ]
+
+-- | Alonzo's body transition with one Dijkstra addition: before the block's
+-- transactions run, the pricing state is stamped with how this block
+-- DELIVERS them ('Immediate' payload, or the 'Certified' batch spliced in
+-- when a Leios certificate is present) — the UTXO rule prices each
+-- transaction by that delivery (the CIP's rb-only premium scope). Forked
+-- rather than chained because only the rule that owns the LEDGERS call can
+-- alter the state it passes; the sub-rules before it read the original TRC.
+dijkstraLedgersBbodyTransition ::
+  forall era.
+  ( STS (EraRule "BBODY" era)
+  , Signal (EraRule "BBODY" era) ~ Block BHeaderView era
+  , InjectRuleFailure "BBODY" AlonzoBbodyPredFailure era
+  , BaseM (EraRule "BBODY" era) ~ ShelleyBase
+  , State (EraRule "BBODY" era) ~ ShelleyBbodyState era
+  , Environment (EraRule "BBODY" era) ~ BbodyEnv era
+  , Embed (EraRule "LEDGERS" era) (EraRule "BBODY" era)
+  , Environment (EraRule "LEDGERS" era) ~ ShelleyLedgersEnv era
+  , State (EraRule "LEDGERS" era) ~ LedgerState era
+  , Signal (EraRule "LEDGERS" era) ~ Seq (Tx TopTx era)
+  , AlonzoEraTxWits era
+  , AlonzoEraPParams era
+  , DijkstraEraBlockBody era
+  , PricingState era ~ DynamicPricing era
+  ) =>
+  TransitionRule (EraRule "BBODY" era)
+dijkstraLedgersBbodyTransition =
+  judgmentContext
+    >>= \( TRC
+             ( BbodyEnv pp account
+               , BbodyState ls b
+               , Block bh txsSeq
+               )
+           ) -> do
+        let txs = txsSeq ^. txSeqBlockBodyL
+            actualBodySize = bBodySize (pp ^. ppProtocolVersionL) txsSeq
+            actualBodyHash = hashBlockBody @era txsSeq
+
+        actualBodySize
+          == fromIntegral (bhviewBSize bh)
+            ?! injectFailure
+              ( Alonzo.ShelleyInAlonzoBbodyPredFailure
+                  ( Shelley.WrongBlockBodySizeBBODY $
+                      Mismatch
+                        { mismatchSupplied = actualBodySize
+                        , mismatchExpected = fromIntegral $ bhviewBSize bh
+                        }
+                  )
+              )
+
+        actualBodyHash
+          == bhviewBHash bh
+            ?! injectFailure
+              ( Alonzo.ShelleyInAlonzoBbodyPredFailure
+                  ( Shelley.InvalidBodyHashBBODY @era $
+                      Mismatch
+                        { mismatchSupplied = actualBodyHash
+                        , mismatchExpected = bhviewBHash bh
+                        }
+                  )
+              )
+
+        let hkAsStakePool = coerceKeyRole $ bhviewID bh
+            slot = bhviewSlot bh
+        (firstSlotNo, curEpochNo) <- liftSTS $ do
+          ei <- asks epochInfoPure
+          let curEpochNo = epochInfoEpoch ei slot
+          pure (epochInfoFirst ei curEpochNo, curEpochNo)
+
+        -- The Dijkstra addition: stamp the block's delivery before its
+        -- transactions are judged and settled.
+        let delivery = case txsSeq ^. leiosCertBlockBodyL of
+              SJust _ -> Certified
+              SNothing -> Immediate
+            lsStamped = ls & lsUTxOStateL . utxosPricingL %~ setBlockDelivery delivery
+
+        ls' <-
+          trans @(EraRule "LEDGERS" era) $
+            TRC (LedgersEnv (bhviewSlot bh) curEpochNo pp account, lsStamped, StrictSeq.fromStrict txs)
+
+        let txTotal, ppMax :: ExUnits
+            txTotal = foldMap totExUnits txs
+            ppMax = pp ^. ppMaxBlockExUnitsL
+        pointWiseExUnits (<=) txTotal ppMax
+          ?! injectFailure (Alonzo.TooManyExUnits Mismatch {mismatchSupplied = txTotal, mismatchExpected = ppMax})
+
+        pure $
+          BbodyState @era
+            ls'
+            ( incrBlocks
+                (isOverlaySlot firstSlotNo (pp ^. ppDG) slot)
+                hkAsStakePool
+                b
+            )
 
 -- | Close the block for dynamic pricing (spec: the @DIVUP@ rule), running
 -- AFTER the block's transactions so it sees the accumulated usage:
@@ -403,7 +507,14 @@ divupTransition ::
 divupTransition (BbodyState ls blocksMade) = do
   TRC (BbodyEnv pp _, _, _) <- judgmentContext
   let pricing = ls ^. lsUTxOStateL . utxosPricingL
-      optimisticUsage = usageOf Optimistic (blockUsage pricing)
+      -- On a certified round the WHOLE block is the endorser block's cargo
+      -- (the certificate-carrying ranking block is payload-free), so B1
+      -- bounds the total usage — urgent riders included — against the EB
+      -- budgets. On an immediate round the optimistic usage is the check's
+      -- subject as before (and zero in practice).
+      optimisticUsage = case blockDelivery pricing of
+        Certified -> usageOf Urgent (blockUsage pricing) <> usageOf Optimistic (blockUsage pricing)
+        Immediate -> usageOf Optimistic (blockUsage pricing)
       TxSizeInBytes optimisticBytes = bytesUsed optimisticUsage
       maxBytes = pp ^. ppMaxBBSizeL
       maxExUnits = pp ^. ppMaxBlockExUnitsL

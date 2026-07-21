@@ -27,6 +27,7 @@ module Cardano.Ledger.DynamicPricing.State (
   initialPricingState,
   recordTx,
   currentPrice,
+  setBlockDelivery,
   addPendingRefund,
   drainPendingRefunds,
   retainPendingRefunds,
@@ -63,7 +64,7 @@ import Cardano.Ledger.Binary.Coders (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.DynamicPricing.Controller (ControllerParams)
-import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion)
+import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion, InclusionDelivery (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
   InclusionPrices (..),
@@ -162,6 +163,12 @@ data DynamicPricing era = DynamicPricing
   , pricingSignals :: !PricingSignals
   -- ^ Each lane's window of recent controller samples (the CIP's signals),
   -- rolled forward by every sample-carrying reprice.
+  , blockDelivery :: !InclusionDelivery
+  -- ^ How the block currently being processed delivers its transactions
+  -- (the CIP's rb-only premium scope prices by delivery, not declaration).
+  -- Stamped by the BBODY rule before the block's transactions run; reset
+  -- to 'Immediate' at the block boundary, so the state between blocks —
+  -- and the mempool's view at admission — always reads 'Immediate'.
   }
   deriving (Eq, Show, Generic)
 
@@ -182,7 +189,7 @@ instance ToJSON (DynamicPricing era) where
       ]
 
 instance EncCBOR (DynamicPricing era) where
-  encCBOR (DynamicPricing prices usage refunds signals) =
+  encCBOR (DynamicPricing prices usage refunds signals delivery) =
     encode $
       Rec mkDynamicPricing
         !> To (urgent prices)
@@ -190,18 +197,20 @@ instance EncCBOR (DynamicPricing era) where
         !> To usage
         !> To refunds
         !> To signals
+        !> To delivery
 
 instance Typeable era => DecCBOR (DynamicPricing era) where
-  decCBOR = decode $ RecD mkDynamicPricing <! From <! From <! From <! From <! From
+  decCBOR = decode $ RecD mkDynamicPricing <! From <! From <! From <! From <! From <! From
 
--- The signal windows are encoded LAST: the measured-pots poller pins the
--- leading array indices (urgent, optimistic, usage, refunds).
+-- The signal windows and the delivery are encoded LAST: the measured-pots
+-- poller pins the leading array indices (urgent, optimistic, usage, refunds).
 mkDynamicPricing ::
   InclusionPrice ->
   InclusionPrice ->
   BlockUsage ->
   PendingRefunds ->
   PricingSignals ->
+  InclusionDelivery ->
   DynamicPricing era
 mkDynamicPricing u o = DynamicPricing (InclusionPrices u o)
 
@@ -216,7 +225,13 @@ initialPricingState =
     , blockUsage = emptyBlockUsage
     , pendingRefunds = emptyPendingRefunds
     , pricingSignals = emptyPricingSignals
+    , blockDelivery = Immediate
     }
+
+-- | Stamp how the block being processed delivers its transactions. The
+-- BBODY rule calls this before the block's transactions run.
+setBlockDelivery :: InclusionDelivery -> DynamicPricing era -> DynamicPricing era
+setBlockDelivery delivery ps = ps {blockDelivery = delivery}
 
 -- | Record a refund owed to a bidder (U3 of the fee split): the unused
 -- headroom between the bid and the charged quote.
@@ -271,6 +286,7 @@ reprice params floorPrice capacities ps =
     params
     floorPrice
     capacities
+    (blockDelivery ps)
     (publishedPrices ps)
     (pricingSignals ps)
     (blockUsage ps)
@@ -289,6 +305,7 @@ endOfBlock params floorPrice capacities ps =
     { publishedPrices = prices
     , pricingSignals = signals
     , blockUsage = emptyBlockUsage
+    , blockDelivery = Immediate
     }
   where
     (prices, signals) = reprice params floorPrice capacities ps

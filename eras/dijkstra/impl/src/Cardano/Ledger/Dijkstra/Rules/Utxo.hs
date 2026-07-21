@@ -77,9 +77,12 @@ import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Val ((<->))
 import Cardano.Ledger.DynamicPricing (
   DynamicPricing,
+  Inclusion (..),
+  blockDelivery,
   MinimumTxFee (..),
   Quote (..),
   addPendingRefund,
+  chargedStrategy,
   currentPrice,
   defaultControllerParams,
   minimumTxFee,
@@ -308,9 +311,13 @@ dijkstraUtxoTransition = do
   let txBody = tx ^. bodyTxL
       declared = txBody ^. inclusionTxBodyL
       bid = txBody ^. feeTxBodyL
-      Quote quote = quoteFor pp tx (currentPrice declared (utxosPricing utxos))
+      -- The CIP's rb-only premium scope: the applicable quote follows the
+      -- DELIVERY, not the declaration — an urgent transaction arriving
+      -- through a certified batch is charged the optimistic price.
+      charged = chargedStrategy declared (blockDelivery (utxosPricing utxos))
+      Quote quote = quoteFor pp tx (currentPrice charged (utxosPricing utxos))
   babbageUtxoValidation
-  -- U1: the bid covers the current quote for the declared inclusion strategy.
+  -- U1: the bid covers the current quote applicable at this inclusion point.
   -- Subsumes the plain min-fee premise (the quote never undercuts the
   -- protocol minimum fee), which babbageUtxoValidation still checks anyway.
   quote <= bid
@@ -506,11 +513,15 @@ conwayToDijkstraUtxoPredFailure = \case
   Conway.BabbageOutputTooSmallUTxO txouts -> BabbageOutputTooSmallUTxO txouts
   Conway.BabbageNonDisjointRefInputs txin -> BabbageNonDisjointRefInputs txin
 
--- | The U1 predicate alone — the bid against the CURRENT quote — for mempool
--- re-validation under a moved tip. O(1): no rule machinery, no UTxO work.
--- 'Nothing' means the bid still covers the quote. The full LEDGER re-run this
--- replaces cost O(mempool) per block and starved admissions under a deep
--- backlog.
+-- | The U1 predicate alone — the bid against the CURRENT fee-cap quote —
+-- for mempool re-validation under a moved tip. O(1): no rule machinery, no
+-- UTxO work. 'Nothing' means the bid still covers the quote. The full
+-- LEDGER re-run this replaces cost O(mempool) per block and starved
+-- admissions under a deep backlog.
+--
+-- The fee-cap basis is the CIP's: an urgent transaction may settle through
+-- either path, so its bid must cover the LARGER of the two quotes even
+-- while the lanes cross.
 recheckBidCoversQuote ::
   PParams DijkstraEra ->
   UTxOState DijkstraEra ->
@@ -523,7 +534,10 @@ recheckBidCoversQuote pp utxos tx
  where
   txBody = tx ^. bodyTxL
   bid = txBody ^. feeTxBodyL
-  Quote quote = quoteFor pp tx (currentPrice (txBody ^. inclusionTxBodyL) (utxosPricing utxos))
+  quoteAt strategy = quoteFor pp tx (currentPrice strategy (utxosPricing utxos))
+  Quote quote = case txBody ^. inclusionTxBodyL of
+    Urgent -> max (quoteAt Urgent) (quoteAt Optimistic)
+    Optimistic -> quoteAt Optimistic
 
 -- | The admission-side headroom (node policy, the CIP's rule — NOT a ledger
 -- rule): the bid must cover the quote one worst-case controller step ahead,
@@ -544,8 +558,10 @@ admissionBidCoversQuote pp utxos tx
  where
   txBody = tx ^. bodyTxL
   bid = txBody ^. feeTxBodyL
-  headroomRate =
-    worstCaseNextPrice defaultControllerParams $
-      currentPrice (txBody ^. inclusionTxBodyL) (utxosPricing utxos)
-  Quote quote = quoteFor pp tx headroomRate
+  steppedQuoteAt strategy =
+    quoteFor pp tx . worstCaseNextPrice defaultControllerParams $
+      currentPrice strategy (utxosPricing utxos)
+  Quote quote = case txBody ^. inclusionTxBodyL of
+    Urgent -> max (steppedQuoteAt Urgent) (steppedQuoteAt Optimistic)
+    Optimistic -> steppedQuoteAt Optimistic
 

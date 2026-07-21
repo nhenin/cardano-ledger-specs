@@ -6,7 +6,7 @@ module Test.Cardano.Ledger.DynamicPricing.ControllerSpec (spec) where
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.DynamicPricing.Controller
-import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
+import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..), InclusionDelivery (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
   InclusionPrices (..),
@@ -112,9 +112,9 @@ spec = describe "DynamicPricing.Controller" $ do
     urgent prices `shouldBe` InclusionPrice (Coin 94)
     optimistic prices `shouldBe` InclusionPrice (Coin 44)
 
-  it "reprice: an Optimistic-saturated block ratchets the optimistic lane up (it is dynamic)" $ do
+  it "reprice: a certified Optimistic-saturated block ratchets the optimistic lane up" $ do
     let ps0 = initialPricingState :: DynamicPricing ()
-        ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
+        ps = (recordTx Optimistic 1000 (Coin 0) mempty ps0) {blockDelivery = Certified}
         (prices, _) = reprice defaultControllerParams (InclusionPrice (Coin 44)) testCaps ps
     -- Optimistic lane full (1000/1000) ⇒ ×1.0625 ⇒ 44→46.75, which rounds
     -- to 47: the optimistic price is genuinely dynamic. It would be
@@ -124,7 +124,7 @@ spec = describe "DynamicPricing.Controller" $ do
 
   it "reprice: a certification round reads the reservation as idle — urgent steps down" $ do
     let ps0 = initialPricingState :: DynamicPricing ()
-        ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
+        ps = (recordTx Optimistic 1000 (Coin 0) mempty ps0) {blockDelivery = Certified}
         (prices, _) = reprice defaultControllerParams (InclusionPrice (Coin 44)) testCaps ps
     -- A certified endorser block carries an urgent sample too: its urgent
     -- traffic against the RESERVATION capacity (the CIP's rule). Disjoint
@@ -143,7 +143,7 @@ spec = describe "DynamicPricing.Controller" $ do
         -- ...then a certification round: the urgent window now reads
         -- (1000 + 0) / (1000 + 1000) = the half-full target, so the urgent
         -- price HOLDS at 94 instead of taking a full step down.
-        certRound = recordTx Optimistic 1000 (Coin 0) mempty afterRb
+        certRound = (recordTx Optimistic 1000 (Coin 0) mempty afterRb) {blockDelivery = Certified}
         (prices, _) = reprice defaultControllerParams floorPrice testCaps certRound
     urgent prices `shouldBe` InclusionPrice (Coin 94)
 
@@ -155,7 +155,7 @@ spec = describe "DynamicPricing.Controller" $ do
     -- nothing lifts or clamps either lane.
     let startPrices = InclusionPrices (InclusionPrice (Coin 44)) (InclusionPrice (Coin 44))
         ps0 =
-          DynamicPricing startPrices emptyBlockUsage emptyPendingRefunds emptyPricingSignals ::
+          DynamicPricing startPrices emptyBlockUsage emptyPendingRefunds emptyPricingSignals Certified ::
             DynamicPricing ()
         ps = recordTx Optimistic 1000 (Coin 0) mempty ps0
         (prices, _) = reprice defaultControllerParams (InclusionPrice (Coin 44)) testCaps ps
