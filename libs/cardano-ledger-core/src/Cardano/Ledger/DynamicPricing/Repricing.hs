@@ -19,7 +19,6 @@ import Cardano.Ledger.DynamicPricing.Controller (
   ControllerParams (..),
   MaxChangeDenominator (..),
   TargetUtilisation (..),
-  Utilisation (..),
   stepPrice,
  )
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..))
@@ -28,7 +27,16 @@ import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrices (..),
   TxSizeInBytes (..),
  )
-import Cardano.Ledger.DynamicPricing.Usage (BlockUsage, bytesUsed, usageOf)
+import Cardano.Ledger.DynamicPricing.Signal (
+  PricingSignals (..),
+  Sample (..),
+  pushSample,
+  standardSignalWindowLength,
+  urgentSignalWindowLength,
+  windowUtilisation,
+ )
+import Cardano.Ledger.DynamicPricing.Usage (BlockUsage, bytesUsed, exUnitsUsed, usageOf)
+import Cardano.Ledger.Plutus.ExUnits (ExUnits)
 import Data.Ratio ((%))
 import GHC.Generics (Generic)
 
@@ -46,6 +54,8 @@ newtype BlockCapacity = BlockCapacity {unBlockCapacity :: Integer}
 data InclusionCapacities = InclusionCapacities
   { urgentCapacity :: !BlockCapacity
   , optimisticCapacity :: !BlockCapacity
+  , urgentExUnitsCapacity :: !ExUnits
+  , optimisticExUnitsCapacity :: !ExUnits
   }
   deriving stock (Eq, Show, Generic)
 
@@ -71,12 +81,28 @@ defaultControllerParams =
 -- no cross-lane floor, temporary quote crossings permitted (the CIP's
 -- recommended construction).
 --
--- The utilisation signal is capacity-weighted, per lane: each lane's OWN fill
--- against its own pricing target ('InclusionCapacities'). Praos-only steers both
--- against the shared RB, so an urgent flood moves only the urgent price and the
--- optimistic price tracks optimistic demand alone (no aggregate cross-talk).
+-- Each lane reads its utilisation from a WINDOW of recent samples (the
+-- CIP's signals), not from the latest block alone. Two block kinds carry a
+-- sample: a transaction-carrying ranking block and a certified endorser
+-- block — each reprice here is exactly one of the two (a certificate-
+-- carrying ranking block is payload-free by construction and never reaches
+-- this function with bytes of its own).
 --
--- Window smoothing over several blocks is deferred (a calibration choice).
+-- The samples, per the CIP:
+--
+-- * A ranking-block reprice adds an urgent sample (the RB's urgent fill
+--   against the reservation capacity) and a ZERO standard sample carrying
+--   the RB's full capacity — standard transactions cannot occupy a ranking
+--   block, yet its capacity still weighs the standard denominator down.
+-- * A certification reprice adds a standard sample (the endorser block's
+--   fill against its own 12 MB budget) and an urgent sample measuring the
+--   EB's urgent traffic against the RESERVATION capacity — how many ranking
+--   blocks' worth of urgent traffic the EB carried, not how full it was.
+--   With the prototype's disjoint lanes that urgent sample is zero: an idle
+--   reservation, smoothed by the five-sample window.
+--
+-- Both lanes step on every sample-carrying reprice; a lane with an empty
+-- window (genesis) holds.
 repriceBlockUsage ::
   ControllerParams ->
   -- | The lane floor price (today's @minFeeA@; the controller's @c = 1@).
@@ -84,37 +110,46 @@ repriceBlockUsage ::
   -- | The per-lane block-body capacities to measure utilisation against.
   InclusionCapacities ->
   InclusionPrices ->
+  PricingSignals ->
   BlockUsage ->
-  InclusionPrices
-repriceBlockUsage params floorPrice capacities prices usage =
-  InclusionPrices steppedUrgent steppedOptimistic
+  (InclusionPrices, PricingSignals)
+repriceBlockUsage params floorPrice capacities prices signals usage =
+  (InclusionPrices steppedUrgent steppedOptimistic, signals')
   where
-    -- Each lane's price moves only on a reprice that carries ITS OWN transport's
-    -- bytes. The ranking block (urgent) and a certified endorser block
-    -- (optimistic) are applied in SEPARATE reprices: a ranking-block reprice
-    -- carries urgent bytes and zero optimistic; a certification reprice carries
-    -- the endorser block's optimistic bytes and zero urgent (measured live).
-    --
-    -- Urgent holds on a pure certification reprice — zero urgent bytes but
-    -- optimistic bytes present. Otherwise it steps: a full ranking block raises
-    -- the price, and a genuinely empty ranking block (both lanes zero, no urgent
-    -- demand) decays it. Without this, every certification was read as "the
-    -- urgent lane ran empty" and dropped the price 25% between full blocks — the
-    -- sawtooth seen under saturation, the mirror of the optimistic ping-pong.
-    steppedUrgent
-      | laneBytes Urgent == 0 && laneBytes Optimistic > 0 = urgent prices
+    certificationReprice = laneBytes Optimistic > 0
+    signals' =
+      PricingSignals
+        { urgentWindow =
+            pushSample urgentSignalWindowLength urgentSample (urgentWindow signals)
+        , standardWindow =
+            pushSample standardSignalWindowLength standardSample (standardWindow signals)
+        }
+    urgentSample =
+      Sample
+        { sampleBytes = laneBytes Urgent
+        , sampleByteCapacity = unBlockCapacity (urgentCapacity capacities)
+        , sampleExUnits = laneExUnits Urgent
+        , sampleExUnitsCapacity = urgentExUnitsCapacity capacities
+        }
+    standardSample
+      | certificationReprice =
+          Sample
+            { sampleBytes = laneBytes Optimistic
+            , sampleByteCapacity = unBlockCapacity (optimisticCapacity capacities)
+            , sampleExUnits = laneExUnits Optimistic
+            , sampleExUnitsCapacity = optimisticExUnitsCapacity capacities
+            }
       | otherwise =
-          stepPrice params floorPrice (utilOf Urgent (urgentCapacity capacities)) (urgent prices)
-    -- The optimistic lane is judged only when one of its endorser blocks
-    -- actually COUNTS (a certification reprice with optimistic bytes). Rounds
-    -- with no optimistic block to judge — ranking-block reprices and idle rounds
-    -- — hold, instead of reading "the lane ran empty" and ping-ponging at the
-    -- floor while the pool sat full (Giorgos's rule; measured live).
-    steppedOptimistic
-      | laneBytes Optimistic == 0 = optimistic prices
-      | otherwise =
-          stepPrice params floorPrice (utilOf Optimistic (optimisticCapacity capacities)) (optimistic prices)
+          Sample
+            { sampleBytes = 0
+            , sampleByteCapacity = unBlockCapacity (urgentCapacity capacities)
+            , sampleExUnits = mempty
+            , sampleExUnitsCapacity = urgentExUnitsCapacity capacities
+            }
+    steppedUrgent = step (urgentWindow signals') (urgent prices)
+    steppedOptimistic = step (standardWindow signals') (optimistic prices)
+    step window price =
+      maybe price (\u -> stepPrice params floorPrice u price) (windowUtilisation window)
     laneBytes strategy =
       toInteger . unTxSizeInBytes . bytesUsed $ usageOf strategy usage
-    utilOf strategy (BlockCapacity capacity) =
-      Utilisation (laneBytes strategy % max 1 capacity)
+    laneExUnits strategy = exUnitsUsed (usageOf strategy usage)

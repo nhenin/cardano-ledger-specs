@@ -83,6 +83,7 @@ import Cardano.Ledger.DynamicPricing.Repricing (
   defaultControllerParams,
   repriceBlockUsage,
  )
+import Cardano.Ledger.DynamicPricing.Signal (PricingSignals, emptyPricingSignals)
 import Cardano.Ledger.DynamicPricing.Usage (
   BlockUsage (..),
   InclusionUsage (..),
@@ -158,6 +159,9 @@ data DynamicPricing era = DynamicPricing
   -- ^ Refunds owed to bidders (the unused headroom of their bids), flushed
   -- into account balances by the LEDGER rule after every transaction
   -- (spec: @feeRewards@).
+  , pricingSignals :: !PricingSignals
+  -- ^ Each lane's window of recent controller samples (the CIP's signals),
+  -- rolled forward by every sample-carrying reprice.
   }
   deriving (Eq, Show, Generic)
 
@@ -178,22 +182,26 @@ instance ToJSON (DynamicPricing era) where
       ]
 
 instance EncCBOR (DynamicPricing era) where
-  encCBOR (DynamicPricing prices usage refunds) =
+  encCBOR (DynamicPricing prices usage refunds signals) =
     encode $
       Rec mkDynamicPricing
         !> To (urgent prices)
         !> To (optimistic prices)
         !> To usage
         !> To refunds
+        !> To signals
 
 instance Typeable era => DecCBOR (DynamicPricing era) where
-  decCBOR = decode $ RecD mkDynamicPricing <! From <! From <! From <! From
+  decCBOR = decode $ RecD mkDynamicPricing <! From <! From <! From <! From <! From
 
+-- The signal windows are encoded LAST: the measured-pots poller pins the
+-- leading array indices (urgent, optimistic, usage, refunds).
 mkDynamicPricing ::
   InclusionPrice ->
   InclusionPrice ->
   BlockUsage ->
   PendingRefunds ->
+  PricingSignals ->
   DynamicPricing era
 mkDynamicPricing u o = DynamicPricing (InclusionPrices u o)
 
@@ -207,6 +215,7 @@ initialPricingState =
         InclusionPrices (InclusionPrice (Coin (2 * 44))) (InclusionPrice (Coin 44))
     , blockUsage = emptyBlockUsage
     , pendingRefunds = emptyPendingRefunds
+    , pricingSignals = emptyPricingSignals
     }
 
 -- | Record a refund owed to a bidder (U3 of the fee split): the unused
@@ -256,13 +265,19 @@ reprice ::
   -- | The per-lane block-body capacities to measure utilisation against.
   InclusionCapacities ->
   DynamicPricing era ->
-  InclusionPrices
+  (InclusionPrices, PricingSignals)
 reprice params floorPrice capacities ps =
-  repriceBlockUsage params floorPrice capacities (publishedPrices ps) (blockUsage ps)
+  repriceBlockUsage
+    params
+    floorPrice
+    capacities
+    (publishedPrices ps)
+    (pricingSignals ps)
+    (blockUsage ps)
 
--- | Block boundary (spec: the @DIVUP@ rule): apply 'reprice', reset usage.
--- The spec's @sdChecks@ premise (the optimistic usage fits RB limits) lives
--- with the BBODY rule, not here.
+-- | Block boundary (spec: the @DIVUP@ rule): apply 'reprice', roll the
+-- signal windows forward, reset usage. The spec's @sdChecks@ premise (the
+-- optimistic usage fits RB limits) lives with the BBODY rule, not here.
 endOfBlock ::
   ControllerParams ->
   InclusionPrice ->
@@ -271,6 +286,9 @@ endOfBlock ::
   DynamicPricing era
 endOfBlock params floorPrice capacities ps =
   ps
-    { publishedPrices = reprice params floorPrice capacities ps
+    { publishedPrices = prices
+    , pricingSignals = signals
     , blockUsage = emptyBlockUsage
     }
+  where
+    (prices, signals) = reprice params floorPrice capacities ps

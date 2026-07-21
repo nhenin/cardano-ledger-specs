@@ -418,6 +418,8 @@ divupTransition (BbodyState ls blocksMade) = do
         InclusionCapacities
           { urgentCapacity = BlockCapacity (toInteger maxBytes)
           , optimisticCapacity = optimisticBlockCapacity
+          , urgentExUnitsCapacity = maxExUnits
+          , optimisticExUnitsCapacity = optimisticMaxExUnits
           }
       -- Overflow hard cap: the endorser block's own byte budget
       -- ('optimisticBlockCapacity', the CIP-164 closure-size limit). The

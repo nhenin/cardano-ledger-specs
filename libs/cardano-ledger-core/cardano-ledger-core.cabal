@@ -69,6 +69,7 @@ library
     Cardano.Ledger.DynamicPricing.Pricing
     Cardano.Ledger.DynamicPricing.Refunds
     Cardano.Ledger.DynamicPricing.Repricing
+    Cardano.Ledger.DynamicPricing.Signal
     Cardano.Ledger.DynamicPricing.State
     Cardano.Ledger.DynamicPricing.Usage
     Cardano.Ledger.Genesis
