@@ -26,7 +26,6 @@ module Cardano.Ledger.Shelley.Governance (
   futurePParamsShelleyGovStateL,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (EraPricing (..), NoPricing)
 import Cardano.Ledger.BaseTypes (KeyValuePairs (..), ToKeyValuePairs (..))
 import Cardano.Ledger.Binary (
   DecCBOR (decCBOR),
@@ -40,6 +39,7 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Binary.Coders (Decode (..), Encode (..), decode, encode, (!>), (<!))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..), NoPricing)
 import Cardano.Ledger.Shelley.Era (ShelleyEra)
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates, emptyPPPUpdates)
 import Cardano.Ledger.State
@@ -49,7 +49,6 @@ import Data.Default (Default (..))
 import GHC.Generics (Generic)
 import Lens.Micro (Lens', lens)
 import NoThunks.Class (NoThunks (..))
-
 
 instance EraPricing ShelleyEra where
   type PricingState ShelleyEra = NoPricing ShelleyEra

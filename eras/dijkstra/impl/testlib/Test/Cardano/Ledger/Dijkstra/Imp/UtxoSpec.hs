@@ -34,7 +34,13 @@ import Cardano.Ledger.DynamicPricing (
   pendingRefunds,
   quoteFor,
  )
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), esLStateL, lsUTxOStateL, nesEsL, utxosPricingL)
+import Cardano.Ledger.Shelley.LedgerState (
+  UTxOState (..),
+  esLStateL,
+  lsUTxOStateL,
+  nesEsL,
+  utxosPricingL,
+ )
 import Cardano.Ledger.Tools (ensureMinCoinTxOut)
 import Cardano.Ledger.Val ((<->))
 import qualified Data.Map.Strict as Map
@@ -72,7 +78,8 @@ spec = do
       -- hand-set fee — whatever the genesis calibration happens to be.
       modifyNES $
         nesEsL . esLStateL . lsUTxOStateL . utxosPricingL
-          %~ \ps -> ps {publishedPrices = InclusionPrices (InclusionPrice (Coin 440)) (optimistic (publishedPrices ps))}
+          %~ \ps ->
+            ps {publishedPrices = InclusionPrices (InclusionPrice (Coin 440)) (optimistic (publishedPrices ps))}
       pp <- getsPParams id
       pricing <- utxosPricing <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
       let tx =
@@ -82,7 +89,7 @@ spec = do
       submitFailingTxM tx $ \txFixed -> do
         let bid = txFixed ^. bodyTxL . feeTxBodyL
             Quote quote = quoteFor pp txFixed (currentPrice Urgent pricing)
-        pure [injectFailure $ BidBelowQuote Mismatch{mismatchSupplied = bid, mismatchExpected = quote}]
+        pure [injectFailure $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}]
 
     it "U2: splits the bid — base stays in the fee pot, premium donated, the rest owed back" $ do
       (_, addr) <- freshKeyAddr

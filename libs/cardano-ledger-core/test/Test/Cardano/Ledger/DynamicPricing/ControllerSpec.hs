@@ -4,7 +4,6 @@
 module Test.Cardano.Ledger.DynamicPricing.ControllerSpec (spec) where
 
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Cardano.Ledger.DynamicPricing.Controller
 import Cardano.Ledger.DynamicPricing.InclusionStrategy (Inclusion (..), InclusionDelivery (..))
 import Cardano.Ledger.DynamicPricing.Pricing (
@@ -24,6 +23,7 @@ import Cardano.Ledger.DynamicPricing.State (
   recordTx,
   reprice,
  )
+import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Data.Ratio ((%))
 import Test.Cardano.Ledger.Common
 

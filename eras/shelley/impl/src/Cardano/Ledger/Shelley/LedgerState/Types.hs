@@ -43,9 +43,9 @@ import Cardano.Ledger.Binary (
   encodeMemPack,
  )
 import Cardano.Ledger.Binary.Coders (Decode (From, RecD), Encode (..), decode, encode, (!>), (<!))
-import Cardano.Ledger.DynamicPricing.State (EraPricing (..), PricingState)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Credential (Credential (..))
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..), PricingState)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.Era (ShelleyEra)
 import Cardano.Ledger.Shelley.PoolRank (NonMyopic (..))

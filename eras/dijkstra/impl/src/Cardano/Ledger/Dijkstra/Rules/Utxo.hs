@@ -31,6 +31,7 @@ import Cardano.Ledger.Alonzo.Rules (
   AlonzoUtxosPredFailure,
  )
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
+import Cardano.Ledger.Alonzo.Tx (totExUnits)
 import Cardano.Ledger.Babbage.Rules (
   BabbageUtxoPredFailure,
   babbageUtxoValidation,
@@ -69,19 +70,16 @@ import Cardano.Ledger.Conway.Rules (
 import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, DijkstraUTXO)
+import Cardano.Ledger.Dijkstra.Governance ()
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
-import Cardano.Ledger.Plutus (ExUnits)
-import Cardano.Ledger.Rules.ValidationMode (failOnJustStatic)
-import Cardano.Ledger.Alonzo.Tx (totExUnits)
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
-import Cardano.Ledger.Val ((<->))
 import Cardano.Ledger.DynamicPricing (
   DynamicPricing,
   Inclusion (..),
-  blockDelivery,
   MinimumTxFee (..),
   Quote (..),
   addPendingRefund,
+  blockDelivery,
   chargedStrategy,
   currentPrice,
   defaultControllerParams,
@@ -91,8 +89,9 @@ import Cardano.Ledger.DynamicPricing (
   txSizeInBytes,
   worstCaseNextPrice,
  )
-import Cardano.Ledger.Dijkstra.Governance ()
 import Cardano.Ledger.DynamicPricing.State (PricingState)
+import Cardano.Ledger.Plutus (ExUnits)
+import Cardano.Ledger.Rules.ValidationMode (failOnJustStatic)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import Cardano.Ledger.Shelley.Rules (
   ShelleyUtxoPredFailure,
@@ -105,6 +104,7 @@ import Cardano.Ledger.State (
   EraUTxO,
  )
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Val ((<->))
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
   Embed (..),
@@ -320,9 +320,10 @@ dijkstraUtxoTransition = do
   -- U1: the bid covers the current quote applicable at this inclusion point.
   -- Subsumes the plain min-fee premise (the quote never undercuts the
   -- protocol minimum fee), which babbageUtxoValidation still checks anyway.
-  quote <= bid
-    ?! injectFailure
-      (BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote})
+  quote
+    <= bid
+      ?! injectFailure
+        (BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote})
   validateNoPtrInCollateralReturn txBody
   updatedUtxos <- trans @(EraRule "UTXOS" era) $ TRC (pp, utxos, tx)
   finalUtxos <- updateUTxOStateByTxValidity pp certState (utxosGovState utxos) tx updatedUtxos
@@ -531,13 +532,13 @@ recheckBidCoversQuote pp utxos tx
   | quote <= bid = Nothing
   | otherwise =
       Just $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}
- where
-  txBody = tx ^. bodyTxL
-  bid = txBody ^. feeTxBodyL
-  quoteAt strategy = quoteFor pp tx (currentPrice strategy (utxosPricing utxos))
-  Quote quote = case txBody ^. inclusionTxBodyL of
-    Urgent -> max (quoteAt Urgent) (quoteAt Optimistic)
-    Optimistic -> quoteAt Optimistic
+  where
+    txBody = tx ^. bodyTxL
+    bid = txBody ^. feeTxBodyL
+    quoteAt strategy = quoteFor pp tx (currentPrice strategy (utxosPricing utxos))
+    Quote quote = case txBody ^. inclusionTxBodyL of
+      Urgent -> max (quoteAt Urgent) (quoteAt Optimistic)
+      Optimistic -> quoteAt Optimistic
 
 -- | The admission-side headroom (node policy, the CIP's rule — NOT a ledger
 -- rule): the bid must cover the quote one worst-case controller step ahead,
@@ -555,13 +556,12 @@ admissionBidCoversQuote pp utxos tx
   | quote <= bid = Nothing
   | otherwise =
       Just $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}
- where
-  txBody = tx ^. bodyTxL
-  bid = txBody ^. feeTxBodyL
-  steppedQuoteAt strategy =
-    quoteFor pp tx . worstCaseNextPrice defaultControllerParams $
-      currentPrice strategy (utxosPricing utxos)
-  Quote quote = case txBody ^. inclusionTxBodyL of
-    Urgent -> max (steppedQuoteAt Urgent) (steppedQuoteAt Optimistic)
-    Optimistic -> steppedQuoteAt Optimistic
-
+  where
+    txBody = tx ^. bodyTxL
+    bid = txBody ^. feeTxBodyL
+    steppedQuoteAt strategy =
+      quoteFor pp tx . worstCaseNextPrice defaultControllerParams $
+        currentPrice strategy (utxosPricing utxos)
+    Quote quote = case txBody ^. inclusionTxBodyL of
+      Urgent -> max (steppedQuoteAt Urgent) (steppedQuoteAt Optimistic)
+      Optimistic -> steppedQuoteAt Optimistic

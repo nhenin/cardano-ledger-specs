@@ -38,7 +38,6 @@ module Test.Cardano.Ledger.Shelley.Examples (
   seedFromWords,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import qualified Cardano.Chain.Common as Byron
 import Cardano.Crypto.DSIGN as DSIGN
 import Cardano.Crypto.Hash as Hash
@@ -49,6 +48,7 @@ import Cardano.Ledger.Address (BootstrapAddress (..))
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (EncCBOR (..), hashWithEncoder)
 import Cardano.Ledger.Coin
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import Cardano.Ledger.Keys
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API

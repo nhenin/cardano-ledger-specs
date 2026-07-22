@@ -130,6 +130,9 @@ transaction_body =
   , ? 23 : sub_transactions                 ; sub-transactions (NEW)
   , ? 25 : direct_deposits                  ; direct deposits
   , ? 26 : account_balance_intervals        ; account balance intervals
+  , ? 27 : 0
+           / 1                             ; inclusion: urgent (0) / optimistic (1; omitted by encoder)
+  , ? 28 : reward_account                   ; fee refund account
   }
 
 

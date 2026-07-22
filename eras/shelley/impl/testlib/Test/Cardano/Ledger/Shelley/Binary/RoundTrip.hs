@@ -11,9 +11,9 @@ module Test.Cardano.Ledger.Shelley.Binary.RoundTrip (
   roundTripStateEraTypesSpec,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Core
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.State

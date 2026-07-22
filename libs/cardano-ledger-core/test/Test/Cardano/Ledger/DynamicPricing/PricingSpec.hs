@@ -31,7 +31,11 @@ spec = describe "DynamicPricing.Pricing" $ do
       forAll genPrice $ \fast ->
         forAll genPrice $ \patient ->
           let prices = InclusionPrices fast patient
-           in priceOf Urgent prices === fast
-                .&&. priceOf Optimistic prices === patient
-                .&&. priceOf Urgent prices === urgent prices
-                .&&. priceOf Optimistic prices === optimistic prices
+           in priceOf Urgent prices
+                === fast
+                .&&. priceOf Optimistic prices
+                === patient
+                .&&. priceOf Urgent prices
+                === urgent prices
+                .&&. priceOf Optimistic prices
+                === optimistic prices

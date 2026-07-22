@@ -27,10 +27,16 @@ module Test.Cardano.Ledger.Shelley.Arbitrary (
   sizedNativeScriptGens,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (DynamicPricing, EraPricing (..), NoPricing (..), PricingState, initialPricingState)
 import qualified Cardano.Chain.UTxO as Byron
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (EncCBOR (..))
+import Cardano.Ledger.DynamicPricing.State (
+  DynamicPricing,
+  EraPricing (..),
+  NoPricing (..),
+  PricingState,
+  initialPricingState,
+ )
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API (
   ApplyTx (..),

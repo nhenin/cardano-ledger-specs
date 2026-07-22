@@ -10,9 +10,9 @@ module Test.Cardano.Ledger.Shelley.TreeDiff (
   module Test.Cardano.Ledger.TreeDiff,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (DynamicPricing, NoPricing, PricingState)
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Core
+import Cardano.Ledger.DynamicPricing.State (DynamicPricing, NoPricing, PricingState)
 import Cardano.Ledger.Rewards
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.AdaPots (AdaPots)

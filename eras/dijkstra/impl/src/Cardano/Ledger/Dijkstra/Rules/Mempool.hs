@@ -21,7 +21,6 @@ module Cardano.Ledger.Dijkstra.Rules.Mempool (
   DijkstraMempoolEvent (..),
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (DynamicPricing, PricingState)
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext)
 import Cardano.Ledger.BaseTypes (ShelleyBase)
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
@@ -77,6 +76,7 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.State
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody)
 import Cardano.Ledger.Dijkstra.TxCert
+import Cardano.Ledger.DynamicPricing.State (DynamicPricing, PricingState)
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.Rules (
   LedgerEnv (..),

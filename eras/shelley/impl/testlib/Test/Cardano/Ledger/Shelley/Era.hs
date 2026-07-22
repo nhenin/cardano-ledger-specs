@@ -15,11 +15,11 @@ module Test.Cardano.Ledger.Shelley.Era (
   shelleyAccountsFromAccountsMap,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Binary (DecCBOR, EncCBOR, ToCBOR)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Plutus (emptyCostModels)
 import Cardano.Ledger.Shelley
 import Cardano.Ledger.Shelley.API (ApplyBlock, ApplyTx)

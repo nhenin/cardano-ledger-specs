@@ -91,11 +91,10 @@ import Cardano.Ledger.DynamicPricing (
   usageOf,
  )
 import Cardano.Ledger.DynamicPricing.State (PricingState)
-import Cardano.Ledger.Plutus.ExUnits (pointWiseExUnits)
 import Cardano.Ledger.Keys (coerceKeyRole)
+import Cardano.Ledger.Plutus.ExUnits (pointWiseExUnits)
 import Cardano.Ledger.Shelley.BlockBody (incrBlocks)
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), lsUTxOStateL, utxosPricingL)
-import Cardano.Ledger.Slot (epochInfoEpoch, epochInfoFirst)
 import Cardano.Ledger.Shelley.Rules (
   BbodyEnv (..),
   ShelleyBbodyPredFailure,
@@ -107,6 +106,7 @@ import Cardano.Ledger.Shelley.Rules (
   ShelleyUtxowPredFailure,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
+import Cardano.Ledger.Slot (epochInfoEpoch, epochInfoFirst)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition (
@@ -117,9 +117,9 @@ import Control.State.Transition (
   liftSTS,
   trans,
  )
-import qualified Data.Sequence.Strict as StrictSeq
 import Control.State.Transition.Extended (TRC (..), failBecause, (?!))
 import Data.Sequence (Seq)
+import qualified Data.Sequence.Strict as StrictSeq
 import Data.Word (Word32)
 import GHC.Generics (Generic)
 import Lens.Micro ((%~), (&), (^.))
@@ -469,7 +469,8 @@ dijkstraLedgersBbodyTransition =
             txTotal = foldMap totExUnits txs
             ppMax = pp ^. ppMaxBlockExUnitsL
         pointWiseExUnits (<=) txTotal ppMax
-          ?! injectFailure (Alonzo.TooManyExUnits Mismatch {mismatchSupplied = txTotal, mismatchExpected = ppMax})
+          ?! injectFailure
+            (Alonzo.TooManyExUnits Mismatch {mismatchSupplied = txTotal, mismatchExpected = ppMax})
 
         pure $
           BbodyState @era

@@ -13,7 +13,6 @@ module Cardano.Ledger.Shelley.API.ByronTranslation (
   translateTxIdByronToShelley,
 ) where
 
-import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import qualified Cardano.Chain.Block as Byron
 import qualified Cardano.Chain.Common as Byron
 import qualified Cardano.Chain.UTxO as Byron
@@ -22,6 +21,7 @@ import qualified Cardano.Crypto.Hashing as Hashing
 import Cardano.Ledger.Address (fromBoostrapCompactAddress, isBootstrapRedeemer)
 import Cardano.Ledger.BaseTypes (BlocksMade (..), EpochNo, TxIx (..))
 import Cardano.Ledger.Coin (CompactForm (CompactCoin))
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API.Types

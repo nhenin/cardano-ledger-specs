@@ -11,7 +11,6 @@
 
 module Cardano.Ledger.Dijkstra.Translation () where
 
-import Cardano.Ledger.DynamicPricing.State (initialPricingState)
 import Cardano.Ledger.Binary (DecoderError)
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Core
@@ -40,6 +39,7 @@ import Cardano.Ledger.Dijkstra.Tx ()
 import Cardano.Ledger.Dijkstra.TxAuxData ()
 import Cardano.Ledger.Dijkstra.TxBody (upgradeGovAction, upgradeProposals)
 import Cardano.Ledger.Dijkstra.TxWits ()
+import Cardano.Ledger.DynamicPricing.State (initialPricingState)
 import qualified Cardano.Ledger.Shelley.API as API
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
