@@ -59,13 +59,14 @@ data InclusionCapacities = InclusionCapacities
   }
   deriving stock (Eq, Show, Generic)
 
--- | The optimistic inclusion's own block-body budget: the real mainnet
--- calibration (the CIP-164 endorser-block closure-size limit, 12 MB), an
--- absolute budget — unlike the urgent one it is not a protocol-parameter
--- multiple of the regular block. Eventually a protocol parameter; a constant
--- for the prototype.
+-- | The optimistic inclusion's own block-body budget: mainnet's CIP-164
+-- closure THROUGHPUT at the demo's block cadence — 12 MB per 20-second
+-- round on mainnet is 3 MB per 5-second round here, the same bytes per
+-- second. An absolute budget — unlike the urgent one it is not a
+-- protocol-parameter multiple of the regular block. Eventually a protocol
+-- parameter; a constant for the prototype.
 optimisticBlockCapacity :: BlockCapacity
-optimisticBlockCapacity = BlockCapacity 12000000
+optimisticBlockCapacity = BlockCapacity 3000000
 
 -- | The controller calibration the ledger runs: the CIP's recommended
 -- construction (@target = 1/2@, @D = 16@, so at most +/-6.25% per block).
