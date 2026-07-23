@@ -538,14 +538,24 @@ divupTransition (BbodyState ls blocksMade) = do
           , optimisticExUnitsCapacity = optimisticMaxExUnits
           }
       -- Overflow hard cap: the endorser block's own byte budget
-      -- ('optimisticBlockCapacity', the CIP-164 closure-size limit). The
-      -- execution-unit ceiling scales with how many regular blocks fit in that
-      -- budget, pending a real per-endorser-block execution budget.
-      optimisticMaxBytes = fromInteger (unBlockCapacity optimisticBlockCapacity)
+      -- ('optimisticBlockCapacity', the CIP-164 closure-size limit) — plus
+      -- the ranking block's own budget on a certified round, which carries
+      -- the cargo AND its payload, each filling its own transport. The
+      -- execution-unit ceiling scales with how many regular blocks fit in
+      -- the budget, pending a real per-endorser-block execution budget.
+      certifiedRound = case blockDelivery pricing of
+        Certified -> True
+        Immediate -> False
+      optimisticMaxBytes
+        | certifiedRound = fromInteger (unBlockCapacity optimisticBlockCapacity) + maxBytes
+        | otherwise = fromInteger (unBlockCapacity optimisticBlockCapacity)
       optimisticExUnitsFactor =
         fromInteger $ unBlockCapacity optimisticBlockCapacity `div` max 1 (toInteger maxBytes)
+      exUnitsBudgetFactor
+        | certifiedRound = optimisticExUnitsFactor + 1
+        | otherwise = optimisticExUnitsFactor
       optimisticMaxExUnits =
-        ExUnits (optimisticExUnitsFactor * maxMem) (optimisticExUnitsFactor * maxSteps)
+        ExUnits (exUnitsBudgetFactor * maxMem) (exUnitsBudgetFactor * maxSteps)
   optimisticBytes
     <= optimisticMaxBytes
       ?! injectFailure
