@@ -455,7 +455,10 @@ dijkstraLedgersBbodyTransition =
           pure (epochInfoFirst ei curEpochNo, curEpochNo)
 
         -- The Dijkstra addition: stamp the block's delivery before its
-        -- transactions are judged and settled.
+        -- transactions are judged and settled. A certified round stamps
+        -- the block's OWN payload too: the express-reserve parents it
+        -- carries settle at the certified rate, delivery-priced like the
+        -- cargo they unlock.
         let delivery = case txsSeq ^. leiosCertBlockBodyL of
               SJust _ -> Certified
               SNothing -> Immediate
@@ -508,11 +511,12 @@ divupTransition ::
 divupTransition (BbodyState ls blocksMade) = do
   TRC (BbodyEnv pp _, _, _) <- judgmentContext
   let pricing = ls ^. lsUTxOStateL . utxosPricingL
-      -- On a certified round the WHOLE block is the endorser block's cargo
-      -- (the certificate-carrying ranking block is payload-free), so B1
-      -- bounds the total usage — urgent riders included — against the EB
-      -- budgets. On an immediate round the optimistic usage is the check's
-      -- subject as before (and zero in practice).
+      -- On a certified round the block applies its OWN payload first and
+      -- then the endorser block's cargo (consensus prepends the payload at
+      -- resolve time — dropping it would orphan the cargo's children), so
+      -- B1 bounds their combined usage — urgent riders included — against
+      -- the EB budgets. On an immediate round the optimistic usage is the
+      -- check's subject as before (and zero in practice).
       optimisticUsage = case blockDelivery pricing of
         Certified -> usageOf Urgent (blockUsage pricing) <> usageOf Optimistic (blockUsage pricing)
         Immediate -> usageOf Optimistic (blockUsage pricing)
