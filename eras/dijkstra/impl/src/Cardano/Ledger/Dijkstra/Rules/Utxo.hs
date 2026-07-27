@@ -342,7 +342,10 @@ dijkstraUtxoTransition = do
     SJust (AccountAddress _ (AccountId cred)) ->
       let MinimumTxFee base = minimumTxFee pp tx
           premium = quote <-> base
-          refund = bid <-> quote
+          -- A BidBelowQuote failure does not short-circuit STS evaluation.
+          -- Keep the discarded failure-state representable so the predicate
+          -- failure can be returned instead of compacting a negative Coin.
+          refund = if bid >= quote then bid <-> quote else mempty
        in finalUtxos
             { utxosPricing = addPendingRefund cred refund recorded
             , utxosFees = utxosFees finalUtxos <-> premium <-> refund

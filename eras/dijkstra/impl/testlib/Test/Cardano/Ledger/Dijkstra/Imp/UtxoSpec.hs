@@ -54,6 +54,7 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (
   getsNES,
   getsPParams,
   modifyNES,
+  registerStakeCredential,
   sendCoinTo,
   submitFailingTx,
   submitFailingTxM,
@@ -72,6 +73,8 @@ spec = do
     it "U1: rejects a bid below the lane's quote" $ do
       (_, addr) <- freshKeyAddr
       txIn <- sendCoinTo addr (Coin 10000000)
+      refundCred <- KeyHashObj <$> freshKeyHash
+      refundAccount <- registerStakeCredential refundCred
       -- Pin the urgent rate well above the classic min-fee rate: the fixup
       -- raises the bid only to the CLASSIC min fee, so declaring Urgent
       -- leaves the fixed-up bid under the quote and U1 fires, with no
@@ -86,6 +89,9 @@ spec = do
             mkBasicTx mkBasicTxBody
               & bodyTxL . inputsTxBodyL .~ [txIn]
               & bodyTxL . inclusionTxBodyL .~ Urgent
+              -- A registered refund account exercises the strict balance
+              -- compaction that used to crash before returning BidBelowQuote.
+              & bodyTxL . feeRefundAccountTxBodyL .~ SJust refundAccount
       submitFailingTxM tx $ \txFixed -> do
         let bid = txFixed ^. bodyTxL . feeTxBodyL
             Quote quote = quoteFor pp txFixed (currentPrice Urgent pricing)
