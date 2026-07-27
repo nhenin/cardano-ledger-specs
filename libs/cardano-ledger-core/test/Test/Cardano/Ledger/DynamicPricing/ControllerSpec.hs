@@ -10,7 +10,11 @@ import Cardano.Ledger.DynamicPricing.Pricing (
   InclusionPrice (..),
   InclusionPrices (..),
  )
-import Cardano.Ledger.DynamicPricing.Signal (emptyPricingSignals)
+import Cardano.Ledger.DynamicPricing.Signal (
+  PricingSignals (..),
+  emptyPricingSignals,
+  windowUtilisation,
+ )
 import Cardano.Ledger.DynamicPricing.State (
   BlockCapacity (..),
   DynamicPricing (..),
@@ -146,6 +150,31 @@ spec = describe "DynamicPricing.Controller" $ do
         certRound = (recordTx Optimistic 1000 (Coin 0) mempty afterRb) {blockDelivery = Certified}
         (prices, _) = reprice defaultControllerParams floorPrice testCaps certRound
     urgent prices `shouldBe` InclusionPrice (Coin 94)
+
+  it "reprice: an oversized urgent EB rider counts as one reservation sample" $ do
+    let ps0 = initialPricingState :: DynamicPricing ()
+        floorPrice = InclusionPrice (Coin 44)
+        oversizedRider =
+          ( recordTx
+              Urgent
+              33_000
+              (Coin 0)
+              (ExUnits 33_000_000 33_000_000)
+              ps0
+          )
+            { blockDelivery = Certified
+            }
+        afterRider = endOfBlock defaultControllerParams floorPrice testCaps oversizedRider
+        afterFiveSamples =
+          iterate
+            (endOfBlock defaultControllerParams floorPrice testCaps)
+            afterRider
+            !! 4
+    -- The certified EB carried 33 reservation-equivalents, followed by four
+    -- empty samples. The CIP caps that first sample to one reservation, so
+    -- the five-sample window reads 1/5 rather than 33/5.
+    windowUtilisation (urgentWindow (pricingSignals afterFiveSamples))
+      `shouldBe` Just (Utilisation (1 % 5))
 
   it "reprice: a temporary quote crossing is published as stepped (no cross-lane floor)" $ do
     -- Urgent sits at the lane floor (44): its zero sample steps it down and

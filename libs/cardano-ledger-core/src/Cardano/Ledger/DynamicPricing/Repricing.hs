@@ -36,7 +36,7 @@ import Cardano.Ledger.DynamicPricing.Signal (
   windowUtilisation,
  )
 import Cardano.Ledger.DynamicPricing.Usage (BlockUsage, bytesUsed, exUnitsUsed, usageOf)
-import Cardano.Ledger.Plutus.ExUnits (ExUnits)
+import Cardano.Ledger.Plutus.ExUnits (ExUnits (..))
 import Data.Ratio ((%))
 import GHC.Generics (Generic)
 
@@ -96,11 +96,12 @@ defaultControllerParams =
 --   the RB's full capacity — standard transactions cannot occupy a ranking
 --   block, yet its capacity still weighs the standard denominator down.
 -- * A certification reprice adds a standard sample (the endorser block's
---   fill against its own 12 MB budget) and an urgent sample measuring the
+--   fill against its own 3 MB devnet budget, throughput-equivalent to 12 MB
+--   per mainnet round) and an urgent sample measuring the
 --   EB's urgent traffic against the RESERVATION capacity — how many ranking
---   blocks' worth of urgent traffic the EB carried, not how full it was.
---   With the prototype's disjoint lanes that urgent sample is zero: an idle
---   reservation, smoothed by the five-sample window.
+--   blocks' worth of urgent traffic the EB carried, not how full it was. An
+--   EB can carry urgent riders beyond the reservation, so each urgent sample
+--   is capped at one reservation before it enters the five-sample window.
 --
 -- Both lanes step on every sample-carrying reprice; a lane with an empty
 -- window (genesis) holds.
@@ -129,10 +130,10 @@ repriceBlockUsage params floorPrice capacities delivery prices signals usage =
         }
     urgentSample =
       Sample
-        { sampleBytes = laneBytes Urgent
-        , sampleByteCapacity = unBlockCapacity (urgentCapacity capacities)
-        , sampleExUnits = laneExUnits Urgent
-        , sampleExUnitsCapacity = urgentExUnitsCapacity capacities
+        { sampleBytes = min urgentBytesCapacity (laneBytes Urgent)
+        , sampleByteCapacity = urgentBytesCapacity
+        , sampleExUnits = capExUnits urgentExUnitsLimit (laneExUnits Urgent)
+        , sampleExUnitsCapacity = urgentExUnitsLimit
         }
     standardSample
       | certificationReprice =
@@ -156,3 +157,7 @@ repriceBlockUsage params floorPrice capacities delivery prices signals usage =
     laneBytes strategy =
       toInteger . unTxSizeInBytes . bytesUsed $ usageOf strategy usage
     laneExUnits strategy = exUnitsUsed (usageOf strategy usage)
+    urgentBytesCapacity = unBlockCapacity (urgentCapacity capacities)
+    urgentExUnitsLimit = urgentExUnitsCapacity capacities
+    capExUnits (ExUnits capMem capSteps) (ExUnits usedMem usedSteps) =
+      ExUnits (min capMem usedMem) (min capSteps usedSteps)

@@ -40,8 +40,8 @@ import NoThunks.Class (NoThunks)
 -- | One sample-carrying block's contribution to a lane's signal: usage
 -- against the capacity it was measured over. The urgent lane measures a
 -- certified endorser block against the RESERVATION capacity (a ranking
--- block's), never the endorser block's own — the sample asks how many
--- ranking blocks' worth of urgent traffic the block carried.
+-- block's), never the endorser block's own. Its usage is capped to that
+-- reservation before the sample enters the window.
 data Sample = Sample
   { sampleBytes :: !Integer
   , sampleByteCapacity :: !Integer
