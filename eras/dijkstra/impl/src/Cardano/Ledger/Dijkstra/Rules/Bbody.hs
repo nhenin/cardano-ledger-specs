@@ -455,10 +455,9 @@ dijkstraLedgersBbodyTransition =
           pure (epochInfoFirst ei curEpochNo, curEpochNo)
 
         -- The Dijkstra addition: stamp the block's delivery before its
-        -- transactions are judged and settled. A certified round stamps
-        -- the block's OWN payload too: the express-reserve parents it
-        -- carries settle at the certified rate, delivery-priced like the
-        -- cargo they unlock.
+        -- transactions are judged and settled. A certified round contains no
+        -- Ranking Block payload; all transactions in its resolved sequence
+        -- come from the certified Endorser Block cargo.
         let delivery = case txsSeq ^. leiosCertBlockBodyL of
               SJust _ -> Certified
               SNothing -> Immediate
@@ -511,12 +510,12 @@ divupTransition ::
 divupTransition (BbodyState ls blocksMade) = do
   TRC (BbodyEnv pp _, _, _) <- judgmentContext
   let pricing = ls ^. lsUTxOStateL . utxosPricingL
-      -- On a certified round the block applies its OWN payload first and
-      -- then the endorser block's cargo (consensus prepends the payload at
-      -- resolve time — dropping it would orphan the cargo's children), so
-      -- B1 bounds their combined usage — urgent riders included — against
-      -- the EB budgets. On an immediate round the optimistic usage is the
-      -- check's subject as before (and zero in practice).
+      -- A certificate-carrying Ranking Block is payload-free. Its resolved
+      -- transaction sequence is solely the certified Endorser Block cargo,
+      -- which may contain both urgent riders and optimistic transactions, so
+      -- B1 bounds their combined usage against the EB budgets. On an immediate
+      -- round the optimistic usage is the check's subject as before (and zero
+      -- in practice).
       optimisticUsage = case blockDelivery pricing of
         Certified -> usageOf Urgent (blockUsage pricing) <> usageOf Optimistic (blockUsage pricing)
         Immediate -> usageOf Optimistic (blockUsage pricing)
