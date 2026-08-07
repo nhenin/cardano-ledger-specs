@@ -19,6 +19,7 @@ import Cardano.Ledger.Alonzo.Genesis (AlonzoGenesis (..))
 import Cardano.Ledger.Alonzo.PParams ()
 import Cardano.Ledger.Alonzo.State
 import Cardano.Ledger.Binary (DecoderError)
+import Cardano.Ledger.DynamicPricing.State (NoPricing (..))
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
@@ -141,6 +142,7 @@ instance TranslateEra AlonzoEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosPricing = NoPricing
         }
 
 instance TranslateEra AlonzoEra ShelleyInstantStake where

@@ -33,6 +33,7 @@ import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
 import Cardano.Ledger.Dijkstra.TxBody (TxBody (..))
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
+import Cardano.Ledger.DynamicPricing (Inclusion (..))
 import Cardano.Ledger.Shelley.Rules (ShelleyPoolPredFailure)
 import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
 import Data.Functor.Identity (Identity)
@@ -97,6 +98,11 @@ instance Arbitrary (TxBody TopTx DijkstraEra) where
       <*> (choose (0, 4) >>= \n -> OMap.fromFoldable <$> vectorOf n arbitrary)
       <*> arbitrary
       <*> arbitrary
+      <*> arbitrary
+      <*> arbitrary
+
+instance Arbitrary Inclusion where
+  arbitrary = elements [Urgent, Optimistic]
 
 instance Arbitrary (UpgradeDijkstraPParams Identity DijkstraEra) where
   arbitrary = genericArbitraryU

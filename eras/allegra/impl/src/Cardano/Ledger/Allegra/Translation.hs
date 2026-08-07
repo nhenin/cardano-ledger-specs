@@ -16,6 +16,7 @@ import Cardano.Ledger.Allegra.Era (AllegraEra)
 import Cardano.Ledger.Allegra.State
 import Cardano.Ledger.Allegra.Tx ()
 import Cardano.Ledger.Binary (DecoderError)
+import Cardano.Ledger.DynamicPricing.State (NoPricing (..))
 import Cardano.Ledger.Genesis (NoGenesis (..))
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Core
@@ -121,6 +122,7 @@ instance TranslateEra AllegraEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosPricing = NoPricing
         }
 
 instance TranslateEra AllegraEra ShelleyInstantStake where

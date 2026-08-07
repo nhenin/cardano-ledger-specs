@@ -33,6 +33,7 @@ import Cardano.Ledger.Conway.Governance (
 import Cardano.Ledger.Conway.Scripts ()
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Conway.Tx ()
+import Cardano.Ledger.DynamicPricing.State (NoPricing (..))
 import Cardano.Ledger.Shelley.API (
   EpochState (..),
   NewEpochState (..),
@@ -184,6 +185,7 @@ instance TranslateEra ConwayEra UTxOState where
         , API.utxosGovState = translateGovState ctxt $ API.utxosGovState us
         , API.utxosInstantStake = ConwayInstantStake . sisCredentialStake $ API.utxosInstantStake us
         , API.utxosDonation = API.utxosDonation us
+        , API.utxosPricing = NoPricing
         }
 
 instance TranslateEra ConwayEra API.UTxO where

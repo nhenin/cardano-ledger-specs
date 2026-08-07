@@ -17,6 +17,7 @@ import Cardano.Ledger.Alonzo.Tx (IsValid (..))
 import Cardano.Ledger.BaseTypes (ShelleyBase)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState,
@@ -127,6 +128,7 @@ testTxValidForLEDGER ::
   ( Reflect era
   , Signal (EraRule "LEDGER" era) ~ Tx TopTx era
   , State (EraRule "LEDGER" era) ~ LedgerState era
+  , ToExpr (PricingState era)
   , ToExpr (PredicateFailure (EraRule "LEDGER" era))
   , EraTest era
   , BaseM (EraRule "LEDGER" era) ~ ShelleyBase
@@ -273,6 +275,7 @@ adaIsPreservedInEachEpoch ::
   , Embed (EraRule "RUPD" era) (ShelleyTICK era)
   , Embed (EraRule "LEDGERS" era) (MOCKCHAIN era)
   , EraGenericGen era
+  , ToExpr (PricingState era)
   , ToExpr (PredicateFailure (EraRule "NEWEPOCH" era))
   , ToExpr (PredicateFailure (EraRule "RUPD" era))
   , ToExpr (PredicateFailure (EraRule "LEDGER" era))

@@ -62,6 +62,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible (toCompactPartial)
 import Cardano.Ledger.Core (EraPParams (..))
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..), NoPricing)
 import Cardano.Ledger.HKD (HKDFunctor (..))
 import Cardano.Ledger.Orphans ()
 import Cardano.Ledger.Shelley.PParams
@@ -245,6 +246,9 @@ instance AlonzoEraPParams BabbageEra where
 
 instance BabbageEraPParams BabbageEra where
   hkdCoinsPerUTxOByteL = lens bppCoinsPerUTxOByte (\pp x -> pp {bppCoinsPerUTxOByte = x})
+
+instance EraPricing BabbageEra where
+  type PricingState BabbageEra = NoPricing BabbageEra
 
 instance EraGov BabbageEra where
   type GovState BabbageEra = ShelleyGovState BabbageEra

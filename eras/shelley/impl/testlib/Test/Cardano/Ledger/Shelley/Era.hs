@@ -19,6 +19,7 @@ import Cardano.Ledger.Binary (DecCBOR, EncCBOR, ToCBOR)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Plutus (emptyCostModels)
 import Cardano.Ledger.Shelley
 import Cardano.Ledger.Shelley.API (ApplyBlock, ApplyTx)
@@ -55,6 +56,8 @@ class
   , ToExpr (ScriptsNeeded era)
   , SafeToHash (TxWits era)
   , Typeable (CertState era)
+  , Arbitrary (PricingState era)
+  , ToExpr (PricingState era)
   ) =>
   ShelleyEraTest era
 

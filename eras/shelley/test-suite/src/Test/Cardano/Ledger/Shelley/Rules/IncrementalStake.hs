@@ -169,7 +169,7 @@ checkIncrementalStake ::
   Property
 checkIncrementalStake es =
   let
-    LedgerState (UTxOState utxo _ _ _ instantStake _) certState = esLState es
+    LedgerState (UTxOState utxo _ _ _ instantStake _ _) certState = esLState es
     dstate = certState ^. certDStateL
     pstate = certState ^. certPStateL
     stake = stakeDistr @era utxo dstate pstate

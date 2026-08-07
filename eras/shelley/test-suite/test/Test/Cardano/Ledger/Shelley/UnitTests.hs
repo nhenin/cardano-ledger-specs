@@ -17,6 +17,7 @@ import Cardano.Ledger.Address (accountAddressCredentialL)
 import Cardano.Ledger.BaseTypes hiding ((==>))
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Credential (Credential (..), Ptr (..), SlotNo32 (..), StakeReference (..))
+import Cardano.Ledger.DynamicPricing.State (emptyPricing)
 import Cardano.Ledger.Keys (asWitness)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API (
@@ -298,6 +299,7 @@ utxoState =
     def
     mempty
     mempty
+    emptyPricing
 
 dpState :: CertState ShelleyEra
 dpState = def

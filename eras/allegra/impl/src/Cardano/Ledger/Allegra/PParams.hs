@@ -5,6 +5,7 @@ module Cardano.Ledger.Allegra.PParams () where
 
 import Cardano.Ledger.Allegra.Era (AllegraEra)
 import Cardano.Ledger.Core
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..), NoPricing)
 import Cardano.Ledger.Shelley.Governance
 import Cardano.Ledger.Shelley.PParams
 import Data.Coerce
@@ -41,6 +42,9 @@ instance EraPParams AllegraEra where
   hkdMinPoolCostCompactL = lens sppMinPoolCost $ \pp x -> pp {sppMinPoolCost = x}
 
   eraPParams = shelleyPParams
+
+instance EraPricing AllegraEra where
+  type PricingState AllegraEra = NoPricing AllegraEra
 
 instance EraGov AllegraEra where
   type GovState AllegraEra = ShelleyGovState AllegraEra

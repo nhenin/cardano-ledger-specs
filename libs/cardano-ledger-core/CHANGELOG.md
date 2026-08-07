@@ -1,5 +1,9 @@
 # Version history for `cardano-ledger-core`
 
+## 1.20.0.1
+
+*
+
 ## 1.20.0.0
 
 * Add `Storable` instance for `NonZero`, `CompactForm Coin`, `KeyHash`, `ScriptHash`, `Credential` and `StakeWithDelegation`

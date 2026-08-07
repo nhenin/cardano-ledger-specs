@@ -103,6 +103,7 @@ import Cardano.Ledger.Dijkstra.Scripts
 import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
 import Cardano.Ledger.Dijkstra.TxBody (TxBody (..), upgradeProposals)
 import Cardano.Ledger.Dijkstra.TxCert (DijkstraTxCertUpgradeError)
+import Cardano.Ledger.DynamicPricing (Inclusion (..))
 import Cardano.Ledger.Internal.Era (EraHasName (..))
 import Cardano.Ledger.Keys (HasKeyRole (..))
 import Cardano.Ledger.Mary (MaryEra, TxBody (..))
@@ -625,7 +626,7 @@ instance EraApi DijkstraEra where
             , dtbOutputs = unsafeMapSized upgradeTxOut <$> ctbrOutputs
             , dtbCerts = OSet.fromStrictSeq certs
             , dtbWithdrawals = ctbrWithdrawals
-            , dtbTxfee = ctbrFee
+            , dtbBidFee = ctbrFee
             , dtbVldt = ctbrVldt
             , dtbAdHash = ctbrAuxDataHash
             , dtbMint = ctbrMint
@@ -643,6 +644,8 @@ instance EraApi DijkstraEra where
             , dtbSubTransactions = mempty
             , dtbDirectDeposits = DirectDeposits mempty
             , dtbAccountBalanceIntervals = AccountBalanceIntervals mempty
+            , dtbInclusion = Optimistic
+            , dtbFeeRefundAccount = SNothing
             }
 
   upgradeTxWits atw =

@@ -21,6 +21,7 @@ import Cardano.Ledger.Alonzo.Rules (AlonzoUtxowPredFailure (..))
 import Cardano.Ledger.Babbage.Rules (BabbageUtxowPredFailure (..))
 import Cardano.Ledger.BaseTypes (BlocksMade (..), Globals)
 import Cardano.Ledger.Coin (knownNonZeroCoin)
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
@@ -292,6 +293,7 @@ instance
   ( STS (MOCKCHAIN era)
   , Reflect era
   , EraTest era
+  , ToExpr (PricingState era)
   , ToExpr (PredicateFailure (EraRule "LEDGER" era))
   ) =>
   HasTrace (MOCKCHAIN era) (Gen1 era)

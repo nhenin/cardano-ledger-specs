@@ -14,6 +14,7 @@
 module Cardano.Ledger.Mary.Translation () where
 
 import Cardano.Ledger.Binary (DecoderError)
+import Cardano.Ledger.DynamicPricing.State (NoPricing (..))
 import Cardano.Ledger.Genesis (NoGenesis (..))
 import Cardano.Ledger.Mary.Core
 import Cardano.Ledger.Mary.Era (MaryEra)
@@ -143,6 +144,7 @@ instance TranslateEra MaryEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosPricing = NoPricing
         }
 
 instance TranslateEra MaryEra ShelleyInstantStake where

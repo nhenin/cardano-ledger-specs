@@ -92,6 +92,7 @@ import Cardano.Ledger.Binary (
  )
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Core (EraPParams (..))
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..), NoPricing)
 import Cardano.Ledger.HKD (HKDFunctor (..))
 import Cardano.Ledger.Mary.Core
 import Cardano.Ledger.Plutus.CostModels (
@@ -385,6 +386,9 @@ instance AlonzoEraPParams AlonzoEra where
     lens appCollateralPercentage $ \pp x -> pp {appCollateralPercentage = x}
   hkdMaxCollateralInputsL =
     lens appMaxCollateralInputs $ \pp x -> pp {appMaxCollateralInputs = x}
+
+instance EraPricing AlonzoEra where
+  type PricingState AlonzoEra = NoPricing AlonzoEra
 
 instance EraGov AlonzoEra where
   type GovState AlonzoEra = ShelleyGovState AlonzoEra

@@ -23,6 +23,7 @@ import Cardano.Ledger.Dijkstra.Rules (DijkstraLEDGER, DijkstraMEMPOOL)
 import Cardano.Ledger.Dijkstra.Scripts (AccountBalanceIntervals (..), DijkstraPlutusPurpose (..))
 import Cardano.Ledger.Dijkstra.TxBody (TxBody (..))
 import Cardano.Ledger.Dijkstra.TxCert
+import Cardano.Ledger.DynamicPricing (Inclusion (..))
 import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Cardano.Ledger.Plutus.Data (
   Datum (..),
@@ -115,6 +116,8 @@ exampleTxBodyDijkstra =
     mempty -- sub-transactions
     (DirectDeposits mempty)
     (AccountBalanceIntervals mempty)
+    Optimistic -- inclusion strategy
+    SNothing -- fee refund account
   where
     MaryValue _ exampleMultiAsset = exampleMultiAssetValue 3
 

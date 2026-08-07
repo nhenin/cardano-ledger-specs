@@ -18,6 +18,7 @@
 module Test.Cardano.Ledger.Generic.MockChain where
 
 import Cardano.Ledger.BaseTypes (BlocksMade (..), ShelleyBase)
+import Cardano.Ledger.DynamicPricing.State (EraPricing)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
@@ -97,6 +98,7 @@ data MockChainState era = MockChainState
 
 deriving instance
   ( EraTxOut era
+  , EraPricing era
   , Eq (StashedAVVMAddresses era)
   , Eq (GovState era)
   , Eq (InstantStake era)
@@ -228,6 +230,7 @@ ppMockChainFailure = toExpr
 
 noThunksGen ::
   ( EraTxOut era
+  , EraPricing era
   , NoThunks (GovState era)
   , NoThunks (CertState era)
   , NoThunks (InstantStake era)

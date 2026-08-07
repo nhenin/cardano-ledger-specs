@@ -30,6 +30,13 @@ module Test.Cardano.Ledger.Shelley.Arbitrary (
 import qualified Cardano.Chain.UTxO as Byron
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (EncCBOR (..))
+import Cardano.Ledger.DynamicPricing.State (
+  DynamicPricing,
+  EraPricing (..),
+  NoPricing (..),
+  PricingState,
+  initialPricingState,
+ )
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API (
   ApplyTx (..),
@@ -134,6 +141,8 @@ instance
   , Arbitrary (GovState era)
   , Arbitrary (CertState era)
   , Arbitrary (InstantStake era)
+  , EraPricing era
+  , Arbitrary (PricingState era)
   ) =>
   Arbitrary (NewEpochState era)
   where
@@ -153,6 +162,8 @@ instance
   , Arbitrary (GovState era)
   , Arbitrary (CertState era)
   , Arbitrary (InstantStake era)
+  , EraPricing era
+  , Arbitrary (PricingState era)
   ) =>
   Arbitrary (EpochState era)
   where
@@ -170,6 +181,8 @@ instance
   , Arbitrary (GovState era)
   , Arbitrary (CertState era)
   , Arbitrary (InstantStake era)
+  , EraPricing era
+  , Arbitrary (PricingState era)
   ) =>
   Arbitrary (LedgerState era)
   where
@@ -185,11 +198,20 @@ instance
         <$> (lsUTxOState : shrink lsUTxOState)
         <*> (lsCertState : shrink lsCertState)
 
+instance Arbitrary (NoPricing era) where
+  arbitrary = pure NoPricing
+
+-- Deterministic for now: prices move only when the controllers land.
+instance Arbitrary (DynamicPricing era) where
+  arbitrary = pure initialPricingState
+
 instance
   ( EraTxOut era
   , Arbitrary (TxOut era)
   , Arbitrary (GovState era)
   , Arbitrary (InstantStake era)
+  , EraPricing era
+  , Arbitrary (PricingState era)
   ) =>
   Arbitrary (UTxOState era)
   where
@@ -201,6 +223,7 @@ instance
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> pure emptyPricing
 
   -- The 'genericShrink' function returns first the immediate subterms of a
   -- value (in case it is a recursive data-type), and then shrinks the value

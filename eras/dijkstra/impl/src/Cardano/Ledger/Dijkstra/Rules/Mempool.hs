@@ -76,6 +76,7 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.State
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody)
 import Cardano.Ledger.Dijkstra.TxCert
+import Cardano.Ledger.DynamicPricing.State (DynamicPricing, PricingState)
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.Rules (
   LedgerEnv (..),
@@ -236,6 +237,7 @@ instance
   ( AlonzoEraTx era
   , ConwayEraCertState era
   , DijkstraEraTxBody era
+  , PricingState era ~ DynamicPricing era
   , ConwayEraGov era
   , EraPlutusContext era
   , GovState era ~ ConwayGovState era

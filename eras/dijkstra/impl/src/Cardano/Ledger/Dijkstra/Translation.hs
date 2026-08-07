@@ -39,6 +39,7 @@ import Cardano.Ledger.Dijkstra.Tx ()
 import Cardano.Ledger.Dijkstra.TxAuxData ()
 import Cardano.Ledger.Dijkstra.TxBody (upgradeGovAction, upgradeProposals)
 import Cardano.Ledger.Dijkstra.TxWits ()
+import Cardano.Ledger.DynamicPricing.State (initialPricingState)
 import qualified Cardano.Ledger.Shelley.API as API
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
@@ -223,6 +224,7 @@ instance TranslateEra DijkstraEra UTxOState where
         , API.utxosGovState = translateEra' ctxt $ API.utxosGovState us
         , API.utxosInstantStake = coerce $ API.utxosInstantStake us
         , API.utxosDonation = API.utxosDonation us
+        , API.utxosPricing = initialPricingState
         }
 
 instance TranslateEra DijkstraEra API.UTxO where

@@ -215,6 +215,7 @@ import Cardano.Ledger.Conway.Governance.Proposals
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..), NoPricing)
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   NewEpochState (..),
@@ -403,6 +404,9 @@ instance (ConwayEraAccounts era, EraPParams era, EraStake era) => ToKeyValuePair
         , "previousPParams" .= cgsPrevPParams
         , "futurePParams" .= cgsFuturePParams
         ]
+
+instance EraPricing ConwayEra where
+  type PricingState ConwayEra = NoPricing ConwayEra
 
 instance EraGov ConwayEra where
   type GovState ConwayEra = ConwayGovState ConwayEra

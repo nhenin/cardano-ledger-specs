@@ -28,6 +28,7 @@ import Cardano.Ledger.BaseTypes (ProtVer)
 import Cardano.Ledger.Coin (Coin (..), addDeltaCoin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..))
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import Cardano.Ledger.Rewards
 import Cardano.Ledger.Shelley.LedgerState.Types
 import Cardano.Ledger.Shelley.RewardUpdate (RewardUpdate (..))
@@ -57,7 +58,7 @@ import Lens.Micro
 --
 --   TO IncrementalStake
 smartUTxOState ::
-  EraStake era =>
+  (EraStake era, EraPricing era) =>
   PParams era ->
   UTxO era ->
   Coin ->
@@ -65,13 +66,15 @@ smartUTxOState ::
   GovState era ->
   Coin ->
   UTxOState era
-smartUTxOState _pp utxo c1 c2 st =
+smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
     utxo
     c1
     c2
     st
     (addInstantStake utxo mempty)
+    donation
+    emptyPricing
 
 -- =====================================================
 -- Part 3 Apply a reward update, in NewEpoch rule

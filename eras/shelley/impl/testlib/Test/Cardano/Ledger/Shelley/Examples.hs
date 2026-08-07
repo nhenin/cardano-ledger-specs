@@ -48,6 +48,7 @@ import Cardano.Ledger.Address (BootstrapAddress (..))
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (EncCBOR (..), hashWithEncoder)
 import Cardano.Ledger.Coin
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import Cardano.Ledger.Keys
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API
@@ -248,6 +249,7 @@ exampleNewEpochState value ppp pp =
                     , utxosGovState = emptyGovState
                     , utxosInstantStake = mempty
                     , utxosDonation = mempty
+                    , utxosPricing = emptyPricing
                     }
               , lsCertState = def
               }

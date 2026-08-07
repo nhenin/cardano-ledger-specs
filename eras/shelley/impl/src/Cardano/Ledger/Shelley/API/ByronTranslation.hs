@@ -21,6 +21,7 @@ import qualified Cardano.Crypto.Hashing as Hashing
 import Cardano.Ledger.Address (fromBoostrapCompactAddress, isBootstrapRedeemer)
 import Cardano.Ledger.BaseTypes (BlocksMade (..), EpochNo, TxIx (..))
 import Cardano.Ledger.Coin (CompactForm (CompactCoin))
+import Cardano.Ledger.DynamicPricing.State (EraPricing (..))
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API.Types
@@ -167,6 +168,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
               , utxosGovState = emptyGovState
               , utxosInstantStake = mempty
               , utxosDonation = mempty
+              , utxosPricing = emptyPricing
               }
         , lsCertState = mkShelleyCertState def dState
         }

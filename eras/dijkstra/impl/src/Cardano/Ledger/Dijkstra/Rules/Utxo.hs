@@ -19,6 +19,8 @@ module Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUTXO,
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
+  recheckBidCoversQuote,
+  admissionBidCoversQuote,
 ) where
 
 import Cardano.Ledger.Allegra.Rules (AllegraUtxoPredFailure, shelleyToAllegraUtxoPredFailure)
@@ -29,6 +31,7 @@ import Cardano.Ledger.Alonzo.Rules (
   AlonzoUtxosPredFailure,
  )
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
+import Cardano.Ledger.Alonzo.Tx (totExUnits)
 import Cardano.Ledger.Babbage.Rules (
   BabbageUtxoPredFailure,
   babbageUtxoValidation,
@@ -67,7 +70,26 @@ import Cardano.Ledger.Conway.Rules (
 import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, DijkstraUTXO)
+import Cardano.Ledger.Dijkstra.Governance ()
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
+import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
+import Cardano.Ledger.DynamicPricing (
+  DynamicPricing,
+  Inclusion (..),
+  MinimumTxFee (..),
+  Quote (..),
+  addPendingRefund,
+  blockDelivery,
+  chargedStrategy,
+  currentPrice,
+  defaultControllerParams,
+  minimumTxFee,
+  quoteFor,
+  recordTx,
+  txSizeInBytes,
+  worstCaseNextPrice,
+ )
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Plutus (ExUnits)
 import Cardano.Ledger.Rules.ValidationMode (failOnJustStatic)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
@@ -82,6 +104,7 @@ import Cardano.Ledger.State (
   EraUTxO,
  )
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Val ((<->))
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
   Embed (..),
@@ -91,6 +114,7 @@ import Control.State.Transition.Extended (
   TransitionRule,
   judgmentContext,
   trans,
+  (?!),
  )
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
@@ -116,6 +140,10 @@ data DijkstraUtxoPredFailure era
   | MaxTxSizeUTxO (Mismatch RelLTEQ Word32)
   | InputSetEmptyUTxO
   | FeeTooSmallUTxO
+      (Mismatch RelGTEQ Coin)
+  | -- | Dynamic pricing (U1): the bid (fee field, read as a price cap) does
+    -- not cover the current quote for the declared inclusion strategy.
+    BidBelowQuote
       (Mismatch RelGTEQ Coin)
   | ValueNotConservedUTxO
       (Mismatch RelEQ (Value era)) -- Serialise consumed first, then produced
@@ -256,7 +284,8 @@ dijkstraUtxoTransition ::
   forall era.
   ( EraUTxO era
   , EraCertState era
-  , BabbageEraTxBody era
+  , DijkstraEraTxBody era
+  , PricingState era ~ DynamicPricing era
   , AlonzoEraTx era
   , EraStake era
   , InjectRuleFailure "UTXO" ShelleyUtxoPredFailure era
@@ -279,10 +308,49 @@ dijkstraUtxoTransition ::
   TransitionRule (EraRule "UTXO" era)
 dijkstraUtxoTransition = do
   TRC (UtxoEnv _ pp certState, utxos, tx) <- judgmentContext
+  let txBody = tx ^. bodyTxL
+      declared = txBody ^. inclusionTxBodyL
+      bid = txBody ^. feeTxBodyL
+      -- The CIP's rb-only premium scope: the applicable quote follows the
+      -- DELIVERY, not the declaration — an urgent transaction arriving
+      -- through a certified batch is charged the optimistic price.
+      charged = chargedStrategy declared (blockDelivery (utxosPricing utxos))
+      Quote quote = quoteFor pp tx (currentPrice charged (utxosPricing utxos))
   babbageUtxoValidation
-  validateNoPtrInCollateralReturn $ tx ^. bodyTxL
+  -- U1: the bid covers the current quote applicable at this inclusion point.
+  -- Subsumes the plain min-fee premise (the quote never undercuts the
+  -- protocol minimum fee), which babbageUtxoValidation still checks anyway.
+  quote
+    <= bid
+      ?! injectFailure
+        (BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote})
+  validateNoPtrInCollateralReturn txBody
   updatedUtxos <- trans @(EraRule "UTXOS" era) $ TRC (pp, utxos, tx)
-  updateUTxOStateByTxValidity pp certState (utxosGovState utxos) tx updatedUtxos
+  finalUtxos <- updateUTxOStateByTxValidity pp certState (utxosGovState utxos) tx updatedUtxos
+  -- U2: usage accounting by declared strategy (spec: processTxTiers).
+  -- Recorded for valid and invalid (collateral-consuming) transactions alike:
+  -- both occupy block space.
+  let recorded =
+        recordTx declared (txSizeInBytes tx) bid (totExUnits tx) (utxosPricing finalUtxos)
+  -- Fee split (rule 3), only when the bidder asked for a refund:
+  --   base    (the protocol minimum)   stays in the fee pot   [prototype answer to Q3]
+  --   premium (quote − base)           goes to the treasury via the donation pot
+  --   refund  (bid − quote)            owed back to the bidder, flushed by LEDGER
+  -- Without a refund account: today's semantics, the full bid stays in the fee pot.
+  pure $! case txBody ^. feeRefundAccountTxBodyL of
+    SNothing -> finalUtxos {utxosPricing = recorded}
+    SJust (AccountAddress _ (AccountId cred)) ->
+      let MinimumTxFee base = minimumTxFee pp tx
+          premium = quote <-> base
+          -- A BidBelowQuote failure does not short-circuit STS evaluation.
+          -- Keep the discarded failure-state representable so the predicate
+          -- failure can be returned instead of compacting a negative Coin.
+          refund = if bid >= quote then bid <-> quote else mempty
+       in finalUtxos
+            { utxosPricing = addPendingRefund cred refund recorded
+            , utxosFees = utxosFees finalUtxos <-> premium <-> refund
+            , utxosDonation = utxosDonation finalUtxos <> premium
+            }
 
 instance
   forall era.
@@ -290,6 +358,8 @@ instance
   , EraUTxO era
   , EraStake era
   , ConwayEraTxBody era
+  , DijkstraEraTxBody era
+  , PricingState era ~ DynamicPricing era
   , AlonzoEraTx era
   , EraRule "UTXO" era ~ DijkstraUTXO era
   , InjectRuleFailure "UTXO" ShelleyUtxoPredFailure era
@@ -376,6 +446,7 @@ instance
       BabbageOutputTooSmallUTxO x -> Sum BabbageOutputTooSmallUTxO 21 !> To x
       BabbageNonDisjointRefInputs x -> Sum BabbageNonDisjointRefInputs 22 !> To x
       PtrPresentInCollateralReturn x -> Sum PtrPresentInCollateralReturn 23 !> To x
+      BidBelowQuote mm -> Sum BidBelowQuote 24 !> To mm
 
 instance
   ( Era era
@@ -411,6 +482,7 @@ instance
     21 -> SumD BabbageOutputTooSmallUTxO <! From
     22 -> SumD BabbageNonDisjointRefInputs <! From
     23 -> SumD PtrPresentInCollateralReturn <! From
+    24 -> SumD BidBelowQuote <! From
     n -> Invalid n
 
 -- =====================================================
@@ -444,3 +516,55 @@ conwayToDijkstraUtxoPredFailure = \case
   Conway.IncorrectTotalCollateralField dc c -> IncorrectTotalCollateralField dc c
   Conway.BabbageOutputTooSmallUTxO txouts -> BabbageOutputTooSmallUTxO txouts
   Conway.BabbageNonDisjointRefInputs txin -> BabbageNonDisjointRefInputs txin
+
+-- | The U1 predicate alone — the bid against the CURRENT fee-cap quote —
+-- for mempool re-validation under a moved tip. O(1): no rule machinery, no
+-- UTxO work. 'Nothing' means the bid still covers the quote. The full
+-- LEDGER re-run this replaces cost O(mempool) per block and starved
+-- admissions under a deep backlog.
+--
+-- The fee-cap basis is the CIP's: an urgent transaction may settle through
+-- either path, so its bid must cover the LARGER of the two quotes even
+-- while the lanes cross.
+recheckBidCoversQuote ::
+  PParams DijkstraEra ->
+  UTxOState DijkstraEra ->
+  Tx TopTx DijkstraEra ->
+  Maybe (DijkstraUtxoPredFailure DijkstraEra)
+recheckBidCoversQuote pp utxos tx
+  | quote <= bid = Nothing
+  | otherwise =
+      Just $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}
+  where
+    txBody = tx ^. bodyTxL
+    bid = txBody ^. feeTxBodyL
+    quoteAt strategy = quoteFor pp tx (currentPrice strategy (utxosPricing utxos))
+    Quote quote = case txBody ^. inclusionTxBodyL of
+      Urgent -> max (quoteAt Urgent) (quoteAt Optimistic)
+      Optimistic -> quoteAt Optimistic
+
+-- | The admission-side headroom (node policy, the CIP's rule — NOT a ledger
+-- rule): the bid must cover the quote one worst-case controller step ahead,
+-- so a transaction that cannot survive a single adverse price update is
+-- refused at the door instead of queueing until it goes stale. Only mempool
+-- admission calls this; block validation (U1) and re-validation
+-- ('recheckBidCoversQuote') stay on the current quote — tightening those
+-- would reject on-chain-valid blocks.
+admissionBidCoversQuote ::
+  PParams DijkstraEra ->
+  UTxOState DijkstraEra ->
+  Tx TopTx DijkstraEra ->
+  Maybe (DijkstraUtxoPredFailure DijkstraEra)
+admissionBidCoversQuote pp utxos tx
+  | quote <= bid = Nothing
+  | otherwise =
+      Just $ BidBelowQuote Mismatch {mismatchSupplied = bid, mismatchExpected = quote}
+  where
+    txBody = tx ^. bodyTxL
+    bid = txBody ^. feeTxBodyL
+    steppedQuoteAt strategy =
+      quoteFor pp tx . worstCaseNextPrice defaultControllerParams $
+        currentPrice strategy (utxosPricing utxos)
+    Quote quote = case txBody ^. inclusionTxBodyL of
+      Urgent -> max (steppedQuoteAt Urgent) (steppedQuoteAt Optimistic)
+      Optimistic -> steppedQuoteAt Optimistic

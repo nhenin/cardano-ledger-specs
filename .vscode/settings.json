@@ -1,0 +1,13 @@
+{
+  "haskell.manageHLS": "PATH",
+  "haskell.serverExecutablePath": "${workspaceFolder}/.vscode/hls.sh",
+  "haskell.maxCompletions": 40,
+  "files.watcherExclude": {
+    "**/dist-newstyle/**": true,
+    "**/.direnv/**": true
+  },
+  "search.exclude": {
+    "**/dist-newstyle": true,
+    "**/.direnv": true
+  }
+}

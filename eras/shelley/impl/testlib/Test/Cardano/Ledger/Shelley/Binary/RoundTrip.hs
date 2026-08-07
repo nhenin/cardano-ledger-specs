@@ -13,6 +13,7 @@ module Test.Cardano.Ledger.Shelley.Binary.RoundTrip (
 
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Core
+import Cardano.Ledger.DynamicPricing.State (PricingState)
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.State
@@ -50,6 +51,7 @@ roundTripStateEraTypesSpec ::
   , Arbitrary (GovState era)
   , Arbitrary (CertState era)
   , Arbitrary (InstantStake era)
+  , Arbitrary (PricingState era)
   ) =>
   Spec
 roundTripStateEraTypesSpec = do

@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Haskell: regenerate tags (jump-to-def deps)",
+      "type": "shell",
+      "command": "direnv exec \"${workspaceFolder}\" \"$HOME/.local/bin/gen-haskell-tags\"",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    }
+  ]
+}

@@ -19,6 +19,7 @@ import Cardano.Ledger.Babbage.PParams ()
 import Cardano.Ledger.Babbage.State
 import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Cardano.Ledger.Binary (DecoderError)
+import Cardano.Ledger.DynamicPricing.State (NoPricing (..))
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
@@ -140,6 +141,7 @@ instance TranslateEra BabbageEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosPricing = NoPricing
         }
 
 instance TranslateEra BabbageEra ShelleyInstantStake where

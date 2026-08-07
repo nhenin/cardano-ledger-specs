@@ -305,7 +305,7 @@ instance TotalAda ChainAccountState where
   totalAda (ChainAccountState treasury reserves) = treasury <+> reserves
 
 instance Reflect era => TotalAda (UTxOState era) where
-  totalAda (UTxOState utxo _deposits fees gs _ donations) =
+  totalAda (UTxOState utxo _deposits fees gs _ donations _) =
     totalAda utxo <+> fees <+> govStateTotalAda gs <+> donations
 
 -- we don't add in the _deposits, because it is invariant that this
