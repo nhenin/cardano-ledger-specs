@@ -2,6 +2,7 @@
 
 ## 1.11.1.0
 
+* Add typed `MintDelta`, `MintedAssets`, and `BurnedAssets` views of transaction mint.
 * Add `EncCBOR`, `ToCBOR` for `Block`
 * Add `DecCBOR` instances for `Annotator Block`
 

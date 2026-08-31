@@ -21,6 +21,10 @@
 
 module Cardano.Ledger.Mary.TxBody (
   MaryEraTxBody (..),
+  mintDeltaTxBodyL,
+  mintedAssetsTxBodyF,
+  burnedAssetsTxBodyF,
+  mintPoliciesTxBodyF,
   TxBody (
     MkMaryTxBody,
     MaryTxBody,
@@ -42,6 +46,13 @@ import Cardano.Ledger.Allegra.TxBody
 import Cardano.Ledger.Binary (Annotator, DecCBOR (..), EncCBOR (..), ToCBOR (..))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Mary.Era (MaryEra)
+import Cardano.Ledger.Mary.Mint (
+  BurnedAssets,
+  MintDelta (..),
+  MintedAssets,
+  burnedAssets,
+  mintedAssets,
+ )
 import Cardano.Ledger.Mary.TxCert ()
 import Cardano.Ledger.Mary.TxOut ()
 import Cardano.Ledger.Mary.Value
@@ -79,6 +90,31 @@ class AllegraEraTxBody era => MaryEraTxBody era where
   default mintValueTxBodyF :: Value era ~ MaryValue => SimpleGetter (TxBody l era) (Value era)
   mintValueTxBodyF = mintTxBodyL . to (MaryValue mempty)
   {-# INLINE mintValueTxBodyF #-}
+
+-- | A typed view of the signed native-asset quantities in the mint field.
+-- The underlying transaction representation and wire encoding remain
+-- 'MultiAsset'.
+mintDeltaTxBodyL :: MaryEraTxBody era => Lens' (TxBody l era) MintDelta
+mintDeltaTxBodyL =
+  lens
+    (\txBody -> MintDelta (txBody ^. mintTxBodyL))
+    (\txBody (MintDelta mint) -> set mintTxBodyL mint txBody)
+{-# INLINE mintDeltaTxBodyL #-}
+
+-- | The positive native-asset quantities minted by the transaction.
+mintedAssetsTxBodyF :: MaryEraTxBody era => SimpleGetter (TxBody l era) MintedAssets
+mintedAssetsTxBodyF = mintDeltaTxBodyL . to mintedAssets
+{-# INLINE mintedAssetsTxBodyF #-}
+
+-- | The positive magnitudes burned by the transaction.
+burnedAssetsTxBodyF :: MaryEraTxBody era => SimpleGetter (TxBody l era) BurnedAssets
+burnedAssetsTxBodyF = mintDeltaTxBodyL . to burnedAssets
+{-# INLINE burnedAssetsTxBodyF #-}
+
+-- | Policies referenced by the mint field, whether assets are minted or burned.
+mintPoliciesTxBodyF :: MaryEraTxBody era => SimpleGetter (TxBody l era) (Set PolicyID)
+mintPoliciesTxBodyF = mintDeltaTxBodyL . to (policies . unMintDelta)
+{-# INLINE mintPoliciesTxBodyF #-}
 
 -- ===========================================================================
 -- Wrap it all up in a newtype, hiding the insides with a pattern constructor.
