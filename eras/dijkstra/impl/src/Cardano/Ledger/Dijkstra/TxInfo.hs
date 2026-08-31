@@ -343,7 +343,7 @@ instance EraPlutusTxInfo 'PlutusV1 DijkstraEra where
             { PV1.txInfoInputs = inputs
             , PV1.txInfoOutputs = outputs
             , PV1.txInfoFee = transCoinToValue (txBody ^. feeTxBodyL)
-            , PV1.txInfoMint = Alonzo.transMintValue (txBody ^. mintTxBodyL)
+            , PV1.txInfoMint = Alonzo.transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV1.txInfoDCert = txCerts
             , PV1.txInfoWdrl = Alonzo.transTxBodyWithdrawals txBody
             , PV1.txInfoValidRange = timeRange
@@ -412,7 +412,7 @@ instance EraPlutusTxInfo 'PlutusV2 DijkstraEra where
             , PV2.txInfoOutputs = outputs
             , PV2.txInfoReferenceInputs = refInputs
             , PV2.txInfoFee = transCoinToValue (txBody ^. feeTxBodyL)
-            , PV2.txInfoMint = Alonzo.transMintValue (txBody ^. mintTxBodyL)
+            , PV2.txInfoMint = Alonzo.transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV2.txInfoDCert = txCerts
             , PV2.txInfoWdrl = PV2.unsafeFromList $ Alonzo.transTxBodyWithdrawals txBody
             , PV2.txInfoValidRange = timeRange
@@ -463,7 +463,7 @@ instance EraPlutusTxInfo 'PlutusV3 DijkstraEra where
             , PV3.txInfoOutputs = outputs
             , PV3.txInfoReferenceInputs = refInputsInfo
             , PV3.txInfoFee = transCoinToLovelace (txBody ^. feeTxBodyL)
-            , PV3.txInfoMint = Conway.transMintValue (txBody ^. mintTxBodyL)
+            , PV3.txInfoMint = Conway.transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV3.txInfoTxCerts = txCerts
             , PV3.txInfoWdrl = Conway.transTxBodyWithdrawals txBody
             , PV3.txInfoValidRange = timeRange
@@ -651,7 +651,7 @@ instance EraPlutusTxInfo 'PlutusV4 DijkstraEra where
             , PV4.txInfoReferenceInputs = refInputsInfo
             , PV4.txInfoFee =
                 withBothTxLevels txBody (\topTxBody -> transCoinToLovelace (topTxBody ^. feeTxBodyL)) (const 0)
-            , PV4.txInfoMint = Conway.transMintValue (txBody ^. mintTxBodyL)
+            , PV4.txInfoMint = Conway.transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV4.txInfoTxCerts = txCerts
             , PV4.txInfoValidRange = timeRange
             , PV4.txInfoRedeemers = plutusRedeemers

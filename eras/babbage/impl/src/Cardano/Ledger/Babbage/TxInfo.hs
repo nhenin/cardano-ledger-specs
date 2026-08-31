@@ -361,7 +361,7 @@ instance EraPlutusTxInfo 'PlutusV1 BabbageEra where
             { PV1.txInfoInputs = inputs
             , PV1.txInfoOutputs = outputs
             , PV1.txInfoFee = transCoinToValue (txBody ^. feeTxBodyL)
-            , PV1.txInfoMint = Alonzo.transMintValue (txBody ^. mintTxBodyL)
+            , PV1.txInfoMint = Alonzo.transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV1.txInfoDCert = txCerts
             , PV1.txInfoWdrl = Alonzo.transTxBodyWithdrawals txBody
             , PV1.txInfoValidRange = timeRange
@@ -406,7 +406,7 @@ instance EraPlutusTxInfo 'PlutusV2 BabbageEra where
             , PV2.txInfoOutputs = outputs
             , PV2.txInfoReferenceInputs = refInputs
             , PV2.txInfoFee = transCoinToValue (txBody ^. feeTxBodyL)
-            , PV2.txInfoMint = Alonzo.transMintValue (txBody ^. mintTxBodyL)
+            , PV2.txInfoMint = Alonzo.transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV2.txInfoDCert = txCerts
             , PV2.txInfoWdrl = PV2.unsafeFromList $ Alonzo.transTxBodyWithdrawals txBody
             , PV2.txInfoValidRange = timeRange

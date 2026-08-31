@@ -153,7 +153,7 @@ instance EraPlutusTxInfo 'PlutusV1 AlonzoEra where
               PV1.txInfoInputs = catMaybes txInsMaybes
             , PV1.txInfoOutputs = mapMaybe transTxOut $ F.toList (txBody ^. outputsTxBodyL)
             , PV1.txInfoFee = transCoinToValue (txBody ^. feeTxBodyL)
-            , PV1.txInfoMint = transMintValue (txBody ^. mintTxBodyL)
+            , PV1.txInfoMint = transMintValue (unMintDelta (txBody ^. mintDeltaTxBodyL))
             , PV1.txInfoDCert = txCerts
             , PV1.txInfoWdrl = transTxBodyWithdrawals txBody
             , PV1.txInfoValidRange = timeRange
