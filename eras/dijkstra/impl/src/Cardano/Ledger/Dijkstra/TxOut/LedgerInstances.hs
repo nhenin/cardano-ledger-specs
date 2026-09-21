@@ -35,8 +35,8 @@ instance EraTxOut DijkstraEra where
   -- During development, migration assumes that valid source outputs can fund
   -- their allocation under the supplied source parameters. Fail explicitly if
   -- this assumption is violated instead of changing the requested allocation.
-  upgradeTxOut sourcePParams =
-    either failCapacityAllocation id . fromConway sourcePParams
+  upgradeTxOut conwayPParams =
+    either failCapacityAllocation id . fromConway conwayPParams
 
   addrEitherTxOutL = babbageTxOutL . Babbage.addrEitherBabbageTxOutL
   {-# INLINE addrEitherTxOutL #-}
@@ -71,5 +71,12 @@ failCapacityAllocation =
 
 babbageTxOutL :: Lens' DijkstraTxOut (Babbage.BabbageTxOut DijkstraEra)
 babbageTxOutL =
-  lens toBabbageTxOut (\txOut -> fromBabbageTxOut (txOut ^. capacityDepositTxOutF))
+  lens toBabbageTxOut $ \txOut ->
+    either failOutputUpdate id . fromBabbageTxOut (txOut ^. capacityDepositTxOutF)
 {-# INLINE babbageTxOutL #-}
+
+-- | Keep the stored deposit when updating the total value. An update that
+-- cannot fund that deposit violates the allocation invariant.
+failOutputUpdate :: AllocationError -> DijkstraTxOut
+failOutputUpdate =
+  error . ("Dijkstra.babbageTxOutL: capacity allocation invariant violated: " <>) . show

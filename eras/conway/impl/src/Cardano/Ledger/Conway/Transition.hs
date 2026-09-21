@@ -157,7 +157,6 @@ instance NoThunks (TransitionConfig ConwayEra)
 
 conwayRegisterInitialFundsThenStaking ::
   ( ConwayEraTransition era
-  , TxOutAllocation era ~ Value era
   , HasCallStack
   , MonadST m
   , MonadThrow m

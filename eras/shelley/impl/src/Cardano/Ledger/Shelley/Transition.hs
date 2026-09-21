@@ -29,6 +29,7 @@ module Cardano.Ledger.Shelley.Transition (
     TransitionConfig,
     mkTransitionConfig,
     injectIntoTestState,
+    allocateInitialFunds,
     tcPreviousEraConfigL,
     tcTranslationContextL,
     tcShelleyGenesisL,
@@ -136,6 +137,22 @@ class
     NewEpochState era ->
     m (NewEpochState era)
 
+  -- | Allocate the total initial ADA to the construction components of a basic
+  -- output. The default retains coin injection for eras whose allocation is
+  -- their value; eras with a separate allocation supply their own policy.
+  allocateInitialFunds ::
+    PParams era ->
+    Addr ->
+    Coin ->
+    TxOutAllocation era
+  default allocateInitialFunds ::
+    TxOutAllocation era ~ Value era =>
+    PParams era ->
+    Addr ->
+    Coin ->
+    TxOutAllocation era
+  allocateInitialFunds _ _ = inject
+
   -- | In case when a previous era is available, we should always be able to access
   -- `TransitionConfig` for the previous era, from within the current era's
   -- `TransitionConfig`
@@ -237,7 +254,6 @@ tcNetworkIDG = tcShelleyGenesisL . to sgNetworkId
 -- vs 'ConwayEraAccounts').
 injectInitialFundsAndStaking ::
   ( EraTransition era
-  , TxOutAllocation era ~ Value era
   , HasCallStack
   , MonadST m
   , MonadThrow m
@@ -310,7 +326,6 @@ injectStakeCredentials network fs source nes = do
 
 shelleyRegisterInitialFundsThenStaking ::
   ( EraTransition era
-  , TxOutAllocation era ~ Value era
   , ShelleyEraAccounts era
   , HasCallStack
   , MonadST m
@@ -645,7 +660,6 @@ resetStakeDistribution nes =
 registerInitialFunds ::
   forall era m h.
   ( EraTransition era
-  , TxOutAllocation era ~ Value era
   , HasCallStack
   , MonadST m
   , MonadThrow m
@@ -659,10 +673,11 @@ registerInitialFunds hasFS tc newEpochState = do
   when (tc ^. tcNetworkIDG == Mainnet) $
     throwIO InjectionNotAllowedOnMainnet
   let sg = tc ^. tcShelleyGenesisL
-      addInitialFund (!acc, !coins) (addr, amount) =
-        let txIn = initialFundsPseudoTxIn addr
-            txOut = mkBasicTxOut addr (inject amount)
-         in (Map.insert txIn txOut acc, coins <> amount)
+      protocolParameters = epochState ^. curPParamsEpochStateL
+      addInitialFund (!outputs, !accumulatedCoins) (address, amount) =
+        let txIn = initialFundsPseudoTxIn address
+            txOut = (mkBasicTxOut <*> flip (allocateInitialFunds protocolParameters) amount) address
+         in (Map.insert txIn txOut outputs, accumulatedCoins <> amount)
   source <-
     resolveInjectionSource "initialFunds" (sgExtraConfig sg) secInitialFunds (sgInitialFunds sg)
 

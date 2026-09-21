@@ -28,6 +28,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.GoldenSpec as GoldenSpec
 import qualified Test.Cardano.Ledger.Dijkstra.Imp as Imp
 import Test.Cardano.Ledger.Dijkstra.ImpTest ()
 import qualified Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec as PlutusSpec
+import qualified Test.Cardano.Ledger.Dijkstra.Transition.InitialFundsSpec as InitialFundsSpec
 import qualified Test.Cardano.Ledger.Dijkstra.TxInfoSpec as DijkstraTxInfoSpec
 import qualified Test.Cardano.Ledger.Dijkstra.TxOut.AllocationSpec as OutputAllocationSpec
 import qualified Test.Cardano.Ledger.Dijkstra.TxOut.ApplicationAssetsSpec as ApplicationAssetsSpec
@@ -45,6 +46,7 @@ instance EraSpec DijkstraEra where
 main :: IO ()
 main =
   ledgerEraTestMain @DijkstraEra $ do
+    InitialFundsSpec.spec
     OutputAllocationSpec.spec
     ApplicationAssetsSpec.spec
     OutputCompatibilitySpec.spec

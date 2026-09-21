@@ -210,17 +210,20 @@ instance TranslateEra DijkstraEra ConwayGovState where
         }
 
 instance TranslateEra DijkstraEra UTxOState where
-  translateEra ctxt us =
+  translateEra translationContext =
     pure
-      UTxOState
-        { utxosUtxo = translateEraWithoutError ctxt $ utxosUtxo us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = translateEraWithoutError ctxt $ utxosGovState us
-        , utxosInstantStake = coerce $ utxosInstantStake us
-        , utxosDonation = utxosDonation us
-        }
+      . ( UTxOState
+            <$> (upgradeDijkstraUTxO <$> (cgsCurPParams . utxosGovState) <*> utxosUtxo)
+            <*> utxosDeposited
+            <*> utxosFees
+            <*> (translateEraWithoutError translationContext . utxosGovState)
+            <*> (coerce . utxosInstantStake)
+            <*> utxosDonation
+        )
 
-instance TranslateEra DijkstraEra UTxO where
-  translateEra _ctxt utxo =
-    pure $ UTxO $ upgradeTxOut `Map.map` unUTxO utxo
+-- Private helpers
+
+-- | Recover each output's allocation using the source Conway parameters.
+upgradeDijkstraUTxO :: PParams ConwayEra -> UTxO ConwayEra -> UTxO DijkstraEra
+upgradeDijkstraUTxO conwayPParams =
+  UTxO . Map.map (upgradeTxOut conwayPParams) . unUTxO

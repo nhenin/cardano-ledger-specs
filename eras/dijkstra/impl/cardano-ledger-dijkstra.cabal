@@ -42,6 +42,7 @@ library
     Cardano.Ledger.Dijkstra.Scripts
     Cardano.Ledger.Dijkstra.State
     Cardano.Ledger.Dijkstra.Transition
+    Cardano.Ledger.Dijkstra.Transition.InitialFunds
     Cardano.Ledger.Dijkstra.Tx
     Cardano.Ledger.Dijkstra.TxAuxData
     Cardano.Ledger.Dijkstra.TxBody
@@ -275,6 +276,8 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
     Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec
+    Test.Cardano.Ledger.Dijkstra.Transition.InitialFunds.Fixture
+    Test.Cardano.Ledger.Dijkstra.Transition.InitialFundsSpec
     Test.Cardano.Ledger.Dijkstra.TxOut.Allocation.Fixture
     Test.Cardano.Ledger.Dijkstra.TxOut.AllocationSpec
     Test.Cardano.Ledger.Dijkstra.TxOut.ApplicationAssets.Fixture
@@ -319,4 +322,5 @@ test-suite tests
     cardano-ledger-shelley:testlib,
     cardano-protocol:{cardano-protocol, testlib},
     containers,
+    mempack,
     microlens,

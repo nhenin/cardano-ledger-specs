@@ -7,8 +7,8 @@
 -- The construction container holds a capacity deposit and application assets.
 -- Dijkstra stores those two components directly in its compact output variants.
 --
--- 'OutputValue' is the construction allocation for @TxOut DijkstraEra@; the
--- era's 'ApplicationAssets' remain independently accessible as its value.
+-- 'OutputValue' is the construction allocation for @TxOut DijkstraEra@;
+-- 'ApplicationAssets' identifies the application component of that allocation.
 -- Allocation, output encoding, historical-output translation and script-facing
 -- projections must be specified at their integration boundaries. Collapsing the
 -- components into a @MaryValue@ would lose the split.

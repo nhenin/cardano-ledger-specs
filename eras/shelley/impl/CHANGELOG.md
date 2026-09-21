@@ -4,9 +4,11 @@
 
 * Accept source protocol parameters in `upgradeTxOut`; the unsupported
   Byron-to-Shelley conversion remains unchanged
-* Require `TxOutAllocation era ~ Value era` for `genesisUTxO`,
-  `registerInitialFunds`, `injectInitialFundsAndStaking`, and
-  `shelleyRegisterInitialFundsThenStaking`, which construct outputs from values
+* Add `allocateInitialFunds` to `EraTransition`, retaining coin injection by
+  default when `TxOutAllocation era ~ Value era`. Use this method with the
+  current state's protocol parameters in `registerInitialFunds`
+* Require `TxOutAllocation era ~ Value era` for `genesisUTxO`, which constructs
+  outputs from values
 * Replace `StakeKeyAlreadyRegisteredDELEG` constructor with `DelegAccountAlreadyRegistered` in `ShelleyDelegPredFailure`, which wraps the new `AccountAlreadyRegistered` type instead of `Credential Staking`
 * Add `AccountAlreadyRegistered` predicate failure together with `checkAccountAlreadyRegistered`
 * Add `EncCBOR`, `ToCBOR` for `Block`

@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Test.Cardano.Ledger.Dijkstra.TxOut.EncodingSpec (spec) where
@@ -11,8 +12,8 @@ import Cardano.Ledger.Binary (
   encodeMemPack,
   serialize,
  )
-import Cardano.Ledger.Core (EraTxOut (valueTxOutL))
-import Cardano.Ledger.Dijkstra.TxOut (DijkstraTxOut, capacityDepositTxOutF)
+import Cardano.Ledger.Dijkstra.TxOut (DijkstraTxOut (DijkstraTxOut), capacityDepositTxOutF)
+import Cardano.Ledger.Dijkstra.TxOut.Value (OutputValue (..))
 import Data.Aeson (toJSON, withObject, (.:))
 import Data.Aeson.Types (parseMaybe)
 import Data.Either (isLeft)
@@ -24,6 +25,7 @@ spec :: Spec
 spec = describe "DijkstraTxOut encoding" $
   forM_ Fixture.outputCases $ \(name, txOut) -> describe name $ do
     let version = Fixture.protocolVersion
+        DijkstraTxOut _ allocation _ _ = txOut
 
     it "preserves both allocations through CBOR" $
       decodeFull @DijkstraTxOut version (serialize version txOut) `shouldBe` Right txOut
@@ -32,6 +34,9 @@ spec = describe "DijkstraTxOut encoding" $
       let bytes = serialize version (encodeMemPack txOut)
           decoded = decodeFullDecoder version "DijkstraTxOut" (decNoShareCBOR @DijkstraTxOut) bytes
       decoded `shouldBe` Right txOut
+
+    it "retains the deposit/application MemPack bytes" $
+      serialize version (encodeMemPack txOut) `shouldBe` Fixture.allocatedApplicationMemPackBytes txOut
 
     it "preserves both allocations when decoding CBOR with shared credentials" $ do
       let decoded =
@@ -60,4 +65,4 @@ spec = describe "DijkstraTxOut encoding" $
 
     it "exposes application assets separately in JSON" $
       parseMaybe (withObject "DijkstraTxOut" (.: "applicationAssets")) (toJSON txOut)
-        `shouldBe` Just (toJSON (txOut ^. valueTxOutL))
+        `shouldBe` Just (toJSON (applicationAssets allocation))

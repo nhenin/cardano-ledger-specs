@@ -5,7 +5,6 @@
 * Use the existing `upgradeBabbageTxOut` structural conversion in era translation;
   `upgradeTxOut` accepts but ignores the source protocol parameters, preserving
   historical behavior
-* Require `TxOutAllocation era ~ Value era` in `conwayRegisterInitialFundsThenStaking`.
 * Remove re-exported `mintTxBodyL`, `mintedTxBodyF`, and `mintValueTxBodyF`; use the typed forging API from `Cardano.Ledger.Mary.Core`
 * Require `cardano-ledger-mary >=1.12`; public interfaces use the native-asset types from their new Mary modules
 * Remove `transMintValue` from `Cardano.Ledger.Conway.TxInfo`; use

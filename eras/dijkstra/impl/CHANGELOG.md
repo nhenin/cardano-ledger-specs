@@ -2,22 +2,41 @@
 
 ## 0.4.0.0
 
+* Implement Dijkstra's `allocateInitialFunds` using the smallest capacity deposit
+  that covers the final basic output's minimum coin requirement. Preserve total
+  ADA and allocate the remainder to application assets. Search the finite CBOR
+  size ranges instead of requiring an exact fixed point; reject unrepresentable
+  or insufficient initial funds through `Transition.InitialFunds`.
+* Recover output allocations during `UTxOState` translation using the current
+  Conway protocol parameters stored in the source governance state. Remove the
+  `TranslateEra DijkstraEra UTxO` instance; UTxO upgrades now happen inside state
+  translation with the required source parameters. Recovery assumes the UTxO
+  byte price has not changed since output creation.
 * Keep the output representation and projections in `TxOut`. Provide its
   `EraTxOut`, `AlonzoEraTxOut` and `BabbageEraTxOut` instances through
   `TxOut.LedgerInstances`, allowing `TxOut.Translation` to depend on the representation
   without an import cycle. Import `TxOut.LedgerInstances ()` when using these interfaces
   without an existing `Dijkstra.Core` or `Dijkstra` import.
 * Give `TxOut DijkstraEra` its own `DijkstraTxOut` representation. Set its
-  construction allocation to `OutputValue` and its `Value` to `ApplicationAssets`.
+  construction allocation to `OutputValue`, retaining `Value DijkstraEra = MaryValue`.
   Store `CapacityDeposit` separately in all six compact output variants and
   expose `capacityDepositTxOutF`; field updates preserve it.
-  `fromBabbageTxOut` now requires the deposit explicitly, while `toBabbageTxOut`
-  projects application assets.
+  Construct and inspect the `DijkstraTxOut` pattern directly through these
+  variants, without an intermediate `BabbageTxOut`.
+  `toBabbageTxOut` merges the deposit and application assets into the total value
+  using `toMaryValue`; `fromBabbageTxOut` recovers the retained deposit with
+  `fromMaryValue` and returns `Either AllocationError DijkstraTxOut`. Both use
+  the public patterns, preserving quantities and fields while allowing compact
+  storage normalization. These temporary adapters are scheduled for removal.
+  Value accessors now operate on totals. Updates retain the stored deposit and
+  fail explicitly if the replacement total cannot fund it.
 * Encode Dijkstra outputs as a CBOR map with mandatory keys `0` (address),
   `1` (application assets) and `4` (capacity deposit); keep optional datum and
   reference script keys. Missing deposits and legacy output lists are rejected.
   MemPack carries the deposit and exact compact application payload under a new
   envelope tag; JSON exposes both allocations. Update the output CDDL accordingly.
+  Implement MemPack and credential sharing directly on Dijkstra storage, keeping
+  the deposit/application payload format independent of the total-value adapters.
 * Make `upgradeTxOut` accept the source `PParams ConwayEra` and delegate to
   `TxOut.Translation.fromConway`, which recovers the deposit from Conway's
   minimum-ADA requirement.
