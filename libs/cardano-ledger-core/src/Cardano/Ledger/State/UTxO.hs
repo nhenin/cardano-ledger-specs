@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -32,7 +33,9 @@ module Cardano.Ledger.State.UTxO (
   txouts,
   sumUTxO,
   sumCoinUTxO,
+  sumAllAssets,
   sumAllValue,
+  sumAllApplicationAssets,
   sumAllCoin,
   areAllAdaOnly,
   verifyWitVKey,
@@ -182,12 +185,12 @@ verifyWitVKey txbodyHash (WitVKey vkey sig) = verifySignedDSIGN vkey txbodyHash 
 {-# INLINE verifyWitVKey #-}
 
 -- | Determine the total balance contained in the UTxO.
-sumUTxO :: EraTxOut era => UTxO era -> Value era
-sumUTxO = sumAllValue . unUTxO
+sumUTxO :: (EraImplicitDepositTxOut era, EraStoreBackedTxOut era) => UTxO era -> Assets era
+sumUTxO = sumAllAssets . unUTxO
 {-# INLINE sumUTxO #-}
 
--- | Determine the total Ada only balance contained in the UTxO. This is
--- equivalent to `coin` . `sumUTxO`, but it will be more efficient.
+-- | Determine the total ADA balance contained in the UTxO without summing its
+-- non-ADA assets.
 --
 -- /Warning/ - This function cannot be applied to an untrusted `UTxO`, since it is susceptible to
 -- overflow
@@ -195,10 +198,26 @@ sumCoinUTxO :: EraTxOut era => UTxO era -> Coin
 sumCoinUTxO = sumAllCoin . unUTxO
 {-# INLINE sumCoinUTxO #-}
 
+-- | Sum the assets held in outputs. Implicit deposits remain included;
+-- deposits held in the separate store are not part of this balance.
+sumAllAssets ::
+  (EraImplicitDepositTxOut era, EraStoreBackedTxOut era, Foldable f) => f (TxOut era) -> Assets era
+sumAllAssets = foldMap' $ \case
+  ImplicitDepositTxOut txOut -> Assets (txOut ^. valueTxOutL)
+  StoreBackedTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
+{-# INLINE sumAllAssets #-}
+
 -- | Sum all the value in any Foldable with 'TxOut's
-sumAllValue :: (EraTxOut era, Foldable f) => f (TxOut era) -> Value era
+sumAllValue ::
+  (EraImplicitDepositTxOut era, Foldable f) => f (ImplicitDepositTxOut era) -> Value era
 sumAllValue = foldMap' (^. valueTxOutL)
 {-# INLINE sumAllValue #-}
+
+-- | Sum the application assets of store-backed outputs.
+sumAllApplicationAssets ::
+  (EraStoreBackedTxOut era, Foldable f) => f (StoreBackedTxOut era) -> ApplicationAssets era
+sumAllApplicationAssets = foldMap' (^. applicationAssetsTxOutL)
+{-# INLINE sumAllApplicationAssets #-}
 
 -- | Sum all the 'Coin's in any Foldable with with 'TxOut's.
 --
