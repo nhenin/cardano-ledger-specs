@@ -85,8 +85,9 @@ instantStakeIncludesRewards = do
     -- Each wallet (except mary) has one or more UTxO entries
     -- Since tom uses a StakeRefNull those entries will not be distributed
     utxo1 =
-      UTxO @era
-        ( Map.fromList
+      UTxO @era $
+        ImplicitDepositTxOut
+          <$> Map.fromList
             [ (tomTxIn1, mkCoinTxOut tomAddr $ fromCompact tomCoin1) -- Not distrubuted, see tomAddr
             , (tomTxIn2, mkCoinTxOut tomAddr $ fromCompact tomCoin2) -- Not distributed, see tomAddr
             , (annTxIn, mkCoinTxOut annAddr $ fromCompact annCoin)
@@ -94,7 +95,6 @@ instantStakeIncludesRewards = do
             , (johnTxIn, mkCoinTxOut johnAddr $ fromCompact johnCoin)
             -- Note Mary does not have a UTxO entry, but her rewards are still counted
             ]
-        )
     instantStake = addInstantStake utxo1 mempty
   let snapShot =
         snapShotFromInstantStake instantStake (certState ^. certDStateL) (certState ^. certPStateL)

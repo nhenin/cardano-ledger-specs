@@ -239,7 +239,7 @@ exampleNewEpochState value ppp pp =
                           Map.fromList
                             [
                               ( TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound
-                              , mkBasicTxOut addr value
+                              , mkBasicTxOutWithImplicitDeposit addr value
                               )
                             ]
                     , utxosDeposited = Coin 1000
@@ -350,8 +350,8 @@ exampleShelleyBasedTx =
         & inputsTxBodyL .~ exampleTxIns
         & outputsTxBodyL
           .~ StrictSeq.fromList
-            [ mkBasicTxOut (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
-            , mkBasicTxOut
+            [ mkBasicTxOutWithImplicitDeposit (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
+            , mkBasicTxOutWithImplicitDeposit
                 ( Addr
                     Testnet
                     (keyToCredential examplePayKey)
@@ -359,8 +359,10 @@ exampleShelleyBasedTx =
                 )
                 $ inject
                 $ Coin 100000
-            , mkBasicTxOut (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $ inject $ Coin 100000
-            , mkBasicTxOut exampleByronAddress $ inject $ Coin 100000
+            , mkBasicTxOutWithImplicitDeposit (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $
+                inject $
+                  Coin 100000
+            , mkBasicTxOutWithImplicitDeposit exampleByronAddress $ inject $ Coin 100000
             ]
         & withdrawalsTxBodyL .~ exampleWithdrawals
         & auxDataHashTxBodyL .~ SJust exampleAuxDataHash

@@ -64,6 +64,7 @@ import Cardano.Ledger.State as UTxO (
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.Val ((<+>))
 import qualified Cardano.Ledger.Val as Val
+import Data.Coerce (coerce)
 import Data.Foldable (Foldable (fold), foldr', toList)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -136,7 +137,7 @@ shelleyProducedValue ::
   TxBody TopTx era ->
   Value era
 shelleyProducedValue pp isRegPoolId txBody =
-  sumAllValue (txBody ^. outputsTxBodyL)
+  coerce (sumAllAssets (txBody ^. outputsTxBodyL))
     <+> Val.inject
       (txBody ^. feeTxBodyL <+> getTotalDepositsTxBody pp isRegPoolId txBody)
 

@@ -28,6 +28,7 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   updateUTxOAndInstantStake,
 
   -- * Validations
+  validateImplicitDeposit,
   validateInputSetEmptyUTxO,
   validateFeeTooSmallUTxO,
   validateBadInputsUTxO,
@@ -90,6 +91,7 @@ import Control.State.Transition (
   wrapEvent,
   wrapFailed,
  )
+import Data.Coerce (coerce)
 import Data.Foldable as F (foldl', toList)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
@@ -328,7 +330,7 @@ instance
     , PostCondition
         "Deposit pot must not be negative (post)"
         (\_ st' -> utxosDeposited st' >= mempty)
-    , let utxoBalance us = Val.inject (utxosDeposited us <> utxosFees us) <> sumUTxO (utxosUtxo us)
+    , let utxoBalance us = Val.inject (utxosDeposited us <> utxosFees us) <> coerce sumUTxO (utxosUtxo us)
           withdrawals :: TxBody TopTx era -> Value era
           withdrawals txb = Val.inject $ F.foldl' (<>) mempty $ unWithdrawals $ txb ^. withdrawalsTxBodyL
        in PostCondition
@@ -398,7 +400,11 @@ utxoInductive = do
     trans @(EraRule "PPUP" era) $ TRC (PPUPEnv slot pp genDelegs, ppup, txBody ^. updateTxBodyL)
 
   {- ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp) -}
-  runTest $ validateOutputTooSmallUTxO pp outputs
+  -- Shelley has only implicit-deposit outputs.
+  runTest $
+    validateImplicitDeposits
+      pp
+      [implicitOutput | ImplicitDepositTxOut implicitOutput <- toList outputs]
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTest $ validateOutputBootAddrAttrsTooBig outputs
@@ -525,23 +531,32 @@ validateValueNotConservedUTxO pp utxo certState txBody =
     consumedValue = shelleyConsumed pp accounts utxo txBody
     producedValue = produced pp (certState ^. certPStateL) txBody
 
--- | Ensure there are no `TxOut`s that have less than @minUTxOValue@
+-- | Ensure an implicit-deposit output has at least @minUTxOValue@.
+validateImplicitDeposit ::
+  EraImplicitDepositTxOut era =>
+  PParams era ->
+  ImplicitDepositTxOut era ->
+  Test (ShelleyUtxoPredFailure era)
+validateImplicitDeposit pp =
+  validateImplicitDeposits pp . (: [])
+
+-- | Private: ensure implicit-deposit outputs have at least @minUTxOValue@.
 --
 -- > ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp)
-validateOutputTooSmallUTxO ::
-  (EraTxOut era, Foldable f) =>
+validateImplicitDeposits ::
+  (EraImplicitDepositTxOut era, Foldable f) =>
   PParams era ->
-  f (TxOut era) ->
+  f (ImplicitDepositTxOut era) ->
   Test (ShelleyUtxoPredFailure era)
-validateOutputTooSmallUTxO pp outputs =
-  failureOnNonEmpty outputsTooSmall OutputTooSmallUTxO
+validateImplicitDeposits pp outputs =
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
   where
     -- minUTxOValue deposit comparison done as Coin because this rule is correct
     -- strictly in the Shelley era (in ShelleyMA we additionally check that all
     -- amounts are non-negative)
     outputsTooSmall =
       filter
-        (\txOut -> txOut ^. coinTxOutL < getMinCoinTxOut pp txOut)
+        (\output -> Val.coin (output ^. valueTxOutL) < getMinCoinTxOut pp output)
         (toList outputs)
 
 -- | Bootstrap (i.e. Byron) addresses have variable sized attributes in them.
