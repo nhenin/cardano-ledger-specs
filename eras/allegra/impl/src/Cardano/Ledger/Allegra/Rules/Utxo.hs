@@ -210,12 +210,14 @@ utxoTransition = do
      above check not needed because mint field of type MultiAsset cannot contain ada -}
 
   let outputs = txouts txBody
+      -- This legacy rule, also used by Mary, has only implicit-deposit outputs.
+      implicitOutputs = [output | ImplicitDepositTxOut output <- Map.elems (unUTxO outputs)]
   {- ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp)) -}
-  runTest $ validateOutputTooSmallUTxO pp outputs
+  runTest $ validateOutputTooSmallUTxO pp implicitOutputs
 
   {- ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ MaxValSize -}
   -- MaxValSize = 4000
-  runTest $ validateOutputTooBigUTxO pp outputs
+  runTest $ validateOutputTooBigUTxO pp implicitOutputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTest $ Shelley.validateOutputBootAddrAttrsTooBig (Map.elems (unUTxO outputs))
@@ -243,16 +245,16 @@ validateOutsideValidityIntervalUTxO slot txb =
   failureUnless (inInterval slot (txb ^. vldtTxBodyL)) $
     OutsideValidityIntervalUTxO (txb ^. vldtTxBodyL) slot
 
--- | Ensure that there are no `TxOut`s that have `Value` of size larger than @MaxValSize@
+-- | Private: ensure implicit-deposit outputs have no value larger than @MaxValSize@.
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ MaxValSize
 validateOutputTooBigUTxO ::
-  EraTxOut era =>
+  (EraImplicitDepositTxOut era, Foldable f) =>
   PParams era ->
-  UTxO era ->
+  f (ImplicitDepositTxOut era) ->
   Test (AllegraUtxoPredFailure era)
-validateOutputTooBigUTxO pp (UTxO outputs) =
-  failureOnNonEmpty outputsTooBig OutputTooBigUTxO
+validateOutputTooBigUTxO pp outputs =
+  failureOnNonEmpty outputsTooBig (OutputTooBigUTxO . fmap ImplicitDepositTxOut)
   where
     version = pvMajor (pp ^. ppProtocolVersionL)
     maxValSize = 4000 :: Int64
@@ -262,18 +264,18 @@ validateOutputTooBigUTxO pp (UTxO outputs) =
             let v = out ^. valueTxOutL
              in BSL.length (serialize version v) > maxValSize
         )
-        (Map.elems outputs)
+        (toList outputs)
 
--- | Ensure that there are no `TxOut`s that have value less than the scaled @minUTxOValue@
+-- | Private: ensure implicit-deposit outputs have at least the scaled @minUTxOValue@.
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp))
 validateOutputTooSmallUTxO ::
-  EraTxOut era =>
+  (EraImplicitDepositTxOut era, Foldable f) =>
   PParams era ->
-  UTxO era ->
+  f (ImplicitDepositTxOut era) ->
   Test (AllegraUtxoPredFailure era)
-validateOutputTooSmallUTxO pp (UTxO outputs) =
-  failureOnNonEmpty outputsTooSmall OutputTooSmallUTxO
+validateOutputTooSmallUTxO pp outputs =
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
   where
     outputsTooSmall =
       filter
@@ -281,7 +283,7 @@ validateOutputTooSmallUTxO pp (UTxO outputs) =
             let v = txOut ^. valueTxOutL
              in Val.pointwise (<) v (Val.inject $ getMinCoinTxOut pp txOut)
         )
-        (Map.elems outputs)
+        (toList outputs)
 
 --------------------------------------------------------------------------------
 -- UTXO STS

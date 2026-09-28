@@ -105,6 +105,9 @@ instance
   where
   arbitrary = genericArbitraryU
 
+instance Arbitrary (TxOut AllegraEra) where
+  arbitrary = ImplicitDepositTxOut <$> arbitrary
+
 instance Arbitrary (TxBody TopTx AllegraEra) where
   arbitrary =
     AllegraTxBody
