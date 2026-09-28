@@ -185,7 +185,7 @@ verifyWitVKey txbodyHash (WitVKey vkey sig) = verifySignedDSIGN vkey txbodyHash 
 {-# INLINE verifyWitVKey #-}
 
 -- | Determine the total balance contained in the UTxO.
-sumUTxO :: (EraImplicitDepositTxOut era, EraStoreBackedTxOut era) => UTxO era -> Assets era
+sumUTxO :: EraTxOut era => UTxO era -> Assets era
 sumUTxO = sumAllAssets . unUTxO
 {-# INLINE sumUTxO #-}
 
@@ -201,7 +201,7 @@ sumCoinUTxO = sumAllCoin . unUTxO
 -- | Sum the assets held in outputs. Implicit deposits remain included;
 -- deposits held in the separate store are not part of this balance.
 sumAllAssets ::
-  (EraImplicitDepositTxOut era, EraStoreBackedTxOut era, Foldable f) => f (TxOut era) -> Assets era
+  (EraTxOut era, Foldable f) => f (TxOut era) -> Assets era
 sumAllAssets = foldMap' $ \case
   ImplicitDepositTxOut txOut -> Assets (txOut ^. valueTxOutL)
   StoreBackedTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
@@ -215,7 +215,8 @@ sumAllValue = foldMap' (^. valueTxOutL)
 
 -- | Sum the application assets of store-backed outputs.
 sumAllApplicationAssets ::
-  (EraStoreBackedTxOut era, Foldable f) => f (StoreBackedTxOut era) -> ApplicationAssets era
+  (EraStoreBackedTxOut era, Monoid (ApplicationAssets era), Foldable f) =>
+  f (StoreBackedTxOut era) -> ApplicationAssets era
 sumAllApplicationAssets = foldMap' (^. applicationAssetsTxOutL)
 {-# INLINE sumAllApplicationAssets #-}
 

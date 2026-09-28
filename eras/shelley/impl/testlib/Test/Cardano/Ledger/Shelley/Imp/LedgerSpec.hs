@@ -30,7 +30,7 @@ spec = describe "LEDGER" $ do
         mkBasicTxBody
           & outputsTxBodyL @era
             .~ SSeq.singleton
-              (mkBasicTxOut addr1 $ inject coin1)
+              (mkBasicTxOutWithImplicitDeposit addr1 $ inject coin1)
     UTxO utxo1 <- getUTxO
     case Map.lookup (txInAt 0 tx1) utxo1 of
       Just out1 -> out1 ^. coinTxOutL `shouldBe` coin1
@@ -44,7 +44,7 @@ spec = describe "LEDGER" $ do
             .~ Set.singleton
               (txInAt 0 tx1)
           & outputsTxBodyL @era
-            .~ SSeq.singleton (mkBasicTxOut addr2 $ inject coin2)
+            .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr2 $ inject coin2)
     UTxO utxo2 <- getUTxO
     case Map.lookup (txInAt 0 tx2) utxo2 of
       Just out1 -> do
