@@ -36,9 +36,12 @@ module Cardano.Ledger.Core (
   EraTx (..),
   txIdTx,
   TxOut (..),
+  NoStoreBackedTxOut,
   EraTxOut (..),
   EraImplicitDepositTxOut (..),
   EraStoreBackedTxOut (..),
+  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithStoreBackedDeposit,
   bootAddrTxOutF,
   EraTxBody (..),
   txIdTxBody,
@@ -309,9 +312,13 @@ data TxOut era
   = ImplicitDepositTxOut !(ImplicitDepositTxOut era)
   | StoreBackedTxOut !(StoreBackedTxOut era)
 
--- | Operations shared by outputs with implicit and store-backed deposits.
+-- | Uninhabited representation for eras that do not support store-backed outputs.
+data NoStoreBackedTxOut era
+
+-- | Both output interfaces and the operations shared by their variants.
 class
-  ( Val (Value era)
+  ( EraImplicitDepositTxOut era
+  , EraStoreBackedTxOut era
   , FromJSON (TxOut era)
   , ToJSON (TxOut era)
   , DecCBOR (Value era)
@@ -328,7 +335,6 @@ class
   , Eq (TxOut era)
   , Ord (TxOut era)
   , MemPack (TxOut era)
-  , EraPParams era
   ) =>
   EraTxOut era
   where
@@ -377,9 +383,6 @@ class
   -- | Read or replace the ADA held in either output variant, including any
   -- implicit deposit. Deposits held in the separate store are outside this lens.
   coinTxOutL :: HasCallStack => Lens' (TxOut era) Coin
-  default coinTxOutL ::
-    (HasCallStack, EraImplicitDepositTxOut era, EraStoreBackedTxOut era) =>
-    Lens' (TxOut era) Coin
   coinTxOutL =
     lens
       ( \case
@@ -416,8 +419,6 @@ class
 
   -- | Check whether either output variant contains ADA only.
   isAdaOnlyTxOutF :: SimpleGetter (TxOut era) Bool
-  default isAdaOnlyTxOutF ::
-    (EraImplicitDepositTxOut era, EraStoreBackedTxOut era) => SimpleGetter (TxOut era) Bool
   isAdaOnlyTxOutF = to $ \case
     ImplicitDepositTxOut txOut ->
       case txOut ^. valueEitherTxOutL of
@@ -429,7 +430,8 @@ class
 
 -- | Construct and inspect outputs whose value includes an implicit capacity deposit.
 class
-  ( EraTxOut era
+  ( EraPParams era
+  , Val (Value era)
   , EncCBOR (ImplicitDepositTxOut era)
   ) =>
   EraImplicitDepositTxOut era
@@ -483,14 +485,36 @@ class
 
 -- | Construct and inspect outputs whose capacity deposit is held in a separate
 -- store. Their value contains application assets only.
-class EraTxOut era => EraStoreBackedTxOut era where
+class EraStoreBackedTxOut era where
   {-# MINIMAL mkBasicStoreBackedTxOut, applicationAssetsTxOutL #-}
 
-  -- | Construct an output from an address and its application assets.
-  mkBasicStoreBackedTxOut :: HasCallStack => Addr -> ApplicationAssets era -> StoreBackedTxOut era
+  -- | Construct an output from an address and its application assets, from Dijkstra onwards.
+  mkBasicStoreBackedTxOut ::
+    (HasCallStack, AtLeastEra "Dijkstra" era) =>
+    Addr ->
+    ApplicationAssets era ->
+    StoreBackedTxOut era
 
   -- | Read or replace application assets without accessing the deposit store.
   applicationAssetsTxOutL :: Lens' (StoreBackedTxOut era) (ApplicationAssets era)
+
+-- | Construct a transaction output whose value includes its implicit deposit.
+mkBasicTxOutWithImplicitDeposit ::
+  (EraImplicitDepositTxOut era, HasCallStack) =>
+  Addr ->
+  Value era ->
+  TxOut era
+mkBasicTxOutWithImplicitDeposit address =
+  ImplicitDepositTxOut . mkBasicImplicitDepositTxOut address
+
+-- | Construct a transaction output whose capacity deposit is held in a separate store.
+mkBasicTxOutWithStoreBackedDeposit ::
+  (EraStoreBackedTxOut era, AtLeastEra "Dijkstra" era, HasCallStack) =>
+  Addr ->
+  ApplicationAssets era ->
+  TxOut era
+mkBasicTxOutWithStoreBackedDeposit address =
+  StoreBackedTxOut . mkBasicStoreBackedTxOut address
 
 bootAddrTxOutF ::
   EraTxOut era => SimpleGetter (TxOut era) (Maybe BootstrapAddress)

@@ -679,7 +679,7 @@ defaultInitImpTestState nes = do
     rootAddr :: Addr
     rootAddr = mkAddr rootKeyHash StakeRefNull
     rootTxOut :: TxOut era
-    rootTxOut = mkBasicTxOut rootAddr $ inject rootCoin
+    rootTxOut = mkBasicTxOutWithImplicitDeposit rootAddr $ inject rootCoin
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
@@ -1188,19 +1188,19 @@ impNativeScriptKeyPairs tx = do
 fixupTxOuts :: (ShelleyEraImp era, HasCallStack) => Tx l era -> ImpTestM era (Tx l era)
 fixupTxOuts tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  let
-    txOuts = tx ^. bodyTxL . outputsTxBodyL
-  fixedUpTxOuts <- forM txOuts $ \txOut -> do
-    if txOut ^. coinTxOutL == zero
-      then do
-        amount <- arbitrary
-        let txOut' = ensureMinCoinTxOut pp (txOut & coinTxOutL .~ amount)
-        logDoc $
-          "Fixed up the amount in the TxOut to " <> ansiExpr (txOut' ^. coinTxOutL)
-        pure txOut'
-      else do
-        pure txOut
-  pure $ tx & bodyTxL . outputsTxBodyL .~ fixedUpTxOuts
+  outputs <- forM (tx ^. bodyTxL . outputsTxBodyL) $ \case
+    ImplicitDepositTxOut output
+      | coin (output ^. valueTxOutL) == zero -> do
+          amount <- arbitrary
+          let fundedOutput =
+                ensureMinCoinTxOut pp $
+                  output & valueTxOutL %~ modifyCoin (const amount)
+          logDoc $
+            "Fixed up the amount in the TxOut to "
+              <> ansiExpr (coin (fundedOutput ^. valueTxOutL))
+          pure $ ImplicitDepositTxOut fundedOutput
+    output -> pure output
+  pure $ tx & bodyTxL . outputsTxBodyL .~ outputs
 
 fixupFees ::
   forall era.
@@ -1234,7 +1234,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   changeBeforeFee <- ensureNonNegativeCoin $ coin consumedValue <-> coin producedValue
   logToExpr changeBeforeFee
   let
-    changeBeforeFeeTxOut = mkBasicTxOut addr (inject changeBeforeFee)
+    changeBeforeFeeTxOut = mkBasicTxOutWithImplicitDeposit addr (inject changeBeforeFee)
     txNoWits = tx & bodyTxL . outputsTxBodyL %~ (:|> changeBeforeFeeTxOut)
     outsBeforeFee = tx ^. bodyTxL . outputsTxBodyL
     suppliedFee = txOriginal ^. bodyTxL . feeTxBodyL
@@ -1250,7 +1250,8 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
     -- If the remainder is sufficently big we add it to outputs, otherwise we add the
     -- extraneous coin to the fee and discard the remainder TxOut
     txWithFee
-      | change >= getMinCoinTxOut pp changeTxOut =
+      | ImplicitDepositTxOut implicitChangeTxOut <- changeTxOut
+      , change >= getMinCoinTxOut pp implicitChangeTxOut =
           txNoWits
             & bodyTxL . outputsTxBodyL .~ (outsBeforeFee :|> changeTxOut)
             & bodyTxL . feeTxBodyL .~ fee
@@ -1893,7 +1894,7 @@ freshKeyAddr_ = snd <$> freshKeyAddr
 freshTxOutWithCoin :: EraTxOut era => Coin -> ImpTestM era (TxOut era)
 freshTxOutWithCoin c = do
   addr <- freshKeyAddr_
-  pure . mkBasicTxOut addr $ inject c
+  pure . mkBasicTxOutWithImplicitDeposit addr $ inject c
 
 freshMainnetKeyAddr_ :: (HasKeyPairs s, MonadState s m, HasStatefulGen g m) => m Addr
 freshMainnetKeyAddr_ = do
@@ -2012,7 +2013,7 @@ sendValueTo addr amount = do
     submitTxAnn
       ("Giving " <> show amount <> " to " <> show addr)
       $ mkBasicTx mkBasicTxBody
-        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOut addr amount)
+        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr amount)
   pure $ txInAt 0 tx
 
 sendValueTo_ :: (ShelleyEraImp era, HasCallStack) => Addr -> Value era -> ImpTestM era ()
@@ -2320,7 +2321,7 @@ produceScript scriptHash = do
   let addr = mkAddr scriptHash StakeRefNull
   let tx =
         mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOut addr mempty)
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr mempty)
   logString $ "Produced script: " <> show scriptHash
   txInAt 0 <$> submitTx tx
 
