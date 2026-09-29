@@ -3,7 +3,9 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -80,6 +82,7 @@ import Control.Monad (guard)
 import Data.Aeson (FromJSON (..), ToJSON (..), object, (.:), (.=))
 import qualified Data.Aeson as Aeson
 import Data.Bits
+import Data.Function (on)
 import Data.Maybe (fromMaybe)
 import Data.MemPack
 import Data.Typeable (Proxy (..))
@@ -335,23 +338,27 @@ pattern AlonzoTxOut addr vl dh <-
 {-# COMPLETE AlonzoTxOut #-}
 
 instance EraTxOut AlonzoEra where
-  type TxOut AlonzoEra = AlonzoTxOut AlonzoEra
+  type ImplicitDepositTxOut AlonzoEra = AlonzoTxOut AlonzoEra
+  type StoreBackedTxOut AlonzoEra = NoStoreBackedTxOut AlonzoEra
 
-  mkBasicTxOut addr vl = AlonzoTxOut addr vl SNothing
-
-  upgradeTxOut (Shelley.TxOutCompact addr value) = TxOutCompact' addr value
+  upgradeTxOut (ImplicitDepositTxOut (Shelley.TxOutCompact addr value)) =
+    ImplicitDepositTxOut $ TxOutCompact' addr value
 
   addrEitherTxOutL =
-    lens
-      getAlonzoTxOutEitherAddr
-      ( \txOut eAddr ->
-          let cVal = getTxOutCompactValue txOut
-              (_, _, dh) = viewTxOut txOut
-           in case eAddr of
-                Left addr -> mkTxOutCompact addr (compactAddr addr) cVal dh
-                Right cAddr -> mkTxOutCompact (decompactAddr cAddr) cAddr cVal dh
-      )
+    lens alonzoTxOut (const ImplicitDepositTxOut)
+      . lens
+        getAlonzoTxOutEitherAddr
+        ( \txOut eAddr ->
+            let cVal = getTxOutCompactValue txOut
+                (_, _, dh) = viewTxOut txOut
+             in case eAddr of
+                  Left addr -> mkTxOutCompact addr (compactAddr addr) cVal dh
+                  Right cAddr -> mkTxOutCompact (decompactAddr cAddr) cAddr cVal dh
+        )
   {-# INLINE addrEitherTxOutL #-}
+
+instance EraImplicitDepositTxOut AlonzoEra where
+  mkBasicImplicitDepositTxOut addr vl = AlonzoTxOut addr vl SNothing
 
   valueEitherTxOutL =
     lens
@@ -372,6 +379,53 @@ instance EraTxOut AlonzoEra where
   getMinCoinTxOut pp txOut =
     case pp ^. ppCoinsPerUTxOWordL of
       CoinPerWord (Coin cpw) -> Coin $ utxoEntrySize txOut * cpw
+
+instance EraStoreBackedTxOut AlonzoEra where
+  mkBasicStoreBackedTxOut = notSupportedInThisEra
+
+  applicationAssetsTxOutL _ unavailable = case unavailable of {}
+
+-- | Private: recover the historical representation from Alonzo's only supported variant.
+alonzoTxOut :: TxOut AlonzoEra -> AlonzoTxOut AlonzoEra
+alonzoTxOut (ImplicitDepositTxOut output) = output
+{-# INLINE alonzoTxOut #-}
+
+-- The wrapper retains the historical instances and encodings without a variant tag.
+instance Eq (TxOut AlonzoEra) where
+  (==) = (==) `on` alonzoTxOut
+
+instance Ord (TxOut AlonzoEra) where
+  compare = compare `on` alonzoTxOut
+
+instance Show (TxOut AlonzoEra) where
+  showsPrec precedence = showsPrec precedence . alonzoTxOut
+
+instance NFData (TxOut AlonzoEra) where
+  rnf = rnf . alonzoTxOut
+
+deriving via InspectHeapNamed "TxOut" (TxOut AlonzoEra) instance NoThunks (TxOut AlonzoEra)
+
+instance EncCBOR (TxOut AlonzoEra) where
+  encCBOR = encCBOR . alonzoTxOut
+
+instance DecCBOR (TxOut AlonzoEra) where
+  decCBOR = ImplicitDepositTxOut <$> decCBOR
+
+instance DecShareCBOR (TxOut AlonzoEra) where
+  type Share (TxOut AlonzoEra) = Interns (Credential Staking)
+  decShareCBOR = fmap ImplicitDepositTxOut . decShareCBOR
+
+instance MemPack (TxOut AlonzoEra) where
+  packedByteCount = packedByteCount . alonzoTxOut
+  packM = packM . alonzoTxOut
+  unpackM = ImplicitDepositTxOut <$> unpackM
+
+instance ToJSON (TxOut AlonzoEra) where
+  toJSON = toJSON . alonzoTxOut
+  toEncoding = toEncoding . alonzoTxOut
+
+instance FromJSON (TxOut AlonzoEra) where
+  parseJSON = fmap ImplicitDepositTxOut . parseJSON
 
 instance
   (Era era, Val (Value era)) =>
@@ -512,11 +566,11 @@ getAlonzoTxOutEitherAddr = \case
 
 -- | Compute an estimate of the size of storing one UTxO entry.
 -- This function implements the UTxO entry size estimate done by scaledMinDeposit in the ShelleyMA era
-utxoEntrySize :: AlonzoEraTxOut era => TxOut era -> Integer
+utxoEntrySize :: AlonzoEraTxOut era => ImplicitDepositTxOut era -> Integer
 utxoEntrySize txOut = utxoEntrySizeWithoutVal + size v + dataHashSize dh
   where
     v = txOut ^. valueTxOutL
-    dh = txOut ^. dataHashTxOutL
+    dh = ImplicitDepositTxOut txOut ^. dataHashTxOutL
     -- lengths obtained from tracing on HeapWords of inputs and outputs
     -- obtained experimentally, and number used here
     -- units are Word64s
@@ -527,11 +581,12 @@ utxoEntrySize txOut = utxoEntrySizeWithoutVal + size v + dataHashSize dh
 
 instance AlonzoEraTxOut AlonzoEra where
   dataHashTxOutL =
-    lens getAlonzoTxOutDataHash (\(AlonzoTxOut addr cv _) dh -> AlonzoTxOut addr cv dh)
+    lens alonzoTxOut (const ImplicitDepositTxOut)
+      . lens getAlonzoTxOutDataHash (\(AlonzoTxOut addr cv _) dh -> AlonzoTxOut addr cv dh)
   {-# INLINEABLE dataHashTxOutL #-}
 
   datumTxOutF = to $ \txOut ->
-    case getAlonzoTxOutDataHash txOut of
+    case getAlonzoTxOutDataHash (alonzoTxOut txOut) of
       SNothing -> NoDatum
       SJust dh -> DatumHash dh
   {-# INLINEABLE datumTxOutF #-}
