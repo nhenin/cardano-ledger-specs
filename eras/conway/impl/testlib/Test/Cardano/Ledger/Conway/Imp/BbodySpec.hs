@@ -212,7 +212,9 @@ spec = describe "BBODY" $ do
         if pv < natVersion @12
           then freshKeyAddr_
           else freshKeyAddrNoPtr_
-      pure $ mkBasicTxOut addr mempty & referenceScriptTxOutL .~ pure (fromNativeScript script)
+      pure $
+        mkBasicTxOutWithImplicitDeposit addr mempty
+          & referenceScriptTxOutL .~ pure (fromNativeScript script)
 
     txs <- simulateThenRestore $ do
       -- submit an invalid transaction which attempts to consume the failing script
