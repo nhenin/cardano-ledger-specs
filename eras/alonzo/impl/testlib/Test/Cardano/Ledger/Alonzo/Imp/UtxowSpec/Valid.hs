@@ -54,7 +54,7 @@ spec = describe "Valid transactions" $ do
     amount <- Coin <$> choose (2_000_000, 8_000_000)
     let
       datumHash = hashData @era $ Data (P.I 123)
-      txOut = mkBasicTxOut addr (inject amount) & dataHashTxOutL .~ SJust datumHash
+      txOut = mkBasicTxOutWithImplicitDeposit addr (inject amount) & dataHashTxOutL .~ SJust datumHash
       tx1 = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
     txIn <- txInAt 0 <$> submitTx tx1
     let
@@ -115,7 +115,7 @@ spec = describe "Valid transactions" $ do
             datum = Data (P.I 123)
             datumHash = hashData datum
             txOut =
-              mkBasicTxOut
+              mkBasicTxOutWithImplicitDeposit
                 (mkAddr alwaysSucceedsWithDatumHash StakeRefNull)
                 (MaryValue amount mempty)
                 & dataHashTxOutL .~ SJust datumHash
@@ -182,7 +182,7 @@ alonzoToConwaySpec = do
           outputAddr <- freshKeyHash @Payment
           let
             txOut =
-              mkBasicTxOut
+              mkBasicTxOutWithImplicitDeposit
                 (mkAddr outputAddr StakeRefNull)
                 (MaryValue mempty multiAsset)
             txBody =

@@ -213,7 +213,7 @@ utxoTransition = do
       -- This legacy rule, also used by Mary, has only implicit-deposit outputs.
       implicitOutputs = [output | ImplicitDepositTxOut output <- Map.elems (unUTxO outputs)]
   {- ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp)) -}
-  runTest $ validateOutputTooSmallUTxO pp implicitOutputs
+  runTest $ validateImplicitDeposits pp implicitOutputs
 
   {- ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ MaxValSize -}
   -- MaxValSize = 4000
@@ -269,12 +269,12 @@ validateOutputTooBigUTxO pp outputs =
 -- | Private: ensure implicit-deposit outputs have at least the scaled @minUTxOValue@.
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp))
-validateOutputTooSmallUTxO ::
+validateImplicitDeposits ::
   (EraImplicitDepositTxOut era, Foldable f) =>
   PParams era ->
   f (ImplicitDepositTxOut era) ->
   Test (AllegraUtxoPredFailure era)
-validateOutputTooSmallUTxO pp outputs =
+validateImplicitDeposits pp outputs =
   failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
   where
     outputsTooSmall =

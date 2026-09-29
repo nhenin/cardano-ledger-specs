@@ -175,6 +175,9 @@ instance
       <*> scale (`div` 15) arbitrary
       <*> arbitrary
 
+instance Arbitrary (TxOut AlonzoEra) where
+  arbitrary = ImplicitDepositTxOut <$> arbitrary
+
 instance Arbitrary (TxBody TopTx AlonzoEra) where
   arbitrary =
     AlonzoTxBody
