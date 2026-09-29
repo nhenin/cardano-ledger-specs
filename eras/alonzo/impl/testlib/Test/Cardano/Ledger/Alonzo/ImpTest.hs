@@ -633,4 +633,4 @@ mkTokenMintingTx sh = do
     AnyLevelTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . mintTxBodyL .~ ma
-        & bodyTxL . outputsTxBodyL .~ [mkBasicTxOut addr (MaryValue mempty ma)]
+        & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr (MaryValue mempty ma)]
