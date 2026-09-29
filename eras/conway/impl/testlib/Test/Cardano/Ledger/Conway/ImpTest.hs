@@ -523,7 +523,7 @@ delegateToDRep cred stake dRep = do
   submitTxAnn_ "Delegate to DRep" $
     mkBasicTx mkBasicTxBody
       & bodyTxL . outputsTxBodyL
-        .~ SSeq.singleton (mkBasicTxOut (mkAddr spendingKP cred) (inject stake))
+        .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit (mkAddr spendingKP cred) (inject stake))
       & bodyTxL . certsTxBodyL
         .~ SSeq.fromList [DelegTxCert cred (DelegVote dRep)]
   pure spendingKP
@@ -1800,7 +1800,7 @@ showConwayTxBalance pp certState utxo tx =
     , "\tTotal:      \t" <> show (coin $ shelleyConsumed pp accounts utxo txBody)
     , ""
     , "Produced:"
-    , "\tOutputs:   \t" <> show (coin $ sumAllValue (txBody ^. outputsTxBodyL))
+    , "\tOutputs:   \t" <> show (coin outputs)
     , "\tDonations: \t" <> show (txBody ^. treasuryDonationTxBodyL)
     , "\tDeposits:  \t" <> show (getTotalDepositsTxBody pp isRegPoolId txBody)
     , "\tFees:      \t" <> show (txBody ^. feeTxBodyL)
@@ -1808,7 +1808,8 @@ showConwayTxBalance pp certState utxo tx =
     ]
   where
     txBody = tx ^. bodyTxL
-    inputs = sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+    Assets inputs = sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+    Assets outputs = sumAllAssets (txBody ^. outputsTxBodyL)
     accounts = certState ^. certDStateL . accountsL
     pState = certState ^. certPStateL
     refunds = getTotalRefundsTxBody pp (`lookupAccountDeposit` accounts) txBody
