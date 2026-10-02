@@ -1,5 +1,9 @@
 # Version history for `cardano-ledger-core`
 
+## 1.22.0.1
+
+*
+
 ## 1.22.0.0
 
 * Add `addVRFKeyHashOccurrence`, `removeVRFKeyHashOccurrence` and `populateVRFKeyHashes` to `Cardano.Ledger.State.CertState`

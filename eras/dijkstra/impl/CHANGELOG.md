@@ -1,8 +1,11 @@
 # Revision history for `cardano-ledger-dijkstra`
 
-## 0.4.0.0
+## 0.4.0.1
 
 * Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
+
+## 0.4.0.0
+
 * Remove `WithdrawalsExceedAccountBalance` constructor from `DijkstraUtxoPredFailure`
 * Add `WithdrawalAccountsMissingFromOriginal` constructor to `EntitiesPredFailure`
 * Rename `EntitiesPredFailure` constructors:
