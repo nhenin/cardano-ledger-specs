@@ -12,6 +12,10 @@
 * Remove `ssStakeMarkPoolDistr` field from `SnapShots` and `ssStakeMarkPoolDistrL` in favor of `msStakePoolDistr`
 * Add `EraIndependentBlockHeaderBody` phantom type to `Cardano.Ledger.Hashes`
 
+## 1.22.0.1
+
+*
+
 ## 1.22.0.0
 
 * Add `maxKeyAgeEpochs` accessor in `Cardano.Ledger.State.SnapShots` module

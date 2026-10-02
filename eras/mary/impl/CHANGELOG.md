@@ -8,6 +8,10 @@
 
 * Move `mkTokenMintingTx` to `cardano-ledger-alonzo:testlib`
 
+## 1.11.1.1
+
+*
+
 ## 1.11.1.0
 
 * Widen `cardano-crypto-class` upper bound to `<2.7`

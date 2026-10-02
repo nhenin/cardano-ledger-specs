@@ -19,6 +19,10 @@
 * Add `EraForecast` superclass to `ShelleyEraImp`, together with `Eq`, `ToExpr`, `NFData` and `Typeable` superclasses for the `TICKF` event
 * Add `ToExpr` instance for `ShelleyTickfEvent`
 
+## 1.20.0.1
+
+*
+
 ## 1.20.0.0
 
 * For `ApplyBlock`:
