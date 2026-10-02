@@ -39,7 +39,7 @@ import Cardano.Ledger.Shelley.LedgerState (
 import Cardano.Ledger.Shelley.Scripts (pattern RequireAllOf, pattern RequireAnyOf)
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.TxIn (TxIn (..))
-import Cardano.Ledger.Val (Val ((<+>), (<->)), inject)
+import Cardano.Ledger.Val (Val ((<+>), (<->)))
 import Cardano.Slotting.EpochInfo.API (epochInfoSize)
 import Control.Monad.Reader (runReader)
 import Control.Monad.Trans.Fail.String (errorFail)
@@ -120,11 +120,17 @@ txInBalance ::
 txInBalance txinSet m = sumCoinUTxO (UTxO (Map.restrictKeys m txinSet))
 
 injectFee :: EraTxOut era => Coin -> TxOut era -> TxOut era
-injectFee fee txOut = txOut & valueTxOutL %~ (<+> inject fee)
+injectFee fee txOut = txOut & coinTxOutL %~ (<+> fee)
+
+-- | The legacy generators only produce outputs with implicit deposits.
+requireImplicitTxOut :: TxOut era -> ImplicitDepositTxOut era
+requireImplicitTxOut (ImplicitDepositTxOut output) = output
+requireImplicitTxOut (StoreBackedTxOut _) = error "requireImplicitTxOut: unexpected store-backed output"
 
 getTxOutRefScript :: Proof era -> TxOut era -> StrictMaybe (Script era)
-getTxOutRefScript Conway (BabbageTxOut _ _ _ ms) = ms
-getTxOutRefScript Babbage (BabbageTxOut _ _ _ ms) = ms
+getTxOutRefScript _ (StoreBackedTxOut _) = error "getTxOutRefScript: unexpected store-backed output"
+getTxOutRefScript Conway (ImplicitDepositTxOut (BabbageTxOut _ _ _ ms)) = ms
+getTxOutRefScript Babbage (ImplicitDepositTxOut (BabbageTxOut _ _ _ ms)) = ms
 getTxOutRefScript _ _ = SNothing
 {-# NOINLINE getTxOutRefScript #-}
 
@@ -156,27 +162,28 @@ txoutEvidence ::
   Proof era ->
   TxOut era ->
   ([Credential Payment], Maybe DataHash)
-txoutEvidence Alonzo (AlonzoTxOut addr _ (SJust dh)) =
+txoutEvidence _ (StoreBackedTxOut _) = error "txoutEvidence: unexpected store-backed output"
+txoutEvidence Alonzo (ImplicitDepositTxOut (AlonzoTxOut addr _ (SJust dh))) =
   (addrCredentials addr, Just dh)
-txoutEvidence Alonzo (AlonzoTxOut addr _ SNothing) =
+txoutEvidence Alonzo (ImplicitDepositTxOut (AlonzoTxOut addr _ SNothing)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (BabbageTxOut addr _ NoDatum _) =
+txoutEvidence Conway (ImplicitDepositTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (BabbageTxOut addr _ (DatumHash dh) _) =
+txoutEvidence Conway (ImplicitDepositTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Conway (BabbageTxOut addr _ (Datum _d) _) =
+txoutEvidence Conway (ImplicitDepositTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Babbage (BabbageTxOut addr _ NoDatum _) =
+txoutEvidence Babbage (ImplicitDepositTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Babbage (BabbageTxOut addr _ (DatumHash dh) _) =
+txoutEvidence Babbage (ImplicitDepositTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Babbage (BabbageTxOut addr _ (Datum _d) _) =
+txoutEvidence Babbage (ImplicitDepositTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Mary (ShelleyTxOut addr _) =
+txoutEvidence Mary (ImplicitDepositTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Allegra (ShelleyTxOut addr _) =
+txoutEvidence Allegra (ImplicitDepositTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Shelley (ShelleyTxOut addr _) =
+txoutEvidence Shelley (ImplicitDepositTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
 {-# NOINLINE txoutEvidence #-}
 

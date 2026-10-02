@@ -604,8 +604,7 @@ deriving instance
   Show (TxBody l DijkstraEra)
 
 instance
-  ( ToJSON (TxOut DijkstraEra)
-  , ToJSON (Tx SubTx DijkstraEra)
+  ( ToJSON (Tx SubTx DijkstraEra)
   , OMap.HasOKey TxId (Tx SubTx DijkstraEra)
   ) =>
   ToKeyValuePairs (TxBody TopTx DijkstraEra)
@@ -664,18 +663,14 @@ instance
         ]
 
 instance
-  ( ToJSON (TxOut DijkstraEra)
-  , ToJSON (Tx SubTx DijkstraEra)
+  ( ToJSON (Tx SubTx DijkstraEra)
   , OMap.HasOKey TxId (Tx SubTx DijkstraEra)
   ) =>
   ToJSON (TxBody TopTx DijkstraEra)
   where
   toJSON = Aeson.object . toKeyValuePairs
 
-instance
-  ToJSON (TxOut DijkstraEra) =>
-  ToKeyValuePairs (TxBody SubTx DijkstraEra)
-  where
+instance ToKeyValuePairs (TxBody SubTx DijkstraEra) where
   toKeyValuePairs txb =
     let DijkstraSubTxBodyRaw
           { dstbrSpendInputs
@@ -717,10 +712,7 @@ instance
         , "accountBalanceIntervals" .= dstbrAccountBalanceIntervals
         ]
 
-instance
-  ToJSON (TxOut DijkstraEra) =>
-  ToJSON (TxBody SubTx DijkstraEra)
-  where
+instance ToJSON (TxBody SubTx DijkstraEra) where
   toJSON = Aeson.object . toKeyValuePairs
 
 instance

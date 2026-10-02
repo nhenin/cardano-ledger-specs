@@ -1,5 +1,9 @@
 # Version history for `cardano-ledger-babbage`
 
+## 1.15.0.1
+
+*
+
 ## 1.15.0.0
 
 * Encode a wrapped `AlonzoContextError` under tag 8 in `BabbageContextError`, and add `TxCert era` and `PlutusPurpose AsItem era` constraints to its `NFData` and `EncCBOR` instances

@@ -265,7 +265,7 @@ notValidatingTx =
       mkBasicTxBody
         & inputsTxBodyL .~ [mkGenesisTxIn 2]
         & collateralInputsTxBodyL .~ [mkGenesisTxIn 12]
-        & outputsTxBodyL .~ [mkBasicTxOut someAddr (inject $ Coin 2995)]
+        & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit someAddr (inject $ Coin 2995)]
         & feeTxBodyL .~ Coin 5
         & scriptIntegrityHashTxBodyL
           .~ newScriptIntegrityHash pparams [PlutusV1] redeemers (mkTxDats (Data (PV1.I 0)))

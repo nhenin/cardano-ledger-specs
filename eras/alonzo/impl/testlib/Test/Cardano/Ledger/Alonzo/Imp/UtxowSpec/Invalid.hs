@@ -131,7 +131,7 @@ spec = describe "Invalid transactions" $ do
             let addr = mkAddr scriptHash StakeRefNull
             let tx =
                   mkBasicTx mkBasicTxBody
-                    & bodyTxL . outputsTxBodyL .~ [mkBasicTxOut addr mempty]
+                    & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr mempty]
             let resetDataHash = dataHashTxOutL .~ SNothing
             let resetTxOutDataHash =
                   bodyTxL . outputsTxBodyL

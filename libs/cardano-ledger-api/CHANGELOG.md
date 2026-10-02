@@ -1,5 +1,9 @@
 # Version history for `cardano-ledger-api`
 
+## 1.15.0.1
+
+*
+
 ## 1.15.0.0
 
 * Add `ssLeiosCommittee` to `StakeSnapshots`: the Leios voting committee seated on the `set` snapshot, in seat order, each seat attributed to its pool and carrying the pool's registered key with its registration epoch and whether that key is still honoured. Adds `QueryLeiosSeat`

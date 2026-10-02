@@ -130,6 +130,9 @@ instance (Era era, Arbitrary (PParamsUpdate era)) => Arbitrary (ProposedPPUpdate
 instance (EraTxOut era, Arbitrary (Value era)) => Arbitrary (ShelleyTxOut era) where
   arbitrary = ShelleyTxOut <$> arbitrary <*> scale (`div` 15) arbitrary
 
+instance Arbitrary (TxOut ShelleyEra) where
+  arbitrary = ImplicitDepositTxOut <$> arbitrary
+
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.Shelley.LedgerState ----------------------------------------------------
 ------------------------------------------------------------------------------------------

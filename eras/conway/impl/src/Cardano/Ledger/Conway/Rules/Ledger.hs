@@ -536,7 +536,7 @@ instance
   , State (EraRule "UTXO" era) ~ UTxOState era
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
   , Script era ~ AlonzoScript era
-  , TxOut era ~ BabbageTxOut era
+  , ImplicitDepositTxOut era ~ BabbageTxOut era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , PredicateFailure (EraRule "UTXOW" era) ~ ConwayUtxowPredFailure era

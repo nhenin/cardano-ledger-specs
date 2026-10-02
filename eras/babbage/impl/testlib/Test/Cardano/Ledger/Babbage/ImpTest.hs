@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -99,7 +100,14 @@ fixupCollateralReturn ::
   ImpTestM era (Tx TopTx era)
 fixupCollateralReturn tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  pure $ tx & bodyTxL . collateralReturnTxBodyL %~ fmap (ensureMinCoinTxOut pp)
+  pure $
+    tx
+      & bodyTxL . collateralReturnTxBodyL
+        %~ fmap
+          ( \case
+              ImplicitDepositTxOut output -> ImplicitDepositTxOut $ ensureMinCoinTxOut pp output
+              StoreBackedTxOut _ -> error "fixupCollateralReturn: unexpected StoreBackedTxOut"
+          )
 
 impBabbageExpectTxSuccess ::
   ( HasCallStack
@@ -150,8 +158,10 @@ produceRefScriptsTx scripts = do
   txOuts <- forM scripts $ \script -> do
     addr <- freshKeyAddr_
     let txOutZero =
-          mkBasicTxOut addr mempty & referenceScriptTxOutL .~ SJust script
-    pure $ setMinCoinTxOut pp txOutZero
+          mkBasicTxOutWithImplicitDeposit addr mempty & referenceScriptTxOutL .~ SJust script
+    pure $ case txOutZero of
+      ImplicitDepositTxOut output -> ImplicitDepositTxOut $ setMinCoinTxOut pp output
+      StoreBackedTxOut _ -> error "produceRefScriptsTx: unexpected StoreBackedTxOut"
   let txBody = mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (NE.toList txOuts)
   submitTx (mkBasicTx txBody)
 

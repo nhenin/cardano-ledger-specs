@@ -30,7 +30,7 @@ module Cardano.Ledger.Babbage.Rules.Utxo (
   feesOK,
   validateTotalCollateral,
   validateCollateralEqBalance,
-  validateOutputTooSmallUTxO,
+  validateImplicitDeposits,
   disjointRefInputs,
   updateUTxOState,
 ) where
@@ -70,7 +70,7 @@ import Control.Monad (unless, when)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
 import Data.Bifunctor (first)
-import Data.Foldable (sequenceA_, toList)
+import Data.Foldable (foldMap', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
 import Data.MapExtras (extractKeys)
@@ -295,16 +295,22 @@ validateCollateralContainsNonADA txBody utxoCollateral =
         SNothing -> collateralBalance
         SJust retTxOut ->
           if utxoCollateralHasOnlyAda
-            then retTxOut ^. valueTxOutL
+            then implicitCollateralValue retTxOut
             else collateralBalance
     -- This is the balance that is provided by the collateral inputs
-    collateralBalance = sumAllValue utxoCollateral
+    collateralBalance = foldMap' implicitCollateralValue utxoCollateral
     -- This is the total amount that will be spent as collateral. This is where we account
     -- for the fact that we can remove Non-Ada assets from collateral inputs, by directing
     -- them to the return TxOut.
     totalCollateralBalance = case txBody ^. collateralReturnTxBodyL of
       SNothing -> collateralBalance
-      SJust retTxOut -> collateralBalance <-> (retTxOut ^. valueTxOutL @era)
+      SJust retTxOut -> collateralBalance <-> implicitCollateralValue retTxOut
+
+-- | Private: this legacy collateral rule expects implicit-deposit outputs.
+implicitCollateralValue :: EraImplicitDepositTxOut era => TxOut era -> Value era
+implicitCollateralValue = \case
+  ImplicitDepositTxOut output -> output ^. valueTxOutL
+  StoreBackedTxOut _ -> error "Babbage.implicitCollateralValue: unexpected StoreBackedTxOut"
 
 -- > (txcoll tx ≠ ◇) => balance == txcoll tx
 validateCollateralEqBalance ::
@@ -314,14 +320,16 @@ validateCollateralEqBalance bal txcoll =
     SNothing -> pure ()
     SJust tc -> failureUnless (bal == toDeltaCoin tc) (IncorrectTotalCollateralField bal tc)
 
+-- | Ensure implicit-deposit outputs cover their byte-based minimum deposit.
+--
 -- > getValue txout ≥ inject ( serSize txout ∗ coinsPerUTxOByte pp )
-validateOutputTooSmallUTxO ::
-  (EraTxOut era, Foldable f) =>
+validateImplicitDeposits ::
+  (EraImplicitDepositTxOut era, Foldable f) =>
   PParams era ->
-  f (Sized (TxOut era)) ->
+  f (Sized (ImplicitDepositTxOut era)) ->
   Test (BabbageUtxoPredFailure era)
-validateOutputTooSmallUTxO pp outs =
-  failureOnNonEmpty outputsTooSmall BabbageOutputTooSmallUTxO
+validateImplicitDeposits pp outs =
+  failureOnNonEmpty outputsTooSmall (BabbageOutputTooSmallUTxO . fmap (first ImplicitDepositTxOut))
   where
     outs' = map (\out -> (sizedValue out, getMinCoinSizedTxOut pp out)) (toList outs)
     outputsTooSmall =
@@ -397,7 +405,10 @@ babbageUtxoValidation = do
 
   {-   ∀ txout ∈ allOuts txb, getValue txout ≥ inject (serSize txout ∗ coinsPerUTxOByte pp) -}
   let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
-  runTest $ validateOutputTooSmallUTxO pp allSizedOutputs
+      -- Retain the cached size: the implicit wrapper preserves the output encoding.
+      implicitSizedOutputs =
+        [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
+  runTest $ validateImplicitDeposits pp implicitSizedOutputs
 
   let allOutputs = fmap sizedValue allSizedOutputs
   {-   ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp   -}

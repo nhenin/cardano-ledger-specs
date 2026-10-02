@@ -654,7 +654,7 @@ registerInitialFunds hasFS tc newEpochState = do
   let sg = tc ^. tcShelleyGenesisL
       addInitialFund (!acc, !coins) (addr, amount) =
         let txIn = initialFundsPseudoTxIn addr
-            txOut = mkBasicTxOut addr (inject amount)
+            txOut = mkBasicTxOutWithImplicitDeposit addr (inject amount)
          in (Map.insert txIn txOut acc, coins <> amount)
   source <-
     resolveInjectionSource "initialFunds" (sgExtraConfig sg) secInitialFunds (sgInitialFunds sg)

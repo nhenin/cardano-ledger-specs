@@ -29,7 +29,7 @@ import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  sizedValue,
+  Sized (..),
  )
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin)
@@ -53,6 +53,7 @@ import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
@@ -249,7 +250,10 @@ dijkstraSubUtxoTransition = do
 
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
-  runTestOnSignal $ Babbage.validateOutputTooSmallUTxO pp allSizedOutputs
+  runTestOnSignal $
+    Babbage.validateImplicitDeposits
+      pp
+      [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
 
   netId <- liftSTS $ asks networkId
   runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs
