@@ -10,6 +10,10 @@
 * Add `DecCBOR` instances for `PlutusData` and `Data`
 * Add `mkTokenMintingTx`
 
+## 1.17.0.1
+
+*
+
 ## 1.17.0.0
 
 * Add `alonzoSpendableInputsTxBodyF`

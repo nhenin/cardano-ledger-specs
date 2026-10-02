@@ -16,6 +16,10 @@
 * Add `queryStakePoolStateExamples`
 * Add `Arbitrary` instance for `QueryResultLeiosCommittee`
 
+## 1.15.0.1
+
+*
+
 ## 1.15.0.0
 
 * Add `queryNonMyopicMemberRewards` (`GetNonMyopicMemberRewards`) with the `QueryResultNonMyopicMemberRewards` result type
