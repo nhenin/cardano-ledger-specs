@@ -189,8 +189,8 @@ spec = describe "UTXOW" $ do
           . submitTx
           $ mkBasicTx mkBasicTxBody
             & bodyTxL . outputsTxBodyL
-              .~ [ mkBasicTxOut (mkAddr (hashPlutusScript plutus) StakeRefNull) mempty
-                 , mkBasicTxOut refAddr mempty & referenceScriptTxOutL .~ SJust script
+              .~ [ mkBasicTxOutWithImplicitDeposit (mkAddr (hashPlutusScript plutus) StakeRefNull) mempty
+                 , mkBasicTxOutWithImplicitDeposit refAddr mempty & referenceScriptTxOutL .~ SJust script
                  ]
       stakeCred <- KeyHashObj <$> freshKeyHash
       deposit <- getsNES $ nesEsL . curPParamsEpochStateL . ppKeyDepositL

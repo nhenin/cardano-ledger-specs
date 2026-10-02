@@ -220,7 +220,7 @@ goldenEncodingTestsAllegra =
     , metadataWithScriptsGoldenTest @AllegraEra
     , -- "minimal_txn_body"
       let tin = mkTxInPartial genesisId 1
-          tout = mkBasicTxOut @AllegraEra testAddrE (Coin 2)
+          tout = mkBasicTxOutWithImplicitDeposit @AllegraEra testAddrE (Coin 2)
        in checkEncodingCBORAnnotated
             (eraProtVerHigh @AllegraEra)
             "minimal_txbody"
@@ -241,7 +241,7 @@ goldenEncodingTestsAllegra =
             )
     , -- "full_txn_body"
       let tin = mkTxInPartial genesisId 1
-          tout = mkBasicTxOut @AllegraEra testAddrE (Coin 2)
+          tout = mkBasicTxOutWithImplicitDeposit @AllegraEra testAddrE (Coin 2)
           reg = RegTxCert testStakeCred
           ras = Map.singleton (AccountAddress Testnet (AccountId (KeyHashObj testKeyHash))) (Coin 123)
           up = testUpdate
@@ -370,7 +370,7 @@ goldenEncodingTestsMary =
     , metadataWithScriptsGoldenTest @MaryEra
     , -- "minimal_txn_body"
       let tin = mkTxInPartial genesisId 1
-          tout = mkBasicTxOut @MaryEra testAddrE (Val.inject $ Coin 2)
+          tout = mkBasicTxOutWithImplicitDeposit @MaryEra testAddrE (Val.inject $ Coin 2)
        in checkEncodingCBORAnnotated
             (eraProtVerHigh @MaryEra)
             "minimal_txbody"
@@ -391,7 +391,7 @@ goldenEncodingTestsMary =
             )
     , -- "full_txn_body"
       let tin = mkTxInPartial genesisId 1
-          tout = mkBasicTxOut @MaryEra testAddrE (Val.inject $ Coin 2)
+          tout = mkBasicTxOutWithImplicitDeposit @MaryEra testAddrE (Val.inject $ Coin 2)
           reg = RegTxCert testStakeCred
           ras = Map.singleton (AccountAddress Testnet (AccountId (KeyHashObj testKeyHash))) (Coin 123)
           up = testUpdate

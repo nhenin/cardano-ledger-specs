@@ -648,7 +648,10 @@ transTxOutV4 ::
   Either (ContextError era) PV4.TxOut
 transTxOutV4 txOutSource txOut = do
   let
-    val = Alonzo.transValue $ txOut ^. valueTxOutL
+    val = Alonzo.transValue $ case txOut of
+      ImplicitDepositTxOut output -> output ^. valueTxOutL
+      StoreBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+
     referenceScript = Babbage.transReferenceScript $ txOut ^. referenceScriptTxOutL
     datum =
       case txOut ^. datumTxOutF of

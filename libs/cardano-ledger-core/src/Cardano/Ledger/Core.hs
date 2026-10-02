@@ -540,14 +540,24 @@ mkCoinTxOut addr = mkBasicImplicitDepositTxOut addr . inject
 type family Value era :: Type
 
 -- | Assets that may include an implicit capacity deposit.
-newtype Assets era = Assets (Value era)
+newtype Assets era = Assets {unAssets :: Value era}
+
+deriving newtype instance NFData (Value era) => NFData (Assets era)
 
 deriving newtype instance Semigroup (Value era) => Semigroup (Assets era)
 
 deriving newtype instance Monoid (Value era) => Monoid (Assets era)
 
 -- | Application assets, excluding the capacity deposit held in a separate store.
-newtype ApplicationAssets era = ApplicationAssets (Value era)
+newtype ApplicationAssets era = ApplicationAssets {unApplicationAssets :: (Value era)}
+
+deriving newtype instance Eq (Value era) => Eq (ApplicationAssets era)
+
+deriving newtype instance Ord (Value era) => Ord (ApplicationAssets era)
+
+deriving stock instance Show (Value era) => Show (ApplicationAssets era)
+
+deriving newtype instance NFData (Value era) => NFData (ApplicationAssets era)
 
 deriving newtype instance Semigroup (Value era) => Semigroup (ApplicationAssets era)
 

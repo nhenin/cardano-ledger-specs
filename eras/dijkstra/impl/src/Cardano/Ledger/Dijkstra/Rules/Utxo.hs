@@ -45,7 +45,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  sizedValue,
+  Sized (..),
  )
 import Cardano.Ledger.Binary.Coders (
   Decode (..),
@@ -89,6 +89,7 @@ import Control.State.Transition.Extended (
   validate,
  )
 import Data.Bifunctor
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
 import qualified Data.Map.Strict as Map
@@ -380,9 +381,12 @@ dijkstraUtxoTransition = do
           postSubsPState
           (txBody & subTransactionsTxBodyL .~ mempty)
 
-  {- ∀ txout ∈ allOuts txb, getValue txout ≥ inject (serSize txout * coinsPerUTxOByte pp) -}
+  -- Apply the byte-based minimum only to implicit-deposit outputs, preserving their cached size.
   let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
-  runTest $ Babbage.validateOutputTooSmallUTxO pp allSizedOutputs
+  runTest $
+    Babbage.validateImplicitDeposits
+      pp
+      [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
 
   let allOutputs = fmap sizedValue allSizedOutputs
   {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}

@@ -12,7 +12,7 @@ module Cardano.Ledger.State.Query where
 import Cardano.Ledger.Babbage.TxOut (internBabbageTxOut)
 import Cardano.Ledger.BaseTypes (EpochNo (..), unNonZero, unsafeNonZero)
 import Cardano.Ledger.Binary
-import Cardano.Ledger.Core (TxOut, emptyPParams)
+import Cardano.Ledger.Core (TxOut (..), emptyPParams)
 import qualified Cardano.Ledger.Credential as Credential
 import qualified Cardano.Ledger.Keys as Keys
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, prevPParamsEpochStateL)
@@ -79,15 +79,15 @@ insertUTxO ::
 insertUTxO utxo stateKey = do
   mapM_ insertTxOut $ Map.toList (Shelley.unUTxO utxo)
   where
-    insertTxOut (TxIn.TxIn txId txIx, out) = do
+    insertTxOut (TxIn.TxIn txId txIx, ImplicitDepositTxOut output) = do
       txKey <-
-        insert $ Tx {txInIx = txIx, txInId = txId, txOut = out}
+        insert $ Tx {txInIx = txIx, txInId = txId, txOut = output}
       txsKey <-
         insert $
           Txs
             { txsInIx = txIx
             , txsInId = txId
-            , txsOut = out
+            , txsOut = output
             , txsStakeCredential = Nothing
             }
       insert_ $
@@ -517,14 +517,18 @@ sourceUTxO ::
   ConduitM () (TxIn.TxIn, TxOut CurrentEra) (ReaderT SqlBackend m) ()
 sourceUTxO =
   selectSource [] []
-    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, txOut))
+    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, ImplicitDepositTxOut txOut))
 
 sourceWithSharingUTxO ::
   MonadResource m =>
   Map.Map (Credential.Credential Keys.Staking) a ->
   ConduitM () (TxIn.TxIn, TxOut CurrentEra) (ReaderT SqlBackend m) ()
 sourceWithSharingUTxO stakeCredentials =
-  sourceUTxO .| mapC (fmap (internBabbageTxOut (`intern` stakeCredentials)))
+  sourceUTxO
+    .| mapC
+      ( fmap $ \(ImplicitDepositTxOut output) ->
+          ImplicitDepositTxOut $ internBabbageTxOut (`intern` stakeCredentials) output
+      )
 
 foldDbUTxO ::
   MonadUnliftIO m =>

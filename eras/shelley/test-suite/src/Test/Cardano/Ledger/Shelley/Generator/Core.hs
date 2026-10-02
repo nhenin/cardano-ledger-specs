@@ -385,7 +385,7 @@ genTxOut ::
   Gen [TxOut era]
 genTxOut genEraVal addrs = do
   values <- replicateM (length addrs) genEraVal
-  return (uncurry mkBasicTxOut <$> zip addrs values)
+  return (uncurry mkBasicTxOutWithImplicitDeposit <$> zip addrs values)
 
 -- | Generates a list of 'Coin' values of length between 'lower' and 'upper'
 -- and with values between 'minCoin' and 'maxCoin'.

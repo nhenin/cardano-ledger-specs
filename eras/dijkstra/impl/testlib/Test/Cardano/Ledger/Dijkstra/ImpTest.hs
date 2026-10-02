@@ -396,10 +396,12 @@ mkBalancerSubTx consumed produced = do
           GT -> (consumed <-> produced, mempty)
           LT -> (mempty, produced <-> consumed)
         -- a buffer to make both the input UTxO and the change output satisfy minCoin. It's added on both sides, so it cancels out.
-        minChangeCoin = ensureMinCoinTxOut pp (mkBasicTxOut addr mempty) ^. coinTxOutL
+        minChangeCoin =
+          ImplicitDepositTxOut (ensureMinCoinTxOut pp (mkBasicImplicitDepositTxOut addr mempty))
+            ^. coinTxOutL
         inputCoin = minChangeCoin <> shortfall
         changeCoin = minChangeCoin <> surplus
-        changeOut = mkBasicTxOut addr (inject changeCoin)
+        changeOut = mkBasicTxOutWithImplicitDeposit addr (inject changeCoin)
       newTxIn <- withFixup fixupTx $ sendCoinTo addr inputCoin
       let subTx =
             mkBasicTx mkBasicTxBody

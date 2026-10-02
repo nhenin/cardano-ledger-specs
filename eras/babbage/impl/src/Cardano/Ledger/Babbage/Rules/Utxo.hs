@@ -412,7 +412,7 @@ babbageUtxoValidation = do
 
   let allOutputs = fmap sizedValue allSizedOutputs
   {-   ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp   -}
-  runTest $ Alonzo.validateOutputTooBigUTxO pp (sizedValue <$> implicitSizedOutputs)
+  runTest $ Alonzo.validateOutputTooBigUTxO pp allOutputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ allOuts txb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs

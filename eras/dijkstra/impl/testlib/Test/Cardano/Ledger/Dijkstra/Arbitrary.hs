@@ -64,6 +64,21 @@ instance Arbitrary (DijkstraPParams Identity DijkstraEra) where
 instance Arbitrary (DijkstraPParams StrictMaybe DijkstraEra) where
   arbitrary = genericArbitraryU
 
+instance Arbitrary (TxOut DijkstraEra) where
+  arbitrary =
+    oneof
+      [ ImplicitDepositTxOut <$> arbitrary
+      , ( \address assets datum script ->
+            mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets assets)
+              & datumTxOutL .~ datum
+              & referenceScriptTxOutL .~ script
+        )
+          <$> arbitrary
+          <*> scale (`div` 15) arbitrary
+          <*> arbitrary
+          <*> arbitrary
+      ]
+
 instance Arbitrary (TxBody SubTx DijkstraEra) where
   arbitrary =
     DijkstraSubTxBody
