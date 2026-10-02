@@ -25,13 +25,13 @@ import Cardano.Ledger.Conway.Core (
   EraTx (..),
   EraTxAuxData (..),
   EraTxBody (..),
-  EraTxOut (..),
   EraTxWits (..),
   PlutusPurpose,
   ScriptHash,
   SubTx,
   TxCert,
   TxLevel (..),
+  TxOut,
  )
 import Cardano.Ledger.Conway.Governance
 import qualified Cardano.Ledger.Conway.Rules as Conway

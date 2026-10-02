@@ -403,7 +403,7 @@ tests =
        in checkEncodingCBOR
             shelleyProtVer
             "txout"
-            (mkBasicTxOut @ShelleyEra a (Coin 2))
+            (mkBasicTxOutWithImplicitDeposit @ShelleyEra a (Coin 2))
             ( T (TkListLen 2)
                 <> S a
                 <> S (Coin 2)
@@ -675,7 +675,7 @@ tests =
                 <> S e
             )
     , -- checkEncodingCBOR "minimal_txn_body"
-      let tout = mkCoinTxOut testAddrE (Coin 2)
+      let tout = ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2)
        in checkEncodingCBORAnnotated
             shelleyProtVer
             "txbody"
@@ -698,7 +698,7 @@ tests =
                 <> T (TkWord64 500)
             )
     , -- checkEncodingCBOR "transaction_mixed"
-      let tout = mkCoinTxOut testAddrE (Coin 2)
+      let tout = ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2)
           ra = AccountAddress Testnet (AccountId (KeyHashObj testKeyHash2))
           ras = Map.singleton ra (Coin 123)
           up =
@@ -736,7 +736,7 @@ tests =
                 <> S up
             )
     , -- checkEncodingCBOR "full_txn_body"
-      let tout = mkCoinTxOut testAddrE (Coin 2)
+      let tout = ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2)
           reg = RegTxCert testStakeCred
           ra = AccountAddress Testnet (AccountId (KeyHashObj testKeyHash2))
           ras = Map.singleton ra (Coin 123)
@@ -788,7 +788,7 @@ tests =
       let txb =
             mkBasicTxBody @ShelleyEra
               & inputsTxBodyL .~ Set.fromList [TxIn genesisId (mkTxIxPartial 1)]
-              & outputsTxBodyL .~ StrictSeq.singleton (mkCoinTxOut testAddrE (Coin 2))
+              & outputsTxBodyL .~ StrictSeq.singleton (ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2))
               & feeTxBodyL .~ Coin 9
               & ttlTxBodyL .~ SlotNo 500
           txbh = hashAnnotated txb
@@ -811,7 +811,7 @@ tests =
       let txb =
             mkBasicTxBody @ShelleyEra
               & inputsTxBodyL .~ Set.fromList [genesisTxIn1]
-              & outputsTxBodyL .~ StrictSeq.singleton (mkCoinTxOut testAddrE (Coin 2))
+              & outputsTxBodyL .~ StrictSeq.singleton (ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2))
               & feeTxBodyL .~ Coin 9
               & ttlTxBodyL .~ SlotNo 500
           txbh = hashAnnotated txb
@@ -946,7 +946,7 @@ tests =
       let sig :: SignedKES (KES MockCrypto) (BHBody MockCrypto)
           sig = unsoundPureSignedKES () 0 (testBHB @ShelleyEra) (kesSignKey testKESKeys)
           bh = BHeader (testBHB @ShelleyEra) sig
-          tout = StrictSeq.singleton $ mkCoinTxOut @ShelleyEra testAddrE (Coin 2)
+          tout = StrictSeq.singleton . ImplicitDepositTxOut $ mkCoinTxOut @ShelleyEra testAddrE (Coin 2)
           txb :: Word64 -> TxBody TopTx ShelleyEra
           txb s =
             mkBasicTxBody

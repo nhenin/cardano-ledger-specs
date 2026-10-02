@@ -26,7 +26,6 @@ import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Slot
 import Cardano.Ledger.State
 import Cardano.Ledger.State.UTxO (CurrentEra, readHexUTxO, readNewEpochState)
-import Cardano.Ledger.Val
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.DeepSeq
@@ -171,7 +170,7 @@ main = do
                    , -- We need to filter out all multi-assets to prevent `areAllAdaOnly`
                      -- from short circuiting and producing results that are way better
                      -- than the worst case
-                     env (pure $ Map.filter (\txOut -> isAdaOnly (txOut ^. valueTxOutL)) $ unUTxO utxo') $
+                     env (pure $ Map.filter (^. isAdaOnlyTxOutF) $ unUTxO utxo') $
                        bench "areAllAdaOnly" . nf areAllAdaOnly
                    ]
              , env (pure newEpochState) $ \nes ->

@@ -20,6 +20,7 @@ import Cardano.Ledger.BaseTypes (
   epochInfoPure,
  )
 import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (TxOut (..))
 import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
 import Cardano.Ledger.Keys (KeyHash, KeyRole (Staking))
 import Cardano.Ledger.Shelley (ShelleyEra)
@@ -92,7 +93,7 @@ genChainInEpoch epoch = do
           . LS.nesEs
           $ chainNes genesisChainState
       initUtxoAddrs =
-        Maybe.mapMaybe (\(ShelleyTxOut addr _) -> addrToKeyHash addr)
+        Maybe.mapMaybe (\(ImplicitDepositTxOut (ShelleyTxOut addr _)) -> addrToKeyHash addr)
           . Map.elems
           . unUTxO
           $ initUtxo

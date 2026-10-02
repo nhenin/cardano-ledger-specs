@@ -76,7 +76,7 @@ coinsPerUTxOWordLocal = quot minUTxOValueShelleyMA utxoEntrySizeWithoutValLocal
     Coin minUTxOValueShelleyMA = minUTxO
 
 calcMinUTxO :: TxOut AlonzoEra -> Coin
-calcMinUTxO tout = Coin (utxoEntrySize tout * coinsPerUTxOWordLocal)
+calcMinUTxO (ImplicitDepositTxOut output) = Coin (utxoEntrySize output * coinsPerUTxOWordLocal)
 
 tests :: Spec
 tests =
@@ -94,21 +94,21 @@ goldenUTxOEntryMinAda =
   describe "golden tests - UTxOEntryMinAda" $ do
     it "one policy, one (smallest) name, yes datum hash" $
       calcMinUTxO
-        ( mkBasicTxOut carlAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)])
+        ( mkBasicTxOutWithImplicitDeposit carlAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)])
             & dataHashTxOutL .~ SJust (hashData @AlonzoEra (Data (PV1.List [])))
         )
         `shouldBe` Coin 1655136
     it "one policy, one (smallest) name, no datum hash" $
       calcMinUTxO
-        (mkBasicTxOut bobAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)]))
+        (mkBasicTxOutWithImplicitDeposit bobAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)]))
         `shouldBe` Coin 1310316
     it "one policy, one (small) name" $
       calcMinUTxO
-        (mkBasicTxOut aliceAddr (valueFromList (Coin 1444443) [(pid1, smallName 1, 1)]))
+        (mkBasicTxOutWithImplicitDeposit aliceAddr (valueFromList (Coin 1444443) [(pid1, smallName 1, 1)]))
         `shouldBe` Coin 1344798
     it "one policy, three (small) names" $
       calcMinUTxO
-        ( mkBasicTxOut
+        ( mkBasicTxOutWithImplicitDeposit
             aliceAddr
             ( valueFromList
                 (Coin 1555554)
@@ -121,11 +121,11 @@ goldenUTxOEntryMinAda =
         `shouldBe` Coin 1448244
     it "one policy, one (largest) name" $
       calcMinUTxO
-        (mkBasicTxOut carlAddr (valueFromList (Coin 1555554) [(pid1, largestName 65, 1)]))
+        (mkBasicTxOutWithImplicitDeposit carlAddr (valueFromList (Coin 1555554) [(pid1, largestName 65, 1)]))
         `shouldBe` Coin 1448244
     it "one policy, three (largest) name, with hash" $
       calcMinUTxO
-        ( mkBasicTxOut
+        ( mkBasicTxOutWithImplicitDeposit
             carlAddr
             ( valueFromList
                 (Coin 1962961)
@@ -139,14 +139,14 @@ goldenUTxOEntryMinAda =
         `shouldBe` Coin 2172366
     it "two policies, one (smallest) name" $
       calcMinUTxO
-        ( mkBasicTxOut
+        ( mkBasicTxOutWithImplicitDeposit
             aliceAddr
             (valueFromList (Coin 1592591) [(pid1, smallestName, 1), (pid2, smallestName, 1)])
         )
         `shouldBe` Coin 1482726
     it "two policies, one (smallest) name, with hash" $
       calcMinUTxO
-        ( mkBasicTxOut
+        ( mkBasicTxOutWithImplicitDeposit
             aliceAddr
             (valueFromList (Coin 1592591) [(pid1, smallestName, 1), (pid2, smallestName, 1)])
             & dataHashTxOutL .~ SJust (hashData @AlonzoEra (Data (PV1.Constr 0 [])))
@@ -154,11 +154,14 @@ goldenUTxOEntryMinAda =
         `shouldBe` Coin 1827546
     it "two policies, two (small) names" $
       calcMinUTxO
-        (mkBasicTxOut bobAddr (valueFromList (Coin 1629628) [(pid1, smallName 1, 1), (pid2, smallName 2, 1)]))
+        ( mkBasicTxOutWithImplicitDeposit
+            bobAddr
+            (valueFromList (Coin 1629628) [(pid1, smallName 1, 1), (pid2, smallName 2, 1)])
+        )
         `shouldBe` Coin 1517208
     it "three policies, ninety-six (small) names" $
       calcMinUTxO
-        ( mkBasicTxOut
+        ( mkBasicTxOutWithImplicitDeposit
             aliceAddr
             ( let f i c = (i, smallName c, 1)
                in valueFromList
@@ -176,7 +179,7 @@ goldenUTxOEntryMinAda =
       -- with the old parameter minUTxOValue.
       -- If we wish to keep the ada-only, no datum hash, minimum value nearly the same,
       -- we can divide minUTxOValue by 29 and round.
-      utxoEntrySize @AlonzoEra (mkBasicTxOut aliceAddr mempty) `shouldBe` 29
+      utxoEntrySize @AlonzoEra (mkBasicImplicitDepositTxOut aliceAddr mempty) `shouldBe` 29
 
 goldenCborSerialization :: Spec
 goldenCborSerialization =
