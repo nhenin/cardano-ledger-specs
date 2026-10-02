@@ -2,6 +2,7 @@
 
 ## 0.4.0.0
 
+* Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
 * Remove `WithdrawalsExceedAccountBalance` constructor from `DijkstraUtxoPredFailure`
 * Add `WithdrawalAccountsMissingFromOriginal` constructor to `EntitiesPredFailure`
 * Rename `EntitiesPredFailure` constructors:
