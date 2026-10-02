@@ -755,6 +755,9 @@ instance HuddleRule "required_signers" DijkstraEra where
 instance HuddleRule "value" DijkstraEra where
   huddleRuleNamed = dijkstraValueRule
 
+instance HuddleRule "application_assets" DijkstraEra where
+  huddleRuleNamed pname p = pname =.= huddleRule @"value" p
+
 instance HuddleRule "mint" DijkstraEra where
   huddleRuleNamed = conwayMintRule
 
@@ -788,15 +791,26 @@ instance HuddleRule "alonzo_transaction_output" DijkstraEra where
 instance HuddleRule "babbage_transaction_output" DijkstraEra where
   huddleRuleNamed = babbageTransactionOutput
 
+instance HuddleRule "store_backed_transaction_output" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= mp
+        [ idx 0 ==> huddleRule @"address" p
+        , idx 4 ==> huddleRule @"application_assets" p
+        , opt $ idx 2 ==> huddleRule @"datum_option" p
+        , opt $ idx 3 ==> huddleRule @"script_ref" p
+        ]
+
 instance HuddleRule "transaction_output" DijkstraEra where
   huddleRuleNamed pname p =
     comment
-      [str| Both of the Alonzo and Babbage style TxOut formats are equally valid
-          | and can be used interchangeably
+      [str| Implicit-deposit outputs retain the Alonzo and Babbage formats.
+          | Store-backed outputs use key 4 for application assets instead of key 1.
           |]
       $ pname
         =.= huddleRule @"alonzo_transaction_output" p
         / huddleRule @"babbage_transaction_output" p
+        / huddleRule @"store_backed_transaction_output" p
 
 instance HuddleRule "sub_transaction_body" DijkstraEra where
   huddleRuleNamed = subTransactionBodyRule

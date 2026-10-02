@@ -47,6 +47,7 @@
 * Add `ConwayEraPParams` as a superclass `DijkstraEraPParams`.
 * Evaluate Plutus scripts and propagate script collection errors across the full transaction batch.
 * Include subtransaction execution units in transaction and block limits and minimum script fees.
+* Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
 * Remove `WithdrawalsExceedAccountBalance` constructor from `DijkstraUtxoPredFailure`
 * Add `WithdrawalAccountsMissingFromOriginal` constructor to `EntitiesPredFailure`
 * Rename `EntitiesPredFailure` constructors:
