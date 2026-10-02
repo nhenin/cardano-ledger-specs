@@ -77,7 +77,7 @@ import Cardano.Ledger.State (
   txInsFilter,
  )
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.Val (Val (isAdaOnly, (<+>), (<×>)))
+import Cardano.Ledger.Val (Val ((<+>), (<×>)))
 import Control.Monad (replicateM)
 import Data.Foldable as F
 import qualified Data.List as List
@@ -124,7 +124,7 @@ import Test.QuickCheck hiding (Witness, (><))
 
 -- | We are choosing new TxOut to pay fees, We want only Key locked addresss with Ada only values.
 vKeyLockedAdaOnly :: TxOut AlonzoEra -> Bool
-vKeyLockedAdaOnly txOut = vKeyLocked txOut && isAdaOnly (txOut ^. valueTxOutL)
+vKeyLockedAdaOnly txOut = vKeyLocked txOut && txOut ^. isAdaOnlyTxOutF
 
 phase2scripts3Arg :: EraPlutusTxInfo 'PlutusV1 era => [TwoPhase3ArgInfo era]
 phase2scripts3Arg =
@@ -571,17 +571,18 @@ getDataMap (scriptInfo3, _) = Map.foldlWithKey' accum Map.empty
           Map.insert (hashData dat) (Data dat) ans
 
 instance MinGenTxout AlonzoEra where
-  calcEraMinUTxO txOut pp = utxoEntrySize txOut <×> unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)
-  addValToTxOut v txout =
-    let addr = txout ^. addrTxOutL
-     in txout & valueTxOutL %~ (v <+>) & dataHashTxOutL .~ dataFromAddr addr
+  calcEraMinUTxO (ImplicitDepositTxOut implicitOutput) pp =
+    utxoEntrySize implicitOutput <×> unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)
+  addValToTxOut value txOut@(ImplicitDepositTxOut implicitOutput) =
+    ImplicitDepositTxOut (implicitOutput & valueTxOutL %~ (value <+>))
+      & dataHashTxOutL .~ dataFromAddr (txOut ^. addrTxOutL)
   genEraTxOut genv genVal addrs = do
     values <- replicateM (length addrs) genVal
     let makeTxOut addr val =
           case addr of
             Addr _network (ScriptHashObj shash) _stakeref ->
-              mkBasicTxOut addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
-            _ -> mkBasicTxOut addr val
+              mkBasicTxOutWithImplicitDeposit addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
+            _ -> mkBasicTxOutWithImplicitDeposit addr val
     pure (zipWith makeTxOut addrs values)
 
 -- | If an Address is script address, we can find a potential data hash for it from

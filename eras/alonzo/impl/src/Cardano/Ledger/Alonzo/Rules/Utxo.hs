@@ -417,18 +417,17 @@ validateImplicitDeposits pp outputs =
         )
         (toList outputs)
 
--- | Ensure implicit-deposit outputs have no `Value` of size larger
--- than @MaxValSize@. We use serialized length of `Value` because this Value
--- size is being limited inside a serialized `Tx`.
+-- | Ensure the serialized value of either output variant does not exceed
+-- @MaxValSize@. For store-backed outputs, measure their application assets.
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp
 validateOutputTooBigUTxO ::
-  ( EraImplicitDepositTxOut era
+  ( EraTxOut era
   , AlonzoEraPParams era
   , Foldable f
   ) =>
   PParams era ->
-  f (ImplicitDepositTxOut era) ->
+  f (TxOut era) ->
   Test (AlonzoUtxoPredFailure era)
 validateOutputTooBigUTxO pp outputs =
   failureOnNonEmpty outputsTooBig OutputTooBigUTxO
@@ -437,10 +436,12 @@ validateOutputTooBigUTxO pp outputs =
     protVer = pp ^. ppProtocolVersionL
     outputsTooBig = F.foldl' accum [] outputs
     accum ans txOut =
-      let v = txOut ^. valueTxOutL
-          serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) v
+      let value = case txOut of
+            ImplicitDepositTxOut output -> output ^. valueTxOutL
+            StoreBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+          serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) value
        in if serSize > maxValSize
-            then (fromIntegral serSize, fromIntegral maxValSize, ImplicitDepositTxOut txOut) : ans
+            then (fromIntegral serSize, fromIntegral maxValSize, txOut) : ans
             else ans
 
 -- | Ensure if NetworkId is present in the txbody it matches the global NetworkId
@@ -561,7 +562,7 @@ utxoTransition = do
   runTest $ validateImplicitDeposits pp implicitOutputs
 
   {-   ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp   -}
-  runTest $ validateOutputTooBigUTxO pp implicitOutputs
+  runTest $ validateOutputTooBigUTxO pp outputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig outputs
