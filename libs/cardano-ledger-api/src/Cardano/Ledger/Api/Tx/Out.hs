@@ -22,13 +22,13 @@
 --
 -- Here's an example on how to build a very basic Babbage era transaction output with a random
 -- address and value, and without any datum or reference script.
+-- Babbage only supports implicit-deposit outputs.
 --
 -- >>> :{
 -- quickCheck $ \addr val ->
 --     case mkBasicTxOutWithImplicitDeposit @BabbageEra addr val of
 --         txOut@(ImplicitDepositTxOut output) ->
 --             txOut ^. addrTxOutL == addr && output ^. valueTxOutL == val
---         StoreBackedTxOut _ -> False
 -- :}
 -- +++ OK, passed 100 tests.
 module Cardano.Ledger.Api.Tx.Out (
