@@ -16,6 +16,9 @@
 
 module Cardano.Ledger.Coin (
   Coin (..),
+  PositiveCoin,
+  mkPositiveCoin,
+  unPositiveCoin,
   CompactForm (..),
   DeltaCoin (..),
   CoinPerByte (..),
@@ -70,7 +73,7 @@ import qualified Cardano.Ledger.Binary.Plain as Plain
 import Cardano.Ledger.Compactible
 import Cardano.Ledger.HKD (HKD, HKDFunctor, hkdMap)
 import Control.DeepSeq (NFData)
-import Data.Aeson (FromJSON, ToJSON)
+import Data.Aeson (FromJSON (..), ToJSON)
 import Data.Coerce (coerce)
 import qualified Data.Foldable as F (foldl') -- Drop this when ghc >= 9.10
 import Data.Group (Abelian, Group (..))
@@ -111,6 +114,30 @@ instance FromCBOR Coin where
 instance DecCBOR Coin where
   decCBOR = fromPlainDecoder fromCBOR
   {-# INLINE decCBOR #-}
+
+-- | A strictly positive coin amount within the CBOR 'Coin' range.
+-- Construct with 'mkPositiveCoin'; the constructor is private to preserve the invariant.
+newtype PositiveCoin = PositiveCoin Coin
+  deriving newtype (Eq, Ord, Show, NFData, NoThunks, EncCBOR, ToJSON)
+
+-- | Reject zero, negative amounts and amounts exceeding the unsigned 64-bit range.
+mkPositiveCoin :: Coin -> Maybe PositiveCoin
+mkPositiveCoin amount@(Coin value)
+  | value > 0 && value <= toInteger (maxBound :: Word64) = Just $ PositiveCoin amount
+  | otherwise = Nothing
+
+-- | Recover the amount without weakening the construction invariant.
+unPositiveCoin :: PositiveCoin -> Coin
+unPositiveCoin (PositiveCoin amount) = amount
+
+instance DecCBOR PositiveCoin where
+  decCBOR = PositiveCoin <$> decodePositiveCoin "PositiveCoin"
+
+instance FromJSON PositiveCoin where
+  parseJSON value =
+    parseJSON value
+      >>= maybe (fail "PositiveCoin must be between 1 and 18446744073709551615 lovelace") pure
+        . mkPositiveCoin
 
 newtype DeltaCoin = DeltaCoin Integer
   deriving (Eq, Ord, Generic, Enum, NoThunks)
