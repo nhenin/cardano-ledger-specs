@@ -83,6 +83,10 @@ module Cardano.Ledger.Api.Tx.Body (
   DirectDeposits (..),
   depositStoreChangeTxBodyL,
   DepositStoreChange (..),
+  TopTxWithdrawalSettlement (..),
+  PositiveCoin,
+  mkPositiveCoin,
+  unPositiveCoin,
   depositStoreSubTxChangeTxBodyL,
   DepositStoreSubTxChange (..),
   SubTxWithdrawalTarget (..),
@@ -103,7 +107,7 @@ import Cardano.Ledger.Api.Tx.Out
 import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))
 import Cardano.Ledger.BaseTypes (Network, strictMaybeToMaybe)
 import Cardano.Ledger.Binary.Decoding (Sized)
-import Cardano.Ledger.Coin (Coin)
+import Cardano.Ledger.Coin (Coin, PositiveCoin, mkPositiveCoin, unPositiveCoin)
 import Cardano.Ledger.Conway.Governance (
   ProposalProcedure (..),
   VotingProcedure (..),
@@ -125,6 +129,7 @@ import Cardano.Ledger.Dijkstra.TxBody (
   DepositStoreSubTxChange (..),
   DijkstraEraTxBody (..),
   SubTxWithdrawalTarget (..),
+  TopTxWithdrawalSettlement (..),
  )
 import Cardano.Ledger.Keys (KeyHash (..), KeyRole (..))
 import Cardano.Ledger.Mary.Core (MaryEraTxBody (..))

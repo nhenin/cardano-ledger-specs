@@ -143,6 +143,10 @@ instance Arbitrary DepositStoreChange where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
+instance Arbitrary TopTxWithdrawalSettlement where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
 instance Arbitrary (UpgradeDijkstraPParams Identity DijkstraEra) where
   arbitrary =
     UpgradeDijkstraPParams

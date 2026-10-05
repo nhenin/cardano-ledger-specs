@@ -75,7 +75,14 @@ import Cardano.Ledger.BaseTypes (
  )
 import qualified Cardano.Ledger.BaseTypes as BaseTypes
 import Cardano.Ledger.Binary (EncCBOR, Sized, mkSized)
-import Cardano.Ledger.Coin (Coin (..), CompactForm (..), DeltaCoin (..))
+import Cardano.Ledger.Coin (
+  Coin (..),
+  CompactForm (..),
+  DeltaCoin (..),
+  PositiveCoin,
+  mkPositiveCoin,
+  unPositiveCoin,
+ )
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..), Ptr (..), SlotNo32 (..), StakeReference (..))
 import Cardano.Ledger.Genesis (NoGenesis (..))
@@ -108,6 +115,7 @@ import Data.GenValidity
 import Data.Int (Int64)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (mapMaybe)
 import Data.Ratio ((%))
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -386,6 +394,10 @@ instance Arbitrary Coin where
   -- Cannot be negative even though it is an 'Integer'
   arbitrary = Coin <$> oneof [choose (0, 1000000), getNonNegative <$> arbitrary]
   shrink (Coin i) = Coin <$> shrink i
+
+instance Arbitrary PositiveCoin where
+  arbitrary = suchThatMap (Coin . toInteger <$> arbitrary @Word64) mkPositiveCoin
+  shrink = mapMaybe mkPositiveCoin . shrink . unPositiveCoin
 
 instance Arbitrary DeltaCoin where
   arbitrary = DeltaCoin <$> choose (-1000000, 1000000)

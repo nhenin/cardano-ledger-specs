@@ -24,7 +24,7 @@ import Cardano.Ledger.Binary (
   shelleyProtVer,
  )
 import qualified Cardano.Ledger.Binary as Binary
-import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Coin (Coin (..), PositiveCoin, mkPositiveCoin, unPositiveCoin)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Plutus (SLanguage (..))
 import Cardano.Ledger.TxIn (TxIn (..))
@@ -33,9 +33,11 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Data (Proxy (..))
 import Data.Either (isLeft)
+import Data.Maybe (fromMaybe)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
+import Data.Word (Word64)
 import Lens.Micro
 import Test.Cardano.Ledger.Alonzo.Arbitrary (alwaysSucceedsLang)
 import Test.Cardano.Ledger.Binary.Plain.Golden (DiffView (DiffCBOR), Enc (..), expectGoldenToCBOR)
@@ -45,7 +47,9 @@ import Test.Cardano.Ledger.Common (
   describe,
   expectationFailure,
   it,
+  prop,
   shouldBe,
+  shouldNotBe,
   shouldSatisfy,
  )
 import Test.Cardano.Ledger.Conway.Binary.Golden hiding (spec)
@@ -82,42 +86,130 @@ spec = describe "Golden" . forEachEraVersion @era $ \version -> do
   describe "Block transactions" $ do
     goldenBlockTransaction @era
 
+-- | Private. Construct a positive amount for the codec fixtures.
+positiveCoin :: Integer -> PositiveCoin
+positiveCoin = fromMaybe (error "Invalid PositiveCoin test fixture") . mkPositiveCoin . Coin
+
 -- | Private. Check the optional TopTx operation without assuming a store policy.
 goldenDepositStoreChange :: forall era. DijkstraEraTest era => Version -> Spec
 goldenDepositStoreChange version = do
+  describe "PositiveCoin" $ do
+    forM_ [1, maxCoin] $ \amount ->
+      it ("Accepts and round-trips the boundary amount " <> show amount) $ do
+        let coin = Coin amount
+            positive = positiveCoin amount
+        fmap unPositiveCoin (mkPositiveCoin coin) `shouldBe` Just coin
+        Binary.decodeFull @PositiveCoin version (Binary.serialize version coin) `shouldBe` Right positive
+        Aeson.eitherDecode @PositiveCoin (Aeson.encode coin) `shouldBe` Right positive
+    forM_ [-1, 0, maxCoin + 1] $ \amount ->
+      it ("Rejects the invalid amount " <> show amount <> " in the constructor and codecs") $ do
+        mkPositiveCoin (Coin amount) `shouldBe` Nothing
+        Binary.decodeFull @PositiveCoin version (Binary.serialize version amount) `shouldSatisfy` isLeft
+        Aeson.eitherDecode @PositiveCoin (Aeson.encode amount) `shouldSatisfy` isLeft
+    prop "Round-trips generated positive amounts through CBOR and JSON" $ \(coin :: PositiveCoin) -> do
+      Binary.decodeFull @PositiveCoin version (Binary.serialize version coin) `shouldBe` Right coin
+      Aeson.eitherDecode @PositiveCoin (Aeson.encode coin) `shouldBe` Right coin
+  describe "TopTxWithdrawalSettlement" $ do
+    forM_
+      [
+        ( "no TopTx withdrawal"
+        , NoTopTxWithdrawal
+        , Em [E $ TkListLen 1, E @Int 0]
+        , Aeson.object ["kind" Aeson..= ("noTopTxWithdrawal" :: String)]
+        )
+      ,
+        ( "settlement in a TopTx output"
+        , TopTxWithdrawalTo (TxIx 0)
+        , Em [E $ TkListLen 2, E @Int 1, E @Int 0]
+        , Aeson.object ["kind" Aeson..= ("topTxOutput" :: String), "outputIndex" Aeson..= (0 :: Int)]
+        )
+      ]
+      $ \(name, settlement, encoding, json) ->
+        it ("Encodes and decodes " <> name) $ do
+          expectGoldenToCBOR DiffCBOR (Ev version settlement) encoding
+          Binary.decodeFull @TopTxWithdrawalSettlement
+            version
+            (Binary.toLazyByteString $ Binary.toCBOR encoding)
+            `shouldBe` Right settlement
+          Aeson.toJSON settlement `shouldBe` json
+          Aeson.eitherDecode @TopTxWithdrawalSettlement (Aeson.encode json) `shouldBe` Right settlement
+          Aeson.toJSON (WithdrawFromStore (positiveCoin 10) settlement)
+            `shouldBe` Aeson.object
+              [ "kind" Aeson..= ("withdraw" :: String)
+              , "amount" Aeson..= (10 :: Int)
+              , "settlement" Aeson..= json
+              ]
+    prop "Round-trips generated withdrawal settlements through CBOR and JSON" $
+      \(settlement :: TopTxWithdrawalSettlement) -> do
+        Binary.decodeFull @TopTxWithdrawalSettlement version (Binary.serialize version settlement)
+          `shouldBe` Right settlement
+        Aeson.eitherDecode @TopTxWithdrawalSettlement (Aeson.encode settlement) `shouldBe` Right settlement
   it "Omitting the operation preserves the existing body encoding" $ do
     basicBody ^. depositStoreChangeTxBodyL `shouldBe` SNothing
     expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
     decodeEnc @(TxBody TopTx era) version basicBodyEncoding `shouldBe` Right basicBody
+  it "Decodes historical JSON without an operation as no declaration" $
+    case Aeson.toJSON basicBody of
+      Aeson.Object fields ->
+        Aeson.fromJSON (Aeson.Object $ KeyMap.delete "depositStoreChange" fields)
+          `shouldBe` Aeson.Success basicBody
+      _ -> expectationFailure "Expected a JSON object for the transaction body"
+  it "Distinguishes an explicit zero net change from an absent declaration" $ do
+    let noChangeBody = basicBody & depositStoreChangeTxBodyL .~ SJust NoDepositStoreChange
+    Aeson.toJSON NoDepositStoreChange
+      `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
+    noChangeBody ^. depositStoreChangeTxBodyL `shouldBe` SJust NoDepositStoreChange
+    Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
+    Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
-    [ ("zero deposit", DepositToStore (Coin 0), Em [E $ TkListLen 2, E @Int 0, E @Int 0])
-    , ("deposit", DepositToStore (Coin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    [ ("zero net change", NoDepositStoreChange, Em [E $ TkListLen 1, E @Int 2])
+    , ("one-lovelace deposit", DepositToStore (positiveCoin 1), Em [E $ TkListLen 2, E @Int 0, E @Int 1])
+    , ("deposit", DepositToStore (positiveCoin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    ,
+      ( "largest deposit"
+      , DepositToStore (positiveCoin maxCoin)
+      , Em [E $ TkListLen 2, E @Int 0, E maxCoin]
+      )
+    ,
+      ( "withdrawal with no TopTx settlement"
+      , WithdrawFromStore (positiveCoin 10) NoTopTxWithdrawal
+      , withdrawalEncoding 10 (Em [E $ TkListLen 1, E @Int 0])
+      )
     ,
       ( "withdrawal to the first output"
-      , WithdrawFromStore (Coin 10) (TxIx 0)
-      , Em [E $ TkListLen 3, E @Int 1, E @Int 10, E @Int 0]
+      , WithdrawFromStore (positiveCoin 10) (TopTxWithdrawalTo $ TxIx 0)
+      , withdrawalEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
+      )
+    ,
+      ( "largest withdrawal"
+      , WithdrawFromStore (positiveCoin maxCoin) (TopTxWithdrawalTo $ TxIx 0)
+      , withdrawalEncoding maxCoin (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
       )
     ,
       ( "withdrawal to the largest output index"
-      , WithdrawFromStore (Coin 10) maxBound
-      , Em [E $ TkListLen 3, E @Int 1, E @Int 10, E @Int 65535]
+      , WithdrawFromStore (positiveCoin 10) (TopTxWithdrawalTo maxBound)
+      , withdrawalEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 65535])
       )
     ]
     $ \(name, operation, operationEncoding) ->
-      it ("Round-trips a " <> name <> " in TopTx field 28") $ do
+      it ("Round-trips a " <> name <> " in TopTx field 28 and JSON") $ do
         let body = basicBody & depositStoreChangeTxBodyL .~ SJust operation
             encoding = bodyWithOperationEncoding operationEncoding
         expectGoldenToCBOR DiffCBOR (Ev version body) encoding
         decodeEnc @(TxBody TopTx era) version encoding `shouldBe` Right body
         Binary.decodeFull @(TxBody TopTx era) version (Binary.serialize version body) `shouldBe` Right body
+        Aeson.eitherDecode (Aeson.encode body) `shouldBe` Right body
   forM_
     [ ("unknown operation", Em [E $ TkListLen 2, E @Int 3, E @Int 10])
-    , ("deposit request from TopTx", Em [E $ TkListLen 2, E @Int 2, E @Int 10])
+    , ("no-change operation with an amount", Em [E $ TkListLen 2, E @Int 2, E @Int 10])
+    , ("zero deposit", Em [E $ TkListLen 2, E @Int 0, E @Int 0])
     , ("negative deposit", Em [E $ TkListLen 2, E @Int 0, E @Int (-1)])
+    , ("deposit exceeding Word64", Em [E $ TkListLen 2, E @Int 0, E $ maxCoin + 1])
+    , ("zero withdrawal", withdrawalEncoding 0 noTopTxWithdrawalEncoding)
+    , ("negative withdrawal", withdrawalEncoding (-1) noTopTxWithdrawalEncoding)
+    , ("withdrawal exceeding Word64", withdrawalEncoding (maxCoin + 1) noTopTxWithdrawalEncoding)
     , ("deposit with an output index", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E @Int 0])
-    , ("withdrawal without an output index", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
-    , ("output index exceeding Word16", Em [E $ TkListLen 3, E @Int 1, E @Int 10, E @Int 65536])
-    , ("delegation from TopTx", Em [E $ TkListLen 3, E @Int 1, E @Int 10, E $ TkListLen 1, E @Int 1])
+    , ("withdrawal without settlement", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
     ]
     $ \(name, operationEncoding) ->
       it ("Rejects " <> name <> " in both TopTx decoders") $ do
@@ -127,7 +219,65 @@ goldenDepositStoreChange version = do
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldSatisfy` isLeft
+  forM_
+    [ ("bare output index", E @Int 0)
+    , ("unknown settlement", Em [E $ TkListLen 1, E @Int 2])
+    , ("empty settlement", E $ TkListLen 0)
+    , ("no TopTx withdrawal with an index", Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+    , ("TopTx settlement without an index", Em [E $ TkListLen 1, E @Int 1])
+    , ("TopTx settlement with an extra index", Em [E $ TkListLen 3, E @Int 1, E @Int 0, E @Int 1])
+    , ("negative output index", Em [E $ TkListLen 2, E @Int 1, E @Int (-1)])
+    , ("output index exceeding Word16", Em [E $ TkListLen 2, E @Int 1, E @Int 65536])
+    ]
+    $ \(name, settlementEncoding) ->
+      it ("Rejects " <> name <> " as a settlement and in both TopTx decoders") $ do
+        Binary.decodeFull @TopTxWithdrawalSettlement
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR settlementEncoding)
+          `shouldSatisfy` isLeft
+        let encoding = bodyWithOperationEncoding $ withdrawalEncoding 10 settlementEncoding
+        decodeEnc @(TxBody TopTx era) version encoding `shouldSatisfy` isLeft
+        Binary.decodeFull @(TxBody TopTx era)
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR encoding)
+          `shouldSatisfy` isLeft
+  forM_ ["deposit", "withdraw"] $ \kind ->
+    forM_ [-1, 0, maxCoin + 1] $ \amount ->
+      it ("Rejects a JSON " <> kind <> " with amount " <> show amount) $ do
+        let operation =
+              Aeson.object $
+                ["kind" Aeson..= kind, "amount" Aeson..= amount]
+                  <> ["settlement" Aeson..= NoTopTxWithdrawal | kind == "withdraw"]
+        expectRejectedJsonOperation operation
+  it "Rejects a JSON withdrawal without an explicit settlement" $
+    expectRejectedJsonOperation $
+      Aeson.object ["kind" Aeson..= ("withdraw" :: String), "amount" Aeson..= (10 :: Int)]
+  forM_
+    [ ("bare output index", Aeson.toJSON (0 :: Int))
+    , ("null settlement", Aeson.Null)
+    , ("missing kind", Aeson.object [])
+    , ("unknown kind", Aeson.object ["kind" Aeson..= ("unknown" :: String)])
+    , ("missing output index", Aeson.object ["kind" Aeson..= ("topTxOutput" :: String)])
+    ,
+      ( "negative output index"
+      , Aeson.object ["kind" Aeson..= ("topTxOutput" :: String), "outputIndex" Aeson..= (-1 :: Int)]
+      )
+    ,
+      ( "output index exceeding Word16"
+      , Aeson.object ["kind" Aeson..= ("topTxOutput" :: String), "outputIndex" Aeson..= (65536 :: Int)]
+      )
+    ]
+    $ \(name, settlement) ->
+      it ("Rejects a JSON withdrawal settlement with " <> name) $ do
+        Aeson.eitherDecode @TopTxWithdrawalSettlement (Aeson.encode settlement) `shouldSatisfy` isLeft
+        expectRejectedJsonOperation $
+          Aeson.object
+            [ "kind" Aeson..= ("withdraw" :: String)
+            , "amount" Aeson..= (10 :: Int)
+            , "settlement" Aeson..= settlement
+            ]
   where
+    maxCoin = toInteger (maxBound :: Word64)
     basicBody = mkBasicTxBody @era @TopTx
     outputFields =
       Em
@@ -137,6 +287,17 @@ goldenDepositStoreChange version = do
     basicBodyEncoding = Em [E $ TkMapLen 3, outputFields, E @Int 2, E $ Coin 0]
     bodyWithOperationEncoding operationEncoding =
       Em [E $ TkMapLen 4, outputFields, E @Int 2, E $ Coin 0, E @Int 28, operationEncoding]
+    withdrawalEncoding amount settlementEncoding =
+      Em [E $ TkListLen 3, E @Int 1, E @Integer amount, settlementEncoding]
+    noTopTxWithdrawalEncoding = Em [E $ TkListLen 1, E @Int 0]
+    expectRejectedJsonOperation operation = do
+      Aeson.eitherDecode @DepositStoreChange (Aeson.encode operation) `shouldSatisfy` isLeft
+      case Aeson.toJSON basicBody of
+        Aeson.Object fields ->
+          Aeson.eitherDecode @(TxBody TopTx era)
+            (Aeson.encode $ Aeson.Object $ KeyMap.insert "depositStoreChange" operation fields)
+            `shouldSatisfy` isLeft
+        _ -> expectationFailure "Expected a JSON object for the transaction body"
 
 -- | Private. Delegation must be declared explicitly by the subtransaction.
 goldenDepositStoreSubTxChange ::
@@ -160,60 +321,81 @@ goldenDepositStoreSubTxChange version = do
           `shouldBe` Aeson.Success basicBody
       _ -> expectationFailure "Expected a JSON object for the subtransaction body"
   it "Identifies a deposit request explicitly in JSON and rejects it as a TopTx operation" $ do
-    let request = SubTxRequestDepositFromTopTx (Coin 10)
+    let request = SubTxRequestDepositFromTopTx (positiveCoin 10)
     Aeson.toJSON request
       `shouldBe` Aeson.object
         [ "kind" Aeson..= ("requestDepositFromTopTx" :: String)
         , "amount" Aeson..= Coin 10
         ]
     Aeson.eitherDecode @DepositStoreChange (Aeson.encode request) `shouldSatisfy` isLeft
+  it "Distinguishes an explicit zero change from an absent declaration" $ do
+    let noChangeBody = basicBody & depositStoreSubTxChangeTxBodyL .~ SJust SubTxNoDepositStoreChange
+    Aeson.toJSON SubTxNoDepositStoreChange
+      `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
+    noChangeBody ^. depositStoreSubTxChangeTxBodyL `shouldBe` SJust SubTxNoDepositStoreChange
+    Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
+    Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
-    [ ("zero deposit", SubTxDepositToStore (Coin 0), Em [E $ TkListLen 2, E @Int 0, E @Int 0])
-    , ("deposit", SubTxDepositToStore (Coin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
-    ,
-      ( "zero deposit requested from TopTx"
-      , SubTxRequestDepositFromTopTx (Coin 0)
-      , Em [E $ TkListLen 2, E @Int 2, E @Int 0]
-      )
+    [ ("zero change", SubTxNoDepositStoreChange, Em [E $ TkListLen 1, E @Int 3])
+    , ("deposit", SubTxDepositToStore (positiveCoin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
     ,
       ( "deposit requested from TopTx"
-      , SubTxRequestDepositFromTopTx (Coin 10)
+      , SubTxRequestDepositFromTopTx (positiveCoin 10)
       , Em [E $ TkListLen 2, E @Int 2, E @Int 10]
       )
     ,
       ( "local withdrawal to the first output"
-      , SubTxWithdrawFromStore (Coin 10) (SubTxOutput $ TxIx 0)
+      , SubTxWithdrawFromStore (positiveCoin 10) (SubTxOutput $ TxIx 0)
       , withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 0])
       )
     ,
       ( "local withdrawal to the largest output index"
-      , SubTxWithdrawFromStore (Coin 10) (SubTxOutput maxBound)
+      , SubTxWithdrawFromStore (positiveCoin 10) (SubTxOutput maxBound)
       , withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65535])
       )
     ,
       ( "withdrawal explicitly delegated to TopTx"
-      , SubTxWithdrawFromStore (Coin 10) DelegateToTopTx
+      , SubTxWithdrawFromStore (positiveCoin 10) DelegateToTopTx
       , withdrawalEncoding (Em [E $ TkListLen 1, E @Int 1])
       )
     ]
     $ \(name, operation, operationEncoding) ->
-      it ("Round-trips a " <> name <> " in SubTx field 28 and JSON") $ do
-        let body = basicBody & depositStoreSubTxChangeTxBodyL .~ SJust operation
-            encoding = bodyWithOperationEncoding operationEncoding
-        expectGoldenToCBOR DiffCBOR (Ev version body) encoding
-        decodeEnc @(TxBody SubTx era) version encoding `shouldBe` Right body
-        Binary.decodeFull @(TxBody SubTx era) version (Binary.serialize version body) `shouldBe` Right body
-        Aeson.eitherDecode (Aeson.encode body) `shouldBe` Right body
+      it ("Round-trips a " <> name <> " in SubTx field 28 and JSON") $
+        expectOperationRoundTrip operation operationEncoding
+  forM_ [1, maxCoin] $ \amount ->
+    forM_
+      [
+        ( "deposit"
+        , SubTxDepositToStore (positiveCoin amount)
+        , Em [E $ TkListLen 2, E @Int 0, E amount]
+        )
+      ,
+        ( "deposit requested from TopTx"
+        , SubTxRequestDepositFromTopTx (positiveCoin amount)
+        , Em [E $ TkListLen 2, E @Int 2, E amount]
+        )
+      ,
+        ( "local withdrawal"
+        , SubTxWithdrawFromStore (positiveCoin amount) (SubTxOutput $ TxIx 0)
+        , Em [E $ TkListLen 3, E @Int 1, E amount, E $ TkListLen 2, E @Int 0, E @Int 0]
+        )
+      ,
+        ( "delegated withdrawal"
+        , SubTxWithdrawFromStore (positiveCoin amount) DelegateToTopTx
+        , Em [E $ TkListLen 3, E @Int 1, E amount, E $ TkListLen 1, E @Int 1]
+        )
+      ]
+      $ \(name, operation, operationEncoding) ->
+        it ("Round-trips a " <> name <> " at the positive boundary " <> show amount) $
+          expectOperationRoundTrip operation operationEncoding
   forM_
-    [ ("unknown operation", Em [E $ TkListLen 2, E @Int 3, E @Int 10])
-    , ("negative deposit", Em [E $ TkListLen 2, E @Int 0, E @Int (-1)])
-    , ("negative deposit request", Em [E $ TkListLen 2, E @Int 2, E @Int (-1)])
+    [ ("unknown operation", Em [E $ TkListLen 2, E @Int 4, E @Int 10])
+    , ("no-change operation with an amount", Em [E $ TkListLen 2, E @Int 3, E @Int 0])
     , ("deposit request without an amount", Em [E $ TkListLen 1, E @Int 2])
     ,
       ( "deposit request with a target"
       , Em [E $ TkListLen 3, E @Int 2, E @Int 10, E $ TkListLen 1, E @Int 1]
       )
-    , ("negative withdrawal", Em [E $ TkListLen 3, E @Int 1, E @Int (-1), E $ TkListLen 1, E @Int 1])
     , ("deposit with a target", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E $ TkListLen 1, E @Int 1])
     , ("withdrawal without a target", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
     , ("TopTx output index in SubTx", withdrawalEncoding (E @Int 0))
@@ -230,7 +412,37 @@ goldenDepositStoreSubTxChange version = do
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldSatisfy` isLeft
+  forM_ [("deposit", 0), ("requestDepositFromTopTx", 2), ("withdraw", 1)] $ \(kind, tag) ->
+    forM_ [-1, 0, maxCoin + 1] $ \amount ->
+      it ("Rejects a SubTx " <> kind <> " with amount " <> show amount <> " in CBOR and JSON") $ do
+        let isWithdrawal = tag == 1
+            operationEncoding =
+              Em $
+                [E $ TkListLen (if isWithdrawal then 3 else 2), E @Int tag, E amount]
+                  <> [Em [E $ TkListLen 1, E @Int 1] | isWithdrawal]
+            encoding = bodyWithOperationEncoding operationEncoding
+            operationJson =
+              Aeson.object $
+                ["kind" Aeson..= kind, "amount" Aeson..= amount]
+                  <> ["target" Aeson..= DelegateToTopTx | isWithdrawal]
+        Binary.decodeFull @DepositStoreSubTxChange
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR operationEncoding)
+          `shouldSatisfy` isLeft
+        decodeEnc @(TxBody SubTx era) version encoding `shouldSatisfy` isLeft
+        Binary.decodeFull @(TxBody SubTx era)
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR encoding)
+          `shouldSatisfy` isLeft
+        Aeson.eitherDecode @DepositStoreSubTxChange (Aeson.encode operationJson) `shouldSatisfy` isLeft
+        case Aeson.toJSON basicBody of
+          Aeson.Object fields ->
+            Aeson.eitherDecode @(TxBody SubTx era)
+              (Aeson.encode $ Aeson.Object $ KeyMap.insert "depositStoreChange" operationJson fields)
+              `shouldSatisfy` isLeft
+          _ -> expectationFailure "Expected a JSON object for the subtransaction body"
   where
+    maxCoin = toInteger (maxBound :: Word64)
     basicBody = mkBasicTxBody @era @SubTx
     outputFields =
       Em
@@ -242,6 +454,13 @@ goldenDepositStoreSubTxChange version = do
       Em [E $ TkMapLen 3, outputFields, E @Int 28, operationEncoding]
     withdrawalEncoding targetEncoding =
       Em [E $ TkListLen 3, E @Int 1, E @Int 10, targetEncoding]
+    expectOperationRoundTrip operation operationEncoding = do
+      let body = basicBody & depositStoreSubTxChangeTxBodyL .~ SJust operation
+          encoding = bodyWithOperationEncoding operationEncoding
+      expectGoldenToCBOR DiffCBOR (Ev version body) encoding
+      decodeEnc @(TxBody SubTx era) version encoding `shouldBe` Right body
+      Binary.decodeFull @(TxBody SubTx era) version (Binary.serialize version body) `shouldBe` Right body
+      Aeson.eitherDecode (Aeson.encode body) `shouldBe` Right body
 
 goldenEmptyFields :: forall era. DijkstraEraTest era => Version -> Spec
 goldenEmptyFields version =

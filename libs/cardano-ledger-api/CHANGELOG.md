@@ -2,6 +2,8 @@
 
 ## 1.15.0.1
 
+* Re-export `TopTxWithdrawalSettlement` and its constructors for explicit TopTx participation in withdrawal settlement.
+* Re-export abstract `PositiveCoin`, `mkPositiveCoin`, and `unPositiveCoin` for constructing TopTx and SubTx deposit-store operations, with `NoDepositStoreChange` and `SubTxNoDepositStoreChange` for explicit zero contributions.
 * Export Dijkstra deposit-store operations and lenses for top-level transactions and sub-transactions, including explicit requests for deposit funding and withdrawal accounting by the top-level transaction.
 
 ## 1.15.0.0

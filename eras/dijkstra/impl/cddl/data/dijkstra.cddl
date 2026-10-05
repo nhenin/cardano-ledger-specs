@@ -854,20 +854,21 @@ account_balance_interval =
   / [inclusive_lower_bound : coin/ nil, exclusive_upper_bound : coin]
   / coin
 
-; A sub-transaction declares its own deposit or withdrawal amount.
+; A sub-transaction declares its own positive deposit or withdrawal, or zero contribution.
 ; An absent operation does not delegate accounting to the top-level transaction.
 deposit_store_sub_tx_change =
   sub_tx_deposit_to_store
   / sub_tx_request_deposit_from_top_tx
   / sub_tx_withdraw_from_store
+  / sub_tx_no_deposit_store_change
 
-sub_tx_deposit_to_store = [0, amount : coin]
+sub_tx_deposit_to_store = [0, amount : positive_coin]
 
 ;An explicit request for the top-level transaction to fund this deposit into the store.
-sub_tx_request_deposit_from_top_tx = [2, amount : coin]
+sub_tx_request_deposit_from_top_tx = [2, amount : positive_coin]
 
 sub_tx_withdraw_from_store =
-  [1, amount : coin, target : sub_tx_withdrawal_target]
+  [1, amount : positive_coin, target : sub_tx_withdrawal_target]
 
 sub_tx_withdrawal_target = sub_tx_output/ delegate_to_top_tx
 
@@ -877,6 +878,9 @@ sub_tx_output = [0, output_index : uint .size 2]
 
 ;An explicit request for the top-level transaction to account for this withdrawal.
 delegate_to_top_tx = [1]
+
+;An explicit zero contribution, with no delegation request.
+sub_tx_no_deposit_store_change = [3]
 
 transaction_witness_set =
   { ? 0 : nonempty_set<vkeywitness>
@@ -952,14 +956,28 @@ auxiliary_data_map =
 starting_account_balance_intervals =
   {+ reward_account => account_balance_interval}
 
-;A top-level transaction may deposit into or withdraw from the deposit store.
-deposit_store_change = deposit_to_store/ withdraw_from_store
+;A top-level transaction declares a net deposit, net withdrawal, or zero net change.
+deposit_store_change =
+  deposit_to_store/ withdraw_from_store/ no_deposit_store_change
 
-deposit_to_store = [0, amount : coin]
+deposit_to_store = [0, amount : positive_coin]
+
+; The amount is the net withdrawal for the entire transaction batch.
+; Settlement may occur in both top-level and sub-transaction outputs.
+withdraw_from_store =
+  [1, amount : positive_coin, settlement : top_tx_withdrawal_settlement]
+
+top_tx_withdrawal_settlement = no_top_tx_withdrawal/ top_tx_withdrawal_to
+
+;No share of the withdrawal is settled in a top-level output.
+no_top_tx_withdrawal = [0]
 
 ; The output index is zero-based and refers to the top-level body's outputs.
-; The withdrawn amount is already included in the selected output's value.
-withdraw_from_store = [1, amount : coin, output_index : uint .size 2]
+; Its value already includes the top-level share of the withdrawal,
+; which need not equal the entire batch's net withdrawal amount.
+top_tx_withdrawal_to = [1, output_index : uint .size 2]
+
+no_deposit_store_change = [2]
 
 leios_certificate =
   [ signers   : bytes .size (0 .. 8192) ;bitfield with up to 65536 entries

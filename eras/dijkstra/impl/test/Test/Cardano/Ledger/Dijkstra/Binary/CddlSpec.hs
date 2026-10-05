@@ -21,6 +21,11 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.HuddleSpec (dijkstraCDDL)
 import Cardano.Ledger.Dijkstra.Scripts (AccountBalanceInterval, AccountBalanceIntervals)
 import Cardano.Ledger.Dijkstra.Tx (Tx (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DepositStoreChange,
+  DepositStoreSubTxChange,
+  TopTxWithdrawalSettlement,
+ )
 import Cardano.Ledger.Plutus.Data (Data, Datum)
 import Cardano.Protocol.Crypto (StandardCrypto)
 import qualified Cardano.Protocol.Leios.BlockHeader as Leios
@@ -80,6 +85,9 @@ spec = do
         v
         "account_balance_intervals"
       fullCddlSpec @(Value DijkstraEra) v "value"
+      fullCddlSpec @DepositStoreChange v "deposit_store_change"
+      fullCddlSpec @DepositStoreSubTxChange v "deposit_store_sub_tx_change"
+      fullCddlSpec @TopTxWithdrawalSettlement v "top_tx_withdrawal_settlement"
       fullAnnCddlSpec @(TxBody TopTx DijkstraEra) v "transaction_body"
       fullAnnCddlSpec @(TxBody SubTx DijkstraEra) v "sub_transaction_body"
       fullAnnCddlSpec @(TxAuxData DijkstraEra) v "auxiliary_data"

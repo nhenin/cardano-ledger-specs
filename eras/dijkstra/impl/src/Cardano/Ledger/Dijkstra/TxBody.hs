@@ -25,6 +25,7 @@
 module Cardano.Ledger.Dijkstra.TxBody (
   DijkstraEraTxBody (..),
   DepositStoreChange (..),
+  TopTxWithdrawalSettlement (..),
   DepositStoreSubTxChange (..),
   SubTxWithdrawalTarget (..),
   TxBody (
@@ -127,7 +128,7 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Binary.Coders
-import Cardano.Ledger.Coin (Coin, decodePositiveCoin)
+import Cardano.Ledger.Coin (Coin, PositiveCoin, decodePositiveCoin)
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Conway.Governance (
@@ -182,12 +183,14 @@ import GHC.Generics (Generic)
 import Lens.Micro (Lens', lens, to, (.~), (^.))
 import NoThunks.Class (InspectHeap (..), NoThunks)
 
--- | A single deposit-store operation carried by the top-level transaction.
--- A withdrawal names a zero-based index into that transaction's own outputs;
--- the output's coin value already includes the withdrawn amount.
+-- | The net deposit-store change for the entire transaction batch.
+-- 'NoDepositStoreChange' explicitly declares zero; an absent field makes no declaration.
+-- A net withdrawal separately declares whether TopTx receives a share; SubTx
+-- destinations remain in their own declarations.
 data DepositStoreChange
-  = DepositToStore !Coin
-  | WithdrawFromStore !Coin !TxIx
+  = NoDepositStoreChange
+  | DepositToStore !PositiveCoin
+  | WithdrawFromStore !PositiveCoin !TopTxWithdrawalSettlement
   deriving (Eq, Show, Generic)
 
 instance NFData DepositStoreChange
@@ -197,27 +200,69 @@ instance NoThunks DepositStoreChange
 instance EncCBOR DepositStoreChange where
   encCBOR =
     encode . \case
+      NoDepositStoreChange -> Sum NoDepositStoreChange 2
       DepositToStore amount -> Sum DepositToStore 0 !> To amount
-      WithdrawFromStore amount outputIndex -> Sum WithdrawFromStore 1 !> To amount !> To outputIndex
+      WithdrawFromStore amount settlement -> Sum WithdrawFromStore 1 !> To amount !> To settlement
 
 instance DecCBOR DepositStoreChange where
   decCBOR = decode $ Summands "DepositStoreChange" $ \case
     0 -> SumD DepositToStore <! From
     1 -> SumD WithdrawFromStore <! From <! From
+    2 -> SumD NoDepositStoreChange
     tag -> Invalid tag
 
 instance ToJSON DepositStoreChange where
   toJSON = \case
+    NoDepositStoreChange -> kindObjectValue "noChange" []
     DepositToStore amount -> kindObjectValue "deposit" ["amount" .= amount]
-    WithdrawFromStore amount outputIndex ->
-      kindObjectValue "withdraw" ["amount" .= amount, "outputIndex" .= outputIndex]
+    WithdrawFromStore amount settlement ->
+      kindObjectValue "withdraw" ["amount" .= amount, "settlement" .= settlement]
 
 instance FromJSON DepositStoreChange where
   parseJSON = withObject "DepositStoreChange" $ \fields ->
     (fields .: "kind" :: Parser String) >>= \case
+      "noChange" -> pure NoDepositStoreChange
       "deposit" -> DepositToStore <$> fields .: "amount"
-      "withdraw" -> WithdrawFromStore <$> fields .: "amount" <*> (TxIx <$> fields .: "outputIndex")
+      "withdraw" -> WithdrawFromStore <$> fields .: "amount" <*> fields .: "settlement"
       kind -> fail $ "Unknown DepositStoreChange kind: " <> kind
+
+-- | Whether TopTx receives a share of the batch's net withdrawal.
+-- 'TopTxWithdrawalTo' names a zero-based index into TopTx's own outputs and
+-- permits simultaneous settlement in SubTx outputs. The selected output already
+-- includes TopTx's share, which need not equal the entire batch withdrawal.
+data TopTxWithdrawalSettlement
+  = NoTopTxWithdrawal
+  | TopTxWithdrawalTo !TxIx
+  deriving (Eq, Show, Generic)
+
+instance NFData TopTxWithdrawalSettlement
+
+instance NoThunks TopTxWithdrawalSettlement
+
+instance EncCBOR TopTxWithdrawalSettlement where
+  encCBOR =
+    encode . \case
+      NoTopTxWithdrawal -> Sum NoTopTxWithdrawal 0
+      TopTxWithdrawalTo outputIndex -> Sum TopTxWithdrawalTo 1 !> To outputIndex
+
+instance DecCBOR TopTxWithdrawalSettlement where
+  decCBOR = decode $ Summands "TopTxWithdrawalSettlement" $ \case
+    0 -> SumD NoTopTxWithdrawal
+    1 -> SumD TopTxWithdrawalTo <! From
+    tag -> Invalid tag
+
+instance ToJSON TopTxWithdrawalSettlement where
+  toJSON = \case
+    NoTopTxWithdrawal -> kindObjectValue "noTopTxWithdrawal" []
+    TopTxWithdrawalTo outputIndex ->
+      kindObjectValue "topTxOutput" ["outputIndex" .= outputIndex]
+
+instance FromJSON TopTxWithdrawalSettlement where
+  parseJSON = withObject "TopTxWithdrawalSettlement" $ \fields ->
+    (fields .: "kind" :: Parser String) >>= \case
+      "noTopTxWithdrawal" -> pure NoTopTxWithdrawal
+      "topTxOutput" -> TopTxWithdrawalTo . TxIx <$> fields .: "outputIndex"
+      kind -> fail $ "Unknown TopTxWithdrawalSettlement kind: " <> kind
 
 -- | Settle a withdrawal in the sub-transaction's own output, or explicitly
 -- request that the top-level transaction account for it. A local output's
@@ -256,13 +301,15 @@ instance FromJSON SubTxWithdrawalTarget where
       kind -> fail $ "Unknown SubTxWithdrawalTarget kind: " <> kind
 
 -- | An operation explicitly declared by a sub-transaction. The sub-transaction
--- supplies the amount even when it requests deposit funding or delegates
+-- supplies a positive amount even when it requests deposit funding or delegates
 -- withdrawal accounting to TopTx.
+-- 'SubTxNoDepositStoreChange' explicitly declares zero and requests no delegation.
 -- Absence of this field requests neither an operation nor delegation.
 data DepositStoreSubTxChange
-  = SubTxDepositToStore !Coin
-  | SubTxRequestDepositFromTopTx !Coin
-  | SubTxWithdrawFromStore !Coin !SubTxWithdrawalTarget
+  = SubTxNoDepositStoreChange
+  | SubTxDepositToStore !PositiveCoin
+  | SubTxRequestDepositFromTopTx !PositiveCoin
+  | SubTxWithdrawFromStore !PositiveCoin !SubTxWithdrawalTarget
   deriving (Eq, Show, Generic)
 
 instance NFData DepositStoreSubTxChange
@@ -272,6 +319,7 @@ instance NoThunks DepositStoreSubTxChange
 instance EncCBOR DepositStoreSubTxChange where
   encCBOR =
     encode . \case
+      SubTxNoDepositStoreChange -> Sum SubTxNoDepositStoreChange 3
       SubTxDepositToStore amount -> Sum SubTxDepositToStore 0 !> To amount
       SubTxRequestDepositFromTopTx amount -> Sum SubTxRequestDepositFromTopTx 2 !> To amount
       SubTxWithdrawFromStore amount target -> Sum SubTxWithdrawFromStore 1 !> To amount !> To target
@@ -281,10 +329,12 @@ instance DecCBOR DepositStoreSubTxChange where
     0 -> SumD SubTxDepositToStore <! From
     1 -> SumD SubTxWithdrawFromStore <! From <! From
     2 -> SumD SubTxRequestDepositFromTopTx <! From
+    3 -> SumD SubTxNoDepositStoreChange
     tag -> Invalid tag
 
 instance ToJSON DepositStoreSubTxChange where
   toJSON = \case
+    SubTxNoDepositStoreChange -> kindObjectValue "noChange" []
     SubTxDepositToStore amount -> kindObjectValue "deposit" ["amount" .= amount]
     SubTxRequestDepositFromTopTx amount -> kindObjectValue "requestDepositFromTopTx" ["amount" .= amount]
     SubTxWithdrawFromStore amount target ->
@@ -293,6 +343,7 @@ instance ToJSON DepositStoreSubTxChange where
 instance FromJSON DepositStoreSubTxChange where
   parseJSON = withObject "DepositStoreSubTxChange" $ \fields ->
     (fields .: "kind" :: Parser String) >>= \case
+      "noChange" -> pure SubTxNoDepositStoreChange
       "deposit" -> SubTxDepositToStore <$> fields .: "amount"
       "requestDepositFromTopTx" -> SubTxRequestDepositFromTopTx <$> fields .: "amount"
       "withdraw" -> SubTxWithdrawFromStore <$> fields .: "amount" <*> fields .: "target"

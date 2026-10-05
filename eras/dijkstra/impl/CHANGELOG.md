@@ -2,6 +2,9 @@
 
 ## 0.4.0.1
 
+* Add `SubTxNoDepositStoreChange` for an explicit zero SubTx contribution, encoded as CBOR `[3]` and JSON `{"kind":"noChange"}`. Require `PositiveCoin` for SubTx deposits, funding requests and withdrawals; reject zero operation amounts while preserving their CBOR tags.
+* Replace the TopTx withdrawal output index with `TopTxWithdrawalSettlement`: `NoTopTxWithdrawal` or `TopTxWithdrawalTo TxIx`, supporting settlement in SubTx outputs as well as mixed TopTx/SubTx settlement. The withdrawal amount remains the batch net total. CBOR withdrawals now contain a tagged settlement instead of a bare index; JSON uses a `settlement` object instead of `outputIndex`.
+* Add `NoDepositStoreChange` for an explicitly declared zero batch net change; require `PositiveCoin` for top-level deposits and withdrawals. Encode no change as CBOR `[2]` and JSON `{"kind":"noChange"}`; reject zero deposit and withdrawal amounts.
 * Add an optional `DepositStoreChange` to top-level transaction bodies, with a deposit or a withdrawal referencing a top-level output by index; encode it at CBOR key `28` and describe it in the CDDL schema.
 * Add an optional `DepositStoreSubTxChange` to sub-transaction bodies at CBOR key `28`: deposits can request funding from the top-level transaction; withdrawals declare their amount and either a local output index or an explicit request to delegate accounting to the top-level transaction.
 * Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
