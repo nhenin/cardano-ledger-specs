@@ -99,6 +99,7 @@ instance Arbitrary (TxBody SubTx DijkstraEra) where
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> arbitrary
 
 instance Arbitrary (TxBody TopTx DijkstraEra) where
   arbitrary =
@@ -127,6 +128,19 @@ instance Arbitrary (TxBody TopTx DijkstraEra) where
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> arbitrary
+
+instance Arbitrary SubTxWithdrawalTarget where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary DepositStoreSubTxChange where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary DepositStoreChange where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
 
 instance Arbitrary (UpgradeDijkstraPParams Identity DijkstraEra) where
   arbitrary =
