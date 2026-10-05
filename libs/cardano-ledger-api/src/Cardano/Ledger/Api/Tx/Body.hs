@@ -81,6 +81,11 @@ module Cardano.Ledger.Api.Tx.Body (
   guardsTxBodyL,
   directDepositsTxBodyL,
   DirectDeposits (..),
+  depositStoreChangeTxBodyL,
+  DepositStoreChange (..),
+  depositStoreSubTxChangeTxBodyL,
+  DepositStoreSubTxChange (..),
+  SubTxWithdrawalTarget (..),
 
   -- * Upgrade
   binaryUpgradeTxBody,
@@ -115,7 +120,12 @@ import Cardano.Ledger.Core (
   txIdTxBody,
  )
 import Cardano.Ledger.Credential (Credential (KeyHashObj))
-import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DepositStoreChange (..),
+  DepositStoreSubTxChange (..),
+  DijkstraEraTxBody (..),
+  SubTxWithdrawalTarget (..),
+ )
 import Cardano.Ledger.Keys (KeyHash (..), KeyRole (..))
 import Cardano.Ledger.Mary.Core (MaryEraTxBody (..))
 import Cardano.Ledger.Mary.Value (MultiAsset)

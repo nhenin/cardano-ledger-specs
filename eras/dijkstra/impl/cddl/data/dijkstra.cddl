@@ -138,6 +138,7 @@ transaction_body =
   , ? 25 : direct_deposits                    ; direct deposits
   , ? 26 : account_balance_intervals          ; account balance intervals
   , ? 27 : starting_account_balance_intervals ; starting account balance intervals
+  , ? 28 : deposit_store_change
   }
 
 set<a0> = #6.258([* a0])/ [* a0]
@@ -839,6 +840,7 @@ sub_transaction_body =
   , ? 24 : required_top_level_guards
   , ? 25 : direct_deposits
   , ? 26 : account_balance_intervals
+  , ? 28 : deposit_store_sub_tx_change
   }
 
 required_top_level_guards = {+ credential => plutus_data/ nil}
@@ -851,6 +853,30 @@ account_balance_interval =
   [inclusive_lower_bound : coin, exclusive_upper_bound : coin/ nil]
   / [inclusive_lower_bound : coin/ nil, exclusive_upper_bound : coin]
   / coin
+
+; A sub-transaction declares its own deposit or withdrawal amount.
+; An absent operation does not delegate accounting to the top-level transaction.
+deposit_store_sub_tx_change =
+  sub_tx_deposit_to_store
+  / sub_tx_request_deposit_from_top_tx
+  / sub_tx_withdraw_from_store
+
+sub_tx_deposit_to_store = [0, amount : coin]
+
+;An explicit request for the top-level transaction to fund this deposit into the store.
+sub_tx_request_deposit_from_top_tx = [2, amount : coin]
+
+sub_tx_withdraw_from_store =
+  [1, amount : coin, target : sub_tx_withdrawal_target]
+
+sub_tx_withdrawal_target = sub_tx_output/ delegate_to_top_tx
+
+; The output index is zero-based and refers to this sub-transaction's outputs.
+; The withdrawn amount is already included in the selected output's value.
+sub_tx_output = [0, output_index : uint .size 2]
+
+;An explicit request for the top-level transaction to account for this withdrawal.
+delegate_to_top_tx = [1]
 
 transaction_witness_set =
   { ? 0 : nonempty_set<vkeywitness>
@@ -925,6 +951,15 @@ auxiliary_data_map =
 
 starting_account_balance_intervals =
   {+ reward_account => account_balance_interval}
+
+;A top-level transaction may deposit into or withdraw from the deposit store.
+deposit_store_change = deposit_to_store/ withdraw_from_store
+
+deposit_to_store = [0, amount : coin]
+
+; The output index is zero-based and refers to the top-level body's outputs.
+; The withdrawn amount is already included in the selected output's value.
+withdraw_from_store = [1, amount : coin, output_index : uint .size 2]
 
 leios_certificate =
   [ signers   : bytes .size (0 .. 8192) ;bitfield with up to 65536 entries

@@ -2,7 +2,7 @@
 
 ## 1.15.0.1
 
-*
+* Export Dijkstra deposit-store operations and lenses for top-level transactions and sub-transactions, including explicit requests for deposit funding and withdrawal accounting by the top-level transaction.
 
 ## 1.15.0.0
 

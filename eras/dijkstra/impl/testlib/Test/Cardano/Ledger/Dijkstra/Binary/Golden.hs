@@ -15,7 +15,7 @@ module Test.Cardano.Ledger.Dijkstra.Binary.Golden (
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusTxInfo, SupportedLanguage (..))
 import Cardano.Ledger.Alonzo.Scripts (plutusScriptBinary)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers)
-import Cardano.Ledger.BaseTypes (Version)
+import Cardano.Ledger.BaseTypes (StrictMaybe (..), TxIx (..), Version)
 import Cardano.Ledger.Binary (
   Annotator,
   DecoderError (..),
@@ -28,21 +28,36 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Plutus (SLanguage (..))
 import Cardano.Ledger.TxIn (TxIn (..))
+import Control.Monad (forM_)
+import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.KeyMap as KeyMap
 import Data.Data (Proxy (..))
+import Data.Either (isLeft)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Alonzo.Arbitrary (alwaysSucceedsLang)
-import Test.Cardano.Ledger.Binary.Plain.Golden (Enc (..))
-import Test.Cardano.Ledger.Common (Spec, ToExpr, describe, it)
+import Test.Cardano.Ledger.Binary.Plain.Golden (DiffView (DiffCBOR), Enc (..), expectGoldenToCBOR)
+import Test.Cardano.Ledger.Common (
+  Spec,
+  ToExpr,
+  describe,
+  expectationFailure,
+  it,
+  shouldBe,
+  shouldSatisfy,
+ )
 import Test.Cardano.Ledger.Conway.Binary.Golden hiding (spec)
 import Test.Cardano.Ledger.Core.KeyPair (mkKeyPair, mkWitnessVKey)
 import Test.Cardano.Ledger.Core.Utils (mkDummySafeHash)
 import Test.Cardano.Ledger.Dijkstra.Era (DijkstraEraTest)
 import Test.Cardano.Ledger.Imp.Common (forEachEraVersion)
 
-spec :: forall era. (DijkstraEraTest era, ToExpr (BlockBody era)) => Spec
+spec ::
+  forall era.
+  (DijkstraEraTest era, ToExpr (BlockBody era), Binary.DecCBOR (TxBody SubTx era)) =>
+  Spec
 spec = describe "Golden" . forEachEraVersion @era $ \version -> do
   describe "Redeemers" $ do
     goldenListRedeemersDisallowed @era version
@@ -58,10 +73,175 @@ spec = describe "Golden" . forEachEraVersion @era $ \version -> do
     goldenEmptyFields @era version
   describe "Subtransactions" $ do
     goldenSubTransactions @era
+  describe "DepositStoreChange" $
+    goldenDepositStoreChange @era version
+  describe "DepositStoreSubTxChange" $
+    goldenDepositStoreSubTxChange @era version
   describe "IsPhase2Valid flag" $ do
     goldenIsPhase2ValidFlag @era
   describe "Block transactions" $ do
     goldenBlockTransaction @era
+
+-- | Private. Check the optional TopTx operation without assuming a store policy.
+goldenDepositStoreChange :: forall era. DijkstraEraTest era => Version -> Spec
+goldenDepositStoreChange version = do
+  it "Omitting the operation preserves the existing body encoding" $ do
+    basicBody ^. depositStoreChangeTxBodyL `shouldBe` SNothing
+    expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
+    decodeEnc @(TxBody TopTx era) version basicBodyEncoding `shouldBe` Right basicBody
+  forM_
+    [ ("zero deposit", DepositToStore (Coin 0), Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+    , ("deposit", DepositToStore (Coin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    ,
+      ( "withdrawal to the first output"
+      , WithdrawFromStore (Coin 10) (TxIx 0)
+      , Em [E $ TkListLen 3, E @Int 1, E @Int 10, E @Int 0]
+      )
+    ,
+      ( "withdrawal to the largest output index"
+      , WithdrawFromStore (Coin 10) maxBound
+      , Em [E $ TkListLen 3, E @Int 1, E @Int 10, E @Int 65535]
+      )
+    ]
+    $ \(name, operation, operationEncoding) ->
+      it ("Round-trips a " <> name <> " in TopTx field 28") $ do
+        let body = basicBody & depositStoreChangeTxBodyL .~ SJust operation
+            encoding = bodyWithOperationEncoding operationEncoding
+        expectGoldenToCBOR DiffCBOR (Ev version body) encoding
+        decodeEnc @(TxBody TopTx era) version encoding `shouldBe` Right body
+        Binary.decodeFull @(TxBody TopTx era) version (Binary.serialize version body) `shouldBe` Right body
+  forM_
+    [ ("unknown operation", Em [E $ TkListLen 2, E @Int 3, E @Int 10])
+    , ("deposit request from TopTx", Em [E $ TkListLen 2, E @Int 2, E @Int 10])
+    , ("negative deposit", Em [E $ TkListLen 2, E @Int 0, E @Int (-1)])
+    , ("deposit with an output index", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E @Int 0])
+    , ("withdrawal without an output index", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
+    , ("output index exceeding Word16", Em [E $ TkListLen 3, E @Int 1, E @Int 10, E @Int 65536])
+    , ("delegation from TopTx", Em [E $ TkListLen 3, E @Int 1, E @Int 10, E $ TkListLen 1, E @Int 1])
+    ]
+    $ \(name, operationEncoding) ->
+      it ("Rejects " <> name <> " in both TopTx decoders") $ do
+        let encoding = bodyWithOperationEncoding operationEncoding
+        decodeEnc @(TxBody TopTx era) version encoding `shouldSatisfy` isLeft
+        Binary.decodeFull @(TxBody TopTx era)
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR encoding)
+          `shouldSatisfy` isLeft
+  where
+    basicBody = mkBasicTxBody @era @TopTx
+    outputFields =
+      Em
+        [ Em [E @Int 0, Ev version $ Set.empty @TxIn]
+        , Em [E @Int 1, Ev version $ [] @(TxOut era)]
+        ]
+    basicBodyEncoding = Em [E $ TkMapLen 3, outputFields, E @Int 2, E $ Coin 0]
+    bodyWithOperationEncoding operationEncoding =
+      Em [E $ TkMapLen 4, outputFields, E @Int 2, E $ Coin 0, E @Int 28, operationEncoding]
+
+-- | Private. Delegation must be declared explicitly by the subtransaction.
+goldenDepositStoreSubTxChange ::
+  forall era.
+  (DijkstraEraTest era, Binary.DecCBOR (TxBody SubTx era)) =>
+  Version ->
+  Spec
+goldenDepositStoreSubTxChange version = do
+  it "Omitting the operation preserves the existing body encoding and does not delegate" $ do
+    basicBody ^. depositStoreSubTxChangeTxBodyL `shouldBe` SNothing
+    expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
+    decodeEnc @(TxBody SubTx era) version basicBodyEncoding `shouldBe` Right basicBody
+    Binary.decodeFull @(TxBody SubTx era)
+      version
+      (Binary.serialize version basicBody)
+      `shouldBe` Right basicBody
+  it "Decodes historical JSON without an operation as no request" $
+    case Aeson.toJSON basicBody of
+      Aeson.Object fields ->
+        Aeson.fromJSON (Aeson.Object $ KeyMap.delete "depositStoreChange" fields)
+          `shouldBe` Aeson.Success basicBody
+      _ -> expectationFailure "Expected a JSON object for the subtransaction body"
+  it "Identifies a deposit request explicitly in JSON and rejects it as a TopTx operation" $ do
+    let request = SubTxRequestDepositFromTopTx (Coin 10)
+    Aeson.toJSON request
+      `shouldBe` Aeson.object
+        [ "kind" Aeson..= ("requestDepositFromTopTx" :: String)
+        , "amount" Aeson..= Coin 10
+        ]
+    Aeson.eitherDecode @DepositStoreChange (Aeson.encode request) `shouldSatisfy` isLeft
+  forM_
+    [ ("zero deposit", SubTxDepositToStore (Coin 0), Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+    , ("deposit", SubTxDepositToStore (Coin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    ,
+      ( "zero deposit requested from TopTx"
+      , SubTxRequestDepositFromTopTx (Coin 0)
+      , Em [E $ TkListLen 2, E @Int 2, E @Int 0]
+      )
+    ,
+      ( "deposit requested from TopTx"
+      , SubTxRequestDepositFromTopTx (Coin 10)
+      , Em [E $ TkListLen 2, E @Int 2, E @Int 10]
+      )
+    ,
+      ( "local withdrawal to the first output"
+      , SubTxWithdrawFromStore (Coin 10) (SubTxOutput $ TxIx 0)
+      , withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+      )
+    ,
+      ( "local withdrawal to the largest output index"
+      , SubTxWithdrawFromStore (Coin 10) (SubTxOutput maxBound)
+      , withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65535])
+      )
+    ,
+      ( "withdrawal explicitly delegated to TopTx"
+      , SubTxWithdrawFromStore (Coin 10) DelegateToTopTx
+      , withdrawalEncoding (Em [E $ TkListLen 1, E @Int 1])
+      )
+    ]
+    $ \(name, operation, operationEncoding) ->
+      it ("Round-trips a " <> name <> " in SubTx field 28 and JSON") $ do
+        let body = basicBody & depositStoreSubTxChangeTxBodyL .~ SJust operation
+            encoding = bodyWithOperationEncoding operationEncoding
+        expectGoldenToCBOR DiffCBOR (Ev version body) encoding
+        decodeEnc @(TxBody SubTx era) version encoding `shouldBe` Right body
+        Binary.decodeFull @(TxBody SubTx era) version (Binary.serialize version body) `shouldBe` Right body
+        Aeson.eitherDecode (Aeson.encode body) `shouldBe` Right body
+  forM_
+    [ ("unknown operation", Em [E $ TkListLen 2, E @Int 3, E @Int 10])
+    , ("negative deposit", Em [E $ TkListLen 2, E @Int 0, E @Int (-1)])
+    , ("negative deposit request", Em [E $ TkListLen 2, E @Int 2, E @Int (-1)])
+    , ("deposit request without an amount", Em [E $ TkListLen 1, E @Int 2])
+    ,
+      ( "deposit request with a target"
+      , Em [E $ TkListLen 3, E @Int 2, E @Int 10, E $ TkListLen 1, E @Int 1]
+      )
+    , ("negative withdrawal", Em [E $ TkListLen 3, E @Int 1, E @Int (-1), E $ TkListLen 1, E @Int 1])
+    , ("deposit with a target", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E $ TkListLen 1, E @Int 1])
+    , ("withdrawal without a target", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
+    , ("TopTx output index in SubTx", withdrawalEncoding (E @Int 0))
+    , ("unknown target", withdrawalEncoding (Em [E $ TkListLen 1, E @Int 2]))
+    , ("local target without an index", withdrawalEncoding (Em [E $ TkListLen 1, E @Int 0]))
+    , ("delegation with an index", withdrawalEncoding (Em [E $ TkListLen 2, E @Int 1, E @Int 0]))
+    , ("output index exceeding Word16", withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65536]))
+    ]
+    $ \(name, operationEncoding) ->
+      it ("Rejects " <> name <> " in both SubTx decoders") $ do
+        let encoding = bodyWithOperationEncoding operationEncoding
+        decodeEnc @(TxBody SubTx era) version encoding `shouldSatisfy` isLeft
+        Binary.decodeFull @(TxBody SubTx era)
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR encoding)
+          `shouldSatisfy` isLeft
+  where
+    basicBody = mkBasicTxBody @era @SubTx
+    outputFields =
+      Em
+        [ Em [E @Int 0, Ev version $ Set.empty @TxIn]
+        , Em [E @Int 1, Ev version $ [] @(TxOut era)]
+        ]
+    basicBodyEncoding = Em [E $ TkMapLen 2, outputFields]
+    bodyWithOperationEncoding operationEncoding =
+      Em [E $ TkMapLen 3, outputFields, E @Int 28, operationEncoding]
+    withdrawalEncoding targetEncoding =
+      Em [E $ TkListLen 3, E @Int 1, E @Int 10, targetEncoding]
 
 goldenEmptyFields :: forall era. DijkstraEraTest era => Version -> Spec
 goldenEmptyFields version =

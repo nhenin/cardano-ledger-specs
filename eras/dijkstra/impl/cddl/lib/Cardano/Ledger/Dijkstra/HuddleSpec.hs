@@ -192,6 +192,7 @@ subTransactionBodyRule ::
   , HuddleRule "required_top_level_guards" era
   , HuddleRule "direct_deposits" era
   , HuddleRule "account_balance_intervals" era
+  , HuddleRule "deposit_store_sub_tx_change" era
   , HuddleRule1 "set" era
   , HuddleRule1 "nonempty_set" era
   ) =>
@@ -220,6 +221,7 @@ subTransactionBodyRule pname p =
       , opt (idx 24 ==> huddleRule @"required_top_level_guards" p)
       , opt (idx 25 ==> huddleRule @"direct_deposits" p)
       , opt (idx 26 ==> huddleRule @"account_balance_intervals" p)
+      , opt (idx 28 ==> huddleRule @"deposit_store_sub_tx_change" p)
       ]
 
 requiredTopLevelGuardsRule ::
@@ -767,6 +769,78 @@ instance HuddleRule "withdrawals" DijkstraEra where
 instance HuddleRule "direct_deposits" DijkstraEra where
   huddleRuleNamed = directDepositsRule
 
+instance HuddleRule "deposit_to_store" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname =.= arr [0, "amount" ==> huddleRule @"coin" p]
+
+instance HuddleRule "withdraw_from_store" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment
+      [str| The output index is zero-based and refers to the top-level body's outputs.
+          | The withdrawn amount is already included in the selected output's value.
+          |]
+      $ pname
+        =.= arr
+          [ 1
+          , "amount" ==> huddleRule @"coin" p
+          , "output_index" ==> VUInt `sized` (2 :: Word64)
+          ]
+
+instance HuddleRule "deposit_store_change" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment "A top-level transaction may deposit into or withdraw from the deposit store." $
+      pname
+        =.= huddleRule @"deposit_to_store" p
+        / huddleRule @"withdraw_from_store" p
+
+instance HuddleRule "sub_tx_output" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment
+      [str| The output index is zero-based and refers to this sub-transaction's outputs.
+          | The withdrawn amount is already included in the selected output's value.
+          |]
+      $ pname =.= arr [0, "output_index" ==> VUInt `sized` (2 :: Word64)]
+
+instance HuddleRule "delegate_to_top_tx" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment "An explicit request for the top-level transaction to account for this withdrawal." $
+      pname =.= arr [1]
+
+instance HuddleRule "sub_tx_withdrawal_target" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= huddleRule @"sub_tx_output" p
+      / huddleRule @"delegate_to_top_tx" p
+
+instance HuddleRule "sub_tx_deposit_to_store" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname =.= arr [0, "amount" ==> huddleRule @"coin" p]
+
+instance HuddleRule "sub_tx_request_deposit_from_top_tx" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment "An explicit request for the top-level transaction to fund this deposit into the store." $
+      pname =.= arr [2, "amount" ==> huddleRule @"coin" p]
+
+instance HuddleRule "sub_tx_withdraw_from_store" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= arr
+        [ 1
+        , "amount" ==> huddleRule @"coin" p
+        , "target" ==> huddleRule @"sub_tx_withdrawal_target" p
+        ]
+
+instance HuddleRule "deposit_store_sub_tx_change" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment
+      [str| A sub-transaction declares its own deposit or withdrawal amount.
+          | An absent operation does not delegate accounting to the top-level transaction.
+          |]
+      $ pname
+        =.= huddleRule @"sub_tx_deposit_to_store" p
+        / huddleRule @"sub_tx_request_deposit_from_top_tx" p
+        / huddleRule @"sub_tx_withdraw_from_store" p
+
 instance HuddleRule "account_balance_intervals" DijkstraEra where
   huddleRuleNamed = accountBalanceIntervalsRule
 
@@ -1181,6 +1255,7 @@ instance HuddleRule "transaction_body" DijkstraEra where
         , opt (idx 26 ==> huddleRule @"account_balance_intervals" p) //- "account balance intervals"
         , opt (idx 27 ==> huddleRule @"starting_account_balance_intervals" p)
             //- "starting account balance intervals"
+        , opt (idx 28 ==> huddleRule @"deposit_store_change" p)
         ]
 
 instance HuddleRule "transaction_witness_set" DijkstraEra where

@@ -57,7 +57,12 @@ import Cardano.Ledger.Dijkstra.Scripts (
   DijkstraPlutusPurpose,
  )
 import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
-import Cardano.Ledger.Dijkstra.TxBody (DijkstraTxBodyRaw (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DepositStoreChange,
+  DepositStoreSubTxChange,
+  DijkstraTxBodyRaw (..),
+  SubTxWithdrawalTarget,
+ )
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
 import Control.State.Transition (STS (..))
@@ -93,6 +98,12 @@ instance ToExpr (TxOut DijkstraEra) where
           , ("referenceScript", toExpr $ txOut ^. referenceScriptTxOutL)
           ]
 
+instance ToExpr SubTxWithdrawalTarget
+
+instance ToExpr DepositStoreSubTxChange
+
+instance ToExpr DepositStoreChange
+
 instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
   toExpr = \case
     txBody@(DijkstraTxBodyRaw {}) ->
@@ -123,6 +134,7 @@ instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
               , ("dtbrDirectDeposits", toExpr dtbrDirectDeposits)
               , ("dtbrAccountBalanceIntervals", toExpr dtbrAccountBalanceIntervals)
               , ("dtbrStartingAccountBalanceIntervals", toExpr dtbrStartingAccountBalanceIntervals)
+              , ("dtbrDepositStoreChange", toExpr dtbrDepositStoreChange)
               ]
     txBody@(DijkstraSubTxBodyRaw {}) ->
       let DijkstraSubTxBodyRaw {..} = txBody
@@ -146,6 +158,7 @@ instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
               , ("dstbrRequiredTopLevelGuards", toExpr dstbrRequiredTopLevelGuards)
               , ("dstbrDirectDeposits", toExpr dstbrDirectDeposits)
               , ("dstbrAccountBalanceIntervals", toExpr dstbrAccountBalanceIntervals)
+              , ("dstbrDepositStoreChange", toExpr dstbrDepositStoreChange)
               ]
 
 instance ToExpr (TxBody l DijkstraEra)

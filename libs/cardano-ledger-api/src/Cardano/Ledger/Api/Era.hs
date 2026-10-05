@@ -645,6 +645,7 @@ instance EraApi DijkstraEra where
             , dtbDirectDeposits = DirectDeposits mempty
             , dtbAccountBalanceIntervals = AccountBalanceIntervals mempty
             , dtbStartingAccountBalanceIntervals = AccountBalanceIntervals mempty
+            , dtbDepositStoreChange = SNothing
             }
 
   upgradeTxWits atw =

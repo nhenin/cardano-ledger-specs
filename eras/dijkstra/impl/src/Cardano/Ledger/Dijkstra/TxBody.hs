@@ -24,6 +24,9 @@
 
 module Cardano.Ledger.Dijkstra.TxBody (
   DijkstraEraTxBody (..),
+  DepositStoreChange (..),
+  DepositStoreSubTxChange (..),
+  SubTxWithdrawalTarget (..),
   TxBody (
     MkDijkstraTxBody,
     DijkstraTxBody,
@@ -52,6 +55,7 @@ module Cardano.Ledger.Dijkstra.TxBody (
     dtbDirectDeposits,
     dtbAccountBalanceIntervals,
     dtbStartingAccountBalanceIntervals,
+    dtbDepositStoreChange,
     dstbSpendInputs,
     dstbReferenceInputs,
     dstbOutputs,
@@ -69,7 +73,8 @@ module Cardano.Ledger.Dijkstra.TxBody (
     dstbRequiredTopLevelGuards,
     dstbGuards,
     dstbDirectDeposits,
-    dstbAccountBalanceIntervals
+    dstbAccountBalanceIntervals,
+    dstbDepositStoreChange
   ),
   upgradeProposals,
   upgradeGovAction,
@@ -100,6 +105,8 @@ module Cardano.Ledger.Dijkstra.TxBody (
   directDepositsDijkstraTxBodyRawL,
   accountBalanceIntervalsDijkstraTxBodyRawL,
   startingAccountBalanceIntervalsDijkstraTxBodyRawL,
+  depositStoreChangeDijkstraTxBodyRawL,
+  depositStoreSubTxChangeDijkstraTxBodyRawL,
 ) where
 
 import Cardano.Base.Typeable (TypeName (TypeName))
@@ -111,7 +118,13 @@ import Cardano.Ledger.Babbage.TxBody (
   babbageAllInputsTxBodyF,
   babbageSpendableInputsTxBodyF,
  )
-import Cardano.Ledger.BaseTypes (Network, StrictMaybe (..), ToKeyValuePairs (..))
+import Cardano.Ledger.BaseTypes (
+  Network,
+  StrictMaybe (..),
+  ToKeyValuePairs (..),
+  TxIx (..),
+  kindObjectValue,
+ )
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin, decodePositiveCoin)
@@ -148,7 +161,7 @@ import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val (..))
 import Control.DeepSeq (NFData (..), deepseq)
-import Data.Aeson (FromJSON (..), ToJSON (..), withObject, (.:), (.=))
+import Data.Aeson (FromJSON (..), ToJSON (..), withObject, (.!=), (.:), (.:?), (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
 import Data.Coerce (coerce)
@@ -168,6 +181,122 @@ import Data.Typeable (Typeable, typeRep)
 import GHC.Generics (Generic)
 import Lens.Micro (Lens', lens, to, (.~), (^.))
 import NoThunks.Class (InspectHeap (..), NoThunks)
+
+-- | A single deposit-store operation carried by the top-level transaction.
+-- A withdrawal names a zero-based index into that transaction's own outputs;
+-- the output's coin value already includes the withdrawn amount.
+data DepositStoreChange
+  = DepositToStore !Coin
+  | WithdrawFromStore !Coin !TxIx
+  deriving (Eq, Show, Generic)
+
+instance NFData DepositStoreChange
+
+instance NoThunks DepositStoreChange
+
+instance EncCBOR DepositStoreChange where
+  encCBOR =
+    encode . \case
+      DepositToStore amount -> Sum DepositToStore 0 !> To amount
+      WithdrawFromStore amount outputIndex -> Sum WithdrawFromStore 1 !> To amount !> To outputIndex
+
+instance DecCBOR DepositStoreChange where
+  decCBOR = decode $ Summands "DepositStoreChange" $ \case
+    0 -> SumD DepositToStore <! From
+    1 -> SumD WithdrawFromStore <! From <! From
+    tag -> Invalid tag
+
+instance ToJSON DepositStoreChange where
+  toJSON = \case
+    DepositToStore amount -> kindObjectValue "deposit" ["amount" .= amount]
+    WithdrawFromStore amount outputIndex ->
+      kindObjectValue "withdraw" ["amount" .= amount, "outputIndex" .= outputIndex]
+
+instance FromJSON DepositStoreChange where
+  parseJSON = withObject "DepositStoreChange" $ \fields ->
+    (fields .: "kind" :: Parser String) >>= \case
+      "deposit" -> DepositToStore <$> fields .: "amount"
+      "withdraw" -> WithdrawFromStore <$> fields .: "amount" <*> (TxIx <$> fields .: "outputIndex")
+      kind -> fail $ "Unknown DepositStoreChange kind: " <> kind
+
+-- | Settle a withdrawal in the sub-transaction's own output, or explicitly
+-- request that the top-level transaction account for it. A local output's
+-- coin value already includes the withdrawn amount.
+data SubTxWithdrawalTarget
+  = SubTxOutput !TxIx
+  | DelegateToTopTx
+  deriving (Eq, Show, Generic)
+
+instance NFData SubTxWithdrawalTarget
+
+instance NoThunks SubTxWithdrawalTarget
+
+instance EncCBOR SubTxWithdrawalTarget where
+  encCBOR =
+    encode . \case
+      SubTxOutput outputIndex -> Sum SubTxOutput 0 !> To outputIndex
+      DelegateToTopTx -> Sum DelegateToTopTx 1
+
+instance DecCBOR SubTxWithdrawalTarget where
+  decCBOR = decode $ Summands "SubTxWithdrawalTarget" $ \case
+    0 -> SumD SubTxOutput <! From
+    1 -> SumD DelegateToTopTx
+    tag -> Invalid tag
+
+instance ToJSON SubTxWithdrawalTarget where
+  toJSON = \case
+    SubTxOutput outputIndex -> kindObjectValue "subTxOutput" ["outputIndex" .= outputIndex]
+    DelegateToTopTx -> kindObjectValue "delegateToTopTx" []
+
+instance FromJSON SubTxWithdrawalTarget where
+  parseJSON = withObject "SubTxWithdrawalTarget" $ \fields ->
+    (fields .: "kind" :: Parser String) >>= \case
+      "subTxOutput" -> SubTxOutput . TxIx <$> fields .: "outputIndex"
+      "delegateToTopTx" -> pure DelegateToTopTx
+      kind -> fail $ "Unknown SubTxWithdrawalTarget kind: " <> kind
+
+-- | An operation explicitly declared by a sub-transaction. The sub-transaction
+-- supplies the amount even when it requests deposit funding or delegates
+-- withdrawal accounting to TopTx.
+-- Absence of this field requests neither an operation nor delegation.
+data DepositStoreSubTxChange
+  = SubTxDepositToStore !Coin
+  | SubTxRequestDepositFromTopTx !Coin
+  | SubTxWithdrawFromStore !Coin !SubTxWithdrawalTarget
+  deriving (Eq, Show, Generic)
+
+instance NFData DepositStoreSubTxChange
+
+instance NoThunks DepositStoreSubTxChange
+
+instance EncCBOR DepositStoreSubTxChange where
+  encCBOR =
+    encode . \case
+      SubTxDepositToStore amount -> Sum SubTxDepositToStore 0 !> To amount
+      SubTxRequestDepositFromTopTx amount -> Sum SubTxRequestDepositFromTopTx 2 !> To amount
+      SubTxWithdrawFromStore amount target -> Sum SubTxWithdrawFromStore 1 !> To amount !> To target
+
+instance DecCBOR DepositStoreSubTxChange where
+  decCBOR = decode $ Summands "DepositStoreSubTxChange" $ \case
+    0 -> SumD SubTxDepositToStore <! From
+    1 -> SumD SubTxWithdrawFromStore <! From <! From
+    2 -> SumD SubTxRequestDepositFromTopTx <! From
+    tag -> Invalid tag
+
+instance ToJSON DepositStoreSubTxChange where
+  toJSON = \case
+    SubTxDepositToStore amount -> kindObjectValue "deposit" ["amount" .= amount]
+    SubTxRequestDepositFromTopTx amount -> kindObjectValue "requestDepositFromTopTx" ["amount" .= amount]
+    SubTxWithdrawFromStore amount target ->
+      kindObjectValue "withdraw" ["amount" .= amount, "target" .= target]
+
+instance FromJSON DepositStoreSubTxChange where
+  parseJSON = withObject "DepositStoreSubTxChange" $ \fields ->
+    (fields .: "kind" :: Parser String) >>= \case
+      "deposit" -> SubTxDepositToStore <$> fields .: "amount"
+      "requestDepositFromTopTx" -> SubTxRequestDepositFromTopTx <$> fields .: "amount"
+      "withdraw" -> SubTxWithdrawFromStore <$> fields .: "amount" <*> fields .: "target"
+      kind -> fail $ "Unknown DepositStoreSubTxChange kind: " <> kind
 
 data DijkstraTxBodyRaw l era where
   DijkstraTxBodyRaw ::
@@ -195,6 +324,7 @@ data DijkstraTxBodyRaw l era where
     , dtbrDirectDeposits :: !DirectDeposits
     , dtbrAccountBalanceIntervals :: !(AccountBalanceIntervals era)
     , dtbrStartingAccountBalanceIntervals :: !(AccountBalanceIntervals era)
+    , dtbrDepositStoreChange :: !(StrictMaybe DepositStoreChange)
     } ->
     DijkstraTxBodyRaw TopTx era
   DijkstraSubTxBodyRaw ::
@@ -216,6 +346,7 @@ data DijkstraTxBodyRaw l era where
     , dstbrRequiredTopLevelGuards :: !(Map (Credential Guard) (StrictMaybe (Data era)))
     , dstbrDirectDeposits :: !DirectDeposits
     , dstbrAccountBalanceIntervals :: !(AccountBalanceIntervals era)
+    , dstbrDepositStoreChange :: !(StrictMaybe DepositStoreSubTxChange)
     } ->
     DijkstraTxBodyRaw SubTx era
 
@@ -239,7 +370,7 @@ deriving via
     (Typeable l, EraTxBody era) => NoThunks (DijkstraTxBodyRaw l era)
 
 instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l era) where
-  rnf txBodyRaw@(DijkstraTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
+  rnf txBodyRaw@(DijkstraTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
     let DijkstraTxBodyRaw {..} = txBodyRaw
      in dtbrSpendInputs `deepseq`
           dtbrCollateralInputs `deepseq`
@@ -264,8 +395,9 @@ instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l e
                                                 dtbrRequiredTopLevelGuards `deepseq`
                                                   dtbrDirectDeposits `deepseq`
                                                     dtbrAccountBalanceIntervals `deepseq`
-                                                      rnf dtbrStartingAccountBalanceIntervals
-  rnf txBodyRaw@(DijkstraSubTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
+                                                      dtbrStartingAccountBalanceIntervals `deepseq`
+                                                        rnf dtbrDepositStoreChange
+  rnf txBodyRaw@(DijkstraSubTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
     let DijkstraSubTxBodyRaw {..} = txBodyRaw
      in dstbrSpendInputs `deepseq`
           dstbrReferenceInputs `deepseq`
@@ -284,7 +416,8 @@ instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l e
                                     dstbrTreasuryDonation `deepseq`
                                       dstbrRequiredTopLevelGuards `deepseq`
                                         dstbrDirectDeposits `deepseq`
-                                          rnf dstbrAccountBalanceIntervals
+                                          dstbrAccountBalanceIntervals `deepseq`
+                                            rnf dstbrDepositStoreChange
 
 deriving instance (EraTxBody era, Show (Tx SubTx era)) => Show (DijkstraTxBodyRaw l era)
 
@@ -315,6 +448,7 @@ basicDijkstraTxBodyRaw STopTx =
     (DirectDeposits mempty)
     (AccountBalanceIntervals mempty)
     (AccountBalanceIntervals mempty)
+    SNothing
 basicDijkstraTxBodyRaw SSubTx =
   DijkstraSubTxBodyRaw
     mempty
@@ -335,6 +469,7 @@ basicDijkstraTxBodyRaw SSubTx =
     mempty
     (DirectDeposits mempty)
     (AccountBalanceIntervals mempty)
+    SNothing
 
 instance
   ( Typeable l
@@ -468,6 +603,11 @@ instance
                     failOnNull (unAccountBalanceIntervals x) $
                       emptyNamedFailure "StartingAccountBalanceIntervals" "non-empty"
                     pure x
+        28
+          | STopTx <- sTxLevel ->
+              Just $ decodeAccA acc (depositStoreChangeDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
+          | SSubTx <- sTxLevel ->
+              Just $ decodeAccA acc (depositStoreSubTxChangeDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
         _ -> Nothing
       decodeSubTransactions :: Decoder s (Annotator (OMap TxId (Tx SubTx era)))
       decodeSubTransactions =
@@ -518,6 +658,7 @@ encodeTxBodyRaw DijkstraTxBodyRaw {..} =
         !> Omit (null . unDirectDeposits) (Key 25 (To dtbrDirectDeposits))
         !> Omit (null . unAccountBalanceIntervals) (Key 26 (To dtbrAccountBalanceIntervals))
         !> Omit (null . unAccountBalanceIntervals) (Key 27 (To dtbrStartingAccountBalanceIntervals))
+        !> encodeKeyedStrictMaybe 28 dtbrDepositStoreChange
 encodeTxBodyRaw DijkstraSubTxBodyRaw {..} =
   let ValidityInterval bot top = dstbrVldt
    in Keyed
@@ -545,6 +686,7 @@ encodeTxBodyRaw DijkstraSubTxBodyRaw {..} =
           (Key 24 $ E (encodeMap encCBOR (encodeNullStrictMaybe encCBOR)) dstbrRequiredTopLevelGuards)
         !> Omit (null . unDirectDeposits) (Key 25 (To dstbrDirectDeposits))
         !> Omit (null . unAccountBalanceIntervals) (Key 26 (To dstbrAccountBalanceIntervals))
+        !> encodeKeyedStrictMaybe 28 dstbrDepositStoreChange
 
 instance
   ( EraTxBody era
@@ -635,6 +777,7 @@ instance
           , dtbrDirectDeposits
           , dtbrAccountBalanceIntervals
           , dtbrStartingAccountBalanceIntervals
+          , dtbrDepositStoreChange
           } = getMemoRawType txb
      in [ "inputs" .= Set.toList dtbrSpendInputs
         , "collateral" .= Set.toList dtbrCollateralInputs
@@ -660,6 +803,7 @@ instance
         , "directDeposits" .= dtbrDirectDeposits
         , "accountBalanceIntervals" .= dtbrAccountBalanceIntervals
         , "startingAccountBalanceIntervals" .= dtbrStartingAccountBalanceIntervals
+        , "depositStoreChange" .= dtbrDepositStoreChange
         ]
 
 instance
@@ -691,6 +835,7 @@ instance ToKeyValuePairs (TxBody SubTx DijkstraEra) where
           , dstbrRequiredTopLevelGuards
           , dstbrDirectDeposits
           , dstbrAccountBalanceIntervals
+          , dstbrDepositStoreChange
           } = getMemoRawType txb
      in [ "inputs" .= Set.toList dstbrSpendInputs
         , "referenceInputs" .= Set.toList dstbrReferenceInputs
@@ -710,6 +855,7 @@ instance ToKeyValuePairs (TxBody SubTx DijkstraEra) where
         , "requiredTopLevelGuards" .= dstbrRequiredTopLevelGuards
         , "directDeposits" .= dstbrDirectDeposits
         , "accountBalanceIntervals" .= dstbrAccountBalanceIntervals
+        , "depositStoreChange" .= dstbrDepositStoreChange
         ]
 
 instance ToJSON (TxBody SubTx DijkstraEra) where
@@ -753,6 +899,7 @@ instance
       <*> o .: "directDeposits"
       <*> o .: "accountBalanceIntervals"
       <*> o .: "startingAccountBalanceIntervals"
+      <*> (o .:? "depositStoreChange" .!= SNothing)
 
 instance
   ( FromJSON (TxOut DijkstraEra)
@@ -787,6 +934,7 @@ instance
       <*> o .: "requiredTopLevelGuards"
       <*> o .: "directDeposits"
       <*> o .: "accountBalanceIntervals"
+      <*> (o .:? "depositStoreChange" .!= SNothing)
 
 pattern DijkstraTxBody ::
   ( Eq (Tx SubTx DijkstraEra)
@@ -822,6 +970,7 @@ pattern DijkstraTxBody ::
   DirectDeposits ->
   AccountBalanceIntervals DijkstraEra ->
   AccountBalanceIntervals DijkstraEra ->
+  StrictMaybe DepositStoreChange ->
   TxBody TopTx DijkstraEra
 pattern DijkstraTxBody
   { dtbSpendInputs
@@ -848,6 +997,7 @@ pattern DijkstraTxBody
   , dtbDirectDeposits
   , dtbAccountBalanceIntervals
   , dtbStartingAccountBalanceIntervals
+  , dtbDepositStoreChange
   } <-
   ( getMemoRawType ->
       DijkstraTxBodyRaw
@@ -875,6 +1025,7 @@ pattern DijkstraTxBody
         , dtbrDirectDeposits = dtbDirectDeposits
         , dtbrAccountBalanceIntervals = dtbAccountBalanceIntervals
         , dtbrStartingAccountBalanceIntervals = dtbStartingAccountBalanceIntervals
+        , dtbrDepositStoreChange = dtbDepositStoreChange
         }
     )
   where
@@ -902,7 +1053,8 @@ pattern DijkstraTxBody
       requiredTopLevelGuards
       directDeposits
       accountBalanceIntervals
-      startingAccountBalanceIntervals =
+      startingAccountBalanceIntervals
+      depositStoreChange =
         mkMemoizedEra @DijkstraEra $
           DijkstraTxBodyRaw
             inputsX
@@ -929,6 +1081,7 @@ pattern DijkstraTxBody
             directDeposits
             accountBalanceIntervals
             startingAccountBalanceIntervals
+            depositStoreChange
 
 pattern DijkstraSubTxBody ::
   ( Eq (Tx SubTx DijkstraEra)
@@ -958,6 +1111,7 @@ pattern DijkstraSubTxBody ::
   Map (Credential Guard) (StrictMaybe (Data DijkstraEra)) ->
   DirectDeposits ->
   AccountBalanceIntervals DijkstraEra ->
+  StrictMaybe DepositStoreSubTxChange ->
   TxBody SubTx DijkstraEra
 pattern DijkstraSubTxBody
   { dstbSpendInputs
@@ -978,6 +1132,7 @@ pattern DijkstraSubTxBody
   , dstbRequiredTopLevelGuards
   , dstbDirectDeposits
   , dstbAccountBalanceIntervals
+  , dstbDepositStoreChange
   } <-
   ( getMemoRawType ->
       DijkstraSubTxBodyRaw
@@ -999,6 +1154,7 @@ pattern DijkstraSubTxBody
         , dstbrRequiredTopLevelGuards = dstbRequiredTopLevelGuards
         , dstbrDirectDeposits = dstbDirectDeposits
         , dstbrAccountBalanceIntervals = dstbAccountBalanceIntervals
+        , dstbrDepositStoreChange = dstbDepositStoreChange
         }
     )
   where
@@ -1020,7 +1176,8 @@ pattern DijkstraSubTxBody
       treasuryDonation
       requiredTopLevelGuards
       directDeposits
-      accountBalanceIntervals =
+      accountBalanceIntervals
+      depositStoreChange =
         mkMemoizedEra @DijkstraEra $
           DijkstraSubTxBodyRaw
             inputsX
@@ -1041,6 +1198,7 @@ pattern DijkstraSubTxBody
             requiredTopLevelGuards
             directDeposits
             accountBalanceIntervals
+            depositStoreChange
 
 {-# COMPLETE DijkstraTxBody, DijkstraSubTxBody #-}
 
@@ -1172,6 +1330,16 @@ startingAccountBalanceIntervalsDijkstraTxBodyRawL ::
 startingAccountBalanceIntervalsDijkstraTxBodyRawL =
   lens dtbrStartingAccountBalanceIntervals $
     \txb x -> txb {dtbrStartingAccountBalanceIntervals = x}
+
+depositStoreChangeDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw TopTx era) (StrictMaybe DepositStoreChange)
+depositStoreChangeDijkstraTxBodyRawL =
+  lens dtbrDepositStoreChange $ \txBody change -> txBody {dtbrDepositStoreChange = change}
+
+depositStoreSubTxChangeDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw SubTx era) (StrictMaybe DepositStoreSubTxChange)
+depositStoreSubTxChangeDijkstraTxBodyRawL =
+  lens dstbrDepositStoreChange $ \txBody change -> txBody {dstbrDepositStoreChange = change}
 
 instance
   ( Eq (Tx SubTx DijkstraEra)
@@ -1585,6 +1753,13 @@ class
 
   startingAccountBalanceIntervalsTxBodyL :: Lens' (TxBody TopTx era) (AccountBalanceIntervals era)
 
+  -- | An operation on the deposit store, scoped to the top-level outputs.
+  depositStoreChangeTxBodyL :: Lens' (TxBody TopTx era) (StrictMaybe DepositStoreChange)
+
+  -- | A sub-transaction's explicit operation, including any request to delegate
+  -- withdrawal accounting to TopTx. 'SNothing' never implies delegation.
+  depositStoreSubTxChangeTxBodyL :: Lens' (TxBody SubTx era) (StrictMaybe DepositStoreSubTxChange)
+
 guardsDijkstraTxBodyRawL :: Lens' (DijkstraTxBodyRaw l era) (OSet (Credential Guard))
 guardsDijkstraTxBodyRawL =
   lens
@@ -1641,6 +1816,12 @@ instance
 
   startingAccountBalanceIntervalsTxBodyL = memoRawTypeL @DijkstraEra . startingAccountBalanceIntervalsDijkstraTxBodyRawL
   {-# INLINE startingAccountBalanceIntervalsTxBodyL #-}
+
+  depositStoreChangeTxBodyL = memoRawTypeL @DijkstraEra . depositStoreChangeDijkstraTxBodyRawL
+  {-# INLINE depositStoreChangeTxBodyL #-}
+
+  depositStoreSubTxChangeTxBodyL = memoRawTypeL @DijkstraEra . depositStoreSubTxChangeDijkstraTxBodyRawL
+  {-# INLINE depositStoreSubTxChangeTxBodyL #-}
 
 -- | Decoder for decoding guards in a backwards-compatible manner. It peeks at
 -- the first element and if it's a credential, it decodes the rest of the
