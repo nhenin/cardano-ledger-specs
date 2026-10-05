@@ -197,6 +197,7 @@ library testlib
       -Wno-pattern-namespace-specifier
   build-depends:
     FailT,
+    aeson,
     base,
     bytestring,
     cardano-base,
