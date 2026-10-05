@@ -62,6 +62,7 @@ import Cardano.Ledger.Dijkstra.TxBody (
   DepositStoreSubTxChange,
   DijkstraTxBodyRaw (..),
   SubTxWithdrawalTarget,
+  TopTxWithdrawalSettlement,
  )
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
@@ -103,6 +104,8 @@ instance ToExpr SubTxWithdrawalTarget
 instance ToExpr DepositStoreSubTxChange
 
 instance ToExpr DepositStoreChange
+
+instance ToExpr TopTxWithdrawalSettlement
 
 instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
   toExpr = \case

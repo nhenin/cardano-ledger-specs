@@ -3,6 +3,7 @@
 module Cardano.Ledger.Dijkstra.Core (
   DijkstraEraTxBody (..),
   DepositStoreChange (..),
+  TopTxWithdrawalSettlement (..),
   DepositStoreSubTxChange (..),
   SubTxWithdrawalTarget (..),
   DijkstraBlockBody (..),
@@ -20,4 +21,5 @@ import Cardano.Ledger.Dijkstra.TxBody (
   DepositStoreSubTxChange (..),
   DijkstraEraTxBody (..),
   SubTxWithdrawalTarget (..),
+  TopTxWithdrawalSettlement (..),
  )
