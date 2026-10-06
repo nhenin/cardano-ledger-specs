@@ -4,7 +4,7 @@ This document records the agreed transaction rules for the DepositStore prototyp
 It is the reference for implementing ledger validation and writing acceptance tests.
 Rules are added as their business meaning is agreed.
 
-The rules below were agreed on 5 October 2026. The transaction interfaces and
+The rules below were agreed on 5 and 6 October 2026. The transaction interfaces and
 codecs exist; enforcement of these rules in the ledger is **not implemented yet**.
 
 ## Transaction body scope
@@ -28,7 +28,7 @@ own output sequence. The cached size does not affect the check. A TopTx's own
 outputs do not include its SubTx outputs. Spent outputs are obtained by resolving
 the body's own spending inputs against the applicable UTxO. Reference inputs
 do not consume outputs or release backing. Collateral inputs and collateral
-return have a separate policy that remains to be specified.
+return have separate rules under DS-COLL-001 and DS-COLL-002.
 
 ## Explicit declaration for store backed outputs
 
@@ -93,8 +93,8 @@ The same cases apply to TopTx and SubTx. In particular:
   the TopTx creates or spends a store-backed output with `SNothing`, reject the
   TopTx even when its SubTx bodies declare operations.
 - A SubTx that requests funding through `SubTxRequestDepositFromTopTx amount`
-  has made an explicit declaration and passes this presence check. Whether the
-  TopTx fulfils the request requires a separate rule.
+  has made an explicit declaration and passes this presence check. DS-TX-010
+  separately validates that TopTx fulfils the request.
 - A TopTx whose own spent and created outputs are all implicit-deposit outputs
   and whose field is `SNothing`, containing a SubTx with store-backed outputs
   and an explicit operation, passes this check for both bodies. This says nothing
@@ -115,8 +115,8 @@ The same cases apply to TopTx and SubTx. In particular:
 The TopTx DepositStore operation declares the net change for the entire batch:
 total deposits minus total withdrawals, including the contributions of its SubTx
 bodies. It is not an additional operation to add on top of those contributions.
-The declared net change must still be validated against the batch's operations,
-backing obligations and funds.
+The declared net change must match the batch's exact change in backing
+obligations under DS-TX-003 and be funded under DS-TX-004.
 
 Delegation changes where a SubTx contribution is accounted for:
 
@@ -127,7 +127,7 @@ Delegation changes where a SubTx contribution is accounted for:
 - `SubTxWithdrawFromStore amount (SubTxOutput index)`: account for the withdrawal
   in the SubTx and settle it in its named output.
 - `SubTxWithdrawFromStore amount DelegateToTopTx`: account for the withdrawal
-  in the TopTx; its destination must satisfy the eventual settlement rule.
+  in the TopTx; its settlement must satisfy DS-TX-006 and DS-TX-007.
 
 Every contribution is included in the batch total regardless of delegation.
 Changing its accounting location must not count the contribution again, remove
@@ -243,7 +243,7 @@ DS-TX-006 distinguishes TopTx settlement participation while allowing mixed
 TopTx and SubTx destinations. DS-TX-007 validates the selected output and its
 coin amount, using the derived TopTx amount defined in DS-TX-006.
 
-## Backing coverage for each body
+## Exact backing accounting for each body
 
 **Rule identifier:** `DS-TX-003`
 
@@ -251,10 +251,11 @@ coin amount, using the derived TopTx amount defined in DS-TX-006.
 
 **Enforcement:** Pending
 
-Each TopTx and SubTx body must cover its own backing obligations. Released
-backing or excess contributions from another body cannot implicitly cover a
-deficit. This coverage condition is separate from financial conservation:
-SubTx may be financially imbalanced, but the completed TopTx batch must balance.
+Each TopTx and SubTx body must account exactly for its own change in backing
+obligations. Reject both an excessive and an insufficient contribution, even
+when another body's opposite error makes the batch total correct. This backing
+accounting condition is separate from financial conservation: SubTx may be
+financially imbalanced, but the completed TopTx batch must balance.
 
 For each body, define:
 
@@ -270,27 +271,37 @@ Require:
 
 ```text
 releasedBacking(body) + declaredNetContribution(body)
-    >= createdBacking(body)
+    = createdBacking(body)
 ```
 
 Equivalently, separating positive deposits and withdrawals:
 
 ```text
 releasedBacking(body) + declaredDeposit(body)
-    >= createdBacking(body) + declaredWithdrawal(body)
+    = createdBacking(body) + declaredWithdrawal(body)
 ```
+
+Thus `declaredNetContribution(body)` must equal
+`createdBacking(body) - releasedBacking(body)`. Positive differences require
+an exact deposit, negative differences require an exact withdrawal, and zero
+requires a zero contribution, subject to the declaration-presence rules.
+
+For example, when a body releases no backing and creates outputs requiring
+2 ADA, declaring a deposit of 3 ADA is an accounting error. A deposit of 1 ADA
+also fails; the correct contribution is exactly 2 ADA. The remaining transaction
+funds may be assigned to regular outputs under the financial balance rules.
 
 For SubTx, use the declared contribution regardless of accounting delegation:
 
-| SubTx declaration | Contribution for that SubTx's coverage |
+| SubTx declaration | Contribution for that SubTx's backing accounting |
 | --- | --- |
-| `SubTxNoDepositStoreChange` | `0`; the coverage and withdrawal rules still apply |
+| `SubTxNoDepositStoreChange` | `0`; the exact backing and withdrawal rules still apply |
 | `SubTxDepositToStore amount` | `+amount` |
 | `SubTxRequestDepositFromTopTx amount` | `+amount` |
 | `SubTxWithdrawFromStore amount target` | `-amount`, for either target |
 | `SNothing` | `0`; DS-TX-001 rejects absence if the body creates or spends any store-backed output |
 
-For TopTx's own coverage, remove all SubTx contributions from the declared batch
+For TopTx's own backing accounting, remove all SubTx contributions from the declared batch
 net change, including contributions delegated to TopTx:
 
 ```text
@@ -302,21 +313,30 @@ declaredNetContribution(TopTx)
 This is the contribution attributable to TopTx's own activity, not the financial
 amount accounted for in TopTx, which also includes delegated contributions.
 Each declared contribution is counted at its full amount. A deposit request
-counts toward the originating SubTx's declared coverage, but acceptance also
+counts toward the originating SubTx's declared backing contribution, but acceptance also
 requires its funding to be fulfilled in the batch accounting. Passing this
-inequality alone does not establish funding or authorize a withdrawal.
+equality alone does not establish financial balance or a valid withdrawal
+destination. Summing the exact body contributions gives the batch requirement:
+
+```text
+txTotalNetDeposit = sum(createdBacking(body) - releasedBacking(body))
+```
+
+The sum includes TopTx's own activity and every SubTx body exactly once,
+regardless of delegation.
 
 For example, SubTx A releases no backing, creates outputs requiring 3 ADA and
 declares a deposit of 5 ADA. SubTx B also releases none and creates outputs
-requiring 3 ADA, but declares only 1 ADA. A passes this coverage check; B fails.
-The batch must be rejected even though the combined deposit of 6 ADA covers
-the combined requirement. B must explicitly declare a sufficient contribution,
+requiring 3 ADA, but declares only 1 ADA. Both fail this exact accounting check.
+The batch must be rejected even though the combined deposit of 6 ADA equals
+the combined requirement. Each SubTx must explicitly declare exactly 3 ADA,
 locally or through a request to TopTx.
 
-The calculation of backing amounts and the policy for excess backing remain
-to be specified. The current scope assumes a constant `coinsPerUTxOByte`;
+DS-STORE-003 defines the pricing formula and assigned backing for the current
+scope. Voluntary over-deposits through these operations are not permitted.
+The current scope assumes a constant `coinsPerUTxOByte`;
 DS-STORE-002 records the deferred requirement to retain historical pricing.
-Collateral effects remain a separate policy decision.
+Collateral effects follow DS-COLL-001 through DS-COLL-004.
 
 ## Financial balance of TopTx
 
@@ -349,7 +369,7 @@ Consumed and produced values include the complete batch's inputs, outputs and
 other existing ledger terms, including fees and existing deposit/refund rules.
 The net store amount is counted once, using TopTx's declaration; SubTx store
 contributions are not added again. This equality preserves all assets, whereas
-DS-TX-003 concerns ADA backing coverage for each body.
+DS-TX-003 concerns exact ADA backing accounting for each body.
 
 ## Withdrawal when leaving store backed outputs
 
@@ -369,8 +389,8 @@ spendsStoreBackedOutput(body) AND NOT hasStoreBackedOutput(body)
     => declaredNetContribution(body) = -releasedBacking(body)
 ```
 
-The released amount is calculated under the pricing and release policy still
-to be specified. This rule does not grant access to unrelated store surplus.
+The released amount is the backing assigned to the consumed store-backed
+outputs under DS-STORE-003. This rule does not grant access to unrelated store surplus.
 It applies to bodies creating only implicit-deposit outputs, as well as bodies
 creating no outputs; a withdrawal's target must still satisfy the settlement
 rules.
@@ -527,9 +547,9 @@ another body's outputs, or collateral return.
 
 The selected output already includes the allocated coins. Applying the
 transaction must not add the amount to the output a second time. This check
-does not replace financial conservation, backing coverage or withdrawal
-authorization. `NoTopTxWithdrawal` has no TopTx index to validate; DS-TX-006
-still requires no outstanding TopTx settlement share.
+does not replace financial conservation, exact backing accounting or withdrawal
+authorization under DS-TX-011. `NoTopTxWithdrawal` has no TopTx index to validate;
+DS-TX-006 still requires no outstanding TopTx settlement share.
 
 For example, with a batch net withdrawal of 5 ADA split as 3 ADA in a SubTx and
 2 ADA in TopTx, the selected TopTx output must contain at least 2 ADA. An output
@@ -567,7 +587,7 @@ store-backed output.
 
 For example, a SubTx spending and creating store-backed outputs with equal
 backing obligations can explicitly declare zero, provided all other rules
-hold. This does not bypass DS-TX-003 coverage or DS-TX-005 withdrawal when
+hold. This does not bypass DS-TX-003 exact accounting or DS-TX-005 withdrawal when
 leaving store-backed outputs. If either rule requires a nonzero contribution,
 an explicit zero does not satisfy it.
 
@@ -617,6 +637,286 @@ including when all operations are handled locally and their contributions
 cancel. If no SubTx declares an operation, this rule imposes no presence
 requirement; DS-TX-001 still applies to TopTx's own spent and created outputs.
 
+## Validation of delegated SubTx contributions
+
+**Rule identifier:** `DS-TX-010`
+
+**Decision:** Agreed
+
+**Enforcement:** Pending
+
+Validate delegation through the originating SubTx's exact backing accounting
+and the completed batch's financial accounting:
+
+1. The SubTx's declared contribution must equal its own backing change under
+   DS-TX-003, regardless of delegation.
+2. A delegated contribution is accounted for by TopTx exactly once. It is
+   excluded from `subTxLocalNetDeposits` and included in `topTxNetDeposit` under
+   DS-TX-002 and DS-TX-006.
+3. TopTx must declare the entire batch's exact net change, including every
+   SubTx contribution, under DS-TX-002, DS-TX-003 and DS-TX-009.
+4. The complete batch must fund that net change and balance under DS-TX-004.
+   Withdrawal settlement must also satisfy DS-TX-006 and DS-TX-007.
+
+For example, a SubTx requesting a deposit of 3 ADA, with no other Store
+activity in the batch, requires `DepositToStore 3` in TopTx. Reject
+`DepositToStore 2`, even if the Store already has surplus funds. A correct
+declaration also fails if the batch does not provide the required funds.
+
+An opposing valid contribution may offset a delegated request in the batch
+net change; this does not cancel its originating body's exact accounting
+obligation. Each contribution must be included once, with the correct sign.
+
+This validation adds neither an independent financial-balance requirement for
+SubTx nor an additional declaration field. Local and delegated contributions
+remain subject to the same exact backing rule; delegation determines their
+accounting location within the batch.
+
+## Withdrawal authority follows the backed output
+
+**Rule identifier:** `DS-TX-011`
+
+**Decision:** Agreed
+
+**Enforcement:** Existing spending authorization applies; Store integration pending
+
+On the ordinary successful spending path, the authority to release an output's
+assigned backing follows that output's spending conditions. Satisfy its existing
+key or script authorization; no separate DepositStore withdrawal credential or
+witness is required. Funding the original deposit gives the funder no retained
+refund claim or additional approval right.
+
+Released backing participates in exact accounting under DS-TX-003. A body whose
+released backing exceeds its created backing has a withdrawal contribution.
+SubTx declares its own contribution; TopTx declares the net change for the
+complete batch. Batch netting and settlement still follow DS-TX-002, DS-TX-006
+and DS-TX-007; release does not imply an extra gross Store withdrawal.
+
+For example, Alice funds 2 ADA of backing for a store-backed output controlled
+by Bob. If Bob validly spends it without creating replacement store-backed
+outputs, its body must account for a 2 ADA withdrawal contribution. Alice's
+approval is not required, and the settlement destination need not be Alice.
+
+A SubTx authorizes delegated withdrawal through its explicit `DelegateToTopTx`
+target. TopTx handles settlement under the existing netting rules; the SubTx
+does not select a final TopTx output index. Ordinary spending authorization
+cannot be replaced by a declaration or by referencing an output. Collateral
+consumption follows its separate authorization and settlement rules under
+DS-COLL-001 through DS-COLL-004.
+
+## Zero application ADA and empty application assets
+
+**Rule identifier:** `DS-TX-012`
+
+**Decision:** Agreed
+
+**Verification:** Store-backed outputs bypass implicit minimum-coin checks;
+backing enforcement and property tests pending
+
+A store-backed output may contain zero application ADA, including any of these
+cases:
+
+- Native assets with no ADA.
+- No application assets, with a datum or reference script.
+- No application assets, datum or reference script, retaining its address.
+
+Each output still requires the full assigned backing calculated under
+DS-STORE-003. Empty application assets do not make an output free to store:
+its address, encoding and fixed overhead still enter the size-based formula.
+Creating it remains subject to the explicit declaration and exact accounting
+requirements of DS-TX-001 and DS-TX-003.
+
+This permission does not relax other output validation, including nonnegative
+asset amounts, size limits or address validity. Implicit-deposit outputs retain
+their existing minimum-coin requirements. A store-backed collateral return may
+also have zero application value, provided the collateral funding and settlement
+rules hold; the externally held backing does not count as its application coins.
+
+## Both output variants supported for collateral
+
+**Rule identifier:** `DS-COLL-001`
+
+**Decision:** Both variants must be supported
+
+**Enforcement:** Pending
+
+Collateral inputs and collateral return must support both
+`ImplicitDepositTxOut` and `StoreBackedTxOut`, subject to the applicable
+collateral validation rules. Restricting collateral to implicit-deposit outputs
+is not the intended first-version behavior.
+
+Preserve the existing collateral validation trigger: require collateral and
+run `validateBatchCollateral` when TopTx or any SubTx contains redeemers. The
+backing funding, minimum collateral fee and supplied `totalCollateral` checks
+use this same scope. Store-backed outputs or DepositStore declarations alone
+do not introduce a collateral requirement. Existing checks on supplied inputs
+and outputs that run independently of this trigger continue to apply.
+
+On the phase-2 failure path, the effects applied to the UTxO are collateral
+consumption and collateral return, rather than ordinary spending and output
+creation. Store-backed collateral consumption can release backing; a
+store-backed collateral return requires backing. Their accounting must preserve
+ADA and DepositStore solvency using the effects actually applied.
+
+The ordinary DepositStore declaration and its regular-output withdrawal targets
+cannot simply be applied unchanged on this path. DS-COLL-002 specifies the
+funding and destination of the collateral backing adjustment. Whether that
+adjustment increases or decreases the store is derived under DS-COLL-004;
+there is no separate collateral DepositStore declaration.
+
+## Collateral backing surplus and shortfall
+
+**Rule identifier:** `DS-COLL-002`
+
+**Decision:** Agreed for a fixed pricing policy
+
+**Enforcement:** Pending
+
+On an accepted phase-2 failure, use the backing released by consumed store-backed
+collateral to cover the backing required by the collateral return. Transfer all
+excess released backing to the fee pot. Fund any shortfall from the collateral
+inputs' coins, while still covering the required collateral fee.
+
+Define:
+
+- `releasedBacking`: the backing assigned to the consumed store-backed
+  collateral inputs. Implicit-deposit inputs contribute zero to this amount.
+- `requiredBacking`: the backing required by a store-backed collateral return
+  under the fixed policy. An absent or implicit-deposit return contributes zero.
+- `collateralInputCoins`: the sum of the collateral inputs' output coins.
+- `collateralReturnCoins`: the return output's coins, or zero when absent.
+
+Output coins include the whole ADA value of an implicit-deposit output and the
+application ADA of a store-backed output. Any implicit minimum is already part
+of those coins; do not also count it as backing released from the DepositStore.
+A fixed pricing policy does not imply equal input and return backing: their
+chargeable sizes or other priced characteristics may differ.
+
+```text
+additionalDeposit = max 0 (requiredBacking - releasedBacking)
+releasedBackingFee = max 0 (releasedBacking - requiredBacking)
+
+collateralCoinFee = collateralInputCoins - collateralReturnCoins - additionalDeposit
+collateralFee = collateralCoinFee + releasedBackingFee
+minimumCollateralFee = ceil(txFee * collateralPercentage / 100)
+
+collateralCoinFee >= minimumCollateralFee
+```
+
+Collateral coins must cover the minimum fee after funding the return and any
+additional deposit. All excess released backing is added to the fee pot on top
+of that independently funded minimum; it cannot satisfy or reduce the minimum
+collateral requirement. Released backing surplus cannot instead finance a
+larger return.
+
+The following conservation equation must hold:
+
+```text
+collateralInputCoins + releasedBacking
+    = collateralReturnCoins + requiredBacking + collateralFee
+```
+
+On settlement, the DepositStore balance and its backing obligation both change
+by `requiredBacking - releasedBacking`, and the fee pot receives `collateralFee`.
+This collateral settlement does not credit the treasury directly. It preserves
+the existing solvency margin and total ADA. Only the excess backing released by
+these collateral inputs is transferred; an unrelated surplus already in the
+store is untouched.
+
+These transfers are separate from the successful execution path. Ordinary
+DepositStore declarations and ordinary output creation are not applied on this
+failure path. Conversely, collateral settlement is not applied on success.
+
+For example, using ADA units and a minimum collateral fee of 1 ADA:
+
+| Input coins | Return coins | Released backing | Required backing | Additional deposit | Released backing fee | Collateral fee | Result |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 5 | 3 | 2 | 1 | 0 | 1 | 3 | Funded |
+| 5 | 3 | 1 | 2 | 1 | 0 | 1 | Funded |
+| 5 | 4 | 1 | 2 | 1 | 0 | 0 | Reject |
+| 5 | 5 | 2 | 1 | 0 | 1 | 1 | Reject: collateral coin fee below minimum |
+
+The transaction must already specify enough collateral coins to fund its return
+and any additional backing, with the remaining coins covering the minimum
+collateral fee. Excess released backing is added to the fee pot. The ledger
+cannot reduce the signed return amount or select extra inputs to repair a shortfall;
+such a transaction fails collateral validation. A funded case still has to
+satisfy the other collateral rules, including native-asset conservation and
+the implicit minimum when the return uses that variant.
+
+DS-COLL-003 specifies the meaning and validation of `totalCollateral` with this
+backing adjustment. DS-COLL-004 requires the adjustment to be derived without
+a separate declaration. Parameter changes remain deferred under DS-STORE-002.
+
+## Total collateral declaration
+
+**Rule identifier:** `DS-COLL-003`
+
+**Decision:** Agreed
+
+**Enforcement:** Pending
+
+When supplied, `dtbrTotalCollateral` declares the coins taken from the collateral
+outputs after subtracting the specified collateral return. It includes any
+additional deposit funded from those coins and excludes backing released from
+the DepositStore.
+
+Enforce the following equality within the collateral validation scope defined
+in DS-COLL-001:
+
+```text
+computedTotalCollateral = collateralInputCoins - collateralReturnCoins
+
+dtbrTotalCollateral = SJust amount
+    => amount = computedTotalCollateral
+
+collateralCoinFee = computedTotalCollateral - additionalDeposit
+collateralFee = collateralCoinFee + releasedBackingFee
+
+collateralCoinFee >= minimumCollateralFee
+```
+
+Reject a supplied amount that differs from the computed total. If the optional
+field is absent, derive the total from the collateral inputs and return; absence
+does not bypass backing funding or the minimum collateral fee check. Other
+collateral validation requirements continue to apply.
+
+For example, 5 ADA of input coins and a 2 ADA return require a supplied
+`totalCollateral` of 3 ADA. If the backing shortfall is 1 ADA, 2 ADA remains
+for the collateral coin fee. Excess released backing, when present instead,
+is added separately to the fee credit under DS-COLL-002.
+
+This rule retains the existing optional field and its input-minus-return
+relationship. The collateral DepositStore adjustment is derived under
+DS-COLL-004.
+
+## Derived collateral DepositStore settlement
+
+**Rule identifier:** `DS-COLL-004`
+
+**Decision:** Agreed
+
+**Enforcement:** Pending
+
+The ledger derives the collateral DepositStore change from the resolved
+collateral inputs and the specified collateral return, using the backing
+amounts defined in DS-COLL-002:
+
+```text
+collateralStoreChange = requiredBacking - releasedBacking
+```
+
+A positive result increases the store balance; a negative result decreases it.
+No separate collateral DepositStore operation field is required. The existing
+optional `dtbrTotalCollateral` retains its meaning under DS-COLL-003.
+
+On successful execution, apply the ordinary DepositStore operations; collateral
+inputs remain unspent and the collateral return is not created. On an accepted
+phase-2 failure, apply only the derived collateral settlement under DS-COLL-002;
+ordinary TopTx and SubTx DepositStore operations have no effect on that path.
+Reject collateral that cannot fund the derived settlement and required fee,
+without changing ledger state.
+
 ## DepositStore solvency
 
 **Rule identifier:** `DS-STORE-001`
@@ -632,9 +932,8 @@ For a ledger state `state`, define:
 
 - `storeBalance(state)`: the actual ADA held in the DepositStore.
 - `requiredBacking(state)`: the total backing obligation for the live
-  store-backed outputs, under the agreed pricing and release policy. If that
-  policy retains additional refundable claims, those obligations must also be
-  covered. Implicit-deposit outputs do not impose obligations on this store.
+  store-backed outputs, under the agreed pricing and release policy.
+  Implicit-deposit outputs do not impose obligations on this store.
 
 The invariant is:
 
@@ -643,8 +942,9 @@ storeBalance(state) >= requiredBacking(state) >= 0
 ```
 
 Both quantities are denominated in ADA. `requiredBacking` is an obligation,
-not another balance to add to the ledger's total ADA. Its calculation and any
-historical information needed to honour withdrawal rights remain to be specified.
+not another balance to add to the ledger's total ADA. DS-STORE-003 defines the
+backing assigned under the fixed policy; DS-STORE-002 covers the deferred
+historical information needed when parameters change.
 
 For a transition from `before` to `after`:
 
@@ -659,14 +959,22 @@ storeBalance(before) + depositsApplied - withdrawalsApplied
 `depositsApplied` and `withdrawalsApplied` are nonnegative amounts actually
 settled by that transition, each counted once. A request for TopTx funding does
 not increase the balance until the funding is settled. The full amount of an
-actual transfer is counted, even if a smaller deposit would cover the shortfall.
+actual transfer is counted; DS-TX-003 requires the declared net transfer to match
+the exact change in backing obligations.
 Under DS-TX-002, SubTx accounting amounts are contributions within the TopTx
 net change, not additional transfers to add to it. When the batch's declared
 operations settle successfully:
 
 ```text
 depositsApplied - withdrawalsApplied = txTotalNetDeposit
+
+txTotalNetDeposit = requiredBacking(after) - requiredBacking(before)
 ```
+
+For a successful batch under the fixed policy, store balance and required
+backing therefore change by the same amount. This preserves any existing
+solvency margin; it does not replace the global solvency inequality with an
+assumption that every initial or migrated state has zero margin.
 
 For a transaction batch, the resulting state includes both TopTx and SubTx
 effects. The batch must not be accepted with insufficient backing. This invariant
@@ -677,8 +985,9 @@ accepted ledger state or treated as proof that a SubTx is independently valid.
 The invariant also applies to accepted states after initialization, era
 translation, epoch and parameter changes, and collateral processing. On script
 failure, the check must use the effects actually applied; declared operations
-that were not applied cannot contribute funding. The treatment of store-backed
-collateral remains an open policy decision.
+that were not applied cannot contribute funding. Both collateral output variants
+must be supported under DS-COLL-001, with the fixed-policy settlement described
+by DS-COLL-002.
 
 For example, starting with a store balance of 10 ADA:
 
@@ -689,8 +998,10 @@ For example, starting with a store balance of 10 ADA:
 | 0 | 2 | 6 | 8 | Pass |
 | 3 | 0 | 12 | 13 | Pass |
 
-These results establish solvency only. They do not grant permission to withdraw
-an available surplus or establish that a declared withdrawal target is valid.
+These results establish solvency only. A passing resulting state does not show
+that a transaction satisfies DS-TX-003: reject any deposit or withdrawal that
+does not match the exact change from its prior backing obligations. These
+examples do not authorize withdrawing unrelated surplus or validate a target.
 
 ## Historical pricing for output backing
 
@@ -712,42 +1023,233 @@ definition. The current protocol parameters alone cannot recover
 that historical basis after the price changes. Do not silently recompute an
 old output's historically assigned backing using the latest price.
 
-For illustration, under a byte-based formula, 100 chargeable bytes priced at
-4 lovelace per byte correspond to 400 lovelace of backing. A later price of
-6 would produce 600 lovelace for the same chargeable size; it does not establish
-that 600 lovelace was originally assigned to that output. These numbers do not
-select the pricing formula or determine the refund entitlement.
+For illustration, DS-STORE-003 charges 260 bytes for an output whose serialized
+size is 100 bytes, including the fixed 160-byte overhead. At a hypothetical
+price of 4 lovelace per byte, its assigned backing is 1040 lovelace. A later
+price of 6 would give 1560 lovelace for that same size; it does not establish
+that 1560 lovelace was originally assigned to the output.
 
-The representation remains undecided: it could retain the applicable parameter
-directly or retain a pricing reference with enough history to recover it. This
-requirement does not mandate adding a field to the serialized `TxOut`; the ledger
-metadata location and retention policy remain to be designed. Era translation
-must also define the pricing basis assigned to migrated outputs.
+Live UTxO entries retain the assigned backing amount under DS-STORE-005. The
+representation of any additional historical pricing information remains
+undecided: it could retain the applicable parameter directly or a pricing
+reference with enough history to recover it. Its retention policy remains to be
+designed; this requirement does not mandate adding a field to the serialized
+transaction `TxOut`. Era translation must preserve the pricing basis of any
+existing store-backed outputs. The
+Conway-to-Dijkstra transition introduces no such outputs under DS-STORE-004.
 
-Historical required backing is distinct from any excess deposit contributed to
-the store. Surplus ownership, refund entitlement, and whether an explicit
-repricing transition is permitted remain separate decisions. The solvency rule
-must eventually cover parameter changes under that policy; constant-price tests
-alone will not establish this.
+DS-TX-003 requires exact backing accounting and rejects voluntary excess
+deposits, so these operations create no separate overpayment refund claims.
+Whether an explicit repricing transition is permitted remains a separate
+decision. The solvency rule must eventually cover parameter changes under that
+policy; constant-price tests alone will not establish this.
 
-## Decisions still required
+## Backing calculated from output size
+
+**Rule identifier:** `DS-STORE-003`
+
+**Decision:** Agreed for a fixed pricing policy
+
+**Enforcement:** Pending
+
+Retain the existing byte-based minimum-UTxO formula for the backing assigned to
+each newly created store-backed output:
+
+```text
+requiredBacking(output)
+    = coinsPerUTxOByte * (160 + serializedSize(output))
+```
+
+`serializedSize(output)` uses the existing CBOR-sized-output convention. It
+includes the address, application assets, datum, reference script and their
+encoding overhead, as present in the output. The fixed 160-byte overhead is
+retained. The DepositStore balance and the body's DepositStore declaration are
+outside the output and do not add bytes to its serialized size.
+
+For a finalized output and fixed parameters, the backing amount is determined.
+Assigning that backing in the external store does not change the output's
+serialized size, so it does not require adding a deposit field and recalculating
+that field's encoding contribution. Transaction construction can still change
+the output itself: changing application ADA, assets, address, datum or script
+requires using the size of the resulting output. This rule does not assert
+that overall transaction balancing requires no iteration.
+
+Use this formula for both regular store-backed outputs and a store-backed
+collateral return. Sum the assigned amounts of a body's own new store-backed
+outputs to obtain `createdBacking(body)`. Spending a store-backed output releases
+its assigned backing; recover that stored amount from the resolved live UTxO
+entry under DS-STORE-005.
+
+The charged size is the size measured when accepting the output. CBOR encoding
+is not canonical, so reserializing a decoded output later need not reproduce
+that size. Recover the assigned backing from retained information, such as its
+amount or original charged size, even while the price remains constant.
+
+Implicit-deposit outputs retain their existing minimum-coin validation and
+contribute no backing obligation to the DepositStore. Parameter changes remain
+deferred under DS-STORE-002; DS-STORE-004 defines Conway-to-Dijkstra initialization.
+
+## DepositStore initialization at the Conway transition
+
+**Rule identifier:** `DS-STORE-004`
+
+**Decision:** Agreed
+
+**Implementation:** Implicit output translation exists; DepositStore state initialization pending
+
+When transitioning from Conway to Dijkstra, retain every existing UTxO as an
+implicit-deposit output with its full ADA and native-asset value. Do not
+automatically convert outputs into store-backed outputs or extract their
+implicit minimum into the DepositStore.
+
+Initialize the new DepositStore with:
+
+```text
+storeBalance = 0
+requiredBacking = 0
+```
+
+Existing ledger pots are not used to fund the new Store during this transition.
+Subsequent transactions introduce store-backed outputs and fund their backing
+under DS-TX-003 and DS-TX-004. Spending an existing implicit-deposit output
+releases no Store backing; its coins can fund the deposit required by newly
+created store-backed outputs through normal transaction accounting. Collateral
+return creation follows DS-COLL-002 through DS-COLL-004 on the failure path.
+
+## Consistency of UTxO backing records
+
+**Rule identifier:** `DS-STORE-005`
+
+**Decision:** Agreed
+
+**Enforcement:** Pending
+
+Every live store-backed UTxO must have exactly one recoverable assigned backing
+amount associated with its `TxIn`. The logical set of Store backing records
+must match the live store-backed outputs:
+
+```text
+keys(backingRecords(state))
+    = { txIn | output(UTxO(state)[txIn]) is StoreBackedTxOut }
+
+requiredBacking(state) = sum(assignedBacking(record) for record in backingRecords(state))
+```
+
+Creating a store-backed output establishes its backing record using
+DS-STORE-003. Consuming that output releases the assigned amount exactly once
+and removes the record. Reference inputs leave the record unchanged and release
+no backing. Implicit-deposit outputs have no Store backing obligation.
+
+UTxO changes, backing records and the Store balance must settle atomically.
+On success, update the records for the ordinary effects actually applied.
+On an accepted phase-2 failure, update only those for the collateral effects.
+Rejecting a transaction leaves all three unchanged. No accepted state may have
+a missing record, an orphan record or a backing amount released twice.
+
+Store the assigned backing alongside the output in its live UTxO entry, keyed
+by `TxIn`. An implicit entry has no Store backing; a store-backed entry retains
+exactly one assigned amount. The conceptual representation is:
+
+```haskell
+data UTxOEntry era
+  = ImplicitDepositEntry !(ImplicitDepositTxOut era)
+  | StoreBackedEntry !(StoreBackedTxOut era) !Coin
+    -- Coin is the assigned backing.
+
+newtype UTxO era =
+  UTxO { unUTxO :: Map TxIn (UTxOEntry era) }
+```
+
+Calculate the amount from the accepted sized output before its charged size is
+discarded. Keep it in ledger-state serialization and snapshots so restoring or
+rolling back state preserves the assigned amount. This is ledger-state metadata;
+transaction output contents and the `TxIn` reference need no additional field.
+
+The global Store balance holds the actual ADA. Entry amounts record its backing
+obligations and must not be counted again as monetary balances or stake.
+Recording the assigned amount supports exact release accounting; the additional
+historical-pricing work under DS-STORE-002 remains deferred. The precise API and
+state encoding for each era remain implementation work.
+
+## Plutus compatibility
+
+**Rule identifier:** `DS-PLUTUS-001`
+
+**Decision:** Target compatibility with all supported Plutus versions
+
+**Implementation:** Deferred
+
+The intended design supports store-backed outputs with Plutus V1, V2, V3 and
+V4, subject to each version's existing feature restrictions. Store backing
+alone should not impose a V4-only restriction.
+
+The context translation and any exposure of DepositStore information remain
+to be designed and tested. The current legacy translation paths contain
+`unexpected StoreBackedTxOut` errors that must be addressed in that work.
+No context-value projection or translation change is selected here.
+
+## Stake and voting power
+
+**Rule identifier:** `DS-STAKE-001`
+
+**Decision:** Exclude DepositStore backing for the current prototype
+
+**Verification:** Pending
+
+ADA held in the DepositStore contributes neither stake nor voting power. Do not
+attribute an output's assigned backing to its staking credential or count the
+Store balance separately in stake or voting distributions.
+
+Before applying the existing staking eligibility and delegation rules, the
+output's ADA contribution is:
+
+```text
+stakeContribution(ImplicitDepositTxOut output) = full ADA in output
+stakeContribution(StoreBackedTxOut output) = application ADA in output
+```
+
+An implicit output containing 10 ADA therefore contributes 10 ADA where eligible.
+A store-backed output containing 8 ADA with 2 ADA of assigned backing contributes
+only 8 ADA. Existing registration, delegation and snapshot timing still apply.
+
+Deposits and withdrawals affect stake through the actual resulting outputs and
+the existing stake update rules; they do not create a separate Store attribution.
+Excluding backing from stake and voting power does not exclude it from ledger
+balances or ADA conservation. The Store remains an ADA pot under DS-STORE-001.
+
+## Remaining design work
 
 DS-TX-001 requires an explicit declaration; DS-TX-002 assigns the batch net change
-to TopTx and accounts for each contribution once; DS-TX-003 requires coverage
-for each body's backing obligations; DS-TX-004 requires TopTx batch financial
+to TopTx and accounts for each contribution once; DS-TX-003 requires exact
+accounting for each body's backing obligations; DS-TX-004 requires TopTx batch financial
 balance; DS-TX-005 requires withdrawal accounting when leaving store-backed
 outputs; DS-TX-006 derives TopTx's settlement amount and allows mixed withdrawal
 settlement; DS-TX-007 requires valid destinations containing their allocated
 shares; DS-TX-008 makes zero SubTx contributions explicit and other operation
 amounts strictly positive; DS-TX-009 requires a TopTx declaration whenever any
-SubTx declares an operation; DS-STORE-001 requires a solvent resulting ledger state; DS-STORE-002
-records the deferred historical-pricing requirement. The following decisions
-are still required:
+SubTx declares an operation; DS-TX-010 validates delegated contributions through
+exact body accounting and batch funding; DS-TX-011 ties backing release authority
+to the output's spending conditions, with no retained funder claim;
+DS-TX-012 permits zero application ADA and empty application assets in
+store-backed outputs while retaining their full backing requirement;
+DS-COLL-001 supports both collateral output variants and preserves the existing
+validation trigger; DS-COLL-002 sends excess released collateral backing to the fee pot
+and funds a backing shortfall from collateral coins; DS-COLL-003 preserves the
+input-minus-return meaning of the optional total collateral declaration;
+DS-COLL-004 derives the collateral Store change without a separate declaration;
+DS-STORE-001 requires a solvent resulting ledger state; DS-STORE-002
+records the deferred historical-pricing requirement; DS-STORE-003 assigns
+backing using the existing output-size formula; DS-STORE-004 retains Conway
+outputs as implicit and starts the new Store empty; DS-STORE-005 keeps UTxO
+entries, their stored backing amounts and Store balance consistent;
+DS-STAKE-001 excludes Store backing from stake and voting power for the current
+prototype. The following design work remains:
 
-- The required amount, capacity pricing, or permitted surplus.
-- Withdrawal entitlement and the calculation of released backing.
-- How to verify each delegation request is fulfilled.
-- The treatment of store-backed collateral inputs and collateral return.
+- The concrete APIs and ledger-state encoding for the chosen live UTxO entries
+  and the global DepositStore balance, including migration and state restoration.
+- Plutus context compatibility across all supported versions, including the
+  representation of store-backed outputs. This work is deferred under
+  DS-PLUTUS-001.
 - Historical pricing metadata, its retention and migration, and the accounting
   policy when `coinsPerUTxOByte` changes. These are deferred beyond the current
   constant-price scope.
@@ -768,15 +1270,27 @@ to test the rules, alongside the concrete acceptance cases above.
 | --- | --- |
 | DS-TX-001 | Every accepted body creating or spending store-backed outputs has its own declaration. Removing that declaration from an otherwise valid case causes rejection; a parent or child declaration cannot substitute for it. Referencing an output alone does not trigger the spending condition. |
 | DS-TX-002 | Signed body contributions reconcile with the declared TopTx net change, including mixed deposits and withdrawals. Switching a SubTx deposit between local and delegated accounting in an otherwise valid adjusted batch moves the accounting amount between bodies without changing the net store change. |
-| DS-TX-003 | Every accepted body covers its own created backing with its released backing and declared contribution. Reject a body short by one lovelace even if another body has surplus backing. Delegation preserves the originating body's coverage contribution; TopTx's own contribution excludes all SubTx contributions. |
+| DS-TX-003 | Require each body's released backing plus its signed contribution to equal its created backing. Reject over-deposits, under-deposits, over-withdrawals and under-withdrawals, including a one-lovelace error and opposing errors that cancel in the batch total. Delegation preserves the originating body's exact contribution; TopTx's own contribution excludes all SubTx contributions. The declared batch net change equals the sum of actual backing changes. |
 | DS-TX-004 | Every accepted TopTx batch balances consumed and produced values with the net DepositStore term counted once. Generate imbalanced SubTx whose combined batch balances, and reject a final batch imbalance of one lovelace or any native asset. |
 | DS-TX-005 | A body spending store-backed outputs and creating none declares a withdrawal contribution equal to its released backing. Reject absent declarations and zero or incorrect own contributions; preserve the withdrawal contribution when another body's deposit offsets the batch net change. |
 | DS-TX-006 | Derive topTxNetDeposit from txTotalNetDeposit minus signed local SubTx contributions; delegated operations remain TopTx's responsibility. For net withdrawals, require NoTopTxWithdrawal exactly when topTxNetWithdrawal is zero, and a TopTx destination otherwise. Generate SubTx-only, TopTx-only and mixed settlement, including local deposits that make topTxNetWithdrawal exceed txTotalNetWithdrawal and local withdrawals offset by TopTx deposits. Count the net store withdrawal once. |
 | DS-TX-007 | Reject an index outside its owning body's outputs or an output containing less than its allocated share. Accept exact coverage and additional funds when other rules hold. In a mixed settlement, check TopTx's share rather than the entire batch withdrawal, and never credit the selected output twice. |
 | DS-TX-008 | Explicit SubTx zero contributes no funds or delegation and remains distinct from absence. Reject zero, negative and out-of-range amounts for every nonzero operation through checked construction and both decoders. An explicit zero cannot bypass a required positive deposit or withdrawal. |
 | DS-TX-009 | Any declared SubTx operation requires a TopTx declaration, including explicit zero and cancelling local contributions. Removing only TopTx's declaration from an otherwise valid such batch causes rejection; switching between local and delegated SubTx accounting does not remove this requirement. |
+| DS-TX-010 | Require delegated contributions to match the originating body's exact backing change, be accounted for by TopTx once, reconcile with the batch declaration, and be funded by a balanced batch. Reject omitted, duplicated or incorrectly signed contributions and unfunded declarations. Accept valid offsetting contributions and financially imbalanced SubTx when the complete batch satisfies all rules. |
+| DS-TX-011 | Exercise outputs funded by someone other than their authorized spender. On the successful ordinary spending path, require the existing key or script authorization and exact backing accounting, without a separate funder approval or Store witness. Reject unauthorized spending even with a correct withdrawal declaration. Cover local and explicitly delegated SubTx settlement; references alone release no backing. |
+| DS-TX-012 | Generate store-backed outputs with zero ADA and native assets, empty application assets with a datum or reference script, and an address with no application assets, datum or script. Accept otherwise valid cases with exact backing and reject absent declarations or incorrect backing contributions. Include collateral returns under their separate settlement rules. Preserve all other output validation and implicit minimum-coin checks. |
+| DS-COLL-001 | Preserve the existing collateral trigger for redeemers in TopTx, a SubTx, or both. Store-backed outputs and Store declarations alone do not require collateral. Support both collateral output variants and preserve the existing independent checks on supplied inputs and outputs. |
+| DS-COLL-002 | On an accepted phase-2 failure, all excess released backing goes to the fee pot and any shortfall is funded from collateral coins. Check the minimum fee using collateral coins after funding the return and additional backing; surplus is added on top. Reject a collateral coin fee below the minimum even when backing surplus makes the total fee credit sufficient. Independently verify ADA conservation, no direct treasury credit, and that store balance and required backing change by the same amount. Cover equal backing, surplus, shortfall, multiple inputs, absent returns, both output variants, and a one-lovelace funding deficit. Ordinary Store operations have no effect on this path; collateral settlement has no effect on success. |
+| DS-COLL-003 | When collateral validation is active under DS-COLL-001, require every supplied total collateral amount to equal input coins minus return coins, regardless of backing surplus or shortfall. Reject a mismatch of one lovelace. Derive backing funding and fee credit separately, and retain those checks when the optional declaration is absent. Include cases where the declared total differs from the fee credit because coins fund additional backing or released backing increases fees. |
+| DS-COLL-004 | Derive collateral Store changes from the resolved collateral inputs and return without a separate declaration. Holding collateral inputs, return, fee and policy fixed, ordinary DepositStore declarations cannot alter failure-path settlement. Verify that success applies ordinary Store operations only, accepted phase-2 failure applies collateral settlement only, and rejection applies neither. |
 | DS-STORE-001 | Starting from a valid state, every accepted transition leaves the actual store balance at least equal to independently calculated outstanding backing obligations. |
 | DS-STORE-002 (deferred) | After a price change, recover each live output's original pricing basis independently of the current parameters. Generate increases, decreases, and outputs from multiple pricing periods; verify release accounting and solvency under the eventual parameter-change policy. |
+| DS-STORE-003 | Independently calculate each new store-backed output's backing as `coinsPerUTxOByte * (160 + serializedSize(output))`. Check regular outputs and collateral returns, optional datum and script fields, native assets, and CBOR amount-size boundaries. Assigning backing outside a fixed output must not change its output size; changing output contents requires a fresh size calculation. Spending releases the assigned amount, including when reserialization would change the size. Implicit outputs contribute zero Store backing. |
+| DS-STORE-004 | Translate arbitrary valid Conway UTxOs with references and values preserved and every output remaining implicit. The new Store balance and backing obligation are both zero, with no funding transfer from other pots. Spending a translated implicit output releases no Store backing; later creation of store-backed outputs must fund their exact backing. |
+| DS-STORE-005 | After every accepted transition, require every live store-backed UTxO entry to retain its assigned amount and those amounts to sum to requiredBacking. Implicit entries have no Store backing. Exercise creation, consumption, reference-only use, successful execution and accepted phase-2 failure. Detect missing and orphan records, wrong assigned amounts and double releases. Preserve assigned amounts through ledger-state serialization, restoration and rollback. Rejected transitions must leave UTxO, records and Store balance unchanged. |
+| DS-PLUTUS-001 (deferred) | Verify store-backed output context translation for every supported Plutus version under its existing feature restrictions, once the projection semantics are defined. |
+| DS-STAKE-001 | Verify that implicit outputs contribute their full ADA and store-backed outputs only their application ADA under the existing eligibility, delegation and snapshot rules. Assigned backing and the Store balance contribute no additional stake or voting weight. Exercise deposits, withdrawals and the actually applied collateral effects, while retaining Store ADA in monetary conservation checks. |
 | Store accounting | After an accepted transition, the balance changes by exactly the applied deposits minus the applied withdrawals. Delegated settlement is counted once. |
 | ADA conservation | Moving ADA between outputs and the store preserves total ADA across all ledger pots; required backing is never counted as a second balance. |
 | Rejected transitions | Rejecting a batch leaves the previously accepted ledger state unchanged. An accepted transaction with failed phase-2 scripts is a separate case: verify the actual collateral effects under the agreed policy. |
@@ -794,8 +1308,11 @@ sign of net change, and batches containing financially imbalanced
 SubTx whose combined accounting is valid. Do not silently require every SubTx
 to balance individually.
 
-Include exact coverage, a deficit of one lovelace, surplus backing, zero amounts
-where permitted, and both ends of the supported amount and output-index ranges.
+Include exact backing changes, declarations one lovelace above and below the
+required amount, pre-existing store surplus, collateral backing surplus, zero
+amounts where permitted, and both ends of the supported amount and output-index
+ranges. Opposite declaration errors in different bodies must remain invalid
+even when they cancel in the batch total.
 Include exact cancellation with `SJust NoDepositStoreChange` and explicit SubTx
 zero with `SJust SubTxNoDepositStoreChange`; distinguish both from absent fields.
 Verify positive TopTx and SubTx operation
@@ -806,7 +1323,7 @@ coverage of accepted cases so an implementation that rejects everything cannot
 satisfy the suite merely by having no accepted insolvent states.
 
 As the corresponding policies are agreed, extend the model and generators to
-cover withdrawal rights, target selection, parameter changes, era translation,
+cover parameter changes, era translation,
 epoch transitions and collateral. Shrinking must retain the dependencies and
 preconditions of the case under test, including any intended invalid condition.
 Report the random seed and minimized counterexample for reproducible failures.
@@ -816,5 +1333,7 @@ Report the random seed and minimized counterexample for reproducible failures.
 - [Transaction fields, operations and lenses](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
 - [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/Core.hs)
 - [Dijkstra output representations](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
+- [Existing byte-based minimum-UTxO formula](../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs)
+- [Serialized size measurement](../libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Decoding/Sized.hs)
 - [TopTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
 - [SubTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/SubUtxo.hs)
