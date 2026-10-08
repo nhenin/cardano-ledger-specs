@@ -58,11 +58,11 @@ import Cardano.Ledger.Dijkstra.Scripts (
  )
 import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
 import Cardano.Ledger.Dijkstra.TxBody (
-  DepositStoreChange,
-  DepositStoreSubTxChange,
   DijkstraTxBodyRaw (..),
-  SubTxWithdrawalTarget,
-  TopTxWithdrawalSettlement,
+  NetUTxODepositChange,
+  SubTxNetUTxODepositChange,
+  SubTxReleaseTarget,
+  TopTxReleaseSettlement,
  )
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
@@ -99,13 +99,13 @@ instance ToExpr (TxOut DijkstraEra) where
           , ("referenceScript", toExpr $ txOut ^. referenceScriptTxOutL)
           ]
 
-instance ToExpr SubTxWithdrawalTarget
+instance ToExpr SubTxReleaseTarget
 
-instance ToExpr DepositStoreSubTxChange
+instance ToExpr SubTxNetUTxODepositChange
 
-instance ToExpr DepositStoreChange
+instance ToExpr NetUTxODepositChange
 
-instance ToExpr TopTxWithdrawalSettlement
+instance ToExpr TopTxReleaseSettlement
 
 instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
   toExpr = \case
@@ -137,7 +137,7 @@ instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
               , ("dtbrDirectDeposits", toExpr dtbrDirectDeposits)
               , ("dtbrAccountBalanceIntervals", toExpr dtbrAccountBalanceIntervals)
               , ("dtbrStartingAccountBalanceIntervals", toExpr dtbrStartingAccountBalanceIntervals)
-              , ("dtbrDepositStoreChange", toExpr dtbrDepositStoreChange)
+              , ("dtbrNetUTxODepositChange", toExpr dtbrNetUTxODepositChange)
               ]
     txBody@(DijkstraSubTxBodyRaw {}) ->
       let DijkstraSubTxBodyRaw {..} = txBody
@@ -161,7 +161,7 @@ instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
               , ("dstbrRequiredTopLevelGuards", toExpr dstbrRequiredTopLevelGuards)
               , ("dstbrDirectDeposits", toExpr dstbrDirectDeposits)
               , ("dstbrAccountBalanceIntervals", toExpr dstbrAccountBalanceIntervals)
-              , ("dstbrDepositStoreChange", toExpr dstbrDepositStoreChange)
+              , ("dstbrNetUTxODepositChange", toExpr dstbrNetUTxODepositChange)
               ]
 
 instance ToExpr (TxBody l DijkstraEra)
