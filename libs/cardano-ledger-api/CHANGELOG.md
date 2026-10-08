@@ -2,9 +2,10 @@
 
 ## 1.15.0.1
 
-* Re-export `TopTxWithdrawalSettlement` and its constructors for explicit TopTx participation in withdrawal settlement.
-* Re-export abstract `PositiveCoin`, `mkPositiveCoin`, and `unPositiveCoin` for constructing TopTx and SubTx deposit-store operations, with `NoDepositStoreChange` and `SubTxNoDepositStoreChange` for explicit zero contributions.
-* Export Dijkstra deposit-store operations and lenses for top-level transactions and sub-transactions, including explicit requests for deposit funding and withdrawal accounting by the top-level transaction.
+* Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
+* Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
+* Re-export abstract `PositiveCoin`, `mkPositiveCoin`, and `unPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
+* Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
 
 ## 1.15.0.0
 

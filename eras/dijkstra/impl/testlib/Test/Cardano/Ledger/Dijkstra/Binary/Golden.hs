@@ -77,10 +77,10 @@ spec = describe "Golden" . forEachEraVersion @era $ \version -> do
     goldenEmptyFields @era version
   describe "Subtransactions" $ do
     goldenSubTransactions @era
-  describe "DepositStoreChange" $
-    goldenDepositStoreChange @era version
-  describe "DepositStoreSubTxChange" $
-    goldenDepositStoreSubTxChange @era version
+  describe "NetUTxODepositChange" $
+    goldenNetUTxODepositChange @era version
+  describe "SubTxNetUTxODepositChange" $
+    goldenSubTxNetUTxODepositChange @era version
   describe "IsPhase2Valid flag" $ do
     goldenIsPhase2ValidFlag @era
   describe "Block transactions" $ do
@@ -91,8 +91,8 @@ positiveCoin :: Integer -> PositiveCoin
 positiveCoin = fromMaybe (error "Invalid PositiveCoin test fixture") . mkPositiveCoin . Coin
 
 -- | Private. Check the optional TopTx operation without assuming a store policy.
-goldenDepositStoreChange :: forall era. DijkstraEraTest era => Version -> Spec
-goldenDepositStoreChange version = do
+goldenNetUTxODepositChange :: forall era. DijkstraEraTest era => Version -> Spec
+goldenNetUTxODepositChange version = do
   describe "PositiveCoin" $ do
     forM_ [1, maxCoin] $ \amount ->
       it ("Accepts and round-trips the boundary amount " <> show amount) $ do
@@ -109,107 +109,116 @@ goldenDepositStoreChange version = do
     prop "Round-trips generated positive amounts through CBOR and JSON" $ \(coin :: PositiveCoin) -> do
       Binary.decodeFull @PositiveCoin version (Binary.serialize version coin) `shouldBe` Right coin
       Aeson.eitherDecode @PositiveCoin (Aeson.encode coin) `shouldBe` Right coin
-  describe "TopTxWithdrawalSettlement" $ do
+  describe "TopTxReleaseSettlement" $ do
     forM_
       [
-        ( "no TopTx withdrawal"
-        , NoTopTxWithdrawal
+        ( "no TopTx settlement"
+        , NoTopTxSettlement
         , Em [E $ TkListLen 1, E @Int 0]
-        , Aeson.object ["kind" Aeson..= ("noTopTxWithdrawal" :: String)]
+        , Aeson.object ["kind" Aeson..= ("noTopTxSettlement" :: String)]
         )
       ,
         ( "settlement in a TopTx output"
-        , TopTxWithdrawalTo (TxIx 0)
+        , TopTxSettlementOutput (TxIx 0)
         , Em [E $ TkListLen 2, E @Int 1, E @Int 0]
-        , Aeson.object ["kind" Aeson..= ("topTxOutput" :: String), "outputIndex" Aeson..= (0 :: Int)]
+        , Aeson.object
+            ["kind" Aeson..= ("topTxSettlementOutput" :: String), "outputIndex" Aeson..= (0 :: Int)]
         )
       ]
       $ \(name, settlement, encoding, json) ->
         it ("Encodes and decodes " <> name) $ do
           expectGoldenToCBOR DiffCBOR (Ev version settlement) encoding
-          Binary.decodeFull @TopTxWithdrawalSettlement
+          Binary.decodeFull @TopTxReleaseSettlement
             version
             (Binary.toLazyByteString $ Binary.toCBOR encoding)
             `shouldBe` Right settlement
           Aeson.toJSON settlement `shouldBe` json
-          Aeson.eitherDecode @TopTxWithdrawalSettlement (Aeson.encode json) `shouldBe` Right settlement
-          Aeson.toJSON (WithdrawFromStore (positiveCoin 10) settlement)
+          Aeson.eitherDecode @TopTxReleaseSettlement (Aeson.encode json) `shouldBe` Right settlement
+          Aeson.toJSON (ReleaseUTxODeposit (positiveCoin 10) settlement)
             `shouldBe` Aeson.object
-              [ "kind" Aeson..= ("withdraw" :: String)
+              [ "kind" Aeson..= ("release" :: String)
               , "amount" Aeson..= (10 :: Int)
               , "settlement" Aeson..= json
               ]
-    prop "Round-trips generated withdrawal settlements through CBOR and JSON" $
-      \(settlement :: TopTxWithdrawalSettlement) -> do
-        Binary.decodeFull @TopTxWithdrawalSettlement version (Binary.serialize version settlement)
+    prop "Round-trips generated release settlements through CBOR and JSON" $
+      \(settlement :: TopTxReleaseSettlement) -> do
+        Binary.decodeFull @TopTxReleaseSettlement version (Binary.serialize version settlement)
           `shouldBe` Right settlement
-        Aeson.eitherDecode @TopTxWithdrawalSettlement (Aeson.encode settlement) `shouldBe` Right settlement
+        Aeson.eitherDecode @TopTxReleaseSettlement (Aeson.encode settlement) `shouldBe` Right settlement
   it "Omitting the operation preserves the existing body encoding" $ do
-    basicBody ^. depositStoreChangeTxBodyL `shouldBe` SNothing
+    basicBody ^. netUTxODepositChangeTxBodyL `shouldBe` SNothing
     expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
     decodeEnc @(TxBody TopTx era) version basicBodyEncoding `shouldBe` Right basicBody
   it "Decodes historical JSON without an operation as no declaration" $
     case Aeson.toJSON basicBody of
       Aeson.Object fields ->
-        Aeson.fromJSON (Aeson.Object $ KeyMap.delete "depositStoreChange" fields)
+        Aeson.fromJSON (Aeson.Object $ KeyMap.delete "netUTxODepositChange" fields)
           `shouldBe` Aeson.Success basicBody
       _ -> expectationFailure "Expected a JSON object for the transaction body"
   it "Distinguishes an explicit zero net change from an absent declaration" $ do
-    let noChangeBody = basicBody & depositStoreChangeTxBodyL .~ SJust NoDepositStoreChange
-    Aeson.toJSON NoDepositStoreChange
+    let noChangeBody = basicBody & netUTxODepositChangeTxBodyL .~ SJust NoUTxODepositChange
+    Aeson.toJSON NoUTxODepositChange
       `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
-    noChangeBody ^. depositStoreChangeTxBodyL `shouldBe` SJust NoDepositStoreChange
+    noChangeBody ^. netUTxODepositChangeTxBodyL `shouldBe` SJust NoUTxODepositChange
     Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
     Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
-    [ ("zero net change", NoDepositStoreChange, Em [E $ TkListLen 1, E @Int 2])
-    , ("one-lovelace deposit", DepositToStore (positiveCoin 1), Em [E $ TkListLen 2, E @Int 0, E @Int 1])
-    , ("deposit", DepositToStore (positiveCoin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    [ ("zero net change", NoUTxODepositChange, Em [E $ TkListLen 1, E @Int 2])
     ,
-      ( "largest deposit"
-      , DepositToStore (positiveCoin maxCoin)
+      ( "one-lovelace net allocation"
+      , AllocateUTxODeposit (positiveCoin 1)
+      , Em [E $ TkListLen 2, E @Int 0, E @Int 1]
+      )
+    , ("net allocation", AllocateUTxODeposit (positiveCoin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    ,
+      ( "largest net allocation"
+      , AllocateUTxODeposit (positiveCoin maxCoin)
       , Em [E $ TkListLen 2, E @Int 0, E maxCoin]
       )
     ,
-      ( "withdrawal with no TopTx settlement"
-      , WithdrawFromStore (positiveCoin 10) NoTopTxWithdrawal
-      , withdrawalEncoding 10 (Em [E $ TkListLen 1, E @Int 0])
+      ( "net release with no TopTx settlement"
+      , ReleaseUTxODeposit (positiveCoin 10) NoTopTxSettlement
+      , releaseEncoding 10 (Em [E $ TkListLen 1, E @Int 0])
       )
     ,
-      ( "withdrawal to the first output"
-      , WithdrawFromStore (positiveCoin 10) (TopTxWithdrawalTo $ TxIx 0)
-      , withdrawalEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
+      ( "net release to the first output"
+      , ReleaseUTxODeposit (positiveCoin 10) (TopTxSettlementOutput $ TxIx 0)
+      , releaseEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
       )
     ,
-      ( "largest withdrawal"
-      , WithdrawFromStore (positiveCoin maxCoin) (TopTxWithdrawalTo $ TxIx 0)
-      , withdrawalEncoding maxCoin (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
+      ( "largest net release"
+      , ReleaseUTxODeposit (positiveCoin maxCoin) (TopTxSettlementOutput $ TxIx 0)
+      , releaseEncoding maxCoin (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
       )
     ,
-      ( "withdrawal to the largest output index"
-      , WithdrawFromStore (positiveCoin 10) (TopTxWithdrawalTo maxBound)
-      , withdrawalEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 65535])
+      ( "net release to the largest output index"
+      , ReleaseUTxODeposit (positiveCoin 10) (TopTxSettlementOutput maxBound)
+      , releaseEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 65535])
       )
     ]
     $ \(name, operation, operationEncoding) ->
       it ("Round-trips a " <> name <> " in TopTx field 28 and JSON") $ do
-        let body = basicBody & depositStoreChangeTxBodyL .~ SJust operation
+        let body = basicBody & netUTxODepositChangeTxBodyL .~ SJust operation
             encoding = bodyWithOperationEncoding operationEncoding
         expectGoldenToCBOR DiffCBOR (Ev version body) encoding
         decodeEnc @(TxBody TopTx era) version encoding `shouldBe` Right body
         Binary.decodeFull @(TxBody TopTx era) version (Binary.serialize version body) `shouldBe` Right body
         Aeson.eitherDecode (Aeson.encode body) `shouldBe` Right body
+        case Aeson.toJSON body of
+          Aeson.Object fields ->
+            KeyMap.lookup "netUTxODepositChange" fields `shouldBe` Just (Aeson.toJSON operation)
+          _ -> expectationFailure "Expected a JSON object for the transaction body"
   forM_
     [ ("unknown operation", Em [E $ TkListLen 2, E @Int 3, E @Int 10])
     , ("no-change operation with an amount", Em [E $ TkListLen 2, E @Int 2, E @Int 10])
-    , ("zero deposit", Em [E $ TkListLen 2, E @Int 0, E @Int 0])
-    , ("negative deposit", Em [E $ TkListLen 2, E @Int 0, E @Int (-1)])
-    , ("deposit exceeding Word64", Em [E $ TkListLen 2, E @Int 0, E $ maxCoin + 1])
-    , ("zero withdrawal", withdrawalEncoding 0 noTopTxWithdrawalEncoding)
-    , ("negative withdrawal", withdrawalEncoding (-1) noTopTxWithdrawalEncoding)
-    , ("withdrawal exceeding Word64", withdrawalEncoding (maxCoin + 1) noTopTxWithdrawalEncoding)
-    , ("deposit with an output index", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E @Int 0])
-    , ("withdrawal without settlement", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
+    , ("zero net allocation", Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+    , ("negative net allocation", Em [E $ TkListLen 2, E @Int 0, E @Int (-1)])
+    , ("net allocation exceeding Word64", Em [E $ TkListLen 2, E @Int 0, E $ maxCoin + 1])
+    , ("zero net release", releaseEncoding 0 noTopTxSettlementEncoding)
+    , ("negative net release", releaseEncoding (-1) noTopTxSettlementEncoding)
+    , ("net release exceeding Word64", releaseEncoding (maxCoin + 1) noTopTxSettlementEncoding)
+    , ("net allocation with an output index", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E @Int 0])
+    , ("net release without settlement", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
     ]
     $ \(name, operationEncoding) ->
       it ("Rejects " <> name <> " in both TopTx decoders") $ do
@@ -223,7 +232,7 @@ goldenDepositStoreChange version = do
     [ ("bare output index", E @Int 0)
     , ("unknown settlement", Em [E $ TkListLen 1, E @Int 2])
     , ("empty settlement", E $ TkListLen 0)
-    , ("no TopTx withdrawal with an index", Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+    , ("no TopTx settlement with an index", Em [E $ TkListLen 2, E @Int 0, E @Int 0])
     , ("TopTx settlement without an index", Em [E $ TkListLen 1, E @Int 1])
     , ("TopTx settlement with an extra index", Em [E $ TkListLen 3, E @Int 1, E @Int 0, E @Int 1])
     , ("negative output index", Em [E $ TkListLen 2, E @Int 1, E @Int (-1)])
@@ -231,48 +240,50 @@ goldenDepositStoreChange version = do
     ]
     $ \(name, settlementEncoding) ->
       it ("Rejects " <> name <> " as a settlement and in both TopTx decoders") $ do
-        Binary.decodeFull @TopTxWithdrawalSettlement
+        Binary.decodeFull @TopTxReleaseSettlement
           version
           (Binary.toLazyByteString $ Binary.toCBOR settlementEncoding)
           `shouldSatisfy` isLeft
-        let encoding = bodyWithOperationEncoding $ withdrawalEncoding 10 settlementEncoding
+        let encoding = bodyWithOperationEncoding $ releaseEncoding 10 settlementEncoding
         decodeEnc @(TxBody TopTx era) version encoding `shouldSatisfy` isLeft
         Binary.decodeFull @(TxBody TopTx era)
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldSatisfy` isLeft
-  forM_ ["deposit", "withdraw"] $ \kind ->
+  forM_ ["allocate", "release"] $ \kind ->
     forM_ [-1, 0, maxCoin + 1] $ \amount ->
       it ("Rejects a JSON " <> kind <> " with amount " <> show amount) $ do
         let operation =
               Aeson.object $
                 ["kind" Aeson..= kind, "amount" Aeson..= amount]
-                  <> ["settlement" Aeson..= NoTopTxWithdrawal | kind == "withdraw"]
+                  <> ["settlement" Aeson..= NoTopTxSettlement | kind == "release"]
         expectRejectedJsonOperation operation
-  it "Rejects a JSON withdrawal without an explicit settlement" $
+  it "Rejects a JSON release without an explicit settlement" $
     expectRejectedJsonOperation $
-      Aeson.object ["kind" Aeson..= ("withdraw" :: String), "amount" Aeson..= (10 :: Int)]
+      Aeson.object ["kind" Aeson..= ("release" :: String), "amount" Aeson..= (10 :: Int)]
   forM_
     [ ("bare output index", Aeson.toJSON (0 :: Int))
     , ("null settlement", Aeson.Null)
     , ("missing kind", Aeson.object [])
     , ("unknown kind", Aeson.object ["kind" Aeson..= ("unknown" :: String)])
-    , ("missing output index", Aeson.object ["kind" Aeson..= ("topTxOutput" :: String)])
+    , ("missing output index", Aeson.object ["kind" Aeson..= ("topTxSettlementOutput" :: String)])
     ,
       ( "negative output index"
-      , Aeson.object ["kind" Aeson..= ("topTxOutput" :: String), "outputIndex" Aeson..= (-1 :: Int)]
+      , Aeson.object
+          ["kind" Aeson..= ("topTxSettlementOutput" :: String), "outputIndex" Aeson..= (-1 :: Int)]
       )
     ,
       ( "output index exceeding Word16"
-      , Aeson.object ["kind" Aeson..= ("topTxOutput" :: String), "outputIndex" Aeson..= (65536 :: Int)]
+      , Aeson.object
+          ["kind" Aeson..= ("topTxSettlementOutput" :: String), "outputIndex" Aeson..= (65536 :: Int)]
       )
     ]
     $ \(name, settlement) ->
-      it ("Rejects a JSON withdrawal settlement with " <> name) $ do
-        Aeson.eitherDecode @TopTxWithdrawalSettlement (Aeson.encode settlement) `shouldSatisfy` isLeft
+      it ("Rejects a JSON release settlement with " <> name) $ do
+        Aeson.eitherDecode @TopTxReleaseSettlement (Aeson.encode settlement) `shouldSatisfy` isLeft
         expectRejectedJsonOperation $
           Aeson.object
-            [ "kind" Aeson..= ("withdraw" :: String)
+            [ "kind" Aeson..= ("release" :: String)
             , "amount" Aeson..= (10 :: Int)
             , "settlement" Aeson..= settlement
             ]
@@ -287,27 +298,27 @@ goldenDepositStoreChange version = do
     basicBodyEncoding = Em [E $ TkMapLen 3, outputFields, E @Int 2, E $ Coin 0]
     bodyWithOperationEncoding operationEncoding =
       Em [E $ TkMapLen 4, outputFields, E @Int 2, E $ Coin 0, E @Int 28, operationEncoding]
-    withdrawalEncoding amount settlementEncoding =
+    releaseEncoding amount settlementEncoding =
       Em [E $ TkListLen 3, E @Int 1, E @Integer amount, settlementEncoding]
-    noTopTxWithdrawalEncoding = Em [E $ TkListLen 1, E @Int 0]
+    noTopTxSettlementEncoding = Em [E $ TkListLen 1, E @Int 0]
     expectRejectedJsonOperation operation = do
-      Aeson.eitherDecode @DepositStoreChange (Aeson.encode operation) `shouldSatisfy` isLeft
+      Aeson.eitherDecode @NetUTxODepositChange (Aeson.encode operation) `shouldSatisfy` isLeft
       case Aeson.toJSON basicBody of
         Aeson.Object fields ->
           Aeson.eitherDecode @(TxBody TopTx era)
-            (Aeson.encode $ Aeson.Object $ KeyMap.insert "depositStoreChange" operation fields)
+            (Aeson.encode $ Aeson.Object $ KeyMap.insert "netUTxODepositChange" operation fields)
             `shouldSatisfy` isLeft
         _ -> expectationFailure "Expected a JSON object for the transaction body"
 
 -- | Private. Delegation must be declared explicitly by the subtransaction.
-goldenDepositStoreSubTxChange ::
+goldenSubTxNetUTxODepositChange ::
   forall era.
   (DijkstraEraTest era, Binary.DecCBOR (TxBody SubTx era)) =>
   Version ->
   Spec
-goldenDepositStoreSubTxChange version = do
+goldenSubTxNetUTxODepositChange version = do
   it "Omitting the operation preserves the existing body encoding and does not delegate" $ do
-    basicBody ^. depositStoreSubTxChangeTxBodyL `shouldBe` SNothing
+    basicBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SNothing
     expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
     decodeEnc @(TxBody SubTx era) version basicBodyEncoding `shouldBe` Right basicBody
     Binary.decodeFull @(TxBody SubTx era)
@@ -317,46 +328,52 @@ goldenDepositStoreSubTxChange version = do
   it "Decodes historical JSON without an operation as no request" $
     case Aeson.toJSON basicBody of
       Aeson.Object fields ->
-        Aeson.fromJSON (Aeson.Object $ KeyMap.delete "depositStoreChange" fields)
+        Aeson.fromJSON (Aeson.Object $ KeyMap.delete "netUTxODepositChange" fields)
           `shouldBe` Aeson.Success basicBody
       _ -> expectationFailure "Expected a JSON object for the subtransaction body"
-  it "Identifies a deposit request explicitly in JSON and rejects it as a TopTx operation" $ do
-    let request = SubTxRequestDepositFromTopTx (positiveCoin 10)
-    Aeson.toJSON request
-      `shouldBe` Aeson.object
-        [ "kind" Aeson..= ("requestDepositFromTopTx" :: String)
-        , "amount" Aeson..= Coin 10
-        ]
-    Aeson.eitherDecode @DepositStoreChange (Aeson.encode request) `shouldSatisfy` isLeft
+  it
+    "Identifies a UTxO capacity deposit request explicitly in JSON and rejects it as a TopTx operation"
+    $ do
+      let request = SubTxRequestUTxODepositFromTopTx (positiveCoin 10)
+      Aeson.toJSON request
+        `shouldBe` Aeson.object
+          [ "kind" Aeson..= ("requestUTxODepositFromTopTx" :: String)
+          , "amount" Aeson..= Coin 10
+          ]
+      Aeson.eitherDecode @NetUTxODepositChange (Aeson.encode request) `shouldSatisfy` isLeft
   it "Distinguishes an explicit zero change from an absent declaration" $ do
-    let noChangeBody = basicBody & depositStoreSubTxChangeTxBodyL .~ SJust SubTxNoDepositStoreChange
-    Aeson.toJSON SubTxNoDepositStoreChange
+    let noChangeBody = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SJust SubTxNoUTxODepositChange
+    Aeson.toJSON SubTxNoUTxODepositChange
       `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
-    noChangeBody ^. depositStoreSubTxChangeTxBodyL `shouldBe` SJust SubTxNoDepositStoreChange
+    noChangeBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SJust SubTxNoUTxODepositChange
     Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
     Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
-    [ ("zero change", SubTxNoDepositStoreChange, Em [E $ TkListLen 1, E @Int 3])
-    , ("deposit", SubTxDepositToStore (positiveCoin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    [ ("zero change", SubTxNoUTxODepositChange, Em [E $ TkListLen 1, E @Int 3])
     ,
-      ( "deposit requested from TopTx"
-      , SubTxRequestDepositFromTopTx (positiveCoin 10)
+      ( "net allocation"
+      , SubTxAllocateUTxODeposit (positiveCoin 10)
+      , Em [E $ TkListLen 2, E @Int 0, E @Int 10]
+      )
+    ,
+      ( "UTxO capacity deposit requested from TopTx"
+      , SubTxRequestUTxODepositFromTopTx (positiveCoin 10)
       , Em [E $ TkListLen 2, E @Int 2, E @Int 10]
       )
     ,
-      ( "local withdrawal to the first output"
-      , SubTxWithdrawFromStore (positiveCoin 10) (SubTxOutput $ TxIx 0)
-      , withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 0])
+      ( "local net release to the first output"
+      , SubTxReleaseUTxODeposit (positiveCoin 10) (SubTxSettlementOutput $ TxIx 0)
+      , releaseEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 0])
       )
     ,
-      ( "local withdrawal to the largest output index"
-      , SubTxWithdrawFromStore (positiveCoin 10) (SubTxOutput maxBound)
-      , withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65535])
+      ( "local net release to the largest output index"
+      , SubTxReleaseUTxODeposit (positiveCoin 10) (SubTxSettlementOutput maxBound)
+      , releaseEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65535])
       )
     ,
-      ( "withdrawal explicitly delegated to TopTx"
-      , SubTxWithdrawFromStore (positiveCoin 10) DelegateToTopTx
-      , withdrawalEncoding (Em [E $ TkListLen 1, E @Int 1])
+      ( "net release explicitly delegated to TopTx"
+      , SubTxReleaseUTxODeposit (positiveCoin 10) DelegateToTopTx
+      , releaseEncoding (Em [E $ TkListLen 1, E @Int 1])
       )
     ]
     $ \(name, operation, operationEncoding) ->
@@ -365,23 +382,23 @@ goldenDepositStoreSubTxChange version = do
   forM_ [1, maxCoin] $ \amount ->
     forM_
       [
-        ( "deposit"
-        , SubTxDepositToStore (positiveCoin amount)
+        ( "net allocation"
+        , SubTxAllocateUTxODeposit (positiveCoin amount)
         , Em [E $ TkListLen 2, E @Int 0, E amount]
         )
       ,
-        ( "deposit requested from TopTx"
-        , SubTxRequestDepositFromTopTx (positiveCoin amount)
+        ( "UTxO capacity deposit requested from TopTx"
+        , SubTxRequestUTxODepositFromTopTx (positiveCoin amount)
         , Em [E $ TkListLen 2, E @Int 2, E amount]
         )
       ,
-        ( "local withdrawal"
-        , SubTxWithdrawFromStore (positiveCoin amount) (SubTxOutput $ TxIx 0)
+        ( "local net release"
+        , SubTxReleaseUTxODeposit (positiveCoin amount) (SubTxSettlementOutput $ TxIx 0)
         , Em [E $ TkListLen 3, E @Int 1, E amount, E $ TkListLen 2, E @Int 0, E @Int 0]
         )
       ,
-        ( "delegated withdrawal"
-        , SubTxWithdrawFromStore (positiveCoin amount) DelegateToTopTx
+        ( "delegated net release"
+        , SubTxReleaseUTxODeposit (positiveCoin amount) DelegateToTopTx
         , Em [E $ TkListLen 3, E @Int 1, E amount, E $ TkListLen 1, E @Int 1]
         )
       ]
@@ -391,18 +408,21 @@ goldenDepositStoreSubTxChange version = do
   forM_
     [ ("unknown operation", Em [E $ TkListLen 2, E @Int 4, E @Int 10])
     , ("no-change operation with an amount", Em [E $ TkListLen 2, E @Int 3, E @Int 0])
-    , ("deposit request without an amount", Em [E $ TkListLen 1, E @Int 2])
+    , ("UTxO capacity deposit request without an amount", Em [E $ TkListLen 1, E @Int 2])
     ,
-      ( "deposit request with a target"
+      ( "UTxO capacity deposit request with a target"
       , Em [E $ TkListLen 3, E @Int 2, E @Int 10, E $ TkListLen 1, E @Int 1]
       )
-    , ("deposit with a target", Em [E $ TkListLen 3, E @Int 0, E @Int 10, E $ TkListLen 1, E @Int 1])
-    , ("withdrawal without a target", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
-    , ("TopTx output index in SubTx", withdrawalEncoding (E @Int 0))
-    , ("unknown target", withdrawalEncoding (Em [E $ TkListLen 1, E @Int 2]))
-    , ("local target without an index", withdrawalEncoding (Em [E $ TkListLen 1, E @Int 0]))
-    , ("delegation with an index", withdrawalEncoding (Em [E $ TkListLen 2, E @Int 1, E @Int 0]))
-    , ("output index exceeding Word16", withdrawalEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65536]))
+    ,
+      ( "net allocation with a target"
+      , Em [E $ TkListLen 3, E @Int 0, E @Int 10, E $ TkListLen 1, E @Int 1]
+      )
+    , ("net release without a target", Em [E $ TkListLen 2, E @Int 1, E @Int 10])
+    , ("TopTx output index in SubTx", releaseEncoding (E @Int 0))
+    , ("unknown target", releaseEncoding (Em [E $ TkListLen 1, E @Int 2]))
+    , ("local target without an index", releaseEncoding (Em [E $ TkListLen 1, E @Int 0]))
+    , ("delegation with an index", releaseEncoding (Em [E $ TkListLen 2, E @Int 1, E @Int 0]))
+    , ("output index exceeding Word16", releaseEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65536]))
     ]
     $ \(name, operationEncoding) ->
       it ("Rejects " <> name <> " in both SubTx decoders") $ do
@@ -412,20 +432,20 @@ goldenDepositStoreSubTxChange version = do
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldSatisfy` isLeft
-  forM_ [("deposit", 0), ("requestDepositFromTopTx", 2), ("withdraw", 1)] $ \(kind, tag) ->
+  forM_ [("allocate", 0), ("requestUTxODepositFromTopTx", 2), ("release", 1)] $ \(kind, tag) ->
     forM_ [-1, 0, maxCoin + 1] $ \amount ->
       it ("Rejects a SubTx " <> kind <> " with amount " <> show amount <> " in CBOR and JSON") $ do
-        let isWithdrawal = tag == 1
+        let isRelease = tag == 1
             operationEncoding =
               Em $
-                [E $ TkListLen (if isWithdrawal then 3 else 2), E @Int tag, E amount]
-                  <> [Em [E $ TkListLen 1, E @Int 1] | isWithdrawal]
+                [E $ TkListLen (if isRelease then 3 else 2), E @Int tag, E amount]
+                  <> [Em [E $ TkListLen 1, E @Int 1] | isRelease]
             encoding = bodyWithOperationEncoding operationEncoding
             operationJson =
               Aeson.object $
                 ["kind" Aeson..= kind, "amount" Aeson..= amount]
-                  <> ["target" Aeson..= DelegateToTopTx | isWithdrawal]
-        Binary.decodeFull @DepositStoreSubTxChange
+                  <> ["target" Aeson..= DelegateToTopTx | isRelease]
+        Binary.decodeFull @SubTxNetUTxODepositChange
           version
           (Binary.toLazyByteString $ Binary.toCBOR operationEncoding)
           `shouldSatisfy` isLeft
@@ -434,11 +454,11 @@ goldenDepositStoreSubTxChange version = do
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldSatisfy` isLeft
-        Aeson.eitherDecode @DepositStoreSubTxChange (Aeson.encode operationJson) `shouldSatisfy` isLeft
+        Aeson.eitherDecode @SubTxNetUTxODepositChange (Aeson.encode operationJson) `shouldSatisfy` isLeft
         case Aeson.toJSON basicBody of
           Aeson.Object fields ->
             Aeson.eitherDecode @(TxBody SubTx era)
-              (Aeson.encode $ Aeson.Object $ KeyMap.insert "depositStoreChange" operationJson fields)
+              (Aeson.encode $ Aeson.Object $ KeyMap.insert "netUTxODepositChange" operationJson fields)
               `shouldSatisfy` isLeft
           _ -> expectationFailure "Expected a JSON object for the subtransaction body"
   where
@@ -452,15 +472,19 @@ goldenDepositStoreSubTxChange version = do
     basicBodyEncoding = Em [E $ TkMapLen 2, outputFields]
     bodyWithOperationEncoding operationEncoding =
       Em [E $ TkMapLen 3, outputFields, E @Int 28, operationEncoding]
-    withdrawalEncoding targetEncoding =
+    releaseEncoding targetEncoding =
       Em [E $ TkListLen 3, E @Int 1, E @Int 10, targetEncoding]
     expectOperationRoundTrip operation operationEncoding = do
-      let body = basicBody & depositStoreSubTxChangeTxBodyL .~ SJust operation
+      let body = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SJust operation
           encoding = bodyWithOperationEncoding operationEncoding
       expectGoldenToCBOR DiffCBOR (Ev version body) encoding
       decodeEnc @(TxBody SubTx era) version encoding `shouldBe` Right body
       Binary.decodeFull @(TxBody SubTx era) version (Binary.serialize version body) `shouldBe` Right body
       Aeson.eitherDecode (Aeson.encode body) `shouldBe` Right body
+      case Aeson.toJSON body of
+        Aeson.Object fields ->
+          KeyMap.lookup "netUTxODepositChange" fields `shouldBe` Just (Aeson.toJSON operation)
+        _ -> expectationFailure "Expected a JSON object for the subtransaction body"
 
 goldenEmptyFields :: forall era. DijkstraEraTest era => Version -> Spec
 goldenEmptyFields version =

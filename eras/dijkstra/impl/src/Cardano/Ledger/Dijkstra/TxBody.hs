@@ -24,10 +24,10 @@
 
 module Cardano.Ledger.Dijkstra.TxBody (
   DijkstraEraTxBody (..),
-  DepositStoreChange (..),
-  TopTxWithdrawalSettlement (..),
-  DepositStoreSubTxChange (..),
-  SubTxWithdrawalTarget (..),
+  NetUTxODepositChange (..),
+  TopTxReleaseSettlement (..),
+  SubTxNetUTxODepositChange (..),
+  SubTxReleaseTarget (..),
   TxBody (
     MkDijkstraTxBody,
     DijkstraTxBody,
@@ -56,7 +56,7 @@ module Cardano.Ledger.Dijkstra.TxBody (
     dtbDirectDeposits,
     dtbAccountBalanceIntervals,
     dtbStartingAccountBalanceIntervals,
-    dtbDepositStoreChange,
+    dtbNetUTxODepositChange,
     dstbSpendInputs,
     dstbReferenceInputs,
     dstbOutputs,
@@ -75,7 +75,7 @@ module Cardano.Ledger.Dijkstra.TxBody (
     dstbGuards,
     dstbDirectDeposits,
     dstbAccountBalanceIntervals,
-    dstbDepositStoreChange
+    dstbNetUTxODepositChange
   ),
   upgradeProposals,
   upgradeGovAction,
@@ -106,8 +106,8 @@ module Cardano.Ledger.Dijkstra.TxBody (
   directDepositsDijkstraTxBodyRawL,
   accountBalanceIntervalsDijkstraTxBodyRawL,
   startingAccountBalanceIntervalsDijkstraTxBodyRawL,
-  depositStoreChangeDijkstraTxBodyRawL,
-  depositStoreSubTxChangeDijkstraTxBodyRawL,
+  netUTxODepositChangeDijkstraTxBodyRawL,
+  subTxNetUTxODepositChangeDijkstraTxBodyRawL,
 ) where
 
 import Cardano.Base.Typeable (TypeName (TypeName))
@@ -183,171 +183,171 @@ import GHC.Generics (Generic)
 import Lens.Micro (Lens', lens, to, (.~), (^.))
 import NoThunks.Class (InspectHeap (..), NoThunks)
 
--- | The net deposit-store change for the entire transaction batch.
--- 'NoDepositStoreChange' explicitly declares zero; an absent field makes no declaration.
--- A net withdrawal separately declares whether TopTx receives a share; SubTx
--- destinations remain in their own declarations.
-data DepositStoreChange
-  = NoDepositStoreChange
-  | DepositToStore !PositiveCoin
-  | WithdrawFromStore !PositiveCoin !TopTxWithdrawalSettlement
+-- | The net UTxO capacity deposit change for the entire transaction batch.
+-- 'NoUTxODepositChange' explicitly declares zero; an absent field makes no declaration.
+-- A net release separately declares whether TopTx receives a settlement amount;
+-- SubTx settlement outputs remain in their own declarations.
+data NetUTxODepositChange
+  = NoUTxODepositChange
+  | AllocateUTxODeposit !PositiveCoin
+  | ReleaseUTxODeposit !PositiveCoin !TopTxReleaseSettlement
   deriving (Eq, Show, Generic)
 
-instance NFData DepositStoreChange
+instance NFData NetUTxODepositChange
 
-instance NoThunks DepositStoreChange
+instance NoThunks NetUTxODepositChange
 
-instance EncCBOR DepositStoreChange where
+instance EncCBOR NetUTxODepositChange where
   encCBOR =
     encode . \case
-      NoDepositStoreChange -> Sum NoDepositStoreChange 2
-      DepositToStore amount -> Sum DepositToStore 0 !> To amount
-      WithdrawFromStore amount settlement -> Sum WithdrawFromStore 1 !> To amount !> To settlement
+      NoUTxODepositChange -> Sum NoUTxODepositChange 2
+      AllocateUTxODeposit amount -> Sum AllocateUTxODeposit 0 !> To amount
+      ReleaseUTxODeposit amount settlement -> Sum ReleaseUTxODeposit 1 !> To amount !> To settlement
 
-instance DecCBOR DepositStoreChange where
-  decCBOR = decode $ Summands "DepositStoreChange" $ \case
-    0 -> SumD DepositToStore <! From
-    1 -> SumD WithdrawFromStore <! From <! From
-    2 -> SumD NoDepositStoreChange
+instance DecCBOR NetUTxODepositChange where
+  decCBOR = decode $ Summands "NetUTxODepositChange" $ \case
+    0 -> SumD AllocateUTxODeposit <! From
+    1 -> SumD ReleaseUTxODeposit <! From <! From
+    2 -> SumD NoUTxODepositChange
     tag -> Invalid tag
 
-instance ToJSON DepositStoreChange where
+instance ToJSON NetUTxODepositChange where
   toJSON = \case
-    NoDepositStoreChange -> kindObjectValue "noChange" []
-    DepositToStore amount -> kindObjectValue "deposit" ["amount" .= amount]
-    WithdrawFromStore amount settlement ->
-      kindObjectValue "withdraw" ["amount" .= amount, "settlement" .= settlement]
+    NoUTxODepositChange -> kindObjectValue "noChange" []
+    AllocateUTxODeposit amount -> kindObjectValue "allocate" ["amount" .= amount]
+    ReleaseUTxODeposit amount settlement ->
+      kindObjectValue "release" ["amount" .= amount, "settlement" .= settlement]
 
-instance FromJSON DepositStoreChange where
-  parseJSON = withObject "DepositStoreChange" $ \fields ->
+instance FromJSON NetUTxODepositChange where
+  parseJSON = withObject "NetUTxODepositChange" $ \fields ->
     (fields .: "kind" :: Parser String) >>= \case
-      "noChange" -> pure NoDepositStoreChange
-      "deposit" -> DepositToStore <$> fields .: "amount"
-      "withdraw" -> WithdrawFromStore <$> fields .: "amount" <*> fields .: "settlement"
-      kind -> fail $ "Unknown DepositStoreChange kind: " <> kind
+      "noChange" -> pure NoUTxODepositChange
+      "allocate" -> AllocateUTxODeposit <$> fields .: "amount"
+      "release" -> ReleaseUTxODeposit <$> fields .: "amount" <*> fields .: "settlement"
+      kind -> fail $ "Unknown NetUTxODepositChange kind: " <> kind
 
--- | Whether TopTx receives a share of the batch's net withdrawal.
--- 'TopTxWithdrawalTo' names a zero-based index into TopTx's own outputs and
+-- | Whether TopTx receives a settlement amount from the batch's net release.
+-- 'TopTxSettlementOutput' names a zero-based index into TopTx's own outputs and
 -- permits simultaneous settlement in SubTx outputs. The selected output already
--- includes TopTx's share, which need not equal the entire batch withdrawal.
-data TopTxWithdrawalSettlement
-  = NoTopTxWithdrawal
-  | TopTxWithdrawalTo !TxIx
+-- includes TopTx's settlement amount, which need not equal the batch's net release.
+data TopTxReleaseSettlement
+  = NoTopTxSettlement
+  | TopTxSettlementOutput !TxIx
   deriving (Eq, Show, Generic)
 
-instance NFData TopTxWithdrawalSettlement
+instance NFData TopTxReleaseSettlement
 
-instance NoThunks TopTxWithdrawalSettlement
+instance NoThunks TopTxReleaseSettlement
 
-instance EncCBOR TopTxWithdrawalSettlement where
+instance EncCBOR TopTxReleaseSettlement where
   encCBOR =
     encode . \case
-      NoTopTxWithdrawal -> Sum NoTopTxWithdrawal 0
-      TopTxWithdrawalTo outputIndex -> Sum TopTxWithdrawalTo 1 !> To outputIndex
+      NoTopTxSettlement -> Sum NoTopTxSettlement 0
+      TopTxSettlementOutput outputIndex -> Sum TopTxSettlementOutput 1 !> To outputIndex
 
-instance DecCBOR TopTxWithdrawalSettlement where
-  decCBOR = decode $ Summands "TopTxWithdrawalSettlement" $ \case
-    0 -> SumD NoTopTxWithdrawal
-    1 -> SumD TopTxWithdrawalTo <! From
+instance DecCBOR TopTxReleaseSettlement where
+  decCBOR = decode $ Summands "TopTxReleaseSettlement" $ \case
+    0 -> SumD NoTopTxSettlement
+    1 -> SumD TopTxSettlementOutput <! From
     tag -> Invalid tag
 
-instance ToJSON TopTxWithdrawalSettlement where
+instance ToJSON TopTxReleaseSettlement where
   toJSON = \case
-    NoTopTxWithdrawal -> kindObjectValue "noTopTxWithdrawal" []
-    TopTxWithdrawalTo outputIndex ->
-      kindObjectValue "topTxOutput" ["outputIndex" .= outputIndex]
+    NoTopTxSettlement -> kindObjectValue "noTopTxSettlement" []
+    TopTxSettlementOutput outputIndex ->
+      kindObjectValue "topTxSettlementOutput" ["outputIndex" .= outputIndex]
 
-instance FromJSON TopTxWithdrawalSettlement where
-  parseJSON = withObject "TopTxWithdrawalSettlement" $ \fields ->
+instance FromJSON TopTxReleaseSettlement where
+  parseJSON = withObject "TopTxReleaseSettlement" $ \fields ->
     (fields .: "kind" :: Parser String) >>= \case
-      "noTopTxWithdrawal" -> pure NoTopTxWithdrawal
-      "topTxOutput" -> TopTxWithdrawalTo . TxIx <$> fields .: "outputIndex"
-      kind -> fail $ "Unknown TopTxWithdrawalSettlement kind: " <> kind
+      "noTopTxSettlement" -> pure NoTopTxSettlement
+      "topTxSettlementOutput" -> TopTxSettlementOutput . TxIx <$> fields .: "outputIndex"
+      kind -> fail $ "Unknown TopTxReleaseSettlement kind: " <> kind
 
--- | Settle a withdrawal in the sub-transaction's own output, or explicitly
+-- | Settle a net release in the sub-transaction's own output, or explicitly
 -- request that the top-level transaction account for it. A local output's
--- coin value already includes the withdrawn amount.
-data SubTxWithdrawalTarget
-  = SubTxOutput !TxIx
+-- coin value already includes the settlement amount.
+data SubTxReleaseTarget
+  = SubTxSettlementOutput !TxIx
   | DelegateToTopTx
   deriving (Eq, Show, Generic)
 
-instance NFData SubTxWithdrawalTarget
+instance NFData SubTxReleaseTarget
 
-instance NoThunks SubTxWithdrawalTarget
+instance NoThunks SubTxReleaseTarget
 
-instance EncCBOR SubTxWithdrawalTarget where
+instance EncCBOR SubTxReleaseTarget where
   encCBOR =
     encode . \case
-      SubTxOutput outputIndex -> Sum SubTxOutput 0 !> To outputIndex
+      SubTxSettlementOutput outputIndex -> Sum SubTxSettlementOutput 0 !> To outputIndex
       DelegateToTopTx -> Sum DelegateToTopTx 1
 
-instance DecCBOR SubTxWithdrawalTarget where
-  decCBOR = decode $ Summands "SubTxWithdrawalTarget" $ \case
-    0 -> SumD SubTxOutput <! From
+instance DecCBOR SubTxReleaseTarget where
+  decCBOR = decode $ Summands "SubTxReleaseTarget" $ \case
+    0 -> SumD SubTxSettlementOutput <! From
     1 -> SumD DelegateToTopTx
     tag -> Invalid tag
 
-instance ToJSON SubTxWithdrawalTarget where
+instance ToJSON SubTxReleaseTarget where
   toJSON = \case
-    SubTxOutput outputIndex -> kindObjectValue "subTxOutput" ["outputIndex" .= outputIndex]
+    SubTxSettlementOutput outputIndex -> kindObjectValue "subTxSettlementOutput" ["outputIndex" .= outputIndex]
     DelegateToTopTx -> kindObjectValue "delegateToTopTx" []
 
-instance FromJSON SubTxWithdrawalTarget where
-  parseJSON = withObject "SubTxWithdrawalTarget" $ \fields ->
+instance FromJSON SubTxReleaseTarget where
+  parseJSON = withObject "SubTxReleaseTarget" $ \fields ->
     (fields .: "kind" :: Parser String) >>= \case
-      "subTxOutput" -> SubTxOutput . TxIx <$> fields .: "outputIndex"
+      "subTxSettlementOutput" -> SubTxSettlementOutput . TxIx <$> fields .: "outputIndex"
       "delegateToTopTx" -> pure DelegateToTopTx
-      kind -> fail $ "Unknown SubTxWithdrawalTarget kind: " <> kind
+      kind -> fail $ "Unknown SubTxReleaseTarget kind: " <> kind
 
--- | An operation explicitly declared by a sub-transaction. The sub-transaction
--- supplies a positive amount even when it requests deposit funding or delegates
--- withdrawal accounting to TopTx.
--- 'SubTxNoDepositStoreChange' explicitly declares zero and requests no delegation.
+-- | The net UTxO capacity deposit change explicitly declared by a sub-transaction.
+-- The sub-transaction supplies a positive amount even when it requests allocation
+-- funding or delegates release accounting to TopTx.
+-- 'SubTxNoUTxODepositChange' explicitly declares zero and requests no delegation.
 -- Absence of this field requests neither an operation nor delegation.
-data DepositStoreSubTxChange
-  = SubTxNoDepositStoreChange
-  | SubTxDepositToStore !PositiveCoin
-  | SubTxRequestDepositFromTopTx !PositiveCoin
-  | SubTxWithdrawFromStore !PositiveCoin !SubTxWithdrawalTarget
+data SubTxNetUTxODepositChange
+  = SubTxNoUTxODepositChange
+  | SubTxAllocateUTxODeposit !PositiveCoin
+  | SubTxRequestUTxODepositFromTopTx !PositiveCoin
+  | SubTxReleaseUTxODeposit !PositiveCoin !SubTxReleaseTarget
   deriving (Eq, Show, Generic)
 
-instance NFData DepositStoreSubTxChange
+instance NFData SubTxNetUTxODepositChange
 
-instance NoThunks DepositStoreSubTxChange
+instance NoThunks SubTxNetUTxODepositChange
 
-instance EncCBOR DepositStoreSubTxChange where
+instance EncCBOR SubTxNetUTxODepositChange where
   encCBOR =
     encode . \case
-      SubTxNoDepositStoreChange -> Sum SubTxNoDepositStoreChange 3
-      SubTxDepositToStore amount -> Sum SubTxDepositToStore 0 !> To amount
-      SubTxRequestDepositFromTopTx amount -> Sum SubTxRequestDepositFromTopTx 2 !> To amount
-      SubTxWithdrawFromStore amount target -> Sum SubTxWithdrawFromStore 1 !> To amount !> To target
+      SubTxNoUTxODepositChange -> Sum SubTxNoUTxODepositChange 3
+      SubTxAllocateUTxODeposit amount -> Sum SubTxAllocateUTxODeposit 0 !> To amount
+      SubTxRequestUTxODepositFromTopTx amount -> Sum SubTxRequestUTxODepositFromTopTx 2 !> To amount
+      SubTxReleaseUTxODeposit amount target -> Sum SubTxReleaseUTxODeposit 1 !> To amount !> To target
 
-instance DecCBOR DepositStoreSubTxChange where
-  decCBOR = decode $ Summands "DepositStoreSubTxChange" $ \case
-    0 -> SumD SubTxDepositToStore <! From
-    1 -> SumD SubTxWithdrawFromStore <! From <! From
-    2 -> SumD SubTxRequestDepositFromTopTx <! From
-    3 -> SumD SubTxNoDepositStoreChange
+instance DecCBOR SubTxNetUTxODepositChange where
+  decCBOR = decode $ Summands "SubTxNetUTxODepositChange" $ \case
+    0 -> SumD SubTxAllocateUTxODeposit <! From
+    1 -> SumD SubTxReleaseUTxODeposit <! From <! From
+    2 -> SumD SubTxRequestUTxODepositFromTopTx <! From
+    3 -> SumD SubTxNoUTxODepositChange
     tag -> Invalid tag
 
-instance ToJSON DepositStoreSubTxChange where
+instance ToJSON SubTxNetUTxODepositChange where
   toJSON = \case
-    SubTxNoDepositStoreChange -> kindObjectValue "noChange" []
-    SubTxDepositToStore amount -> kindObjectValue "deposit" ["amount" .= amount]
-    SubTxRequestDepositFromTopTx amount -> kindObjectValue "requestDepositFromTopTx" ["amount" .= amount]
-    SubTxWithdrawFromStore amount target ->
-      kindObjectValue "withdraw" ["amount" .= amount, "target" .= target]
+    SubTxNoUTxODepositChange -> kindObjectValue "noChange" []
+    SubTxAllocateUTxODeposit amount -> kindObjectValue "allocate" ["amount" .= amount]
+    SubTxRequestUTxODepositFromTopTx amount -> kindObjectValue "requestUTxODepositFromTopTx" ["amount" .= amount]
+    SubTxReleaseUTxODeposit amount target ->
+      kindObjectValue "release" ["amount" .= amount, "target" .= target]
 
-instance FromJSON DepositStoreSubTxChange where
-  parseJSON = withObject "DepositStoreSubTxChange" $ \fields ->
+instance FromJSON SubTxNetUTxODepositChange where
+  parseJSON = withObject "SubTxNetUTxODepositChange" $ \fields ->
     (fields .: "kind" :: Parser String) >>= \case
-      "noChange" -> pure SubTxNoDepositStoreChange
-      "deposit" -> SubTxDepositToStore <$> fields .: "amount"
-      "requestDepositFromTopTx" -> SubTxRequestDepositFromTopTx <$> fields .: "amount"
-      "withdraw" -> SubTxWithdrawFromStore <$> fields .: "amount" <*> fields .: "target"
-      kind -> fail $ "Unknown DepositStoreSubTxChange kind: " <> kind
+      "noChange" -> pure SubTxNoUTxODepositChange
+      "allocate" -> SubTxAllocateUTxODeposit <$> fields .: "amount"
+      "requestUTxODepositFromTopTx" -> SubTxRequestUTxODepositFromTopTx <$> fields .: "amount"
+      "release" -> SubTxReleaseUTxODeposit <$> fields .: "amount" <*> fields .: "target"
+      kind -> fail $ "Unknown SubTxNetUTxODepositChange kind: " <> kind
 
 data DijkstraTxBodyRaw l era where
   DijkstraTxBodyRaw ::
@@ -375,7 +375,7 @@ data DijkstraTxBodyRaw l era where
     , dtbrDirectDeposits :: !DirectDeposits
     , dtbrAccountBalanceIntervals :: !(AccountBalanceIntervals era)
     , dtbrStartingAccountBalanceIntervals :: !(AccountBalanceIntervals era)
-    , dtbrDepositStoreChange :: !(StrictMaybe DepositStoreChange)
+    , dtbrNetUTxODepositChange :: !(StrictMaybe NetUTxODepositChange)
     } ->
     DijkstraTxBodyRaw TopTx era
   DijkstraSubTxBodyRaw ::
@@ -397,7 +397,7 @@ data DijkstraTxBodyRaw l era where
     , dstbrRequiredTopLevelGuards :: !(Map (Credential Guard) (StrictMaybe (Data era)))
     , dstbrDirectDeposits :: !DirectDeposits
     , dstbrAccountBalanceIntervals :: !(AccountBalanceIntervals era)
-    , dstbrDepositStoreChange :: !(StrictMaybe DepositStoreSubTxChange)
+    , dstbrNetUTxODepositChange :: !(StrictMaybe SubTxNetUTxODepositChange)
     } ->
     DijkstraTxBodyRaw SubTx era
 
@@ -447,7 +447,7 @@ instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l e
                                                   dtbrDirectDeposits `deepseq`
                                                     dtbrAccountBalanceIntervals `deepseq`
                                                       dtbrStartingAccountBalanceIntervals `deepseq`
-                                                        rnf dtbrDepositStoreChange
+                                                        rnf dtbrNetUTxODepositChange
   rnf txBodyRaw@(DijkstraSubTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
     let DijkstraSubTxBodyRaw {..} = txBodyRaw
      in dstbrSpendInputs `deepseq`
@@ -468,7 +468,7 @@ instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l e
                                       dstbrRequiredTopLevelGuards `deepseq`
                                         dstbrDirectDeposits `deepseq`
                                           dstbrAccountBalanceIntervals `deepseq`
-                                            rnf dstbrDepositStoreChange
+                                            rnf dstbrNetUTxODepositChange
 
 deriving instance (EraTxBody era, Show (Tx SubTx era)) => Show (DijkstraTxBodyRaw l era)
 
@@ -656,9 +656,9 @@ instance
                     pure x
         28
           | STopTx <- sTxLevel ->
-              Just $ decodeAccA acc (depositStoreChangeDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
+              Just $ decodeAccA acc (netUTxODepositChangeDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
           | SSubTx <- sTxLevel ->
-              Just $ decodeAccA acc (depositStoreSubTxChangeDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
+              Just $ decodeAccA acc (subTxNetUTxODepositChangeDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
         _ -> Nothing
       decodeSubTransactions :: Decoder s (Annotator (OMap TxId (Tx SubTx era)))
       decodeSubTransactions =
@@ -709,7 +709,7 @@ encodeTxBodyRaw DijkstraTxBodyRaw {..} =
         !> Omit (null . unDirectDeposits) (Key 25 (To dtbrDirectDeposits))
         !> Omit (null . unAccountBalanceIntervals) (Key 26 (To dtbrAccountBalanceIntervals))
         !> Omit (null . unAccountBalanceIntervals) (Key 27 (To dtbrStartingAccountBalanceIntervals))
-        !> encodeKeyedStrictMaybe 28 dtbrDepositStoreChange
+        !> encodeKeyedStrictMaybe 28 dtbrNetUTxODepositChange
 encodeTxBodyRaw DijkstraSubTxBodyRaw {..} =
   let ValidityInterval bot top = dstbrVldt
    in Keyed
@@ -737,7 +737,7 @@ encodeTxBodyRaw DijkstraSubTxBodyRaw {..} =
           (Key 24 $ E (encodeMap encCBOR (encodeNullStrictMaybe encCBOR)) dstbrRequiredTopLevelGuards)
         !> Omit (null . unDirectDeposits) (Key 25 (To dstbrDirectDeposits))
         !> Omit (null . unAccountBalanceIntervals) (Key 26 (To dstbrAccountBalanceIntervals))
-        !> encodeKeyedStrictMaybe 28 dstbrDepositStoreChange
+        !> encodeKeyedStrictMaybe 28 dstbrNetUTxODepositChange
 
 instance
   ( EraTxBody era
@@ -828,7 +828,7 @@ instance
           , dtbrDirectDeposits
           , dtbrAccountBalanceIntervals
           , dtbrStartingAccountBalanceIntervals
-          , dtbrDepositStoreChange
+          , dtbrNetUTxODepositChange
           } = getMemoRawType txb
      in [ "inputs" .= Set.toList dtbrSpendInputs
         , "collateral" .= Set.toList dtbrCollateralInputs
@@ -854,7 +854,7 @@ instance
         , "directDeposits" .= dtbrDirectDeposits
         , "accountBalanceIntervals" .= dtbrAccountBalanceIntervals
         , "startingAccountBalanceIntervals" .= dtbrStartingAccountBalanceIntervals
-        , "depositStoreChange" .= dtbrDepositStoreChange
+        , "netUTxODepositChange" .= dtbrNetUTxODepositChange
         ]
 
 instance
@@ -886,7 +886,7 @@ instance ToKeyValuePairs (TxBody SubTx DijkstraEra) where
           , dstbrRequiredTopLevelGuards
           , dstbrDirectDeposits
           , dstbrAccountBalanceIntervals
-          , dstbrDepositStoreChange
+          , dstbrNetUTxODepositChange
           } = getMemoRawType txb
      in [ "inputs" .= Set.toList dstbrSpendInputs
         , "referenceInputs" .= Set.toList dstbrReferenceInputs
@@ -906,7 +906,7 @@ instance ToKeyValuePairs (TxBody SubTx DijkstraEra) where
         , "requiredTopLevelGuards" .= dstbrRequiredTopLevelGuards
         , "directDeposits" .= dstbrDirectDeposits
         , "accountBalanceIntervals" .= dstbrAccountBalanceIntervals
-        , "depositStoreChange" .= dstbrDepositStoreChange
+        , "netUTxODepositChange" .= dstbrNetUTxODepositChange
         ]
 
 instance ToJSON (TxBody SubTx DijkstraEra) where
@@ -950,7 +950,7 @@ instance
       <*> o .: "directDeposits"
       <*> o .: "accountBalanceIntervals"
       <*> o .: "startingAccountBalanceIntervals"
-      <*> (o .:? "depositStoreChange" .!= SNothing)
+      <*> (o .:? "netUTxODepositChange" .!= SNothing)
 
 instance
   ( FromJSON (TxOut DijkstraEra)
@@ -985,7 +985,7 @@ instance
       <*> o .: "requiredTopLevelGuards"
       <*> o .: "directDeposits"
       <*> o .: "accountBalanceIntervals"
-      <*> (o .:? "depositStoreChange" .!= SNothing)
+      <*> (o .:? "netUTxODepositChange" .!= SNothing)
 
 pattern DijkstraTxBody ::
   ( Eq (Tx SubTx DijkstraEra)
@@ -1021,7 +1021,7 @@ pattern DijkstraTxBody ::
   DirectDeposits ->
   AccountBalanceIntervals DijkstraEra ->
   AccountBalanceIntervals DijkstraEra ->
-  StrictMaybe DepositStoreChange ->
+  StrictMaybe NetUTxODepositChange ->
   TxBody TopTx DijkstraEra
 pattern DijkstraTxBody
   { dtbSpendInputs
@@ -1048,7 +1048,7 @@ pattern DijkstraTxBody
   , dtbDirectDeposits
   , dtbAccountBalanceIntervals
   , dtbStartingAccountBalanceIntervals
-  , dtbDepositStoreChange
+  , dtbNetUTxODepositChange
   } <-
   ( getMemoRawType ->
       DijkstraTxBodyRaw
@@ -1076,7 +1076,7 @@ pattern DijkstraTxBody
         , dtbrDirectDeposits = dtbDirectDeposits
         , dtbrAccountBalanceIntervals = dtbAccountBalanceIntervals
         , dtbrStartingAccountBalanceIntervals = dtbStartingAccountBalanceIntervals
-        , dtbrDepositStoreChange = dtbDepositStoreChange
+        , dtbrNetUTxODepositChange = dtbNetUTxODepositChange
         }
     )
   where
@@ -1105,7 +1105,7 @@ pattern DijkstraTxBody
       directDeposits
       accountBalanceIntervals
       startingAccountBalanceIntervals
-      depositStoreChange =
+      netUTxODepositChange =
         mkMemoizedEra @DijkstraEra $
           DijkstraTxBodyRaw
             inputsX
@@ -1132,7 +1132,7 @@ pattern DijkstraTxBody
             directDeposits
             accountBalanceIntervals
             startingAccountBalanceIntervals
-            depositStoreChange
+            netUTxODepositChange
 
 pattern DijkstraSubTxBody ::
   ( Eq (Tx SubTx DijkstraEra)
@@ -1162,7 +1162,7 @@ pattern DijkstraSubTxBody ::
   Map (Credential Guard) (StrictMaybe (Data DijkstraEra)) ->
   DirectDeposits ->
   AccountBalanceIntervals DijkstraEra ->
-  StrictMaybe DepositStoreSubTxChange ->
+  StrictMaybe SubTxNetUTxODepositChange ->
   TxBody SubTx DijkstraEra
 pattern DijkstraSubTxBody
   { dstbSpendInputs
@@ -1183,7 +1183,7 @@ pattern DijkstraSubTxBody
   , dstbRequiredTopLevelGuards
   , dstbDirectDeposits
   , dstbAccountBalanceIntervals
-  , dstbDepositStoreChange
+  , dstbNetUTxODepositChange
   } <-
   ( getMemoRawType ->
       DijkstraSubTxBodyRaw
@@ -1205,7 +1205,7 @@ pattern DijkstraSubTxBody
         , dstbrRequiredTopLevelGuards = dstbRequiredTopLevelGuards
         , dstbrDirectDeposits = dstbDirectDeposits
         , dstbrAccountBalanceIntervals = dstbAccountBalanceIntervals
-        , dstbrDepositStoreChange = dstbDepositStoreChange
+        , dstbrNetUTxODepositChange = dstbNetUTxODepositChange
         }
     )
   where
@@ -1228,7 +1228,7 @@ pattern DijkstraSubTxBody
       requiredTopLevelGuards
       directDeposits
       accountBalanceIntervals
-      depositStoreChange =
+      netUTxODepositChange =
         mkMemoizedEra @DijkstraEra $
           DijkstraSubTxBodyRaw
             inputsX
@@ -1249,7 +1249,7 @@ pattern DijkstraSubTxBody
             requiredTopLevelGuards
             directDeposits
             accountBalanceIntervals
-            depositStoreChange
+            netUTxODepositChange
 
 {-# COMPLETE DijkstraTxBody, DijkstraSubTxBody #-}
 
@@ -1382,15 +1382,15 @@ startingAccountBalanceIntervalsDijkstraTxBodyRawL =
   lens dtbrStartingAccountBalanceIntervals $
     \txb x -> txb {dtbrStartingAccountBalanceIntervals = x}
 
-depositStoreChangeDijkstraTxBodyRawL ::
-  Lens' (DijkstraTxBodyRaw TopTx era) (StrictMaybe DepositStoreChange)
-depositStoreChangeDijkstraTxBodyRawL =
-  lens dtbrDepositStoreChange $ \txBody change -> txBody {dtbrDepositStoreChange = change}
+netUTxODepositChangeDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw TopTx era) (StrictMaybe NetUTxODepositChange)
+netUTxODepositChangeDijkstraTxBodyRawL =
+  lens dtbrNetUTxODepositChange $ \txBody change -> txBody {dtbrNetUTxODepositChange = change}
 
-depositStoreSubTxChangeDijkstraTxBodyRawL ::
-  Lens' (DijkstraTxBodyRaw SubTx era) (StrictMaybe DepositStoreSubTxChange)
-depositStoreSubTxChangeDijkstraTxBodyRawL =
-  lens dstbrDepositStoreChange $ \txBody change -> txBody {dstbrDepositStoreChange = change}
+subTxNetUTxODepositChangeDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw SubTx era) (StrictMaybe SubTxNetUTxODepositChange)
+subTxNetUTxODepositChangeDijkstraTxBodyRawL =
+  lens dstbrNetUTxODepositChange $ \txBody change -> txBody {dstbrNetUTxODepositChange = change}
 
 instance
   ( Eq (Tx SubTx DijkstraEra)
@@ -1804,12 +1804,14 @@ class
 
   startingAccountBalanceIntervalsTxBodyL :: Lens' (TxBody TopTx era) (AccountBalanceIntervals era)
 
-  -- | An operation on the deposit store, scoped to the top-level outputs.
-  depositStoreChangeTxBodyL :: Lens' (TxBody TopTx era) (StrictMaybe DepositStoreChange)
+  -- | The net UTxO capacity deposit change for the entire transaction batch.
+  -- Any TopTx settlement index refers to TopTx's own outputs.
+  netUTxODepositChangeTxBodyL :: Lens' (TxBody TopTx era) (StrictMaybe NetUTxODepositChange)
 
-  -- | A sub-transaction's explicit operation, including any request to delegate
-  -- withdrawal accounting to TopTx. 'SNothing' never implies delegation.
-  depositStoreSubTxChangeTxBodyL :: Lens' (TxBody SubTx era) (StrictMaybe DepositStoreSubTxChange)
+  -- | A sub-transaction's explicit net UTxO capacity deposit change, including
+  -- allocation funding or release accounting delegated to TopTx.
+  -- 'SNothing' never implies delegation.
+  subTxNetUTxODepositChangeTxBodyL :: Lens' (TxBody SubTx era) (StrictMaybe SubTxNetUTxODepositChange)
 
 guardsDijkstraTxBodyRawL :: Lens' (DijkstraTxBodyRaw l era) (OSet (Credential Guard))
 guardsDijkstraTxBodyRawL =
@@ -1868,11 +1870,11 @@ instance
   startingAccountBalanceIntervalsTxBodyL = memoRawTypeL @DijkstraEra . startingAccountBalanceIntervalsDijkstraTxBodyRawL
   {-# INLINE startingAccountBalanceIntervalsTxBodyL #-}
 
-  depositStoreChangeTxBodyL = memoRawTypeL @DijkstraEra . depositStoreChangeDijkstraTxBodyRawL
-  {-# INLINE depositStoreChangeTxBodyL #-}
+  netUTxODepositChangeTxBodyL = memoRawTypeL @DijkstraEra . netUTxODepositChangeDijkstraTxBodyRawL
+  {-# INLINE netUTxODepositChangeTxBodyL #-}
 
-  depositStoreSubTxChangeTxBodyL = memoRawTypeL @DijkstraEra . depositStoreSubTxChangeDijkstraTxBodyRawL
-  {-# INLINE depositStoreSubTxChangeTxBodyL #-}
+  subTxNetUTxODepositChangeTxBodyL = memoRawTypeL @DijkstraEra . subTxNetUTxODepositChangeDijkstraTxBodyRawL
+  {-# INLINE subTxNetUTxODepositChangeTxBodyL #-}
 
 -- | Decoder for decoding guards in a backwards-compatible manner. It peeks at
 -- the first element and if it's a credential, it decodes the rest of the

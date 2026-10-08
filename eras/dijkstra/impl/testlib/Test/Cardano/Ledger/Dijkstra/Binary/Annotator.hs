@@ -150,10 +150,10 @@ instance Typeable l => DecCBOR (DijkstraTxBodyRaw l DijkstraEra) where
           pure $ startingAccountBalanceIntervalsDijkstraTxBodyRawL .~ x $ acc
         28 | STopTx <- sTxLevel -> Just $ do
           x <- decCBOR
-          pure $ depositStoreChangeDijkstraTxBodyRawL .~ SJust x $ acc
+          pure $ netUTxODepositChangeDijkstraTxBodyRawL .~ SJust x $ acc
         28 | SSubTx <- sTxLevel -> Just $ do
           x <- decCBOR
-          pure $ depositStoreSubTxChangeDijkstraTxBodyRawL .~ SJust x $ acc
+          pure $ subTxNetUTxODepositChangeDijkstraTxBodyRawL .~ SJust x $ acc
         _ -> Nothing
       {-# INLINE decoderByKey #-}
 

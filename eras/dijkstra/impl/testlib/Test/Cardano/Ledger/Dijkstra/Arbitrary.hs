@@ -131,19 +131,19 @@ instance Arbitrary (TxBody TopTx DijkstraEra) where
       <*> arbitrary
       <*> arbitrary
 
-instance Arbitrary SubTxWithdrawalTarget where
+instance Arbitrary SubTxReleaseTarget where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance Arbitrary DepositStoreSubTxChange where
+instance Arbitrary SubTxNetUTxODepositChange where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance Arbitrary DepositStoreChange where
+instance Arbitrary NetUTxODepositChange where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 
-instance Arbitrary TopTxWithdrawalSettlement where
+instance Arbitrary TopTxReleaseSettlement where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 

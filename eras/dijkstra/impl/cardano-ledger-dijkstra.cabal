@@ -277,6 +277,28 @@ test-suite tests
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.AccountingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TotalCollateralSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TransitionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.ValidationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.StakeSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.ConwayTransitionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.LiveUTxOSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.PricingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.SolvencySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ApplicationAssetsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.DeclarationDependencySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.DeclarationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.DelegationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ExactAccountingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ExplicitZeroSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.FinalReleaseSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.NettingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ReleaseAuthoritySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.SettlementOutputsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.TopTxSettlementSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ValueConservationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec
     Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec
 
   default-language: Haskell2010
