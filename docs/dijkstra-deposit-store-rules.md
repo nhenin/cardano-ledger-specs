@@ -937,7 +937,7 @@ sequence of SubTxs.
 
 $$
 \begin{aligned}
-&\left(\exists\,\mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx}):
+&\left(\exists \mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx}):
 \mathrm{hasDeclaration}(\mathit{subTx})\right) \\
 &\qquad\implies\mathrm{hasDeclaration}(\mathit{topTx})
 \end{aligned}
@@ -955,7 +955,7 @@ $$
 \begin{aligned}
 \mathrm{rejectsDS009}(\mathit{topTx})
 \iff\bigl(&\neg\mathrm{hasDeclaration}(\mathit{topTx}) \\
-&\land\exists\,\mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx}): \\
+&\land\exists \mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx}): \\
 &\qquad\mathrm{hasDeclaration}(\mathit{subTx})\bigr)
 \end{aligned}
 $$
@@ -996,7 +996,7 @@ $$
 \mathit{topTxDeclaration} &= \mathsf{Absent} \\
 \mathit{subTxDeclaration} &= \mathsf{Absent}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies \mathsf{Accepted}
 $$
 
@@ -1010,7 +1010,7 @@ $$
 \mathit{topTxDeclaration} &= \mathsf{ExplicitZero} \\
 \mathit{subTxDeclaration} &= \mathsf{ExplicitZero}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies \mathsf{Accepted}
 $$
 
@@ -1024,7 +1024,7 @@ $$
 \mathit{topTxDeclaration} &= \mathsf{ExplicitZero} \\
 \mathit{subTxDeclaration} &= \mathsf{Absent}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies \mathsf{Accepted}
 $$
 
@@ -1038,7 +1038,7 @@ $$
 \mathit{topTxDeclaration} &= \mathsf{Absent} \\
 \mathit{subTxDeclaration} &= \mathsf{ExplicitZero}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies \mathsf{Rejected}
 $$
 
@@ -1076,14 +1076,14 @@ $\mathit{declaredAmount}\in\mathsf{PositiveCoin}$.
 
 $$
 \begin{gathered}
-\forall\,\mathit{declaredAmount}\in\mathsf{PositiveCoin}: \\
+\forall \mathit{declaredAmount}\in\mathsf{PositiveCoin}: \\
 \left.
 \begin{aligned}
 \mathit{declaredAllocation} &= \mathit{declaredAmount} \\
 \mathit{declaredRelease} &= \mathit{declaredAmount} \\
 \mathit{topTxDeclaration} &= \mathsf{ExplicitZero}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies\mathsf{PassesDS009}
 \end{gathered}
 $$
@@ -1095,14 +1095,14 @@ presence requirement for the two declaring SubTxs.
 
 $$
 \begin{gathered}
-\forall\,\mathit{declaredAmount}\in\mathsf{PositiveCoin}: \\
+\forall \mathit{declaredAmount}\in\mathsf{PositiveCoin}: \\
 \left.
 \begin{aligned}
 \mathit{declaredAllocation} &= \mathit{declaredAmount} \\
 \mathit{declaredRelease} &= \mathit{declaredAmount} \\
 \mathit{topTxDeclaration} &= \mathsf{Absent}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies\mathsf{FailsDS009}
 \end{gathered}
 $$
@@ -1134,13 +1134,13 @@ total is financially correct. Amount and settlement validation belong to other r
 
 $$
 \begin{gathered}
-\forall\,\mathit{subTxDeclaration}\in\mathit{explicitSubTxDeclarations}: \\
+\forall \mathit{subTxDeclaration}\in\mathit{explicitSubTxDeclarations}: \\
 \left.
 \begin{aligned}
 \mathit{subTxDeclarations} &= [\mathit{subTxDeclaration}] \\
 \mathit{topTxDeclaration} &= \mathsf{ExplicitZero}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies\mathsf{PassesDS009}
 \end{gathered}
 $$
@@ -1152,13 +1152,13 @@ the operation is accounted for.
 
 $$
 \begin{gathered}
-\forall\,\mathit{subTxDeclaration}\in\mathit{explicitSubTxDeclarations}: \\
+\forall \mathit{subTxDeclaration}\in\mathit{explicitSubTxDeclarations}: \\
 \left.
 \begin{aligned}
 \mathit{subTxDeclarations} &= [\mathit{subTxDeclaration}] \\
 \mathit{topTxDeclaration} &= \mathsf{Absent}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies\mathsf{FailsDS009}
 \end{gathered}
 $$
@@ -1187,7 +1187,7 @@ $$
 \mathit{topTxDeclaration} &= \mathsf{ExplicitZero} \\
 \mathit{subTxDeclaration} &= \mathsf{ExplicitZero}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies \mathsf{Accepted}
 $$
 
@@ -1203,7 +1203,7 @@ $$
 \mathit{topTxDeclaration} &= \mathsf{Absent} \\
 \mathit{subTxDeclaration} &= \mathsf{ExplicitZero}
 \end{aligned}
-\right\}
+\right\rbrace
 \implies \mathsf{Rejected}
 $$
 
