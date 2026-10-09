@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "TopTx declares the net change for the whole batch (DS-TX-002)" $ do
+  describe "DS-TX-002 - TopTx declares the net change for the whole batch" $ do
     prop "declared TopTx: declaredNetUTxODepositChange = Σ(netUTxODepositChange) over all bodies" totalNetChangeEqualsSumOfBodyChanges
     it "includes both TopTx and SubTx UTxO capacity deposit changes in the declared total" totalIncludesTopTxAndSubTxChanges
     it "nets a 5 ADA allocation and a 3 ADA release into AllocateUTxODeposit 2" allocationExceedsRelease

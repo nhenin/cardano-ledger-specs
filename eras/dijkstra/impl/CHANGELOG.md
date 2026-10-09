@@ -2,6 +2,8 @@
 
 ## 0.4.0.1
 
+* Require each TopTx and SubTx creating store-backed regular outputs to carry its own UTxO capacity deposit declaration (the creation part of DS-TX-001). Add `MissingUTxODepositDeclaration` to UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` to SUBUTXO at tag `11`. Declaration presence for spent outputs and exact deposit accounting remain pending.
+
 * Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxODeposit.TopTx` and `UTxODeposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
 
 * Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.

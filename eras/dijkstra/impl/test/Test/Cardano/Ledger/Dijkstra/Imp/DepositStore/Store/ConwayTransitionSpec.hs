@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "The Conway transition starts with an empty Store (DS-STORE-004)" $ do
+spec = describe "DS-STORE-004 - The Conway transition starts with an empty Store" $ do
   it "preserves existing output references and values and keeps those outputs implicit" preservesTranslatedImplicitOutputs
   it "initializes Store balance and UTxO capacity deposit obligations to zero" initializesEmptyStore
   it "does not transfer funds from another ledger pot during initialization" leavesExistingLedgerPotsUnchanged

@@ -63,6 +63,8 @@ import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, UTXO)
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreDeclarationFailure (..),
+  DepositStoreOutputDeclarationFailure (..),
+  validateTopTxCreatedOutputsDeclaration,
   validateTopTxNetUTxODepositDeclaration,
  )
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
@@ -175,6 +177,8 @@ data DijkstraUtxoPredFailure era
       (Mismatch RelEQ (Value era))
   | -- | A SubTx declares a net UTxO capacity deposit change but TopTx does not.
     MissingTopTxUTxODepositDeclaration
+  | -- | This body creates a store-backed output without its own UTxO deposit declaration.
+    MissingUTxODepositDeclaration
   deriving (Generic)
 
 type instance EraRuleFailure "UTXO" DijkstraEra = DijkstraUtxoPredFailure DijkstraEra
@@ -253,6 +257,11 @@ depositStoreDeclarationToUtxoPredFailure ::
   DepositStoreDeclarationFailure -> DijkstraUtxoPredFailure era
 depositStoreDeclarationToUtxoPredFailure = \case
   MissingTopTxDeclaration -> MissingTopTxUTxODepositDeclaration
+
+depositStoreOutputDeclarationToUtxoPredFailure ::
+  DepositStoreOutputDeclarationFailure -> DijkstraUtxoPredFailure era
+depositStoreOutputDeclarationToUtxoPredFailure MissingBodyUTxODepositDeclaration =
+  MissingUTxODepositDeclaration
 
 validateNoPtrInCollateralReturn ::
   ( BabbageEraTxBody era
@@ -342,6 +351,10 @@ dijkstraUtxoTransition = do
   let originalPState = originalCertState ^. certPStateL
 
   let txBody = tx ^. bodyTxL
+
+  runTestOnSignal $
+    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
+      validateTopTxCreatedOutputsDeclaration txBody
 
   runTestOnSignal $
     first (fmap depositStoreDeclarationToUtxoPredFailure) $
@@ -532,6 +545,7 @@ instance
       PtrPresentInCollateralReturn x -> Sum PtrPresentInCollateralReturn 22 !> To x
       ValueNotConservedInLegacyMode mm -> Sum ValueNotConservedInLegacyMode 23 !> To mm
       MissingTopTxUTxODepositDeclaration -> Sum MissingTopTxUTxODepositDeclaration 24
+      MissingUTxODepositDeclaration -> Sum MissingUTxODepositDeclaration 25
 
 instance
   ( Era era
@@ -567,6 +581,7 @@ instance
     22 -> SumD PtrPresentInCollateralReturn <! From
     23 -> SumD ValueNotConservedInLegacyMode <! From
     24 -> SumD MissingTopTxUTxODepositDeclaration
+    25 -> SumD MissingUTxODepositDeclaration
     n -> Invalid n
 
 -- =====================================================

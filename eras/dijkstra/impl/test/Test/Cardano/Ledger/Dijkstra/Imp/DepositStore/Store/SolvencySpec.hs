@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "The Store remains solvent after every accepted batch (DS-STORE-001)" $ do
+spec = describe "DS-STORE-001 - The Store remains solvent after every accepted batch" $ do
   prop "ordinary success ⇒ storeBalanceAfter = storeBalanceBefore + txTotalNetUTxODepositChange" successStoreDelta
   prop "ordinary success ⇒ totalUTxODepositsAfter = totalUTxODepositsBefore + txTotalNetUTxODepositChange" successObligationDelta
   prop "ordinary success ⇒ storeBalanceAfter - totalUTxODepositsAfter = storeBalanceBefore - totalUTxODepositsBefore" surplusInvariant

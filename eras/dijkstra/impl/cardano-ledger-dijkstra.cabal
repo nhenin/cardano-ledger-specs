@@ -285,6 +285,8 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Declarations.SubTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Declarations.TopTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Fixture.DeclarationDependency
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Fixture.OutputCreation
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.OutputCreation
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Transaction
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.AccountingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TotalCollateralSpec

@@ -6,7 +6,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "Collateral retains its existing validation trigger (DS-COLL-001)" $ do
+spec = describe "DS-COLL-001 - Collateral retains its existing validation trigger" $ do
   it "requires collateral when TopTx has redeemers" requiresCollateralForTopTxRedeemers
   it "requires collateral when only a SubTx has redeemers" requiresCollateralForSubTxRedeemers
   it "requires collateral when both TopTx and SubTxs have redeemers" requiresCollateralForBothRedeemers

@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "UTxO capacity deposits use the fixed policy and the accepted output size (DS-STORE-003)" $ do
+spec = describe "DS-STORE-003 - UTxO capacity deposits use the fixed policy and the accepted output size" $ do
   prop "ordinary success ⇒ newly recorded UTxO capacity deposit amounts equal coinsPerUTxOByte * (160 + acceptedSize) for store-backed outputs" acceptedSizePricing
   it "allocates each UTxO capacity deposit as coinsPerUTxOByte * (160 + accepted serialized output size)" allocatesDepositFromAcceptedSize
   it "uses the same UTxO capacity deposit formula for a store-backed collateral return" pricesCollateralReturnConsistently

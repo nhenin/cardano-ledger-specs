@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "TopTx settlement for a batch net release (DS-TX-006)" $ do
+  describe "DS-TX-006 - TopTx settlement for a batch net release" $ do
     prop "for a batch net release: NoTopTxSettlement ⇔ topTxNetRelease = 0" noTopTxSettlementIffNoTopTxNetRelease
     it "requires NoTopTxSettlement when SubTxs settle the entire net release locally" localSubTxSettlementsNeedNoTopTxSettlement
     it "requires a TopTx settlement output when the batch declares a net release and TopTx has a positive share" topTxNetReleaseRequiresSettlementOutput

@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "Spending the last store-backed output releases its UTxO capacity deposit (DS-TX-005)" $ do
+  describe "DS-TX-005 - Spending the last store-backed output releases its UTxO capacity deposit" $ do
     it "requires a net release when a body spends store-backed outputs and creates only implicit outputs" spendingLastStoreBackedOutputRequiresRelease
     it "rejects an explicit zero when that body must release UTxO capacity deposits" zeroDeclarationCannotReplaceRelease
     it "preserves that body's net release even when another body's net allocation offsets it" anotherBodyAllocationDoesNotCancelOwnRelease

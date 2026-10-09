@@ -6,7 +6,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "Collateral funds UTxO capacity deposits before covering its minimum fee (DS-COLL-002)" $ do
+spec = describe "DS-COLL-002 - Collateral funds UTxO capacity deposits before covering its minimum fee" $ do
   it "reuses released UTxO capacity deposits when the collateral return requires the same amount" reusesReleasedDeposits
   it "credits excess released UTxO capacity deposits to fees rather than the treasury" creditsReleasedSurplusToFees
   prop "accepted phase-2 failure ⇒ feesAfter = feesBefore + collateralCoinFee + releasedUTxODepositFee" addsReleasedSurplusToFees

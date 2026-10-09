@@ -6,7 +6,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "Collateral settlement is derived from the applied failure path (DS-COLL-004)" $ do
+spec = describe "DS-COLL-004 - Collateral settlement is derived from the applied failure path" $ do
   it "derives Store changes from collateral inputs and return without a separate declaration" derivesSettlementFromCollateral
   it "does not let ordinary Store declarations change collateral settlement" ordinaryDeclarationsCannotChangeSettlement
   it "applies ordinary Store operations and leaves collateral untouched on success" successLeavesCollateralUntouched
