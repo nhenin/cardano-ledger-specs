@@ -872,9 +872,9 @@ and TopTx does not. The [TopTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledg
 runs this validation and maps that violation to `MissingTopTxUTxODepositDeclaration`.
 
 **Verification:** Passed: six ledger scenarios, including real phase-2-invalid acceptance
-and rejection, and four properties with 100 generated cases each (ten examples total).
-Ledger scenarios exercise
-absent and explicit-zero declarations; isolated validator checks cover presence across
+and rejection, plus three isolated-validator properties and one fixture-construction
+property with 100 generated cases each (ten examples total). Ledger scenarios exercise
+absent and explicit-zero declarations; isolated validator properties cover presence across
 all declaration forms. The predicate-failure codec golden also passes. This
 enforcement checks presence only, not amounts or Store state accounting.
 
@@ -906,8 +906,16 @@ For example, assuming zero contribution from TopTx's own activity:
 | One net allocation of 3 ADA, local or requested from TopTx | `TopTx.DeclaresNetUTxODepositAllocation 3` |
 
 These amounts are in ADA for readability. `TopTx.NoUTxODepositDeclaration` fails in each
-example, including when all operations are handled locally and their contributions
-cancel. If no SubTx declares an operation, this rule imposes no presence requirement;
+example. In particular:
+
+- A TopTx declaration is required even when SubTx allocations equal releases,
+  resulting in a zero net amount. With zero contribution from TopTx's own activity,
+  exact accounting requires `TopTx.DeclaresZeroNetUTxODeposit`; absence is not zero.
+- A TopTx declaration is required whether SubTx allocations and releases are
+  accounted for locally or delegated to TopTx. Delegation changes which body
+  accounts for the amount, not the requirement for TopTx to declare the total.
+
+If no SubTx declares an operation, this rule imposes no presence requirement;
 DS-TX-001 still applies to TopTx's own spent and created outputs.
 
 ## Validation of delegated SubTx contributions
@@ -1539,8 +1547,11 @@ the verification table below lead to those modules.
 The document and specs share the same domain language: UTxO capacity deposits,
 allocation, release, net change, delegation, settlement and solvency. Module
 boundaries follow those responsibilities. `prop` and `it` select how a rule is
-verified; they do not define separate categories of domain rules. Each declaration
-keeps its description and named check on one line, with the implementation below.
+verified; they do not define separate categories of domain rules. Keep the requirement
+and expected outcomes visible in the spec. Ledger scenarios may use a table containing
+the description, declarations, phase-2 outcome and expected decision. Properties receive
+domain fixtures from generators and state their assertions directly; fixture construction
+and ledger submission mechanics belong in the adapters.
 
 Outside DS-TX-009, named properties still return `False`, and named concrete checks
 contain ``False `shouldBe` True``. Registering these placeholders does not establish
@@ -1589,16 +1600,20 @@ net allocation and explicit zero retain their own declaration semantics.
 ### Ledger adapter boundary
 
 The supporting `DepositStore/Adapter/` directory translates domain scenarios into ledger
-fixtures and observations using the existing `ImpTest` helpers. `Transaction.hs` and
-`Assertions.hs` implement the first DS-TX-009 scenarios. `UTxO.hs` and `Ledger.hs` remain
-planned responsibilities; no empty modules are needed before a scenario uses them.
+fixtures and observations using the existing `ImpTest` helpers. The implemented DS-TX-009
+adapters separate declaration data, generation, transaction construction, scenario execution
+and assertions. `UTxO.hs` and `Ledger.hs` remain planned responsibilities; no empty modules
+are needed before a scenario uses them.
 
 | Adapter | Status and responsibility |
 | --- | --- |
-| [Transaction.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Transaction.hs) | Implemented for implicit-output batches with requested declarations; fixture fixup preserves those declarations. Broader delegation and settlement fixtures remain to be added. |
+| [Transaction.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Transaction.hs) | Builds declaration-only bodies with distinct fictitious inputs for validator properties, and funded implicit-output transactions for ledger scenarios. Fixture fixup preserves the requested declarations. Broader delegation and settlement fixtures remain to be added. |
+| [Declarations/TopTx.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Declarations/TopTx.hs) and [Declarations/SubTx.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Declarations/SubTx.hs) | Build and enumerate declaration forms through qualified `TopTx` and `SubTx` names. These helpers describe fixture data, not expected validation results. |
+| [Fixture/DeclarationDependency.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Fixture/DeclarationDependency.hs) | Defines `Declarations` and generates declaration combinations, equal local allocation/release pairs, and all explicit SubTx forms. Generators preserve each property's preconditions. |
+| [DeclarationScenarios.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/DeclarationScenarios.hs) | Registers each scenario-table row as a separate ledger test with fresh state. Prepares the requested phase-2 outcome and checks the declared acceptance or exact rejection. |
 | `UTxO.hs` | Planned: prepare output variants, inputs, allocated deposit records and initial Store state. |
 | `Ledger.hs` | Planned: submit batches or advance the ledger and expose the decision and resulting state when scenarios need this separate boundary. |
-| [Assertions.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Assertions.hs) | Implemented for ledger acceptance and exact DS-TX-009 rejection with unchanged ledger state, using existing submission helpers. |
+| [Assertions.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Assertions.hs) | Implements ledger acceptance and exact DS-TX-009 rejection with unchanged ledger state. `conformsTo` compares the validator's complete result with an independently stated domain rule. |
 
 Specs keep their domain assertions and named checks. Adapters handle the technical
 details of constructing and exercising the ledger. Expected amounts and decisions
@@ -1608,32 +1623,46 @@ Fixture preparation must preserve intentional invalid declarations and accountin
 defects. Introducing an adapter does not authorize repairing the condition that a
 scenario is intended to reject.
 
-### First implemented slice: a SubTx declaration requires TopTx acknowledgment
+### First implemented slice: a SubTx declaration requires a TopTx declaration
 
 [DS-TX-009 scenarios](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DeclarationDependencySpec.hs)
 isolate declaration presence without introducing UTxO capacity deposit storage or pricing.
 The ledger fixtures use otherwise valid batches with implicit outputs only, no store-backed
 inputs or outputs, and zero Store activity. They vary the optional declarations:
 
-| SubTx declaration | TopTx declaration | Expected result |
-| --- | --- | --- |
-| `SubTx.NoUTxODepositDeclaration` | `TopTx.NoUTxODepositDeclaration` | Accept |
-| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.NoUTxODepositDeclaration` | Reject under DS-TX-009 |
-| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.DeclaresZeroNetUTxODeposit` | Accept |
-| `SubTx.NoUTxODepositDeclaration` | `TopTx.DeclaresZeroNetUTxODeposit` | Accept |
+| SubTx declaration | TopTx declaration | Phase-2 outcome | Expected result |
+| --- | --- | --- | --- |
+| `SubTx.NoUTxODepositDeclaration` | `TopTx.NoUTxODepositDeclaration` | Valid | Accept |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.NoUTxODepositDeclaration` | Valid | Reject under DS-TX-009 |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.DeclaresZeroNetUTxODeposit` | Valid | Accept |
+| `SubTx.NoUTxODepositDeclaration` | `TopTx.DeclaresZeroNetUTxODeposit` | Valid | Accept |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.DeclaresZeroNetUTxODeposit` | Invalid | Accept the phase-2 failure path |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.NoUTxODepositDeclaration` | Invalid | Reject under DS-TX-009 |
 
 The acceptance controls have zero Store activity. The rejection check requires
 `MissingTopTxUTxODepositDeclaration` and compares ledger state immediately before and after
 submission, after fixture preparation. This tests presence independently of the amount:
 an explicit-zero SubTx declaration still requires a TopTx declaration.
 
-Generated isolated-validator checks vary presence across all declaration forms.
-Additional properties cover equal local allocations and releases, and every explicit
-SubTx declaration form with generated amounts and settlement indices. A fixture property
-checks that body construction preserves the number of SubTxs. These checks do not submit
-nonzero operations to the ledger or establish that
-their amounts, funding or settlement are valid. A real phase-2-invalid rejection and
-acceptance pair confirms that declaration presence remains required on that path.
+The four properties retain these descriptions from the executable spec:
+
+| Property description | Generated inputs and checks |
+| --- | --- |
+| any SubTx has a declaration ⇒ TopTx has a declaration | `Fixture.forAllCases` supplies `Declarations` containing a TopTx declaration and its ordered SubTx declarations. Compare the validator's result with the independently stated `subTxDeclarationImpliesATopTxOne` rule. |
+| requires a TopTx declaration even when SubTx allocations equal releases, resulting in a zero net amount | `Fixture.equalLocalAllocationAndRelease` generates two local SubTx declarations using the same strictly positive amount, one allocating and one releasing to output zero. For each pair, an absent TopTx declaration fails and an explicit-zero TopTx declaration passes the presence check. |
+| requires a TopTx declaration whether SubTx allocations and releases are accounted for locally or delegated to TopTx | `Fixture.onlyExplicitSubTxDeclarations` generates all five explicit forms for each sample: zero, local allocation, allocation requested from TopTx, local release and delegated release. It varies the strictly positive amount and settlement index. Check each form separately with TopTx absent and TopTx explicitly declaring zero. |
+| preserves the number of SubTxs, including those with repeated declarations | Compare the SubTx count in the generated fixture with the count in the constructed body. This checks fixture construction, not an additional protocol rule. |
+
+The validator and independent expected rule return
+`Validation (NonEmpty DepositStoreDeclarationFailure) ()`. Assertions compare complete
+results, including `Failure (MissingTopTxDeclaration :| [])` and `Success ()`.
+Here `Success ()` means that declaration presence is correct; it does not establish
+that an explicit zero is the correct amount for a nonzero operation.
+
+These properties do not submit nonzero operations to the ledger or establish that
+their amounts, funding or settlement outputs are valid. The six ledger scenarios also
+include a real phase-2-invalid rejection and acceptance pair, confirming that declaration
+presence remains required on that path.
 
 The test executable builds, and the focused DS-TX-009 run passes all ten examples:
 six ledger scenarios, including both phase-2-invalid scenarios, and four properties
@@ -1663,7 +1692,7 @@ implemented. A rule having a module is not evidence that all its cases are verif
 | [DS-TX-006](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/TopTxSettlementSpec.hs) | Derive topTxNetUTxODepositChange from txTotalNetUTxODepositChange minus signed local SubTx contributions; delegated operations remain TopTx's responsibility. For net releases, require NoTopTxSettlement exactly when topTxNetRelease is zero, and a TopTx destination otherwise. Generate SubTx-only, TopTx-only and mixed settlement, including local net allocations that make topTxNetRelease exceed txTotalNetRelease and local net releases offset by TopTx net allocations. Count the net store release once. A batch net allocation or explicit zero does not require a TopTx settlement output even when the derived TopTx accounting portion is negative. |
 | [DS-TX-007](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/SettlementOutputsSpec.hs) | Reject an index outside its owning body's outputs or an output containing less than its settlement amount. Accept exact coverage and additional funds when other rules hold. For a store-backed settlement output, count application ADA only: its external UTxO capacity deposit cannot cover a settlement shortfall. In a mixed settlement, check TopTx's share rather than the entire batch net release, and never credit the selected output twice. With 10 application ADA plus 2 ADA locally released, one implicit output and no other ADA flows, require 12 ADA. Preserve the alternative with output 10 ADA and a 2 ADA contribution to TopTx fees, subject to all other rules. Further settlement properties await clarification. |
 | [DS-TX-008](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/ExplicitZeroSpec.hs) | Explicit SubTx zero contributes no funds or delegation and remains distinct from absence. Reject zero, negative and out-of-range amounts for every nonzero operation through checked construction and both decoders. An explicit zero cannot bypass a required positive net allocation or net release. |
-| [DS-TX-009](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DeclarationDependencySpec.hs) | Any declared SubTx operation requires a TopTx declaration, including explicit zero and cancelling local contributions. Removing only TopTx's declaration from an otherwise valid such batch causes rejection; switching between local and delegated SubTx accounting does not remove this requirement. |
+| [DS-TX-009](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DeclarationDependencySpec.hs) | Any declared SubTx operation requires a TopTx declaration, including explicit zero. The requirement remains when SubTx allocations equal releases, resulting in a zero net amount, and whether those operations are accounted for locally or delegated to TopTx. Ledger scenarios check exact rejection when TopTx is absent and acceptance controls when it declares zero, including phase-2 failure; generated properties check presence across all declaration forms. These checks do not establish exact amounts or settlement validity. |
 | [DS-TX-010](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DelegationSpec.hs) | Require delegated contributions to match the originating body's exact UTxO capacity deposit change, be accounted for by TopTx once, reconcile with the batch declaration, and be funded by a balanced batch. Reject omitted, duplicated or incorrectly signed contributions and unfunded declarations. Accept valid offsetting contributions and financially imbalanced SubTx when the complete batch satisfies all rules. |
 | [DS-TX-011](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/ReleaseAuthoritySpec.hs) | Exercise outputs funded by someone other than their authorized spender. On the successful ordinary spending path, require the existing key or script authorization and exact UTxO capacity deposit accounting, without a separate funder approval or Store witness. Reject unauthorized spending even with a correct release declaration. Cover local and explicitly delegated SubTx settlement; references alone release no UTxO capacity deposits. |
 | [DS-TX-012](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/ApplicationAssetsSpec.hs) | Generate store-backed outputs with zero ADA and native assets, empty application assets with a datum or reference script, and an address with no application assets, datum or script. Accept otherwise valid cases with exact UTxO capacity deposits and reject absent declarations or incorrect UTxO capacity deposit contributions. Include collateral returns under their separate settlement rules. Preserve all other output validation and implicit minimum-coin checks. |
