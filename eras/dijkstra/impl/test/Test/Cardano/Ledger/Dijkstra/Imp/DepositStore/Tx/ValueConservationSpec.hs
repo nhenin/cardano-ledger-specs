@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "The complete batch conserves value (DS-TX-004)" $ do
+  describe "DS-TX-004 - The complete batch conserves value" $ do
     prop "consumedValue + inject(max(0, -txTotalNetUTxODepositChange)) = producedValue + inject(max(0, txTotalNetUTxODepositChange))" completeBatchConservesValue
     prop "ledger acceptance agrees with the model even when individual SubTxs are financially imbalanced" batchAcceptanceAllowsSubTxImbalance
     it "counts the net allocation once on the produced side" netAllocationIsProducedOnce

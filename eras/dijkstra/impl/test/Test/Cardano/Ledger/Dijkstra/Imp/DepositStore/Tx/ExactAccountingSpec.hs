@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "Each body's UTxO capacity deposit declaration is exact (DS-TX-003)" $ do
+  describe "DS-TX-003 - Each body's UTxO capacity deposit declaration is exact" $ do
     prop "∀ s ∈ SubTxs: hasDeclaration(s) ⇒ declaredNetUTxODepositChange(s) = allocatedUTxODeposits(s) - releasedUTxODeposits(s)" subTxDeclarationEqualsAllocatedMinusReleasedDeposits
     it "accepts a contribution equal to allocated UTxO capacity deposits minus released UTxO capacity deposits" exactContributionIsAccepted
     it "rejects a net allocation one lovelace below the required contribution" understatedAllocationIsRejected

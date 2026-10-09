@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "Delegation changes who accounts for the contribution (DS-TX-010)" $ do
+  describe "DS-TX-010 - Delegation changes who accounts for the contribution" $ do
     prop "topTxNetUTxODepositChange + Σ(subTxLocalNetUTxODepositChanges) = txTotalNetUTxODepositChange" localContributionsEqualTotalNetChange
     prop "switching between local accounting and delegation preserves txTotalNetUTxODepositChange" delegationPreservesTotalNetChange
     it "checks a delegated net allocation against the requesting SubTx's exact net UTxO capacity deposit change" delegatedAllocationMatchesSubTxNetChange

@@ -6,7 +6,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "Total collateral keeps its input-minus-return meaning (DS-COLL-003)" $ do
+spec = describe "DS-COLL-003 - Total collateral keeps its input-minus-return meaning" $ do
   it "accepts a declared total equal to collateral input coins minus return coins" acceptsExactTotalCollateral
   it "rejects a declared total differing by one lovelace when collateral validation applies" rejectsOneLovelaceTotalMismatch
   it "rejects an incorrect supplied total when redeemers trigger collateral validation even if all scripts succeed" successfulScriptsDoNotBypassTotalCollateralCheck

@@ -40,6 +40,10 @@ import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   SUBUTXO,
  )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  DepositStoreOutputDeclarationFailure (..),
+  validateSubTxCreatedOutputsDeclaration,
+ )
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
@@ -54,7 +58,7 @@ import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
 import Data.Foldable (toList)
-import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
@@ -96,6 +100,8 @@ data DijkstraSubUtxoPredFailure era
   | -- | list of supplied transaction outputs that are too small,
     -- together with the minimum value for the given output.
     SubBabbageOutputTooSmallUTxO (NonEmpty (TxOut era, Coin))
+  | -- | This SubTx creates a store-backed output without its own UTxO deposit declaration.
+    SubMissingUTxODepositDeclaration
   deriving (Generic)
 
 deriving stock instance
@@ -209,6 +215,11 @@ instance
 
   transitionRules = [dijkstraSubUtxoTransition @era]
 
+depositStoreOutputDeclarationToSubUtxoPredFailure ::
+  DepositStoreOutputDeclarationFailure -> DijkstraSubUtxoPredFailure era
+depositStoreOutputDeclarationToSubUtxoPredFailure MissingBodyUTxODepositDeclaration =
+  SubMissingUTxODepositDeclaration
+
 dijkstraSubUtxoTransition ::
   forall era.
   ( EraTx era
@@ -229,6 +240,9 @@ dijkstraSubUtxoTransition = do
   let tx = stAnnTx ^. txStAnnTxG
 
   let txBody = tx ^. bodyTxL
+
+  validateTransLabeled depositStoreOutputDeclarationToSubUtxoPredFailure (lblStatic :| []) $
+    validateSubTxCreatedOutputsDeclaration txBody
 
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
@@ -283,6 +297,7 @@ instance
       SubWrongNetworkInTxBody mm -> Sum SubWrongNetworkInTxBody 8 !> To mm
       SubOutsideForecast a -> Sum SubOutsideForecast 9 !> To a
       SubBabbageOutputTooSmallUTxO x -> Sum SubBabbageOutputTooSmallUTxO 10 !> To x
+      SubMissingUTxODepositDeclaration -> Sum SubMissingUTxODepositDeclaration 11
 
 instance
   ( Era era
@@ -303,6 +318,7 @@ instance
     8 -> SumD SubWrongNetworkInTxBody <! From
     9 -> SumD SubOutsideForecast <! From
     10 -> SumD SubBabbageOutputTooSmallUTxO <! From
+    11 -> SumD SubMissingUTxODepositDeclaration
     n -> Invalid n
 
 dijkstraUtxoToDijkstraSubUtxoPredFailure ::
@@ -332,3 +348,4 @@ dijkstraUtxoToDijkstraSubUtxoPredFailure = \case
   PtrPresentInCollateralReturn _ -> error "Impossible: `PtrPresentInCollateralReturn` for SUBUTXO"
   ValueNotConservedInLegacyMode _ -> error "Impossible: `ValueNotConservedInLegacyMode` for SUBUTXO"
   MissingTopTxUTxODepositDeclaration -> error "Impossible: `MissingTopTxUTxODepositDeclaration` for SUBUTXO"
+  MissingUTxODepositDeclaration -> SubMissingUTxODepositDeclaration

@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "Settlement indices identify outputs in their own body (DS-TX-007)" $ do
+  describe "DS-TX-007 - Settlement indices identify outputs in their own body" $ do
     prop "each settlement output: 0 ≤ index < length(ownOutputs)" settlementIndexIsWithinOwnOutputs
     prop "each settlement output: coin(ownOutputs[index]) ≥ settlementAmount" settlementOutputCoversSettlementAmount
     it "rejects an index outside the declaring body's output sequence" outOfBoundsIndexIsRejected

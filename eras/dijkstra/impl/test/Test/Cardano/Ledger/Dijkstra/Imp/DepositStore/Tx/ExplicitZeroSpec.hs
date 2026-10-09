@@ -8,7 +8,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "Explicit zero is different from an absent declaration (DS-TX-008)" $ do
+  describe "DS-TX-008 - Explicit zero is different from an absent declaration" $ do
     it "accepts an explicit zero when the declared UTxO capacity deposit contribution is zero" zeroContributionAcceptsExplicitZero
     it "rejects an explicit zero when a net allocation must be funded" requiredAllocationRejectsExplicitZero
     it "does not interpret an explicit SubTx zero as a delegation request" explicitZeroDoesNotDelegate
