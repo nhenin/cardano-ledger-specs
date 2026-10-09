@@ -56,7 +56,9 @@ spec = describe "UTXO" $ do
       pp <- getsPParams id
       let
         ptrAddr = Addr Testnet cred (StakeRefPtr ptr)
-        ptrOutput = ensureMinCoinTxOut pp $ mkBasicTxOut ptrAddr . inject $ Coin 100
+        ptrOutput =
+          ImplicitDepositTxOut . ensureMinCoinTxOut pp $
+            mkBasicImplicitDepositTxOut ptrAddr (inject $ Coin 100)
         tx =
           mkBasicTx mkBasicTxBody
             & bodyTxL . collateralReturnTxBodyL .~ SJust ptrOutput
@@ -201,8 +203,8 @@ spec = describe "UTXO" $ do
                   mkBasicTxBody
                     & mintTxBodyL .~ tokens (topBurnAmount + subBurnAmount)
                     & outputsTxBodyL
-                      .~ [ mkBasicTxOut tokenAddr (MaryValue mempty (tokens topBurnAmount))
-                         , mkBasicTxOut tokenAddr (MaryValue mempty (tokens subBurnAmount))
+                      .~ [ mkBasicTxOutWithImplicitDeposit tokenAddr (MaryValue mempty (tokens topBurnAmount))
+                         , mkBasicTxOutWithImplicitDeposit tokenAddr (MaryValue mempty (tokens subBurnAmount))
                          ]
             topOut <- freshTxOut
             subOut <- freshTxOut
@@ -424,7 +426,8 @@ spec = describe "UTXO" $ do
       pp <- getsPParams id
       addr <- freshKeyAddr_
       amount <- arbitrary @Coin
-      pure $ ensureMinCoinTxOut pp (mkBasicTxOut addr (inject amount))
+      pure . ImplicitDepositTxOut $
+        ensureMinCoinTxOut pp (mkBasicImplicitDepositTxOut addr (inject amount))
     fundAccountBalance :: AccountAddress -> Coin -> ImpTestM era ()
     fundAccountBalance account amount = do
       submitTx_ $
@@ -434,13 +437,13 @@ spec = describe "UTXO" $ do
     txInWithFunds :: Coin -> ImpTestM era TxIn
     txInWithFunds amount = freshKeyAddr_ >>= \a -> sendCoinTo a amount
     mkTxOut :: Coin -> ImpTestM era (TxOut era)
-    mkTxOut amount = freshKeyAddr_ >>= \a -> pure $ mkBasicTxOut a (inject amount)
+    mkTxOut amount = freshKeyAddr_ >>= \a -> pure $ mkBasicTxOutWithImplicitDeposit a (inject amount)
     produceScriptAt :: ScriptHash -> Coin -> ImpTestM era TxIn
     produceScriptAt scriptHash amount = do
       let addr = mkAddr scriptHash StakeRefNull
       let tx =
             mkBasicTx mkBasicTxBody
-              & bodyTxL . outputsTxBodyL .~ [mkBasicTxOut addr (inject amount)]
+              & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr (inject amount)]
       txInAt 0 <$> submitTx tx
 
 noBalanceFixup ::

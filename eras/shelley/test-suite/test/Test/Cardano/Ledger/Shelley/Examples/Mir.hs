@@ -73,8 +73,8 @@ initUTxO :: UTxO ShelleyEra
 initUTxO =
   genesisCoins
     genesisId
-    [ mkBasicTxOut Cast.aliceAddr aliceInitCoin
-    , mkBasicTxOut Cast.bobAddr bobInitCoin
+    [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceInitCoin
+    , mkBasicTxOutWithImplicitDeposit Cast.bobAddr bobInitCoin
     ]
   where
     aliceInitCoin = Val.inject $ Coin $ 10 * 1000 * 1000 * 1000 * 1000 * 1000
@@ -109,7 +109,7 @@ txbodyEx1 :: MIRPot -> TxBody TopTx ShelleyEra
 txbodyEx1 pot =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
-    & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut Cast.aliceAddr aliceCoinEx1)
+    & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceCoinEx1)
     & certsTxBodyL
       .~ StrictSeq.fromList
         [ ShelleyTxCertMir (MIRCert pot ir)

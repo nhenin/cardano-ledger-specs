@@ -138,7 +138,7 @@ localProducedValue ::
   TxBody l era ->
   MaryValue
 localProducedValue pp txBody =
-  sumAllValue (txBody ^. outputsTxBodyL)
+  unAssets (sumAllAssets (txBody ^. outputsTxBodyL))
     <> inject (txBody ^. treasuryDonationTxBodyL)
     <> inject (conwayProposalsDeposits pp txBody)
     <> burnedMultiAssets txBody

@@ -146,7 +146,7 @@ validatingTx =
       mkBasicTxBody
         & inputsTxBodyL .~ [mkGenesisTxIn 1]
         & collateralInputsTxBodyL .~ [mkGenesisTxIn 11]
-        & outputsTxBodyL .~ [mkBasicTxOut someAddr (inject $ Coin 4995)]
+        & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit someAddr (inject $ Coin 4995)]
         & feeTxBodyL .~ Coin 5
         & scriptIntegrityHashTxBodyL
           .~ newScriptIntegrityHash defaultPParams [PlutusV1] redeemers (mkTxDats datum)

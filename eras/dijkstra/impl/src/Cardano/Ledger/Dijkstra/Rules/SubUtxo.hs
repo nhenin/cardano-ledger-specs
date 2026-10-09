@@ -29,7 +29,7 @@ import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  sizedValue,
+  Sized (..),
  )
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin)
@@ -39,6 +39,10 @@ import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   SUBUTXO,
+ )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  DepositStoreOutputDeclarationFailure (..),
+  validateSubTxCreatedOutputsDeclaration,
  )
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
@@ -53,7 +57,8 @@ import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
-import Data.List.NonEmpty (NonEmpty)
+import Data.Foldable (toList)
+import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
@@ -96,6 +101,8 @@ data DijkstraSubUtxoPredFailure era
   | -- | list of supplied transaction outputs that are too small,
     -- together with the minimum value for the given output.
     SubBabbageOutputTooSmallUTxO (NonEmpty (TxOut era, Coin))
+  | -- | This SubTx creates a store-backed output without its own UTxO deposit declaration.
+    SubMissingUTxODepositDeclaration
   deriving (Generic)
 
 deriving stock instance
@@ -209,6 +216,11 @@ instance
 
   transitionRules = [dijkstraSubUtxoTransition @era]
 
+depositStoreOutputDeclarationToSubUtxoPredFailure ::
+  DepositStoreOutputDeclarationFailure -> DijkstraSubUtxoPredFailure era
+depositStoreOutputDeclarationToSubUtxoPredFailure MissingBodyUTxODepositDeclaration =
+  SubMissingUTxODepositDeclaration
+
 dijkstraSubUtxoTransition ::
   forall era.
   ( EraTx era
@@ -230,6 +242,9 @@ dijkstraSubUtxoTransition = do
 
   let txBody = tx ^. bodyTxL
 
+  validateTransLabeled depositStoreOutputDeclarationToSubUtxoPredFailure (lblStatic :| []) $
+    validateSubTxCreatedOutputsDeclaration txBody
+
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
   sysSt <- liftSTS $ asks systemStart
@@ -249,7 +264,10 @@ dijkstraSubUtxoTransition = do
 
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
-  runTestOnSignal $ Babbage.validateOutputTooSmallUTxO pp allSizedOutputs
+  runTestOnSignal $
+    Babbage.validateImplicitDeposits
+      pp
+      [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
 
   netId <- liftSTS $ asks networkId
   runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs
@@ -282,6 +300,7 @@ instance
       SubWrongNetworkInTxBody mm -> Sum SubWrongNetworkInTxBody 8 !> To mm
       SubOutsideForecast a -> Sum SubOutsideForecast 9 !> To a
       SubBabbageOutputTooSmallUTxO x -> Sum SubBabbageOutputTooSmallUTxO 10 !> To x
+      SubMissingUTxODepositDeclaration -> Sum SubMissingUTxODepositDeclaration 11
 
 instance
   ( Era era
@@ -302,6 +321,7 @@ instance
     8 -> SumD SubWrongNetworkInTxBody <! From
     9 -> SumD SubOutsideForecast <! From
     10 -> SumD SubBabbageOutputTooSmallUTxO <! From
+    11 -> SumD SubMissingUTxODepositDeclaration
     n -> Invalid n
 
 dijkstraUtxoToDijkstraSubUtxoPredFailure ::
@@ -330,3 +350,5 @@ dijkstraUtxoToDijkstraSubUtxoPredFailure = \case
   BabbageNonDisjointRefInputs _ -> error "Impossible: `BabbageNonDisjointRefInputs` for SUBUTXO"
   PtrPresentInCollateralReturn _ -> error "Impossible: `PtrPresentInCollateralReturn` for SUBUTXO"
   ValueNotConservedInLegacyMode _ -> error "Impossible: `ValueNotConservedInLegacyMode` for SUBUTXO"
+  MissingTopTxUTxODepositDeclaration -> error "Impossible: `MissingTopTxUTxODepositDeclaration` for SUBUTXO"
+  MissingUTxODepositDeclaration -> SubMissingUTxODepositDeclaration

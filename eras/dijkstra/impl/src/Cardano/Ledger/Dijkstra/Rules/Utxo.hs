@@ -45,7 +45,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  sizedValue,
+  Sized (..),
  )
 import Cardano.Ledger.Binary.Coders (
   Decode (..),
@@ -61,6 +61,12 @@ import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, UTXO)
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  DepositStoreDeclarationFailure (..),
+  DepositStoreOutputDeclarationFailure (..),
+  validateTopTxCreatedOutputsDeclaration,
+  validateTopTxNetUTxODepositDeclaration,
+ )
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (
@@ -89,6 +95,7 @@ import Control.State.Transition.Extended (
   validate,
  )
 import Data.Bifunctor
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
 import qualified Data.Map.Strict as Map
@@ -168,6 +175,10 @@ data DijkstraUtxoPredFailure era
   | -- | Legacy-mode top-level transaction does not self-balance
     ValueNotConservedInLegacyMode
       (Mismatch RelEQ (Value era))
+  | -- | A SubTx declares a net UTxO capacity deposit change but TopTx does not.
+    MissingTopTxUTxODepositDeclaration
+  | -- | This body creates a store-backed output without its own UTxO deposit declaration.
+    MissingUTxODepositDeclaration
   deriving (Generic)
 
 type instance EraRuleFailure "UTXO" DijkstraEra = DijkstraUtxoPredFailure DijkstraEra
@@ -241,6 +252,16 @@ instance
   , NFData (PredicateFailure (EraRule "UTXOS" era))
   ) =>
   NFData (DijkstraUtxoPredFailure era)
+
+depositStoreDeclarationToUtxoPredFailure ::
+  DepositStoreDeclarationFailure -> DijkstraUtxoPredFailure era
+depositStoreDeclarationToUtxoPredFailure = \case
+  MissingTopTxDeclaration -> MissingTopTxUTxODepositDeclaration
+
+depositStoreOutputDeclarationToUtxoPredFailure ::
+  DepositStoreOutputDeclarationFailure -> DijkstraUtxoPredFailure era
+depositStoreOutputDeclarationToUtxoPredFailure MissingBodyUTxODepositDeclaration =
+  MissingUTxODepositDeclaration
 
 validateNoPtrInCollateralReturn ::
   ( BabbageEraTxBody era
@@ -331,6 +352,14 @@ dijkstraUtxoTransition = do
 
   let txBody = tx ^. bodyTxL
 
+  runTestOnSignal $
+    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
+      validateTopTxCreatedOutputsDeclaration txBody
+
+  runTestOnSignal $
+    first (fmap depositStoreDeclarationToUtxoPredFailure) $
+      validateTopTxNetUTxODepositDeclaration txBody
+
   {- inInterval (SlotOf Γ) (ValidIntervalOf txTop) -}
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
@@ -380,9 +409,12 @@ dijkstraUtxoTransition = do
           postSubsPState
           (txBody & subTransactionsTxBodyL .~ mempty)
 
-  {- ∀ txout ∈ allOuts txb, getValue txout ≥ inject (serSize txout * coinsPerUTxOByte pp) -}
+  -- Apply the byte-based minimum only to implicit-deposit outputs, preserving their cached size.
   let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
-  runTest $ Babbage.validateOutputTooSmallUTxO pp allSizedOutputs
+  runTest $
+    Babbage.validateImplicitDeposits
+      pp
+      [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
 
   let allOutputs = fmap sizedValue allSizedOutputs
   {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}
@@ -512,6 +544,8 @@ instance
       BabbageNonDisjointRefInputs x -> Sum BabbageNonDisjointRefInputs 21 !> To x
       PtrPresentInCollateralReturn x -> Sum PtrPresentInCollateralReturn 22 !> To x
       ValueNotConservedInLegacyMode mm -> Sum ValueNotConservedInLegacyMode 23 !> To mm
+      MissingTopTxUTxODepositDeclaration -> Sum MissingTopTxUTxODepositDeclaration 24
+      MissingUTxODepositDeclaration -> Sum MissingUTxODepositDeclaration 25
 
 instance
   ( Era era
@@ -546,6 +580,8 @@ instance
     21 -> SumD BabbageNonDisjointRefInputs <! From
     22 -> SumD PtrPresentInCollateralReturn <! From
     23 -> SumD ValueNotConservedInLegacyMode <! From
+    24 -> SumD MissingTopTxUTxODepositDeclaration
+    25 -> SumD MissingUTxODepositDeclaration
     n -> Invalid n
 
 -- =====================================================

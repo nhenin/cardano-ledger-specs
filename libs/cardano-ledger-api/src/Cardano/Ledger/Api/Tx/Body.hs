@@ -81,6 +81,17 @@ module Cardano.Ledger.Api.Tx.Body (
   guardsTxBodyL,
   directDepositsTxBodyL,
   DirectDeposits (..),
+  netUTxODepositChangeTxBodyL,
+  NetUTxODepositChange (..),
+  TopTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  PositiveCoin,
+  mkPositiveCoin,
+  unPositiveCoin,
+  subTxNetUTxODepositChangeTxBodyL,
+  SubTxNetUTxODepositChange (..),
+  SubTxUTxODepositDeclaration,
+  SubTxReleaseTarget (..),
 
   -- * Upgrade
   binaryUpgradeTxBody,
@@ -98,7 +109,7 @@ import Cardano.Ledger.Api.Tx.Out
 import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))
 import Cardano.Ledger.BaseTypes (Network, strictMaybeToMaybe)
 import Cardano.Ledger.Binary.Decoding (Sized)
-import Cardano.Ledger.Coin (Coin)
+import Cardano.Ledger.Coin (Coin, PositiveCoin, mkPositiveCoin, unPositiveCoin)
 import Cardano.Ledger.Conway.Governance (
   ProposalProcedure (..),
   VotingProcedure (..),
@@ -115,7 +126,15 @@ import Cardano.Ledger.Core (
   txIdTxBody,
  )
 import Cardano.Ledger.Credential (Credential (KeyHashObj))
-import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DijkstraEraTxBody (..),
+  NetUTxODepositChange (..),
+  SubTxNetUTxODepositChange (..),
+  SubTxReleaseTarget (..),
+  SubTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  TopTxUTxODepositDeclaration,
+ )
 import Cardano.Ledger.Keys (KeyHash (..), KeyRole (..))
 import Cardano.Ledger.Mary.Core (MaryEraTxBody (..))
 import Cardano.Ledger.Mary.Value (MultiAsset)

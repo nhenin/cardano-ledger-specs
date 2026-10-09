@@ -222,7 +222,7 @@ genTx
 
       -- Occasionally we have a transaction generated with insufficient inputs
       -- to cover the deposits. In this case we discard the test case.
-      let enough = sumVal (getMinCoinTxOut pparams <$> draftOutputs)
+      let enough = sumVal (getMinCoinTxOut pparams . requireImplicitDepositTxOut <$> draftOutputs)
       !_ <-
         when (coin spendingBalance < enough) $
           tracedDiscard $
@@ -262,9 +262,13 @@ genTx
           draftTx
       let txOuts = tx ^. bodyTxL . outputsTxBodyL
       !_ <-
-        when (any (\txOut -> getMinCoinTxOut pparams txOut > txOut ^. coinTxOutL) txOuts) $
-          tracedDiscard $
-            "TxOut value is too small " <> show txOuts
+        when
+          ( any
+              (\txOut -> getMinCoinTxOut pparams (requireImplicitDepositTxOut txOut) > txOut ^. coinTxOutL)
+              txOuts
+          )
+          $ tracedDiscard
+          $ "TxOut value is too small " <> show txOuts
       pure tx
 
 -- | Collect additional inputs (and witnesses and keys and scripts) to make
@@ -325,7 +329,7 @@ deltaZero initialfee pp addr =
     mempty
     mempty
   where
-    txOut = setMinCoinTxOut pp (mkBasicTxOut addr mempty)
+    txOut = setMinCoinTxOut pp (mkBasicTxOutWithImplicitDeposit addr mempty)
 
 -- Same function as in cardano-ledger-api. We don't want to depend on the api though,
 -- because it will be problematic for dependencies (cardano-ledger-api test suite depends
@@ -334,7 +338,7 @@ setMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
 setMinCoinTxOut pp = go
   where
     go txOut =
-      let curMinCoin = getMinCoinTxOut pp txOut
+      let curMinCoin = getMinCoinTxOut pp (requireImplicitDepositTxOut txOut)
           curCoin = txOut ^. coinTxOutL
        in if curCoin == curMinCoin
             then txOut
@@ -389,7 +393,7 @@ genNextDelta
         totalFee = baseTxFee <+> deltaFee :: Coin
         remainingFee = totalFee <-> dfees :: Coin
         changeAmount = getChangeAmount change
-        minAda = getMinCoinTxOut pparams change
+        minAda = getMinCoinTxOut pparams (requireImplicitDepositTxOut change)
      in if remainingFee <= Coin 0 -- we've paid for all the fees
           then pure delta -- we're done
           else -- the change covers what we need, so shift Coin from change to dfees.
@@ -453,7 +457,8 @@ genNextDelta
         (Value era -> Value era) ->
         TxOut era ->
         TxOut era
-      deltaChange f txOut = txOut & valueTxOutL %~ f
+      deltaChange f =
+        ImplicitDepositTxOut . (valueTxOutL %~ f) . requireImplicitDepositTxOut
       getChangeAmount txOut = txOut ^. coinTxOutL
 
 -- calculates fixed point of getNextDelta such that
@@ -697,7 +702,7 @@ calcOutputsFromBalance ::
   (Coin, StrictSeq (TxOut era))
 calcOutputsFromBalance balance_ addrs fee =
   ( fee <+> splitCoinRem
-  , StrictSeq.fromList $ zipWith mkBasicTxOut addrs amountPerOutput
+  , StrictSeq.fromList $ zipWith mkBasicTxOutWithImplicitDeposit addrs amountPerOutput
   )
   where
     -- split the available balance into equal portions (one for each address),
@@ -734,7 +739,7 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo)
   let (inputs, witnesses) = unzip (fmap witnessedInput <$> selectedUtxo)
   return
     ( inputs
-    , sumAllValue @era (snd <$> selectedUtxo)
+    , sumAllValue @era (requireImplicitDepositTxOut . snd <$> selectedUtxo)
     , Either.partitionEithers witnesses
     )
   where
@@ -745,6 +750,12 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo)
         addr@(Addr _ (ScriptHashObj _) _) ->
           Right $ findPayScriptFromAddr @era addr payScriptMap
         _ -> error "unsupported address"
+
+-- | Private: these legacy generators only construct and consume implicit-deposit outputs.
+requireImplicitDepositTxOut :: TxOut era -> ImplicitDepositTxOut era
+requireImplicitDepositTxOut (ImplicitDepositTxOut output) = output
+requireImplicitDepositTxOut (StoreBackedTxOut _) =
+  error "Shelley.Generator.Utxo: unexpected StoreBackedTxOut"
 
 -- | Select a subset of the account addresses to use for reward withdrawals.
 genWithdrawals ::

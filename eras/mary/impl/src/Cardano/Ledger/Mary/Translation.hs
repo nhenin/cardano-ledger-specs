@@ -27,7 +27,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
-import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut)
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
@@ -151,7 +150,7 @@ instance TranslateEra MaryEra UTxOState where
 instance TranslateEra MaryEra ShelleyInstantStake where
   translateEra _ = pure . coerce
 
-instance TranslateEra MaryEra ShelleyTxOut where
+instance TranslateEra MaryEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
 instance TranslateEra MaryEra UTxO where

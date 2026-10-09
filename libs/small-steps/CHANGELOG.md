@@ -1,5 +1,9 @@
 # Version history for `small-steps`
 
+## 1.2.0.1
+
+*
+
 ## 1.2.0.0
 
 * Add an `Ord` constraint to the `PredicateFailure` type in the `STS` class

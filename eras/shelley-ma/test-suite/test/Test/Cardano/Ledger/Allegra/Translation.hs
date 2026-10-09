@@ -51,7 +51,7 @@ allegraTranslationTests =
     [ testProperty "Tx compatibility" (testTranslation @(Tx TopTx))
     , testProperty "ProposedPPUpdates compatibility" (testTranslation @S.ProposedPPUpdates)
     , testProperty "ShelleyGovState compatibility" (testTranslation @S.ShelleyGovState)
-    , testProperty "TxOut compatibility" (testTranslation @S.ShelleyTxOut)
+    , testProperty "TxOut compatibility" (testTranslation @TxOut)
     , testProperty "UTxO compatibility" (testTranslation @S.UTxO)
     , testProperty "UTxOState compatibility" (testTranslation @S.UTxOState)
     , testProperty "LedgerState compatibility" (testTranslation @S.LedgerState)

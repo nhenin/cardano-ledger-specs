@@ -82,10 +82,10 @@ unknownInput :: TxIn
 unknownInput = mkTxInPartial genesisId 1
 
 byronOutput :: forall era. EraTxOut era => TxOut era
-byronOutput = mkBasicTxOut exampleByronAddress (inject $ Coin 1)
+byronOutput = mkBasicTxOutWithImplicitDeposit exampleByronAddress (inject $ Coin 1)
 
 shelleyOutput :: forall era. EraTxOut era => TxOut era
-shelleyOutput = mkBasicTxOut shelleyAddr (inject $ Coin 2)
+shelleyOutput = mkBasicTxOutWithImplicitDeposit shelleyAddr (inject $ Coin 2)
 
 datumEx :: forall era. Era era => Datum era
 datumEx = Datum . dataToBinaryData . Data . PV1.I $ 123
@@ -97,12 +97,12 @@ inlineDatumOutput ::
   ) =>
   TxOut era
 inlineDatumOutput =
-  mkBasicTxOut shelleyAddr (inject $ Coin 3)
+  mkBasicTxOutWithImplicitDeposit shelleyAddr (inject $ Coin 3)
     & datumTxOutL .~ datumEx
 
 refScriptOutput :: (BabbageEraTxOut era, EraPlutusTxInfo 'PlutusV2 era) => TxOut era
 refScriptOutput =
-  mkBasicTxOut shelleyAddr (inject $ Coin 3)
+  mkBasicTxOutWithImplicitDeposit shelleyAddr (inject $ Coin 3)
     & referenceScriptTxOutL .~ (SJust $ alwaysSucceeds @'PlutusV2 3)
 
 -- This input is only a "Shelley input" in the sense

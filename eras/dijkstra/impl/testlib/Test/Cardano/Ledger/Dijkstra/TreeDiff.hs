@@ -29,18 +29,22 @@ import Cardano.Ledger.Dijkstra.BlockBody.Internal (DijkstraBlockBodyRaw)
 import Cardano.Ledger.Dijkstra.Core (
   AlonzoEraScript (..),
   AlonzoEraTx,
+  ApplicationAssets (..),
   AsItem,
   AsIx,
+  BabbageEraTxOut (..),
   DijkstraBlockBody (..),
   Era,
   EraPParams (..),
   EraRule,
+  EraStoreBackedTxOut (..),
   EraTx (..),
   EraTxBody (..),
   EraTxCert (..),
   EraTxOut (..),
   PlutusScript,
   TopTx,
+  TxOut (..),
   Value,
  )
 import Cardano.Ledger.Dijkstra.PParams (DijkstraPParams)
@@ -53,12 +57,21 @@ import Cardano.Ledger.Dijkstra.Scripts (
   DijkstraPlutusPurpose,
  )
 import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
-import Cardano.Ledger.Dijkstra.TxBody (DijkstraTxBodyRaw (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DijkstraTxBodyRaw (..),
+  NetUTxODepositChange,
+  SubTxNetUTxODepositChange,
+  SubTxReleaseTarget,
+  TopTxReleaseSettlement,
+ )
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Control.State.Transition (STS (..))
 import Data.Functor.Identity (Identity)
 import qualified Data.TreeDiff.OMap as OMap
+import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Conway.TreeDiff (Expr (..), ToExpr)
 import Test.Cardano.Ledger.TreeDiff (HexBytes (..), ToExpr (..))
 
@@ -75,6 +88,46 @@ instance ToExpr (DijkstraNativeScriptRaw era)
 instance ToExpr (DijkstraPParams Identity DijkstraEra)
 
 instance ToExpr (DijkstraPParams StrictMaybe DijkstraEra)
+
+instance ToExpr (TxOut DijkstraEra) where
+  toExpr = \case
+    ImplicitDepositTxOut output -> App "ImplicitDepositTxOut" [toExpr output]
+    txOut@(StoreBackedTxOut output) ->
+      Rec "StoreBackedTxOut" $
+        OMap.fromList
+          [ ("address", toExpr $ txOut ^. addrTxOutL)
+          , ("applicationAssets", toExpr . unApplicationAssets $ output ^. applicationAssetsTxOutL)
+          , ("datum", toExpr $ txOut ^. datumTxOutL)
+          , ("referenceScript", toExpr $ txOut ^. referenceScriptTxOutL)
+          ]
+
+instance ToExpr SubTxReleaseTarget
+
+instance ToExpr SubTxNetUTxODepositChange
+
+instance ToExpr NetUTxODepositChange
+
+instance ToExpr TopTxReleaseSettlement
+
+instance ToExpr TopTx.TopTxUTxODepositDeclaration where
+  toExpr = \case
+    TopTx.NoUTxODepositDeclaration -> App "TopTx.NoUTxODepositDeclaration" []
+    TopTx.DeclaresZeroNetUTxODeposit -> App "TopTx.DeclaresZeroNetUTxODeposit" []
+    TopTx.DeclaresNetUTxODepositAllocation amount ->
+      App "TopTx.DeclaresNetUTxODepositAllocation" [toExpr amount]
+    TopTx.DeclaresNetUTxODepositRelease amount settlement ->
+      App "TopTx.DeclaresNetUTxODepositRelease" [toExpr amount, toExpr settlement]
+
+instance ToExpr SubTx.SubTxUTxODepositDeclaration where
+  toExpr = \case
+    SubTx.NoUTxODepositDeclaration -> App "SubTx.NoUTxODepositDeclaration" []
+    SubTx.DeclaresZeroNetUTxODeposit -> App "SubTx.DeclaresZeroNetUTxODeposit" []
+    SubTx.DeclaresNetUTxODepositAllocation amount ->
+      App "SubTx.DeclaresNetUTxODepositAllocation" [toExpr amount]
+    SubTx.RequestsUTxODepositFromTopTx amount ->
+      App "SubTx.RequestsUTxODepositFromTopTx" [toExpr amount]
+    SubTx.DeclaresNetUTxODepositRelease amount target ->
+      App "SubTx.DeclaresNetUTxODepositRelease" [toExpr amount, toExpr target]
 
 instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
   toExpr = \case
@@ -106,6 +159,7 @@ instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
               , ("dtbrDirectDeposits", toExpr dtbrDirectDeposits)
               , ("dtbrAccountBalanceIntervals", toExpr dtbrAccountBalanceIntervals)
               , ("dtbrStartingAccountBalanceIntervals", toExpr dtbrStartingAccountBalanceIntervals)
+              , ("dtbrNetUTxODepositChange", toExpr dtbrNetUTxODepositChange)
               ]
     txBody@(DijkstraSubTxBodyRaw {}) ->
       let DijkstraSubTxBodyRaw {..} = txBody
@@ -129,6 +183,7 @@ instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
               , ("dstbrRequiredTopLevelGuards", toExpr dstbrRequiredTopLevelGuards)
               , ("dstbrDirectDeposits", toExpr dstbrDirectDeposits)
               , ("dstbrAccountBalanceIntervals", toExpr dstbrAccountBalanceIntervals)
+              , ("dstbrNetUTxODepositChange", toExpr dstbrNetUTxODepositChange)
               ]
 
 instance ToExpr (TxBody l DijkstraEra)

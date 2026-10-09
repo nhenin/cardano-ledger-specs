@@ -192,6 +192,7 @@ subTransactionBodyRule ::
   , HuddleRule "required_top_level_guards" era
   , HuddleRule "direct_deposits" era
   , HuddleRule "account_balance_intervals" era
+  , HuddleRule "sub_tx_net_utxo_deposit_change" era
   , HuddleRule1 "set" era
   , HuddleRule1 "nonempty_set" era
   ) =>
@@ -220,6 +221,7 @@ subTransactionBodyRule pname p =
       , opt (idx 24 ==> huddleRule @"required_top_level_guards" p)
       , opt (idx 25 ==> huddleRule @"direct_deposits" p)
       , opt (idx 26 ==> huddleRule @"account_balance_intervals" p)
+      , opt (idx 28 ==> huddleRule @"sub_tx_net_utxo_deposit_change" p)
       ]
 
 requiredTopLevelGuardsRule ::
@@ -755,6 +757,9 @@ instance HuddleRule "required_signers" DijkstraEra where
 instance HuddleRule "value" DijkstraEra where
   huddleRuleNamed = dijkstraValueRule
 
+instance HuddleRule "application_assets" DijkstraEra where
+  huddleRuleNamed pname p = pname =.= huddleRule @"value" p
+
 instance HuddleRule "mint" DijkstraEra where
   huddleRuleNamed = conwayMintRule
 
@@ -763,6 +768,112 @@ instance HuddleRule "withdrawals" DijkstraEra where
 
 instance HuddleRule "direct_deposits" DijkstraEra where
   huddleRuleNamed = directDepositsRule
+
+instance HuddleRule "allocate_utxo_deposit" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname =.= arr [0, "amount" ==> huddleRule @"positive_coin" p]
+
+instance HuddleRule "release_utxo_deposit" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment
+      [str| The amount is the net UTxO capacity deposit release for the entire transaction batch.
+          | Settlement may occur in both top-level and sub-transaction outputs.
+          |]
+      $ pname
+        =.= arr
+          [ 1
+          , "amount" ==> huddleRule @"positive_coin" p
+          , "settlement" ==> huddleRule @"top_tx_release_settlement" p
+          ]
+
+instance HuddleRule "no_top_tx_settlement" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment "No share of the release is settled in a top-level output." $
+      pname =.= arr [0]
+
+instance HuddleRule "top_tx_settlement_output" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment
+      [str| The output index is zero-based and refers to the top-level body's outputs.
+          | Its value already includes the top-level share of the release,
+          | which need not equal the entire batch's net release amount.
+          |]
+      $ pname =.= arr [1, "output_index" ==> VUInt `sized` (2 :: Word64)]
+
+instance HuddleRule "top_tx_release_settlement" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= huddleRule @"no_top_tx_settlement" p
+      / huddleRule @"top_tx_settlement_output" p
+
+instance HuddleRule "no_utxo_deposit_change" DijkstraEra where
+  huddleRuleNamed pname _ =
+    pname =.= arr [2]
+
+instance HuddleRule "net_utxo_deposit_change" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment
+      "A top-level transaction declares a net UTxO capacity deposit allocation, release, or no net change."
+      $ pname
+        =.= huddleRule @"allocate_utxo_deposit" p
+        / huddleRule @"release_utxo_deposit" p
+        / huddleRule @"no_utxo_deposit_change" p
+
+instance HuddleRule "sub_tx_settlement_output" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment
+      [str| The output index is zero-based and refers to this sub-transaction's outputs.
+          | The released amount is already included in the settlement output's value.
+          |]
+      $ pname =.= arr [0, "output_index" ==> VUInt `sized` (2 :: Word64)]
+
+instance HuddleRule "delegate_to_top_tx" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment
+      "An explicit request for the top-level transaction to account for this UTxO capacity deposit release."
+      $ pname =.= arr [1]
+
+instance HuddleRule "sub_tx_release_target" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= huddleRule @"sub_tx_settlement_output" p
+      / huddleRule @"delegate_to_top_tx" p
+
+instance HuddleRule "sub_tx_allocate_utxo_deposit" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname =.= arr [0, "amount" ==> huddleRule @"positive_coin" p]
+
+instance HuddleRule "sub_tx_request_utxo_deposit_from_top_tx" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment
+      "An explicit request for the top-level transaction to fund this UTxO capacity deposit allocation."
+      $ pname =.= arr [2, "amount" ==> huddleRule @"positive_coin" p]
+
+instance HuddleRule "sub_tx_release_utxo_deposit" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= arr
+        [ 1
+        , "amount" ==> huddleRule @"positive_coin" p
+        , "target" ==> huddleRule @"sub_tx_release_target" p
+        ]
+
+instance HuddleRule "sub_tx_no_utxo_deposit_change" DijkstraEra where
+  huddleRuleNamed pname _ =
+    comment "An explicit absence of net UTxO capacity deposit change, with no delegation request." $
+      pname =.= arr [3]
+
+instance HuddleRule "sub_tx_net_utxo_deposit_change" DijkstraEra where
+  huddleRuleNamed pname p =
+    comment
+      [str| A sub-transaction declares its own net UTxO capacity deposit allocation, release, or no net change.
+          | An absent operation does not delegate accounting to the top-level transaction.
+          |]
+      $ pname
+        =.= huddleRule @"sub_tx_allocate_utxo_deposit" p
+        / huddleRule @"sub_tx_request_utxo_deposit_from_top_tx" p
+        / huddleRule @"sub_tx_release_utxo_deposit" p
+        / huddleRule @"sub_tx_no_utxo_deposit_change" p
 
 instance HuddleRule "account_balance_intervals" DijkstraEra where
   huddleRuleNamed = accountBalanceIntervalsRule
@@ -788,15 +899,26 @@ instance HuddleRule "alonzo_transaction_output" DijkstraEra where
 instance HuddleRule "babbage_transaction_output" DijkstraEra where
   huddleRuleNamed = babbageTransactionOutput
 
+instance HuddleRule "store_backed_transaction_output" DijkstraEra where
+  huddleRuleNamed pname p =
+    pname
+      =.= mp
+        [ idx 0 ==> huddleRule @"address" p
+        , idx 4 ==> huddleRule @"application_assets" p
+        , opt $ idx 2 ==> huddleRule @"datum_option" p
+        , opt $ idx 3 ==> huddleRule @"script_ref" p
+        ]
+
 instance HuddleRule "transaction_output" DijkstraEra where
   huddleRuleNamed pname p =
     comment
-      [str| Both of the Alonzo and Babbage style TxOut formats are equally valid
-          | and can be used interchangeably
+      [str| Implicit-deposit outputs retain the Alonzo and Babbage formats.
+          | Store-backed outputs use key 4 for application assets instead of key 1.
           |]
       $ pname
         =.= huddleRule @"alonzo_transaction_output" p
         / huddleRule @"babbage_transaction_output" p
+        / huddleRule @"store_backed_transaction_output" p
 
 instance HuddleRule "sub_transaction_body" DijkstraEra where
   huddleRuleNamed = subTransactionBodyRule
@@ -1167,6 +1289,7 @@ instance HuddleRule "transaction_body" DijkstraEra where
         , opt (idx 26 ==> huddleRule @"account_balance_intervals" p) //- "account balance intervals"
         , opt (idx 27 ==> huddleRule @"starting_account_balance_intervals" p)
             //- "starting account balance intervals"
+        , opt (idx 28 ==> huddleRule @"net_utxo_deposit_change" p)
         ]
 
 instance HuddleRule "transaction_witness_set" DijkstraEra where

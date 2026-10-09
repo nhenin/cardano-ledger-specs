@@ -138,6 +138,7 @@ transaction_body =
   , ? 25 : direct_deposits                    ; direct deposits
   , ? 26 : account_balance_intervals          ; account balance intervals
   , ? 27 : starting_account_balance_intervals ; starting account balance intervals
+  , ? 28 : net_utxo_deposit_change
   }
 
 set<a0> = #6.258([* a0])/ [* a0]
@@ -146,9 +147,12 @@ transaction_input = [transaction_id : transaction_id, index : uint .size 2]
 
 transaction_id = hash32
 
-; Both of the Alonzo and Babbage style TxOut formats are equally valid
-; and can be used interchangeably
-transaction_output = alonzo_transaction_output/ babbage_transaction_output
+; Implicit-deposit outputs retain the Alonzo and Babbage formats.
+; Store-backed outputs use key 4 for application assets instead of key 1.
+transaction_output =
+  alonzo_transaction_output
+  / babbage_transaction_output
+  / store_backed_transaction_output
 
 alonzo_transaction_output = [address, amount : value, ? datum_hash : hash32]
 
@@ -449,6 +453,11 @@ plutus_v3_script = bytes
 
 ; Dijkstra introduces Plutus V4.
 plutus_v4_script = bytes
+
+store_backed_transaction_output =
+  {0 : address, 4 : application_assets, ? 2 : datum_option, ? 3 : script_ref}
+
+application_assets = value
 
 certificates = nonempty_oset<certificate>
 
@@ -831,6 +840,7 @@ sub_transaction_body =
   , ? 24 : required_top_level_guards
   , ? 25 : direct_deposits
   , ? 26 : account_balance_intervals
+  , ? 28 : sub_tx_net_utxo_deposit_change
   }
 
 required_top_level_guards = {+ credential => plutus_data/ nil}
@@ -843,6 +853,34 @@ account_balance_interval =
   [inclusive_lower_bound : coin, exclusive_upper_bound : coin/ nil]
   / [inclusive_lower_bound : coin/ nil, exclusive_upper_bound : coin]
   / coin
+
+; A sub-transaction declares its own net UTxO capacity deposit allocation, release, or no net change.
+; An absent operation does not delegate accounting to the top-level transaction.
+sub_tx_net_utxo_deposit_change =
+  sub_tx_allocate_utxo_deposit
+  / sub_tx_request_utxo_deposit_from_top_tx
+  / sub_tx_release_utxo_deposit
+  / sub_tx_no_utxo_deposit_change
+
+sub_tx_allocate_utxo_deposit = [0, amount : positive_coin]
+
+;An explicit request for the top-level transaction to fund this UTxO capacity deposit allocation.
+sub_tx_request_utxo_deposit_from_top_tx = [2, amount : positive_coin]
+
+sub_tx_release_utxo_deposit =
+  [1, amount : positive_coin, target : sub_tx_release_target]
+
+sub_tx_release_target = sub_tx_settlement_output/ delegate_to_top_tx
+
+; The output index is zero-based and refers to this sub-transaction's outputs.
+; The released amount is already included in the settlement output's value.
+sub_tx_settlement_output = [0, output_index : uint .size 2]
+
+;An explicit request for the top-level transaction to account for this UTxO capacity deposit release.
+delegate_to_top_tx = [1]
+
+;An explicit absence of net UTxO capacity deposit change, with no delegation request.
+sub_tx_no_utxo_deposit_change = [3]
 
 transaction_witness_set =
   { ? 0 : nonempty_set<vkeywitness>
@@ -917,6 +955,29 @@ auxiliary_data_map =
 
 starting_account_balance_intervals =
   {+ reward_account => account_balance_interval}
+
+;A top-level transaction declares a net UTxO capacity deposit allocation, release, or no net change.
+net_utxo_deposit_change =
+  allocate_utxo_deposit/ release_utxo_deposit/ no_utxo_deposit_change
+
+allocate_utxo_deposit = [0, amount : positive_coin]
+
+; The amount is the net UTxO capacity deposit release for the entire transaction batch.
+; Settlement may occur in both top-level and sub-transaction outputs.
+release_utxo_deposit =
+  [1, amount : positive_coin, settlement : top_tx_release_settlement]
+
+top_tx_release_settlement = no_top_tx_settlement/ top_tx_settlement_output
+
+;No share of the release is settled in a top-level output.
+no_top_tx_settlement = [0]
+
+; The output index is zero-based and refers to the top-level body's outputs.
+; Its value already includes the top-level share of the release,
+; which need not equal the entire batch's net release amount.
+top_tx_settlement_output = [1, output_index : uint .size 2]
+
+no_utxo_deposit_change = [2]
 
 leios_certificate =
   [ signers   : bytes .size (0 .. 8192) ;bitfield with up to 65536 entries

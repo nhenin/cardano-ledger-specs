@@ -24,6 +24,12 @@
 
 module Cardano.Ledger.Dijkstra.TxBody (
   DijkstraEraTxBody (..),
+  NetUTxODepositChange (..),
+  TopTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  SubTxNetUTxODepositChange (..),
+  SubTxUTxODepositDeclaration,
+  SubTxReleaseTarget (..),
   TxBody (
     MkDijkstraTxBody,
     DijkstraTxBody,
@@ -52,6 +58,7 @@ module Cardano.Ledger.Dijkstra.TxBody (
     dtbDirectDeposits,
     dtbAccountBalanceIntervals,
     dtbStartingAccountBalanceIntervals,
+    dtbNetUTxODepositChange,
     dstbSpendInputs,
     dstbReferenceInputs,
     dstbOutputs,
@@ -69,7 +76,8 @@ module Cardano.Ledger.Dijkstra.TxBody (
     dstbRequiredTopLevelGuards,
     dstbGuards,
     dstbDirectDeposits,
-    dstbAccountBalanceIntervals
+    dstbAccountBalanceIntervals,
+    dstbNetUTxODepositChange
   ),
   upgradeProposals,
   upgradeGovAction,
@@ -100,6 +108,8 @@ module Cardano.Ledger.Dijkstra.TxBody (
   directDepositsDijkstraTxBodyRawL,
   accountBalanceIntervalsDijkstraTxBodyRawL,
   startingAccountBalanceIntervalsDijkstraTxBodyRawL,
+  netUTxODepositChangeDijkstraTxBodyRawL,
+  subTxNetUTxODepositChangeDijkstraTxBodyRawL,
 ) where
 
 import Cardano.Base.Typeable (TypeName (TypeName))
@@ -111,7 +121,11 @@ import Cardano.Ledger.Babbage.TxBody (
   babbageAllInputsTxBodyF,
   babbageSpendableInputsTxBodyF,
  )
-import Cardano.Ledger.BaseTypes (Network, StrictMaybe (..), ToKeyValuePairs (..))
+import Cardano.Ledger.BaseTypes (
+  Network,
+  StrictMaybe (..),
+  ToKeyValuePairs (..),
+ )
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin, decodePositiveCoin)
@@ -130,6 +144,18 @@ import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Scripts (AccountBalanceIntervals (..), DijkstraPlutusPurpose (..))
 import Cardano.Ledger.Dijkstra.TxOut ()
+import Cardano.Ledger.Dijkstra.UTxODeposit.SubTx (
+  SubTxNetUTxODepositChange (..),
+  SubTxReleaseTarget (..),
+  SubTxUTxODepositDeclaration,
+ )
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx (
+  NetUTxODepositChange (..),
+  TopTxReleaseSettlement (..),
+  TopTxUTxODepositDeclaration,
+ )
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Keys (HasKeyRole (..))
 import Cardano.Ledger.Mary.Value (MultiAsset)
 import Cardano.Ledger.MemoBytes (
@@ -148,7 +174,7 @@ import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val (..))
 import Control.DeepSeq (NFData (..), deepseq)
-import Data.Aeson (FromJSON (..), ToJSON (..), withObject, (.:), (.=))
+import Data.Aeson (FromJSON (..), ToJSON (..), withObject, (.!=), (.:), (.:?), (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
 import Data.Coerce (coerce)
@@ -195,6 +221,7 @@ data DijkstraTxBodyRaw l era where
     , dtbrDirectDeposits :: !DirectDeposits
     , dtbrAccountBalanceIntervals :: !(AccountBalanceIntervals era)
     , dtbrStartingAccountBalanceIntervals :: !(AccountBalanceIntervals era)
+    , dtbrNetUTxODepositChange :: !TopTxUTxODepositDeclaration
     } ->
     DijkstraTxBodyRaw TopTx era
   DijkstraSubTxBodyRaw ::
@@ -216,6 +243,7 @@ data DijkstraTxBodyRaw l era where
     , dstbrRequiredTopLevelGuards :: !(Map (Credential Guard) (StrictMaybe (Data era)))
     , dstbrDirectDeposits :: !DirectDeposits
     , dstbrAccountBalanceIntervals :: !(AccountBalanceIntervals era)
+    , dstbrNetUTxODepositChange :: !SubTxUTxODepositDeclaration
     } ->
     DijkstraTxBodyRaw SubTx era
 
@@ -239,7 +267,7 @@ deriving via
     (Typeable l, EraTxBody era) => NoThunks (DijkstraTxBodyRaw l era)
 
 instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l era) where
-  rnf txBodyRaw@(DijkstraTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
+  rnf txBodyRaw@(DijkstraTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
     let DijkstraTxBodyRaw {..} = txBodyRaw
      in dtbrSpendInputs `deepseq`
           dtbrCollateralInputs `deepseq`
@@ -264,8 +292,9 @@ instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l e
                                                 dtbrRequiredTopLevelGuards `deepseq`
                                                   dtbrDirectDeposits `deepseq`
                                                     dtbrAccountBalanceIntervals `deepseq`
-                                                      rnf dtbrStartingAccountBalanceIntervals
-  rnf txBodyRaw@(DijkstraSubTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
+                                                      dtbrStartingAccountBalanceIntervals `deepseq`
+                                                        rnf dtbrNetUTxODepositChange
+  rnf txBodyRaw@(DijkstraSubTxBodyRaw _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _) =
     let DijkstraSubTxBodyRaw {..} = txBodyRaw
      in dstbrSpendInputs `deepseq`
           dstbrReferenceInputs `deepseq`
@@ -284,7 +313,8 @@ instance (EraTxBody era, NFData (Tx SubTx era)) => NFData (DijkstraTxBodyRaw l e
                                     dstbrTreasuryDonation `deepseq`
                                       dstbrRequiredTopLevelGuards `deepseq`
                                         dstbrDirectDeposits `deepseq`
-                                          rnf dstbrAccountBalanceIntervals
+                                          dstbrAccountBalanceIntervals `deepseq`
+                                            rnf dstbrNetUTxODepositChange
 
 deriving instance (EraTxBody era, Show (Tx SubTx era)) => Show (DijkstraTxBodyRaw l era)
 
@@ -315,6 +345,7 @@ basicDijkstraTxBodyRaw STopTx =
     (DirectDeposits mempty)
     (AccountBalanceIntervals mempty)
     (AccountBalanceIntervals mempty)
+    TopTx.NoUTxODepositDeclaration
 basicDijkstraTxBodyRaw SSubTx =
   DijkstraSubTxBodyRaw
     mempty
@@ -335,6 +366,7 @@ basicDijkstraTxBodyRaw SSubTx =
     mempty
     (DirectDeposits mempty)
     (AccountBalanceIntervals mempty)
+    SubTx.NoUTxODepositDeclaration
 
 instance
   ( Typeable l
@@ -468,6 +500,19 @@ instance
                     failOnNull (unAccountBalanceIntervals x) $
                       emptyNamedFailure "StartingAccountBalanceIntervals" "non-empty"
                     pure x
+        28
+          | STopTx <- sTxLevel ->
+              Just $
+                decodeAccA
+                  acc
+                  (netUTxODepositChangeDijkstraTxBodyRawL .~)
+                  (pure . TopTx.declareUTxODepositChange <$> decCBOR)
+          | SSubTx <- sTxLevel ->
+              Just $
+                decodeAccA
+                  acc
+                  (subTxNetUTxODepositChangeDijkstraTxBodyRawL .~)
+                  (pure . SubTx.declareUTxODepositChange <$> decCBOR)
         _ -> Nothing
       decodeSubTransactions :: Decoder s (Annotator (OMap TxId (Tx SubTx era)))
       decodeSubTransactions =
@@ -518,6 +563,7 @@ encodeTxBodyRaw DijkstraTxBodyRaw {..} =
         !> Omit (null . unDirectDeposits) (Key 25 (To dtbrDirectDeposits))
         !> Omit (null . unAccountBalanceIntervals) (Key 26 (To dtbrAccountBalanceIntervals))
         !> Omit (null . unAccountBalanceIntervals) (Key 27 (To dtbrStartingAccountBalanceIntervals))
+        !> TopTx.encodeKeyedUTxODepositDeclaration 28 dtbrNetUTxODepositChange
 encodeTxBodyRaw DijkstraSubTxBodyRaw {..} =
   let ValidityInterval bot top = dstbrVldt
    in Keyed
@@ -545,6 +591,7 @@ encodeTxBodyRaw DijkstraSubTxBodyRaw {..} =
           (Key 24 $ E (encodeMap encCBOR (encodeNullStrictMaybe encCBOR)) dstbrRequiredTopLevelGuards)
         !> Omit (null . unDirectDeposits) (Key 25 (To dstbrDirectDeposits))
         !> Omit (null . unAccountBalanceIntervals) (Key 26 (To dstbrAccountBalanceIntervals))
+        !> SubTx.encodeKeyedUTxODepositDeclaration 28 dstbrNetUTxODepositChange
 
 instance
   ( EraTxBody era
@@ -604,8 +651,7 @@ deriving instance
   Show (TxBody l DijkstraEra)
 
 instance
-  ( ToJSON (TxOut DijkstraEra)
-  , ToJSON (Tx SubTx DijkstraEra)
+  ( ToJSON (Tx SubTx DijkstraEra)
   , OMap.HasOKey TxId (Tx SubTx DijkstraEra)
   ) =>
   ToKeyValuePairs (TxBody TopTx DijkstraEra)
@@ -636,6 +682,7 @@ instance
           , dtbrDirectDeposits
           , dtbrAccountBalanceIntervals
           , dtbrStartingAccountBalanceIntervals
+          , dtbrNetUTxODepositChange
           } = getMemoRawType txb
      in [ "inputs" .= Set.toList dtbrSpendInputs
         , "collateral" .= Set.toList dtbrCollateralInputs
@@ -661,21 +708,18 @@ instance
         , "directDeposits" .= dtbrDirectDeposits
         , "accountBalanceIntervals" .= dtbrAccountBalanceIntervals
         , "startingAccountBalanceIntervals" .= dtbrStartingAccountBalanceIntervals
+        , "netUTxODepositChange" .= dtbrNetUTxODepositChange
         ]
 
 instance
-  ( ToJSON (TxOut DijkstraEra)
-  , ToJSON (Tx SubTx DijkstraEra)
+  ( ToJSON (Tx SubTx DijkstraEra)
   , OMap.HasOKey TxId (Tx SubTx DijkstraEra)
   ) =>
   ToJSON (TxBody TopTx DijkstraEra)
   where
   toJSON = Aeson.object . toKeyValuePairs
 
-instance
-  ToJSON (TxOut DijkstraEra) =>
-  ToKeyValuePairs (TxBody SubTx DijkstraEra)
-  where
+instance ToKeyValuePairs (TxBody SubTx DijkstraEra) where
   toKeyValuePairs txb =
     let DijkstraSubTxBodyRaw
           { dstbrSpendInputs
@@ -696,6 +740,7 @@ instance
           , dstbrRequiredTopLevelGuards
           , dstbrDirectDeposits
           , dstbrAccountBalanceIntervals
+          , dstbrNetUTxODepositChange
           } = getMemoRawType txb
      in [ "inputs" .= Set.toList dstbrSpendInputs
         , "referenceInputs" .= Set.toList dstbrReferenceInputs
@@ -715,12 +760,10 @@ instance
         , "requiredTopLevelGuards" .= dstbrRequiredTopLevelGuards
         , "directDeposits" .= dstbrDirectDeposits
         , "accountBalanceIntervals" .= dstbrAccountBalanceIntervals
+        , "netUTxODepositChange" .= dstbrNetUTxODepositChange
         ]
 
-instance
-  ToJSON (TxOut DijkstraEra) =>
-  ToJSON (TxBody SubTx DijkstraEra)
-  where
+instance ToJSON (TxBody SubTx DijkstraEra) where
   toJSON = Aeson.object . toKeyValuePairs
 
 instance
@@ -761,6 +804,7 @@ instance
       <*> o .: "directDeposits"
       <*> o .: "accountBalanceIntervals"
       <*> o .: "startingAccountBalanceIntervals"
+      <*> (o .:? "netUTxODepositChange" .!= TopTx.NoUTxODepositDeclaration)
 
 instance
   ( FromJSON (TxOut DijkstraEra)
@@ -795,6 +839,7 @@ instance
       <*> o .: "requiredTopLevelGuards"
       <*> o .: "directDeposits"
       <*> o .: "accountBalanceIntervals"
+      <*> (o .:? "netUTxODepositChange" .!= SubTx.NoUTxODepositDeclaration)
 
 pattern DijkstraTxBody ::
   ( Eq (Tx SubTx DijkstraEra)
@@ -830,6 +875,7 @@ pattern DijkstraTxBody ::
   DirectDeposits ->
   AccountBalanceIntervals DijkstraEra ->
   AccountBalanceIntervals DijkstraEra ->
+  TopTxUTxODepositDeclaration ->
   TxBody TopTx DijkstraEra
 pattern DijkstraTxBody
   { dtbSpendInputs
@@ -856,6 +902,7 @@ pattern DijkstraTxBody
   , dtbDirectDeposits
   , dtbAccountBalanceIntervals
   , dtbStartingAccountBalanceIntervals
+  , dtbNetUTxODepositChange
   } <-
   ( getMemoRawType ->
       DijkstraTxBodyRaw
@@ -883,6 +930,7 @@ pattern DijkstraTxBody
         , dtbrDirectDeposits = dtbDirectDeposits
         , dtbrAccountBalanceIntervals = dtbAccountBalanceIntervals
         , dtbrStartingAccountBalanceIntervals = dtbStartingAccountBalanceIntervals
+        , dtbrNetUTxODepositChange = dtbNetUTxODepositChange
         }
     )
   where
@@ -910,7 +958,8 @@ pattern DijkstraTxBody
       requiredTopLevelGuards
       directDeposits
       accountBalanceIntervals
-      startingAccountBalanceIntervals =
+      startingAccountBalanceIntervals
+      netUTxODepositChange =
         mkMemoizedEra @DijkstraEra $
           DijkstraTxBodyRaw
             inputsX
@@ -937,6 +986,7 @@ pattern DijkstraTxBody
             directDeposits
             accountBalanceIntervals
             startingAccountBalanceIntervals
+            netUTxODepositChange
 
 pattern DijkstraSubTxBody ::
   ( Eq (Tx SubTx DijkstraEra)
@@ -966,6 +1016,7 @@ pattern DijkstraSubTxBody ::
   Map (Credential Guard) (StrictMaybe (Data DijkstraEra)) ->
   DirectDeposits ->
   AccountBalanceIntervals DijkstraEra ->
+  SubTxUTxODepositDeclaration ->
   TxBody SubTx DijkstraEra
 pattern DijkstraSubTxBody
   { dstbSpendInputs
@@ -986,6 +1037,7 @@ pattern DijkstraSubTxBody
   , dstbRequiredTopLevelGuards
   , dstbDirectDeposits
   , dstbAccountBalanceIntervals
+  , dstbNetUTxODepositChange
   } <-
   ( getMemoRawType ->
       DijkstraSubTxBodyRaw
@@ -1007,6 +1059,7 @@ pattern DijkstraSubTxBody
         , dstbrRequiredTopLevelGuards = dstbRequiredTopLevelGuards
         , dstbrDirectDeposits = dstbDirectDeposits
         , dstbrAccountBalanceIntervals = dstbAccountBalanceIntervals
+        , dstbrNetUTxODepositChange = dstbNetUTxODepositChange
         }
     )
   where
@@ -1028,7 +1081,8 @@ pattern DijkstraSubTxBody
       treasuryDonation
       requiredTopLevelGuards
       directDeposits
-      accountBalanceIntervals =
+      accountBalanceIntervals
+      netUTxODepositChange =
         mkMemoizedEra @DijkstraEra $
           DijkstraSubTxBodyRaw
             inputsX
@@ -1049,6 +1103,7 @@ pattern DijkstraSubTxBody
             requiredTopLevelGuards
             directDeposits
             accountBalanceIntervals
+            netUTxODepositChange
 
 {-# COMPLETE DijkstraTxBody, DijkstraSubTxBody #-}
 
@@ -1180,6 +1235,16 @@ startingAccountBalanceIntervalsDijkstraTxBodyRawL ::
 startingAccountBalanceIntervalsDijkstraTxBodyRawL =
   lens dtbrStartingAccountBalanceIntervals $
     \txb x -> txb {dtbrStartingAccountBalanceIntervals = x}
+
+netUTxODepositChangeDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw TopTx era) TopTxUTxODepositDeclaration
+netUTxODepositChangeDijkstraTxBodyRawL =
+  lens dtbrNetUTxODepositChange $ \txBody change -> txBody {dtbrNetUTxODepositChange = change}
+
+subTxNetUTxODepositChangeDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw SubTx era) SubTxUTxODepositDeclaration
+subTxNetUTxODepositChangeDijkstraTxBodyRawL =
+  lens dstbrNetUTxODepositChange $ \txBody change -> txBody {dstbrNetUTxODepositChange = change}
 
 instance
   ( Eq (Tx SubTx DijkstraEra)
@@ -1593,6 +1658,15 @@ class
 
   startingAccountBalanceIntervalsTxBodyL :: Lens' (TxBody TopTx era) (AccountBalanceIntervals era)
 
+  -- | The net UTxO capacity deposit change for the entire transaction batch.
+  -- Any TopTx settlement index refers to TopTx's own outputs.
+  netUTxODepositChangeTxBodyL :: Lens' (TxBody TopTx era) TopTxUTxODepositDeclaration
+
+  -- | A sub-transaction's explicit net UTxO capacity deposit change, including
+  -- allocation funding or release accounting delegated to TopTx.
+  -- 'SubTx.NoUTxODepositDeclaration' never implies delegation.
+  subTxNetUTxODepositChangeTxBodyL :: Lens' (TxBody SubTx era) SubTxUTxODepositDeclaration
+
 guardsDijkstraTxBodyRawL :: Lens' (DijkstraTxBodyRaw l era) (OSet (Credential Guard))
 guardsDijkstraTxBodyRawL =
   lens
@@ -1649,6 +1723,12 @@ instance
 
   startingAccountBalanceIntervalsTxBodyL = memoRawTypeL @DijkstraEra . startingAccountBalanceIntervalsDijkstraTxBodyRawL
   {-# INLINE startingAccountBalanceIntervalsTxBodyL #-}
+
+  netUTxODepositChangeTxBodyL = memoRawTypeL @DijkstraEra . netUTxODepositChangeDijkstraTxBodyRawL
+  {-# INLINE netUTxODepositChangeTxBodyL #-}
+
+  subTxNetUTxODepositChangeTxBodyL = memoRawTypeL @DijkstraEra . subTxNetUTxODepositChangeDijkstraTxBodyRawL
+  {-# INLINE subTxNetUTxODepositChangeTxBodyL #-}
 
 -- | Decoder for decoding guards in a backwards-compatible manner. It peeks at
 -- the first element and if it's a credential, it decodes the rest of the

@@ -49,6 +49,9 @@ import Type.Reflection (Typeable, typeRep)
 -- Coin
 instance ToExpr Coin
 
+instance ToExpr PositiveCoin where
+  toExpr coin = App "PositiveCoin" [toExpr $ unPositiveCoin coin]
+
 instance ToExpr DeltaCoin
 
 instance ToExpr (CompactForm Coin) where

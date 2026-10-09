@@ -1,5 +1,9 @@
 # Version history for `cardano-ledger-core`
 
+## 1.22.0.1
+
+* Add abstract `PositiveCoin` with checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkPositiveCoin` and `unPositiveCoin`.
+
 ## 1.22.0.0
 
 * Add `addVRFKeyHashOccurrence`, `removeVRFKeyHashOccurrence` and `populateVRFKeyHashes` to `Cardano.Ledger.State.CertState`

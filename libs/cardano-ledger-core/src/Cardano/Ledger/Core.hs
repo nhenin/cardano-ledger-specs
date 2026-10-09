@@ -2,14 +2,18 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -31,11 +35,14 @@ module Cardano.Ledger.Core (
   -- * Era-changing types
   EraTx (..),
   txIdTx,
+  TxOut (..),
+  NoStoreBackedTxOut,
   EraTxOut (..),
+  EraImplicitDepositTxOut (..),
+  EraStoreBackedTxOut (..),
+  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithStoreBackedDeposit,
   bootAddrTxOutF,
-  coinTxOutL,
-  compactCoinTxOutL,
-  isAdaOnlyTxOutF,
   EraTxBody (..),
   txIdTxBody,
   EraTxAuxData (..),
@@ -48,6 +55,8 @@ module Cardano.Ledger.Core (
   hashScriptTxWitsL,
   keyHashWitnessesTxWits,
   Value,
+  Assets (..),
+  ApplicationAssets (..),
   EraPParams (..),
   mkCoinTxOut,
   wireSizeTxF,
@@ -121,6 +130,7 @@ import Control.Monad.Trans.Fail.String (errorFail)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Coerce (coerce)
 import Data.Kind (Type)
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
@@ -296,9 +306,19 @@ class
   getGenesisKeyHashCountTxBody :: TxBody TopTx era -> Int
   getGenesisKeyHashCountTxBody _ = 0
 
--- | Abstract interface into specific fields of a `TxOut`
+-- | An output whose capacity deposit is included in its value or held in a
+-- separate deposit store. Each era defines the representation of both variants.
+data TxOut era
+  = ImplicitDepositTxOut !(ImplicitDepositTxOut era)
+  | StoreBackedTxOut !(StoreBackedTxOut era)
+
+-- | Uninhabited representation for eras that do not support store-backed outputs.
+data NoStoreBackedTxOut era
+
+-- | Both output interfaces and the operations shared by their variants.
 class
-  ( Val (Value era)
+  ( EraImplicitDepositTxOut era
+  , EraStoreBackedTxOut era
   , FromJSON (TxOut era)
   , ToJSON (TxOut era)
   , DecCBOR (Value era)
@@ -315,49 +335,19 @@ class
   , Eq (TxOut era)
   , Ord (TxOut era)
   , MemPack (TxOut era)
-  , EraPParams era
   ) =>
   EraTxOut era
   where
-  -- | The output of a UTxO for a particular era
-  type TxOut era = (r :: Type) | r -> era
+  -- | An output whose value includes its implicit capacity deposit.
+  type ImplicitDepositTxOut era = (r :: Type) | r -> era
 
-  {-# MINIMAL
-    mkBasicTxOut
-    , upgradeTxOut
-    , valueEitherTxOutL
-    , addrEitherTxOutL
-    , (getMinCoinSizedTxOut | getMinCoinTxOut)
-    #-}
+  -- | An output whose capacity deposit is held in a separate deposit store.
+  type StoreBackedTxOut era = (r :: Type) | r -> era
 
-  mkBasicTxOut :: HasCallStack => Addr -> Value era -> TxOut era
+  {-# MINIMAL upgradeTxOut, addrEitherTxOutL #-}
 
   -- | Every era, except Shelley, must be able to upgrade a `TxOut` from a previous era.
   upgradeTxOut :: EraTxOut (PreviousEra era) => TxOut (PreviousEra era) -> TxOut era
-
-  valueTxOutL :: Lens' (TxOut era) (Value era)
-  valueTxOutL =
-    lens
-      ( \txOut -> case txOut ^. valueEitherTxOutL of
-          Left value -> value
-          Right cValue -> fromCompact cValue
-      )
-      (\txOut value -> txOut & valueEitherTxOutL .~ Left value)
-  {-# INLINE valueTxOutL #-}
-
-  compactValueTxOutL :: HasCallStack => Lens' (TxOut era) (CompactForm (Value era))
-  compactValueTxOutL =
-    lens
-      ( \txOut -> case txOut ^. valueEitherTxOutL of
-          Left value -> toCompactPartial value
-          Right cValue -> cValue
-      )
-      (\txOut cValue -> txOut & valueEitherTxOutL .~ Right cValue)
-  {-# INLINE compactValueTxOutL #-}
-
-  -- | Lens for getting and setting in TxOut either an address or its compact
-  -- version by doing the least amount of work.
-  valueEitherTxOutL :: Lens' (TxOut era) (Either (Value era) (CompactForm (Value era)))
 
   addrTxOutL :: Lens' (TxOut era) Addr
   addrTxOutL =
@@ -390,20 +380,141 @@ class
   -- conversions (eg. searching millions of TxOuts for a particular address)
   addrEitherTxOutL :: Lens' (TxOut era) (Either Addr CompactAddr)
 
+  -- | Read or replace the ADA held in either output variant, including any
+  -- implicit deposit. Deposits held in the separate store are outside this lens.
+  coinTxOutL :: HasCallStack => Lens' (TxOut era) Coin
+  coinTxOutL =
+    lens
+      ( \case
+          ImplicitDepositTxOut txOut ->
+            case txOut ^. valueEitherTxOutL of
+              Left value -> coin value
+              Right compactValue -> fromCompact (coinCompact compactValue)
+          StoreBackedTxOut txOut ->
+            case txOut ^. applicationAssetsTxOutL of
+              ApplicationAssets assets -> coin assets
+      )
+      ( \output amount -> case output of
+          ImplicitDepositTxOut txOut ->
+            ImplicitDepositTxOut $
+              case txOut ^. valueEitherTxOutL of
+                Left value -> txOut & valueTxOutL .~ modifyCoin (const amount) value
+                Right compactValue ->
+                  txOut & compactValueTxOutL .~ modifyCompactCoin (const (toCompactPartial amount)) compactValue
+          StoreBackedTxOut txOut ->
+            StoreBackedTxOut $
+              case txOut ^. applicationAssetsTxOutL of
+                ApplicationAssets assets ->
+                  txOut & applicationAssetsTxOutL .~ ApplicationAssets (modifyCoin (const amount) assets)
+      )
+  {-# INLINE coinTxOutL #-}
+
+  -- | Read or replace the same ADA amount in its compact representation.
+  compactCoinTxOutL :: HasCallStack => Lens' (TxOut era) (CompactForm Coin)
+  compactCoinTxOutL =
+    lens
+      (toCompactPartial . (^. coinTxOutL))
+      (\txOut compactCoin -> txOut & coinTxOutL .~ fromCompact compactCoin)
+  {-# INLINE compactCoinTxOutL #-}
+
+  -- | Check whether either output variant contains ADA only.
+  isAdaOnlyTxOutF :: SimpleGetter (TxOut era) Bool
+  isAdaOnlyTxOutF = to $ \case
+    ImplicitDepositTxOut txOut ->
+      case txOut ^. valueEitherTxOutL of
+        Left value -> isAdaOnly value
+        Right compactValue -> isAdaOnlyCompact compactValue
+    StoreBackedTxOut txOut ->
+      isAdaOnly (coerce (txOut ^. applicationAssetsTxOutL) :: Value era)
+  {-# INLINE isAdaOnlyTxOutF #-}
+
+-- | Construct and inspect outputs whose value includes an implicit capacity deposit.
+class
+  ( EraPParams era
+  , Val (Value era)
+  , EncCBOR (ImplicitDepositTxOut era)
+  ) =>
+  EraImplicitDepositTxOut era
+  where
+  {-# MINIMAL
+    mkBasicImplicitDepositTxOut
+    , valueEitherTxOutL
+    , (getMinCoinSizedTxOut | getMinCoinTxOut)
+    #-}
+
+  mkBasicImplicitDepositTxOut :: HasCallStack => Addr -> Value era -> ImplicitDepositTxOut era
+
+  valueTxOutL :: Lens' (ImplicitDepositTxOut era) (Value era)
+  valueTxOutL =
+    lens
+      ( \txOut -> case txOut ^. valueEitherTxOutL of
+          Left value -> value
+          Right cValue -> fromCompact cValue
+      )
+      (\txOut value -> txOut & valueEitherTxOutL .~ Left value)
+  {-# INLINE valueTxOutL #-}
+
+  compactValueTxOutL :: HasCallStack => Lens' (ImplicitDepositTxOut era) (CompactForm (Value era))
+  compactValueTxOutL =
+    lens
+      ( \txOut -> case txOut ^. valueEitherTxOutL of
+          Left value -> toCompactPartial value
+          Right cValue -> cValue
+      )
+      (\txOut cValue -> txOut & valueEitherTxOutL .~ Right cValue)
+  {-# INLINE compactValueTxOutL #-}
+
+  -- | Read or replace the value, including its implicit deposit, in either
+  -- its unpacked or compact representation.
+  valueEitherTxOutL :: Lens' (ImplicitDepositTxOut era) (Either (Value era) (CompactForm (Value era)))
+
   -- | Produce the minimum lovelace that a given transaction output must
   -- contain. Information about the size of the TxOut is required in some eras.
   -- Use `getMinCoinTxOut` if you don't have the size readily available to you.
-  getMinCoinSizedTxOut :: PParams era -> Sized (TxOut era) -> Coin
+  getMinCoinSizedTxOut :: PParams era -> Sized (ImplicitDepositTxOut era) -> Coin
   getMinCoinSizedTxOut pp = getMinCoinTxOut pp . sizedValue
 
   -- | Same as `getMinCoinSizedTxOut`, except information about the size of
   -- TxOut will be computed by serializing the TxOut. If the size turns out to
   -- be not needed, then serialization will have no overhead, since it is
   -- computed lazily.
-  getMinCoinTxOut :: PParams era -> TxOut era -> Coin
+  getMinCoinTxOut :: PParams era -> ImplicitDepositTxOut era -> Coin
   getMinCoinTxOut pp txOut =
     let ProtVer version _ = pp ^. ppProtocolVersionL
      in getMinCoinSizedTxOut pp (mkSized version txOut)
+
+-- | Construct and inspect outputs whose capacity deposit is held in a separate
+-- store. Their value contains application assets only.
+class EraStoreBackedTxOut era where
+  {-# MINIMAL mkBasicStoreBackedTxOut, applicationAssetsTxOutL #-}
+
+  -- | Construct an output from an address and its application assets, from Dijkstra onwards.
+  mkBasicStoreBackedTxOut ::
+    (HasCallStack, AtLeastEra "Dijkstra" era) =>
+    Addr ->
+    ApplicationAssets era ->
+    StoreBackedTxOut era
+
+  -- | Read or replace application assets without accessing the deposit store.
+  applicationAssetsTxOutL :: Lens' (StoreBackedTxOut era) (ApplicationAssets era)
+
+-- | Construct a transaction output whose value includes its implicit deposit.
+mkBasicTxOutWithImplicitDeposit ::
+  (EraImplicitDepositTxOut era, HasCallStack) =>
+  Addr ->
+  Value era ->
+  TxOut era
+mkBasicTxOutWithImplicitDeposit address =
+  ImplicitDepositTxOut . mkBasicImplicitDepositTxOut address
+
+-- | Construct a transaction output whose capacity deposit is held in a separate store.
+mkBasicTxOutWithStoreBackedDeposit ::
+  (EraStoreBackedTxOut era, AtLeastEra "Dijkstra" era, HasCallStack) =>
+  Addr ->
+  ApplicationAssets era ->
+  TxOut era
+mkBasicTxOutWithStoreBackedDeposit address =
+  StoreBackedTxOut . mkBasicStoreBackedTxOut address
 
 bootAddrTxOutF ::
   EraTxOut era => SimpleGetter (TxOut era) (Maybe BootstrapAddress)
@@ -417,56 +528,40 @@ bootAddrTxOutF = to $ \txOut ->
     _ -> Nothing
 {-# INLINE bootAddrTxOutF #-}
 
-coinTxOutL :: (HasCallStack, EraTxOut era) => Lens' (TxOut era) Coin
-coinTxOutL =
-  lens
-    ( \txOut ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> coin val
-          Right cVal -> fromCompact (coinCompact cVal)
-    )
-    ( \txOut c ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> txOut & valueTxOutL .~ modifyCoin (const c) val
-          Right cVal ->
-            txOut & compactValueTxOutL .~ modifyCompactCoin (const (toCompactPartial c)) cVal
-    )
-{-# INLINE coinTxOutL #-}
-
-compactCoinTxOutL :: (HasCallStack, EraTxOut era) => Lens' (TxOut era) (CompactForm Coin)
-compactCoinTxOutL =
-  lens
-    ( \txOut ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> toCompactPartial (coin val)
-          Right cVal -> coinCompact cVal
-    )
-    ( \txOut cCoin ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> txOut & valueTxOutL .~ modifyCoin (const (fromCompact cCoin)) val
-          Right cVal ->
-            txOut & compactValueTxOutL .~ modifyCompactCoin (const cCoin) cVal
-    )
-{-# INLINE compactCoinTxOutL #-}
-
--- | This is a getter that implements an efficient way to check whether 'TxOut'
--- contains ADA only.
-isAdaOnlyTxOutF :: EraTxOut era => SimpleGetter (TxOut era) Bool
-isAdaOnlyTxOutF = to $ \txOut ->
-  case txOut ^. valueEitherTxOutL of
-    Left val -> isAdaOnly val
-    Right cVal -> isAdaOnlyCompact cVal
-
 toCompactPartial :: (HasCallStack, Val a) => a -> CompactForm a
 toCompactPartial v =
   fromMaybe (error $ "Illegal value in TxOut: " <> show v) $ toCompact v
 
--- A version of mkBasicTxOut, which has only a Coin (no multiAssets) for every EraTxOut era.
-mkCoinTxOut :: EraTxOut era => Addr -> Coin -> TxOut era
-mkCoinTxOut addr = mkBasicTxOut addr . inject
+-- | Construct an ADA-only output whose coin includes its implicit deposit.
+mkCoinTxOut :: EraImplicitDepositTxOut era => Addr -> Coin -> ImplicitDepositTxOut era
+mkCoinTxOut addr = mkBasicImplicitDepositTxOut addr . inject
 
 -- | A value is something which quantifies a transaction output.
 type family Value era :: Type
+
+-- | Assets that may include an implicit capacity deposit.
+newtype Assets era = Assets {unAssets :: Value era}
+
+deriving newtype instance NFData (Value era) => NFData (Assets era)
+
+deriving newtype instance Semigroup (Value era) => Semigroup (Assets era)
+
+deriving newtype instance Monoid (Value era) => Monoid (Assets era)
+
+-- | Application assets, excluding the capacity deposit held in a separate store.
+newtype ApplicationAssets era = ApplicationAssets {unApplicationAssets :: (Value era)}
+
+deriving newtype instance Eq (Value era) => Eq (ApplicationAssets era)
+
+deriving newtype instance Ord (Value era) => Ord (ApplicationAssets era)
+
+deriving stock instance Show (Value era) => Show (ApplicationAssets era)
+
+deriving newtype instance NFData (Value era) => NFData (ApplicationAssets era)
+
+deriving newtype instance Semigroup (Value era) => Semigroup (ApplicationAssets era)
+
+deriving newtype instance Monoid (Value era) => Monoid (ApplicationAssets era)
 
 -- | TxAuxData which may be attached to a transaction
 class

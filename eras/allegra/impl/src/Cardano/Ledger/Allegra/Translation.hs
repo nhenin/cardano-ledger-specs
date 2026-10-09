@@ -27,7 +27,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   returnRedeemAddrsToReserves,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
-import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut)
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
@@ -104,7 +103,7 @@ instance TranslateEra AllegraEra ShelleyGovState where
         , sgsFuturePParams = translateEra' ctxt $ sgsFuturePParams ps
         }
 
-instance TranslateEra AllegraEra ShelleyTxOut where
+instance TranslateEra AllegraEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
 instance TranslateEra AllegraEra UTxO where

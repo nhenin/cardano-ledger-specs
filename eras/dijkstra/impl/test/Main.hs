@@ -28,6 +28,7 @@ import Test.Cardano.Ledger.Dijkstra.Binary.RoundTrip ()
 import qualified Test.Cardano.Ledger.Dijkstra.GenesisSpec as GenesisSpec
 import qualified Test.Cardano.Ledger.Dijkstra.GoldenSpec as GoldenSpec
 import qualified Test.Cardano.Ledger.Dijkstra.Imp as Imp
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec as DepositStore
 import Test.Cardano.Ledger.Dijkstra.ImpTest ()
 import qualified Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec as PlutusSpec
 import qualified Test.Cardano.Ledger.Dijkstra.TxInfoSpec as DijkstraTxInfoSpec
@@ -40,6 +41,7 @@ instance EraSpec DijkstraEra where
 main :: IO ()
 main =
   ledgerEraTestMain @DijkstraEra $ do
+    DepositStore.spec
     describe "RoundTrip" $ do
       roundTripConwayCommonSpec @DijkstraEra
       prop "Block (Leios.Header)" $

@@ -1,5 +1,12 @@
 # Version history for `cardano-ledger-api`
 
+## 1.15.0.1
+
+* Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
+* Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
+* Re-export abstract `PositiveCoin`, `mkPositiveCoin`, and `unPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
+* Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
+
 ## 1.15.0.0
 
 * Add `ssLeiosCommittee` to `StakeSnapshots`: the Leios voting committee seated on the `set` snapshot, in seat order, each seat attributed to its pool and carrying the pool's registered key with its registration epoch and whether that key is still honoured. Adds `QueryLeiosSeat`
