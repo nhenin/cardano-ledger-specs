@@ -3,8 +3,10 @@
 module Cardano.Ledger.Dijkstra.Core (
   DijkstraEraTxBody (..),
   NetUTxODepositChange (..),
+  TopTxUTxODepositDeclaration,
   TopTxReleaseSettlement (..),
   SubTxNetUTxODepositChange (..),
+  SubTxUTxODepositDeclaration,
   SubTxReleaseTarget (..),
   DijkstraBlockBody (..),
   module Cardano.Ledger.Conway.Core,
@@ -21,5 +23,7 @@ import Cardano.Ledger.Dijkstra.TxBody (
   NetUTxODepositChange (..),
   SubTxNetUTxODepositChange (..),
   SubTxReleaseTarget (..),
+  SubTxUTxODepositDeclaration,
   TopTxReleaseSettlement (..),
+  TopTxUTxODepositDeclaration,
  )
