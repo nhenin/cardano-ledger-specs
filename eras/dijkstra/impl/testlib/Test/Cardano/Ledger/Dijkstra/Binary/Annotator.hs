@@ -31,6 +31,8 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Scripts
 import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
 import Cardano.Ledger.Dijkstra.TxBody
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.MemoBytes (decodeMemoized)
 import Control.Monad (when)
 import Data.Coerce (coerce)
@@ -150,10 +152,10 @@ instance Typeable l => DecCBOR (DijkstraTxBodyRaw l DijkstraEra) where
           pure $ startingAccountBalanceIntervalsDijkstraTxBodyRawL .~ x $ acc
         28 | STopTx <- sTxLevel -> Just $ do
           x <- decCBOR
-          pure $ netUTxODepositChangeDijkstraTxBodyRawL .~ SJust x $ acc
+          pure $ netUTxODepositChangeDijkstraTxBodyRawL .~ TopTx.declareUTxODepositChange x $ acc
         28 | SSubTx <- sTxLevel -> Just $ do
           x <- decCBOR
-          pure $ subTxNetUTxODepositChangeDijkstraTxBodyRawL .~ SJust x $ acc
+          pure $ subTxNetUTxODepositChangeDijkstraTxBodyRawL .~ SubTx.declareUTxODepositChange x $ acc
         _ -> Nothing
       {-# INLINE decoderByKey #-}
 

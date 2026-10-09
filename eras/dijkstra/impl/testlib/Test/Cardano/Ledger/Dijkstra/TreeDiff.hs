@@ -66,6 +66,8 @@ import Cardano.Ledger.Dijkstra.TxBody (
  )
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Control.State.Transition (STS (..))
 import Data.Functor.Identity (Identity)
 import qualified Data.TreeDiff.OMap as OMap
@@ -106,6 +108,26 @@ instance ToExpr SubTxNetUTxODepositChange
 instance ToExpr NetUTxODepositChange
 
 instance ToExpr TopTxReleaseSettlement
+
+instance ToExpr TopTx.TopTxUTxODepositDeclaration where
+  toExpr = \case
+    TopTx.NoUTxODepositDeclaration -> App "TopTx.NoUTxODepositDeclaration" []
+    TopTx.DeclaresZeroNetUTxODeposit -> App "TopTx.DeclaresZeroNetUTxODeposit" []
+    TopTx.DeclaresNetUTxODepositAllocation amount ->
+      App "TopTx.DeclaresNetUTxODepositAllocation" [toExpr amount]
+    TopTx.DeclaresNetUTxODepositRelease amount settlement ->
+      App "TopTx.DeclaresNetUTxODepositRelease" [toExpr amount, toExpr settlement]
+
+instance ToExpr SubTx.SubTxUTxODepositDeclaration where
+  toExpr = \case
+    SubTx.NoUTxODepositDeclaration -> App "SubTx.NoUTxODepositDeclaration" []
+    SubTx.DeclaresZeroNetUTxODeposit -> App "SubTx.DeclaresZeroNetUTxODeposit" []
+    SubTx.DeclaresNetUTxODepositAllocation amount ->
+      App "SubTx.DeclaresNetUTxODepositAllocation" [toExpr amount]
+    SubTx.RequestsUTxODepositFromTopTx amount ->
+      App "SubTx.RequestsUTxODepositFromTopTx" [toExpr amount]
+    SubTx.DeclaresNetUTxODepositRelease amount target ->
+      App "SubTx.DeclaresNetUTxODepositRelease" [toExpr amount, toExpr target]
 
 instance ToExpr (DijkstraTxBodyRaw l DijkstraEra) where
   toExpr = \case

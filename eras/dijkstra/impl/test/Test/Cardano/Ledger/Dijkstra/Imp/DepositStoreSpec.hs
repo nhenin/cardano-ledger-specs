@@ -24,10 +24,11 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.TopTxSettlemen
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ValueConservationSpec as ValueConservation
 
 -- | Executable backlog for docs/dijkstra-deposit-store-rules.md.
--- Each domain rule owns its properties and concrete cases. Every assertion
--- deliberately fails until implemented against the ledger; these placeholders
--- do not exercise ledger validation yet. All other ledger rules are assumed
--- satisfied in each case.
+-- Each domain rule owns its properties and concrete cases. DS-TX-009 exercises
+-- declaration presence through ledger scenarios and isolated validator checks;
+-- its focused tests pass. The other 163 assertions deliberately fail until
+-- implemented. Deposit amount, funding and Store state accounting remain pending.
+-- All other ledger rules are assumed satisfied in each case.
 --
 -- Compare ledger decisions and observed state with independent model results.
 -- Do not turn a model definition into a test that merely compares it to itself.

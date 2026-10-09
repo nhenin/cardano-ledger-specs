@@ -6,8 +6,9 @@ added as their business meaning is agreed.
 
 The baseline rules were agreed on 5 and 6 October 2026. DS-TX-007 also records the
 subsequent local-release clarification and its open settlement question. The transaction
-interfaces and codecs exist; enforcement of these rules in the ledger is **not
-implemented yet**.
+interfaces and codecs exist. DS-TX-009 declaration presence is implemented in the ledger,
+with its focused verification passing. Deposit amounts, funding and Store state accounting remain
+unenforced.
 
 ## Mathematical domain model
 
@@ -44,29 +45,48 @@ can offset a new allocation in the same batch, without ADA leaving the DepositSt
 Declarations describe **net allocation**, **net release** or **no net change**, at the
 body or batch scope defined below.
 
-The API uses `UTxODeposit` for the domain term **UTxO capacity deposit**:
+The API uses `UTxODeposit` for the domain term **UTxO capacity deposit**. Domain code
+uses two qualified modules:
+
+```haskell
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+```
+
+`TopTx.TopTxUTxODepositDeclaration` and `SubTx.SubTxUTxODepositDeclaration` are distinct
+newtypes. Their patterns express absence, explicit zero and nonzero declarations at
+the appropriate body level:
 
 | Domain term | API spelling |
 | --- | --- |
-| TopTx batch net change | `NetUTxODepositChange` |
-| TopTx net allocation | `AllocateUTxODeposit` |
-| TopTx net release and settlement | `ReleaseUTxODeposit`, `TopTxReleaseSettlement` |
-| TopTx no net change | `NoUTxODepositChange` |
-| TopTx settlement participation | `NoTopTxSettlement` or `TopTxSettlementOutput` |
-| SubTx net change | `SubTxNetUTxODepositChange` |
-| SubTx net allocation, accounted locally | `SubTxAllocateUTxODeposit` |
-| SubTx net allocation, funding delegated to TopTx | `SubTxRequestUTxODepositFromTopTx` |
-| SubTx net release and settlement | `SubTxReleaseUTxODeposit`, `SubTxReleaseTarget` |
-| SubTx no net change | `SubTxNoUTxODepositChange` |
-| SubTx settlement destination | `SubTxSettlementOutput` or `DelegateToTopTx` |
+| TopTx batch declaration | `TopTx.TopTxUTxODepositDeclaration` |
+| No TopTx declaration | `TopTx.NoUTxODepositDeclaration` |
+| TopTx net allocation | `TopTx.DeclaresNetUTxODepositAllocation amount` |
+| TopTx net release and settlement | `TopTx.DeclaresNetUTxODepositRelease amount settlement` |
+| TopTx explicit zero | `TopTx.DeclaresZeroNetUTxODeposit` |
+| TopTx settlement participation | `NoTopTxSettlement` or `TopTxSettlementOutput index` |
+| SubTx contribution declaration | `SubTx.SubTxUTxODepositDeclaration` |
+| No SubTx declaration | `SubTx.NoUTxODepositDeclaration` |
+| SubTx net allocation, accounted locally | `SubTx.DeclaresNetUTxODepositAllocation amount` |
+| SubTx net allocation, funding delegated to TopTx | `SubTx.RequestsUTxODepositFromTopTx amount` |
+| SubTx net release and settlement | `SubTx.DeclaresNetUTxODepositRelease amount target` |
+| SubTx explicit zero | `SubTx.DeclaresZeroNetUTxODeposit` |
+| SubTx settlement destination | `SubTxSettlementOutput index` or `DelegateToTopTx` |
 
-These names preserve the same operations and accounting rules. The Haskell API and
-JSON names use this terminology: the body field is `netUTxODepositChange`, and the
-operation kinds are `allocate`, `release`, `noChange` and, for SubTx funding requests,
-`requestUTxODepositFromTopTx`. Settlement kinds are `noTopTxSettlement`,
-`topTxSettlementOutput`, `subTxSettlementOutput` and `delegateToTopTx`.
-The naming change preserves all CBOR numeric keys, tags and encoded bytes.
-`StoreBackedTxOut` remains the output variant name.
+Each newtype wraps an internal `StrictMaybe` representation at the codec boundary:
+`NetUTxODepositChange` for TopTx and `SubTxNetUTxODepositChange` for SubTx. The legacy
+payload constructors remain available at that boundary. For example, the two
+`DeclaresZeroNetUTxODeposit` patterns carry `NoUTxODepositChange` and
+`SubTxNoUTxODepositChange`, respectively. Domain examples use the qualified patterns
+so that absence and explicit zero are clear without exposing the representation.
+
+The wrappers preserve the same operations, accounting rules and wire representation.
+The JSON body field remains `netUTxODepositChange`; operation kinds remain `allocate`,
+`release`, `noChange` and, for SubTx funding requests, `requestUTxODepositFromTopTx`.
+Settlement kinds remain `noTopTxSettlement`, `topTxSettlementOutput`,
+`subTxSettlementOutput` and `delegateToTopTx`. Optional body CBOR key `28`, payload
+tags and encoded bytes are unchanged. `StoreBackedTxOut` remains the output variant
+name.
 
 Let `utxo` contain live outputs and their allocated UTxO capacity deposit metadata:
 
@@ -203,10 +223,16 @@ body:
 | `DijkstraTxBodyRaw TopTx era` | `dtbrNetUTxODepositChange` | `dtbrOutputs` |
 | `DijkstraTxBodyRaw SubTx era` | `dstbrNetUTxODepositChange` | `dstbrOutputs` |
 
-Both operation fields use `StrictMaybe`. `SNothing` declares no DepositStore operation
-and requests no delegation. `SJust operation` explicitly declares the operation carried
-by that body. The TopTx field declares the net change for the batch; SubTx fields
+The TopTx field has type `TopTx.TopTxUTxODepositDeclaration`; the SubTx field has type
+`SubTx.SubTxUTxODepositDeclaration`. `TopTx.NoUTxODepositDeclaration` and
+`SubTx.NoUTxODepositDeclaration` make no declaration and request no delegation. The
+other patterns explicitly declare the operation carried by their body, including
+explicit zero. The TopTx field declares the net change for the batch; SubTx fields
 specify their contributions and where they are accounted for, as defined in DS-TX-002.
+
+In body-generic tables, `NoUTxODepositDeclaration` means the qualified pattern for
+that body's level. `hasDeclaration(body)` is false for that pattern and true for every
+explicit declaration, including `DeclaresZeroNetUTxODeposit`.
 
 For DS-TX-001, an output means the `TxOut` inside a `Sized` element of the body's own
 output sequence. The cached size does not affect the check. A TopTx's own outputs do not
@@ -230,7 +256,9 @@ Define:
 
 - `outputs(body)`: the body's own outputs, after removing the `Sized` wrapper.
 - `spentOutputs(body)`: the outputs resolved from the body's own spending inputs.
-- `change(body)`: the operation field for that body's level, as listed above.
+- `change(body)`: the declaration field for that body's level, as listed above.
+- `hasDeclaration(body)`: whether that field explicitly declares an operation,
+  including explicit zero.
 - `hasStoreBackedOutput(body)`: at least one element of `outputs(body)` has the
   `StoreBackedTxOut` constructor.
 - `spendsStoreBackedOutput(body)`: at least one element of `spentOutputs(body)`
@@ -240,18 +268,18 @@ The required condition is:
 
 ```text
 hasStoreBackedOutput(body) OR spendsStoreBackedOutput(body)
-    ⇒ change(body) /= SNothing
+    ⇒ hasDeclaration(body)
 ```
 
 Equivalently:
 
 ```text
-change(body) = SNothing
+NOT hasDeclaration(body)
     ⇒ every element of outputs(body) and spentOutputs(body)
         is an ImplicitDepositTxOut
 ```
 
-If either condition is true and `change(body)` is `SNothing`, reject the body. The
+If either condition is true and `hasDeclaration(body)` is false, reject the body. The
 proposed predicate failure name is `MissingNetUTxODepositChange`; its constructor and
 payload have not been implemented. DS-TX-005 additionally requires a release
 contribution when store-backed outputs are spent without creating any new store-backed
@@ -264,29 +292,29 @@ transaction satisfies funding, release, or other ledger rules.
 
 | Own spent outputs | Own created outputs | Own operation field | Result for DS-TX-001 |
 | --- | --- | --- | --- |
-| Only implicit-deposit outputs, or empty | Only implicit-deposit outputs, or empty | `SNothing` | Pass |
-| At least one store-backed output | Only implicit-deposit outputs, or empty | `SNothing` | Reject |
-| Any | At least one store-backed output | `SNothing` | Reject |
-| Any | Any | `SJust operation` | Pass |
+| Only implicit-deposit outputs, or empty | Only implicit-deposit outputs, or empty | `NoUTxODepositDeclaration` | Pass |
+| At least one store-backed output | Only implicit-deposit outputs, or empty | `NoUTxODepositDeclaration` | Reject |
+| Any | At least one store-backed output | `NoUTxODepositDeclaration` | Reject |
+| Any | Any | Explicit declaration, including zero | Pass |
 
 The same cases apply to TopTx and SubTx. In particular:
 
 - A TopTx declaration does not replace a missing SubTx declaration. If the SubTx
-  creates or spends a store-backed output with `SNothing`, reject that SubTx even
+  creates or spends a store-backed output with `SubTx.NoUTxODepositDeclaration`, reject that SubTx even
   when the TopTx declares an operation.
 - A SubTx declaration does not replace a missing TopTx declaration either. If
-  the TopTx creates or spends a store-backed output with `SNothing`, reject the
+  the TopTx creates or spends a store-backed output with `TopTx.NoUTxODepositDeclaration`, reject the
   TopTx even when its SubTx bodies declare operations.
-- A SubTx that requests funding through `SubTxRequestUTxODepositFromTopTx amount`
+- A SubTx that requests funding through `SubTx.RequestsUTxODepositFromTopTx amount`
   has made an explicit declaration and passes this presence check. DS-TX-010
   separately validates that TopTx fulfils the request.
 - A TopTx whose own spent and created outputs are all implicit-deposit outputs
-  and whose field is `SNothing`, containing a SubTx with store-backed outputs
+  and whose field is `TopTx.NoUTxODepositDeclaration`, containing a SubTx with store-backed outputs
   and an explicit operation, passes this check for both bodies. This says nothing
   about overall validity: DS-TX-009 rejects the missing TopTx declaration.
 - Creating store-backed outputs still requires a declaration when the net
   funding requirement is zero. TopTx expresses this with
-  `SJust NoUTxODepositChange`; SubTx uses `SJust SubTxNoUTxODepositChange`
+  `TopTx.DeclaresZeroNetUTxODeposit`; SubTx uses `SubTx.DeclaresZeroNetUTxODeposit`
   under DS-TX-008.
 
 ## Batch net change and accounting responsibility
@@ -305,13 +333,13 @@ UTxO capacity deposit obligations under DS-TX-003 and be funded under DS-TX-004.
 
 Delegation changes where a SubTx contribution is accounted for:
 
-- `SubTxNoUTxODepositChange`: explicitly declare zero contribution and no
+- `SubTx.DeclaresZeroNetUTxODeposit`: explicitly declare zero contribution and no
   delegation request.
-- `SubTxAllocateUTxODeposit amount`: account for the net allocation in the SubTx.
-- `SubTxRequestUTxODepositFromTopTx amount`: account for the net allocation in the TopTx.
-- `SubTxReleaseUTxODeposit amount (SubTxSettlementOutput index)`: account for the net release
+- `SubTx.DeclaresNetUTxODepositAllocation amount`: account for the net allocation in the SubTx.
+- `SubTx.RequestsUTxODepositFromTopTx amount`: account for the net allocation in the TopTx.
+- `SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)`: account for the net release
   in the SubTx and settle it in its named output.
-- `SubTxReleaseUTxODeposit amount DelegateToTopTx`: account for the net release
+- `SubTx.DeclaresNetUTxODepositRelease amount DelegateToTopTx`: account for the net release
   in the TopTx; its settlement must satisfy DS-TX-006 and DS-TX-007.
 
 Every contribution is included in the batch total regardless of delegation. Changing its
@@ -343,35 +371,37 @@ fields.
 The TopTx's accounting allocation can have a different sign from its declared batch net
 change. For example, a local SubTx net allocation of 5 ADA and a net release of 3 ADA
 delegated to TopTx attribute `+5` to SubTx and `-3` to TopTx, while TopTx declares the
-batch's `AllocateUTxODeposit 2`.
+batch's `TopTx.DeclaresNetUTxODepositAllocation 2`.
 
 DS-TX-001 and DS-TX-009 determine when TopTx must declare a change. When present, its
 declaration must represent the total as follows:
 
 | Batch net change | TopTx declaration |
 | --- | --- |
-| Positive | `SJust (AllocateUTxODeposit positiveAmount)` |
-| Negative | `SJust (ReleaseUTxODeposit positiveAmount settlement)` |
-| Zero | `SJust NoUTxODepositChange` |
+| Positive | `TopTx.DeclaresNetUTxODepositAllocation positiveAmount` |
+| Negative | `TopTx.DeclaresNetUTxODepositRelease positiveAmount settlement` |
+| Zero | `TopTx.DeclaresZeroNetUTxODeposit` |
 
 `positiveAmount` is the absolute value of the net change, represented by `PositiveCoin`.
 This abstract type permits only 1 through 18446744073709551615 lovelace, matching the
 positive part of the CBOR `Coin` range. Its checked constructor and CBOR/JSON decoders
 reject zero, negative and out-of-range amounts.
 
-`NoUTxODepositChange` encodes as CBOR `[2]` and JSON `{"kind":"noChange"}`. Existing
-net-allocation and net-release tags remain `0` and `1`, respectively. `AllocateUTxODeposit 0`
-and `ReleaseUTxODeposit 0 settlement` are no longer valid forms. An absent field
-(`SNothing`) remains distinct from an explicit zero declaration; it fails DS-TX-001 when
-TopTx creates or spends store-backed outputs. The interface expresses this distinction;
-the ledger must still enforce DS-TX-001 and reconcile the net amount with the batch's
-contributions.
+`TopTx.DeclaresZeroNetUTxODeposit` encodes as CBOR `[2]` and JSON `{"kind":"noChange"}`.
+Existing net-allocation and net-release tags remain `0` and `1`, respectively.
+`TopTx.DeclaresNetUTxODepositAllocation 0` and `TopTx.DeclaresNetUTxODepositRelease 0
+settlement` are no longer valid forms. An absent field
+(`TopTx.NoUTxODepositDeclaration`) remains distinct from an explicit zero declaration;
+it fails DS-TX-001 when TopTx creates or spends store-backed outputs. The interface
+expresses this distinction; the ledger must still enforce DS-TX-001 and reconcile the
+net amount with the batch's contributions.
 
-For example, a batch allocating 5 ADA and releasing 3 ADA declares `AllocateUTxODeposit 2`.
-On successful settlement, the store balance increases by 2 ADA. Reversing those amounts
-requires `ReleaseUTxODeposit 2 settlement` and decreases the store balance by 2 ADA. The
-settlement choice describes TopTx's participation as defined in DS-TX-006. These
-examples use ADA for readability; code amounts are in lovelace.
+For example, a batch allocating 5 ADA and releasing 3 ADA declares
+`TopTx.DeclaresNetUTxODepositAllocation 2`. On successful settlement, the store balance
+increases by 2 ADA. Reversing those amounts requires
+`TopTx.DeclaresNetUTxODepositRelease 2 settlement` and decreases the store balance by 2
+ADA. The settlement choice describes TopTx's participation as defined in DS-TX-006.
+These examples use ADA for readability; code amounts are in lovelace.
 
 Netting determines the store's balance change. It does not remove the obligation to
 validate individual declarations, fulfil delegation requests, or authorize net-release
@@ -379,9 +409,9 @@ contributions. A net release delegated to TopTx can offset net allocations witho
 separate payment from the Store. In the 5 ADA allocation and 3 ADA delegated net-release
 example, TopTx funds a net allocation of 2 ADA; there is no separate 3 ADA payment from
 the Store. No additional TopTx settlement output is needed in this case. The TopTx
-output index applies when the net operation is `ReleaseUTxODeposit`. With equal net
-allocations and net releases, TopTx declares `NoUTxODepositChange` and the net store
-transfer is zero.
+output index applies when the net operation is `TopTx.DeclaresNetUTxODepositRelease`.
+With equal net allocations and net releases, TopTx declares
+`TopTx.DeclaresZeroNetUTxODeposit` and the net store transfer is zero.
 
 For a batch containing net allocations only, the accounting amounts must reconcile as:
 
@@ -415,8 +445,8 @@ additional contribution of 2 ADA. There are no releases:
 
 | SubTx declaration | TopTx declaration | Accounted in SubTx | Accounted in TopTx | Net allocation funded in the Store |
 | --- | --- | --- | --- | --- |
-| `SubTxAllocateUTxODeposit 3` | `AllocateUTxODeposit 5` | 3 | 2 | 5 |
-| `SubTxRequestUTxODepositFromTopTx 3` | `AllocateUTxODeposit 5` | 0 | 5 | 5 |
+| `SubTx.DeclaresNetUTxODepositAllocation 3` | `TopTx.DeclaresNetUTxODepositAllocation 5` | 3 | 2 | 5 |
+| `SubTx.RequestsUTxODepositFromTopTx 3` | `TopTx.DeclaresNetUTxODepositAllocation 5` | 0 | 5 | 5 |
 
 These examples use ADA amounts for readability. `Coin` amounts in the code are
 denominated in lovelace. The store receives 5 ADA in either case. If TopTx's own
@@ -480,11 +510,11 @@ For SubTx, use the declared contribution regardless of accounting delegation:
 
 | SubTx declaration | Contribution for that SubTx's UTxO capacity deposit accounting |
 | --- | --- |
-| `SubTxNoUTxODepositChange` | `0`; the exact UTxO capacity deposit accounting and release rules still apply |
-| `SubTxAllocateUTxODeposit amount` | `+amount` |
-| `SubTxRequestUTxODepositFromTopTx amount` | `+amount` |
-| `SubTxReleaseUTxODeposit amount target` | `-amount`, for either target |
-| `SNothing` | `0`; DS-TX-001 rejects absence if the body creates or spends any store-backed output |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `0`; the exact UTxO capacity deposit accounting and release rules still apply |
+| `SubTx.DeclaresNetUTxODepositAllocation amount` | `+amount` |
+| `SubTx.RequestsUTxODepositFromTopTx amount` | `+amount` |
+| `SubTx.DeclaresNetUTxODepositRelease amount target` | `-amount`, for either target |
+| `SubTx.NoUTxODepositDeclaration` | `0`; DS-TX-001 rejects absence if the body creates or spends any store-backed output |
 
 For TopTx's own UTxO capacity deposit accounting, remove all SubTx contributions from the
 declared batch net change, including contributions delegated to TopTx:
@@ -544,9 +574,10 @@ consumedValue(batch) + inject(txTotalNetRelease)
     = producedValue(batch) + inject(max(0, txTotalNetUTxODepositChange))
 ```
 
-`txTotalNetUTxODepositChange` is positive for `AllocateUTxODeposit`, negative for
-`ReleaseUTxODeposit`, and zero for `NoUTxODepositChange`. `txTotalNetRelease` is the
-amount in TopTx's `ReleaseUTxODeposit`, or zero otherwise. Absence of a declaration is
+`txTotalNetUTxODepositChange` is positive for `TopTx.DeclaresNetUTxODepositAllocation`,
+negative for `TopTx.DeclaresNetUTxODepositRelease`, and zero for
+`TopTx.DeclaresZeroNetUTxODeposit`. `txTotalNetRelease` is the amount in TopTx's
+`TopTx.DeclaresNetUTxODepositRelease`, or zero otherwise. Absence of a declaration is
 subject to the separate presence and reconciliation rules.
 
 Consumed and produced values include the complete batch's inputs, outputs and other
@@ -578,17 +609,18 @@ store-backed outputs under DS-STORE-003. This rule does not grant access to unre
 store surplus. It applies to bodies creating only implicit-deposit outputs, as well as
 bodies creating no outputs; a release's target must still satisfy the settlement rules.
 
-For SubTx, the net-release contribution is declared with `SubTxReleaseUTxODeposit amount
-target`, including explicit delegation when TopTx accounts for it. For TopTx's own
-activity, the contribution is derived as in DS-TX-003. The TopTx field continues to
-declare the entire batch's net change, so it may declare a net allocation or explicit
-zero when other contributions offset the release. This does not erase the body's
-net-release contribution.
+For SubTx, the net-release contribution is declared with
+`SubTx.DeclaresNetUTxODepositRelease amount target`, including explicit delegation when
+TopTx accounts for it. For TopTx's own activity, the contribution is derived as in
+DS-TX-003. The TopTx field continues to declare the entire batch's net change, so it may
+declare a net allocation or explicit zero when other contributions offset the release.
+This does not erase the body's net-release contribution.
 
 For example, a SubTx releasing 3 ADA of UTxO capacity deposits and creating only
 implicit-deposit outputs declares a net release of 3 ADA. If another SubTx contributes a
-5 ADA net allocation and TopTx has no own contribution, TopTx declares `AllocateUTxODeposit
-2`. The store receives 2 ADA net; no separate payment for the gross release is required.
+5 ADA net allocation and TopTx has no own contribution, TopTx declares
+`TopTx.DeclaresNetUTxODepositAllocation 2`. The store receives 2 ADA net; no separate
+payment for the gross release is required.
 
 ## TopTx participation in net-release settlement
 
@@ -603,8 +635,12 @@ implicit-deposit outputs declares a net release of 3 ADA. If another SubTx contr
 A net release declares the batch amount and, separately, whether TopTx receives a share:
 
 ```haskell
-ReleaseUTxODeposit !PositiveCoin !TopTxReleaseSettlement
+TopTx.DeclaresNetUTxODepositRelease amount settlement
+```
 
+Here `amount` has type `PositiveCoin`, and the settlement choices remain:
+
+```haskell
 data TopTxReleaseSettlement
   = NoTopTxSettlement
   | TopTxSettlementOutput !TxIx
@@ -612,14 +648,15 @@ data TopTxReleaseSettlement
 
 `NoTopTxSettlement` means that no settlement amount remains to be paid in TopTx's
 outputs after reconciling the contributions. Destinations are already declared by the
-corresponding `SubTxReleaseUTxODeposit amount (SubTxSettlementOutput index)` operations. This does
-not mean zero batch net release: the amount is positive. It must not leave an
-outstanding TopTx settlement requirement unfulfilled.
+corresponding `SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)`
+operations. This does not mean zero batch net release: the amount is positive. It must
+not leave an outstanding TopTx settlement requirement unfulfilled.
 
-`TopTxSettlementOutput index` names a zero-based index into TopTx's own outputs. It permits
-both TopTx-only settlement and mixed settlement in TopTx and SubTx outputs. The selected
-TopTx output already includes TopTx's share. That share is determined from the
-accounting; it is not automatically the entire amount in `ReleaseUTxODeposit`.
+`TopTxSettlementOutput index` names a zero-based index into TopTx's own outputs. It
+permits both TopTx-only settlement and mixed settlement in TopTx and SubTx outputs. The
+selected TopTx output already includes TopTx's share. That share is determined from the
+accounting; it is not automatically the entire amount in
+`TopTx.DeclaresNetUTxODepositRelease`.
 
 The operation's amount always remains the entire batch's net release under DS-TX-002. It
 is not an additional payment or a second credit to SubTx outputs. Offsetting net
@@ -640,12 +677,12 @@ Each SubTx contributes the following signed amount to
 
 | SubTx declaration | Local net UTxO capacity deposit change |
 | --- | --- |
-| `SubTxNoUTxODepositChange` | `0`; no delegation |
-| `SubTxAllocateUTxODeposit amount` | `+amount` |
-| `SubTxReleaseUTxODeposit amount (SubTxSettlementOutput index)` | `-amount` |
-| `SubTxRequestUTxODepositFromTopTx amount` | `0`; TopTx handles the net allocation |
-| `SubTxReleaseUTxODeposit amount DelegateToTopTx` | `0`; TopTx handles the net release |
-| `SNothing` | `0`; declaration requirements still apply |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `0`; no delegation |
+| `SubTx.DeclaresNetUTxODepositAllocation amount` | `+amount` |
+| `SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)` | `-amount` |
+| `SubTx.RequestsUTxODepositFromTopTx amount` | `0`; TopTx handles the net allocation |
+| `SubTx.DeclaresNetUTxODepositRelease amount DelegateToTopTx` | `0`; TopTx handles the net release |
+| `SubTx.NoUTxODepositDeclaration` | `0`; declaration requirements still apply |
 
 Delegated contributions are already included in `txTotalNetUTxODepositChange`. Do
 not subtract them as local contributions: they remain TopTx's responsibility. These
@@ -673,24 +710,24 @@ topTxNetUTxODepositChange = -2 - 3 = -5
 topTxNetRelease = 5
 ```
 
-TopTx declares `ReleaseUTxODeposit 2 (TopTxSettlementOutput index)`. The selected output
-contains at least 5 ADA: 3 ADA supplied by the SubTx and 2 ADA from the store. These
-funds are included in the batch conservation check once. Conversely, a local SubTx net
-release of 5 ADA and a TopTx net allocation contribution of 3 ADA give
+TopTx declares `TopTx.DeclaresNetUTxODepositRelease 2 (TopTxSettlementOutput index)`.
+The selected output contains at least 5 ADA: 3 ADA supplied by the SubTx and 2 ADA from
+the store. These funds are included in the batch conservation check once. Conversely, a
+local SubTx net release of 5 ADA and a TopTx net allocation contribution of 3 ADA give
 `topTxNetUTxODepositChange = 3` and `topTxNetRelease = 0`; the declaration is
-`ReleaseUTxODeposit 2 NoTopTxSettlement`.
+`TopTx.DeclaresNetUTxODepositRelease 2 NoTopTxSettlement`.
 
-This settlement requirement applies to the `ReleaseUTxODeposit` branch. A net allocation
-or explicit zero still follows DS-TX-002 and does not introduce a TopTx settlement
-output merely because its derived accounting portion is negative.
+This settlement requirement applies to the `TopTx.DeclaresNetUTxODepositRelease` branch.
+A net allocation or explicit zero still follows DS-TX-002 and does not introduce a TopTx
+settlement output merely because its derived accounting portion is negative.
 
 For example, with no offsetting net allocations:
 
 | Local SubTx net releases | TopTx share | TopTx declaration |
 | --- | --- | --- |
-| 3 ADA | 0 | `ReleaseUTxODeposit 3 NoTopTxSettlement` |
-| 0 | 2 ADA | `ReleaseUTxODeposit 2 (TopTxSettlementOutput index)` |
-| 3 ADA | 2 ADA | `ReleaseUTxODeposit 5 (TopTxSettlementOutput index)` |
+| 3 ADA | 0 | `TopTx.DeclaresNetUTxODepositRelease 3 NoTopTxSettlement` |
+| 0 | 2 ADA | `TopTx.DeclaresNetUTxODepositRelease 2 (TopTxSettlementOutput index)` |
+| 3 ADA | 2 ADA | `TopTx.DeclaresNetUTxODepositRelease 5 (TopTxSettlementOutput index)` |
 
 These amounts are in ADA for readability. Each SubTx retains its own declared amount and
 destination. In the mixed example, 5 ADA leaves the store in total: 3 ADA is settled in
@@ -720,11 +757,12 @@ output may also contain other funds.
 coin(outputs(body)[index]) ≥ settlementAmount(body, index)
 ```
 
-For `SubTxReleaseUTxODeposit amount (SubTxSettlementOutput index)`, resolve the index in that
-SubTx's own output sequence and use `amount` as its settlement amount. For
-`TopTxSettlementOutput index`, resolve the index in TopTx's own output sequence and use
-`topTxNetRelease` derived in DS-TX-006, not automatically the batch's entire net release
-amount. Neither index refers to an input, another body's outputs, or collateral return.
+For `SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)`, resolve
+the index in that SubTx's own output sequence and use `amount` as its settlement amount.
+For `TopTxSettlementOutput index`, resolve the index in TopTx's own output sequence and
+use `topTxNetRelease` derived in DS-TX-006, not automatically the batch's entire net
+release amount. Neither index refers to an input, another body's outputs, or collateral
+return.
 
 The selected output already includes the settlement amount. Applying the transaction
 must not add the amount to the output a second time. This check does not replace
@@ -747,10 +785,11 @@ ADA. An output containing 10 ADA must fail. The existing destination bound alone
 the other 2 ADA from funding another body's outputs or TopTx fees.
 
 SubTx ADA surplus must remain available to fund TopTx fees or other bodies, including
-when the SubTx settles a net Store release locally. Choosing `SubTxReleaseUTxODeposit
-amount (SubTxSettlementOutput index)` must not impose independent SubTx balance or prohibit net
-ADA exports. The proposed no-export inequality `ordinaryProducedADA ≥
-ordinaryConsumedADA + amount` is therefore not adopted.
+when the SubTx settles a net Store release locally. Choosing
+`SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)` must not
+impose independent SubTx balance or prohibit net ADA exports. The proposed no-export
+inequality `ordinaryProducedADA ≥ ordinaryConsumedADA + amount` is therefore not
+adopted.
 
 For a local release, the accounting identity can be expressed as:
 
@@ -787,22 +826,22 @@ information or restriction is agreed here.
 
 **Enforcement:** Amount bounds enforced by construction and decoding; ledger rules pending
 
-SubTx declares zero contribution with its own explicit constructor. All net allocations,
+SubTx declares zero contribution with its own explicit declaration pattern. All net allocations,
 net releases and allocation-funding requests carry a strictly positive amount, including
 releases delegated to TopTx:
 
-```haskell
-data SubTxNetUTxODepositChange
-  = SubTxNoUTxODepositChange
-  | SubTxAllocateUTxODeposit !PositiveCoin
-  | SubTxRequestUTxODepositFromTopTx !PositiveCoin
-  | SubTxReleaseUTxODeposit !PositiveCoin !SubTxReleaseTarget
-```
+| Explicit SubTx declaration | Amount and settlement |
+| --- | --- |
+| `SubTx.DeclaresZeroNetUTxODeposit` | Zero, with no settlement target |
+| `SubTx.DeclaresNetUTxODepositAllocation amount` | `PositiveCoin`, accounted locally |
+| `SubTx.RequestsUTxODepositFromTopTx amount` | `PositiveCoin`, funding delegated to TopTx |
+| `SubTx.DeclaresNetUTxODepositRelease amount target` | `PositiveCoin` and a `SubTxReleaseTarget` |
 
-`SubTxNoUTxODepositChange` contributes zero to both the SubTx's UTxO capacity deposit
-contribution and its local accounting amount. It requests no delegation and has no
-settlement output. It is distinct from `SNothing`: the latter makes no declaration and
-fails DS-TX-001 when the SubTx creates or spends a store-backed output.
+`SubTx.DeclaresZeroNetUTxODeposit` contributes zero to both the SubTx's UTxO capacity
+deposit contribution and its local accounting amount. It requests no delegation and has
+no settlement output. It is distinct from `SubTx.NoUTxODepositDeclaration`: the latter
+makes no declaration and fails DS-TX-001 when the SubTx creates or spends a store-backed
+output.
 
 For example, a SubTx spending and creating store-backed outputs with equal UTxO capacity
 deposit obligations can explicitly declare zero, provided all other rules hold. This
@@ -818,7 +857,7 @@ request or a net release.
 The explicit zero encodes as CBOR `[3]` and JSON `{"kind":"noChange"}`. Existing SubTx
 tags remain `0` for a net allocation, `1` for a net release and `2` for a funding
 request. Previously accepted zero-amount operation encodings now fail decoding; an
-explicit zero must use the new constructor.
+explicit zero must use the explicit-zero form.
 
 ## TopTx declaration required by a SubTx declaration
 
@@ -826,7 +865,22 @@ explicit zero must use the new constructor.
 
 **Decision:** Agreed
 
-**Enforcement:** Pending
+**Enforcement:** Implemented by `validateTopTxNetUTxODepositDeclaration` in the
+[DepositStore declaration rules](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Declaration.hs).
+The domain validator reports `MissingTopTxDeclaration` when a SubTx declares a change
+and TopTx does not. The [TopTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
+runs this validation and maps that violation to `MissingTopTxUTxODepositDeclaration`.
+
+**Verification:** Passed: six ledger scenarios, including real phase-2-invalid acceptance
+and rejection, and four properties with 100 generated cases each (ten examples total).
+Ledger scenarios exercise
+absent and explicit-zero declarations; isolated validator checks cover presence across
+all declaration forms. The predicate-failure codec golden also passes. This
+enforcement checks presence only, not amounts or Store state accounting.
+
+The existing Dijkstra ledger regression suite completed with 598 examples, zero
+failures and two pending tests. UTXO predicate-failure round trips passed 100
+generated cases.
 
 If any SubTx declares a DepositStore operation, TopTx must explicitly declare the entire
 transaction's net DepositStore change. This applies whether the SubTx operation is
@@ -834,8 +888,8 @@ local, delegated, or explicitly zero, and whether or not TopTx creates or spends
 store-backed outputs of its own.
 
 ```text
-any(change(subTx) /= SNothing for subTx in subTxs(topTx))
-    ⇒ change(topTx) /= SNothing
+any(hasDeclaration(subTx) for subTx in subTxs(topTx))
+    ⇒ hasDeclaration(topTx)
 ```
 
 TopTx's declaration represents `txTotalNetUTxODepositChange` under DS-TX-002. The
@@ -847,14 +901,14 @@ For example, assuming zero contribution from TopTx's own activity:
 
 | SubTx declarations | Required TopTx declaration |
 | --- | --- |
-| One `SubTxNoUTxODepositChange` | `SJust NoUTxODepositChange` |
-| A local net allocation of 3 ADA and a local net release of 3 ADA | `SJust NoUTxODepositChange` |
-| One net allocation of 3 ADA, local or requested from TopTx | `SJust (AllocateUTxODeposit 3)` |
+| One `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.DeclaresZeroNetUTxODeposit` |
+| A local net allocation of 3 ADA and a local net release of 3 ADA | `TopTx.DeclaresZeroNetUTxODeposit` |
+| One net allocation of 3 ADA, local or requested from TopTx | `TopTx.DeclaresNetUTxODepositAllocation 3` |
 
-These amounts are in ADA for readability. `SNothing` fails in each example, including
-when all operations are handled locally and their contributions cancel. If no SubTx
-declares an operation, this rule imposes no presence requirement; DS-TX-001 still
-applies to TopTx's own spent and created outputs.
+These amounts are in ADA for readability. `TopTx.NoUTxODepositDeclaration` fails in each
+example, including when all operations are handled locally and their contributions
+cancel. If no SubTx declares an operation, this rule imposes no presence requirement;
+DS-TX-001 still applies to TopTx's own spent and created outputs.
 
 ## Validation of delegated SubTx contributions
 
@@ -878,9 +932,9 @@ and the completed batch's financial accounting:
    Release settlement must also satisfy DS-TX-006 and DS-TX-007.
 
 For example, a SubTx requesting a net allocation of 3 ADA, with no other Store activity
-in the batch, requires `AllocateUTxODeposit 3` in TopTx. Reject `AllocateUTxODeposit 2`, even if
-the Store already has surplus funds. A correct declaration also fails if the batch does
-not provide the required funds.
+in the batch, requires `TopTx.DeclaresNetUTxODepositAllocation 3` in TopTx. Reject
+`TopTx.DeclaresNetUTxODepositAllocation 2`, even if the Store already has surplus funds.
+A correct declaration also fails if the batch does not provide the required funds.
 
 An opposing valid contribution may offset a delegated request in the batch net change;
 this does not cancel its originating body's exact accounting obligation. Each
@@ -1475,8 +1529,9 @@ prove sufficient funding or authority to release a UTxO capacity deposit.
 
 ## Executable domain specification
 
-**Status:** Domain rules are represented by an executable outline, with ledger
-verification still pending. [DepositStoreSpec.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
+**Status:** DS-TX-009 has an implemented declaration-presence check and passing focused
+tests. The other 163 assertions remain deliberately failing placeholders.
+[DepositStoreSpec.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
 assembles 21 domain modules. Each module owns one numbered rule and keeps its
 equations and concrete cases together under a single `describe`. The rule links in
 the verification table below lead to those modules.
@@ -1487,11 +1542,12 @@ boundaries follow those responsibilities. `prop` and `it` select how a rule is
 verified; they do not define separate categories of domain rules. Each declaration
 keeps its description and named check on one line, with the implementation below.
 
-Every outline assertion deliberately fails: named properties return `False`, and
-named concrete checks contain ``False `shouldBe` True``. Compiling and running
-this outline establishes that the checks are registered, not that the ledger
-satisfies them. Generators, an independent reference model and ledger scenarios
-remain to be implemented. Existing [construction and codec tests](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Binary/Golden.hs)
+Outside DS-TX-009, named properties still return `False`, and named concrete checks
+contain ``False `shouldBe` True``. Registering these placeholders does not establish
+that the ledger satisfies their rules. Their generators, independent reference model
+and ledger scenarios remain to be implemented. DS-TX-009 combines ledger scenarios
+with isolated validator checks; neither establishes deposit amount, funding or Store
+state accounting. Existing [construction and codec tests](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Binary/Golden.hs)
 already exercise the declaration representations, including positive amount bounds;
 those checks do not establish enforcement of the transaction rules.
 
@@ -1530,18 +1586,19 @@ including when scripts succeed; this is distinct from applying collateral effect
 Likewise, TopTx settlement routing applies to the batch net-release branch, while
 net allocation and explicit zero retain their own declaration semantics.
 
-### Ledger adapter boundary (planned)
+### Ledger adapter boundary
 
-The supporting `DepositStore/Adapter/` directory has not been implemented yet. Its
-role is to translate domain scenarios into ledger fixtures and observations, using
-the existing `ImpTest` helpers. The planned responsibilities are:
+The supporting `DepositStore/Adapter/` directory translates domain scenarios into ledger
+fixtures and observations using the existing `ImpTest` helpers. `Transaction.hs` and
+`Assertions.hs` implement the first DS-TX-009 scenarios. `UTxO.hs` and `Ledger.hs` remain
+planned responsibilities; no empty modules are needed before a scenario uses them.
 
-| Adapter | Responsibility |
+| Adapter | Status and responsibility |
 | --- | --- |
-| `Transaction.hs` | Construct TopTx and SubTx bodies with the requested declarations, delegation and settlement outputs. |
-| `UTxO.hs` | Prepare output variants, inputs, allocated deposit records and initial Store state. |
-| `Ledger.hs` | Submit batches or advance the ledger and expose the decision and resulting state. |
-| `Assertions.hs` | Compare observed failures and state changes with expectations supplied by the domain scenario. |
+| [Transaction.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Transaction.hs) | Implemented for implicit-output batches with requested declarations; fixture fixup preserves those declarations. Broader delegation and settlement fixtures remain to be added. |
+| `UTxO.hs` | Planned: prepare output variants, inputs, allocated deposit records and initial Store state. |
+| `Ledger.hs` | Planned: submit batches or advance the ledger and expose the decision and resulting state when scenarios need this separate boundary. |
+| [Assertions.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Adapter/Assertions.hs) | Implemented for ledger acceptance and exact DS-TX-009 rejection with unchanged ledger state, using existing submission helpers. |
 
 Specs keep their domain assertions and named checks. Adapters handle the technical
 details of constructing and exercising the ledger. Expected amounts and decisions
@@ -1551,23 +1608,39 @@ Fixture preparation must preserve intentional invalid declarations and accountin
 defects. Introducing an adapter does not authorize repairing the condition that a
 scenario is intended to reject.
 
-### First proposed scenario: a SubTx declaration requires TopTx acknowledgment
+### First implemented slice: a SubTx declaration requires TopTx acknowledgment
 
-DS-TX-009 can be isolated without introducing UTxO capacity deposit storage or pricing. Use
-an otherwise valid batch with implicit outputs only, no store-backed inputs or outputs,
-and zero Store activity. Vary only the optional declarations:
+[DS-TX-009 scenarios](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DeclarationDependencySpec.hs)
+isolate declaration presence without introducing UTxO capacity deposit storage or pricing.
+The ledger fixtures use otherwise valid batches with implicit outputs only, no store-backed
+inputs or outputs, and zero Store activity. They vary the optional declarations:
 
 | SubTx declaration | TopTx declaration | Expected result |
 | --- | --- | --- |
-| Absent | Absent | Accept |
-| `SubTxNoUTxODepositChange` | Absent | Reject under DS-TX-009 |
-| `SubTxNoUTxODepositChange` | `NoUTxODepositChange` | Accept |
-| Absent | `NoUTxODepositChange` | Accept |
+| `SubTx.NoUTxODepositDeclaration` | `TopTx.NoUTxODepositDeclaration` | Accept |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.NoUTxODepositDeclaration` | Reject under DS-TX-009 |
+| `SubTx.DeclaresZeroNetUTxODeposit` | `TopTx.DeclaresZeroNetUTxODeposit` | Accept |
+| `SubTx.NoUTxODepositDeclaration` | `TopTx.DeclaresZeroNetUTxODeposit` | Accept |
 
-The accepted cases have no Store balance or UTxO capacity deposit changes. The rejected case
-must not apply any part of the batch. Other ledger effects follow the ordinary
-transaction rules. This tests presence independently of the amount: an explicit zero
-SubTx declaration still requires a TopTx declaration.
+The acceptance controls have zero Store activity. The rejection check requires
+`MissingTopTxUTxODepositDeclaration` and compares ledger state immediately before and after
+submission, after fixture preparation. This tests presence independently of the amount:
+an explicit-zero SubTx declaration still requires a TopTx declaration.
+
+Generated isolated-validator checks vary presence across all declaration forms.
+Additional properties cover equal local allocations and releases, and every explicit
+SubTx declaration form with generated amounts and settlement indices. A fixture property
+checks that body construction preserves the number of SubTxs. These checks do not submit
+nonzero operations to the ledger or establish that
+their amounts, funding or settlement are valid. A real phase-2-invalid rejection and
+acceptance pair confirms that declaration presence remains required on that path.
+
+The test executable builds, and the focused DS-TX-009 run passes all ten examples:
+six ledger scenarios, including both phase-2-invalid scenarios, and four properties
+with 100 generated cases each. The
+[predicate-failure codec golden](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/GoldenSpec.hs)
+also passes its encoding and decoding check. These results cover declaration presence;
+broader deposit accounting and collateral state rules remain placeholders.
 
 For subsequent DS-TX-001 scenarios, an explicit zero is a valid control only when the
 body's UTxO capacity deposit change and the TopTx batch net change are actually zero. Do not
@@ -1621,17 +1694,18 @@ declarations, explicit delegation, mixed net allocations and net releases with e
 sign of net change, and batches containing financially imbalanced SubTx whose combined
 accounting is valid. Do not silently require every SubTx to balance individually.
 
-Include exact UTxO capacity deposit changes, declarations one lovelace above and below the
-required amount, pre-existing store surplus, collateral UTxO capacity deposit surplus, zero
-amounts where permitted, and both ends of the supported amount and output-index ranges.
-Opposite declaration errors in different bodies must remain invalid even when they
-cancel in the batch total. Include exact cancellation with `SJust NoUTxODepositChange`
-and explicit SubTx zero with `SJust SubTxNoUTxODepositChange`; distinguish both from
-absent fields. Verify positive TopTx and SubTx operation amounts at both supported
-bounds and rejection of zero, negative and overflow amounts through checked construction
-and both wire decoders. Generate successful lifecycle sequences as well as invalid
-cases. Enforce coverage of accepted cases so an implementation that rejects everything
-cannot satisfy the suite merely by having no accepted insolvent states.
+Include exact UTxO capacity deposit changes, declarations one lovelace above and below
+the required amount, pre-existing store surplus, collateral UTxO capacity deposit
+surplus, zero amounts where permitted, and both ends of the supported amount and
+output-index ranges. Opposite declaration errors in different bodies must remain invalid
+even when they cancel in the batch total. Include exact cancellation with
+`TopTx.DeclaresZeroNetUTxODeposit` and explicit SubTx zero with
+`SubTx.DeclaresZeroNetUTxODeposit`; distinguish both from absent fields. Verify positive
+TopTx and SubTx operation amounts at both supported bounds and rejection of zero,
+negative and overflow amounts through checked construction and both wire decoders.
+Generate successful lifecycle sequences as well as invalid cases. Enforce coverage of
+accepted cases so an implementation that rejects everything cannot satisfy the suite
+merely by having no accepted insolvent states.
 
 Conway initialization, fixed-policy epoch transitions and the agreed collateral
 behavior belong to the current scope. Parameter changes and Plutus context projection
@@ -1641,6 +1715,8 @@ condition. Report the random seed and minimized counterexample for reproducible 
 
 ## Code references
 
+- [TopTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxODeposit/TopTx.hs)
+- [SubTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxODeposit/SubTx.hs)
 - [Transaction fields, operations and lenses](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
 - [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/Core.hs)
 - [Dijkstra output representations](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
