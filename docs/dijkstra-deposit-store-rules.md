@@ -931,15 +931,15 @@ covered by DS-TX-002 and DS-TX-003.
 Any explicit SubTx declaration requires a TopTx declaration, including zero and
 delegated operations. TopTx need not have Store activity of its own for this rule to apply.
 
-$\operatorname{hasDeclaration}(\mathit{body})$ means that the body explicitly declares
-a UTxO capacity deposit change; $\operatorname{subTransactions}(\mathit{topTx})$ is its
+$\mathrm{hasDeclaration}(\mathit{body})$ means that the body explicitly declares
+a UTxO capacity deposit change; $\mathrm{subTransactions}(\mathit{topTx})$ is its
 sequence of SubTxs.
 
 $$
 \begin{aligned}
-&\left(\exists\,\mathit{subTx}\in\operatorname{subTransactions}(\mathit{topTx}):
-\operatorname{hasDeclaration}(\mathit{subTx})\right) \\
-&\qquad\implies\operatorname{hasDeclaration}(\mathit{topTx})
+&\left(\exists\,\mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx}):
+\mathrm{hasDeclaration}(\mathit{subTx})\right) \\
+&\qquad\implies\mathrm{hasDeclaration}(\mathit{topTx})
 \end{aligned}
 $$
 
@@ -948,15 +948,15 @@ DS-TX-001 may still require a declaration for TopTx's own Store activity.
 
 ##### 3.9.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DeclarationDependencySpec.hs#L61) - any SubTx has a declaration ⇒ TopTx has a declaration
 
-Let $\operatorname{rejectsDS009}(\mathit{topTx})$ mean that the isolated validator
+Let $\mathrm{rejectsDS009}(\mathit{topTx})$ mean that the isolated validator
 reports `MissingTopTxDeclaration`.
 
 $$
 \begin{aligned}
-\operatorname{rejectsDS009}(\mathit{topTx})
-\iff\bigl(&\neg\operatorname{hasDeclaration}(\mathit{topTx}) \\
-&\land\exists\,\mathit{subTx}\in\operatorname{subTransactions}(\mathit{topTx}): \\
-&\qquad\operatorname{hasDeclaration}(\mathit{subTx})\bigr)
+\mathrm{rejectsDS009}(\mathit{topTx})
+\iff\bigl(&\neg\mathrm{hasDeclaration}(\mathit{topTx}) \\
+&\land\exists\,\mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx}): \\
+&\qquad\mathrm{hasDeclaration}(\mathit{subTx})\bigr)
 \end{aligned}
 $$
 
@@ -984,8 +984,8 @@ $\mathsf{Absent}$ means no declaration; $\mathsf{ExplicitZero}$ acknowledges a z
 change. The latter still triggers the dependency:
 
 $$
-\operatorname{declaresZero}(\mathit{body})
-\implies\operatorname{hasDeclaration}(\mathit{body})
+\mathrm{declaresZero}(\mathit{body})
+\implies\mathrm{hasDeclaration}(\mathit{body})
 $$
 
 ##### 3.9.2.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Tx/DeclarationDependencySpec.hs#L66) - accepts absent declarations at both levels
@@ -1062,8 +1062,8 @@ declared contributions cancel; TopTx has no contribution of its own.
 
 $$
 \begin{aligned}
-&\sum_{\mathit{subTx}\in\operatorname{subTransactions}(\mathit{topTx})}
-\operatorname{declaredNetContribution}(\mathit{subTx}) \\
+&\sum_{\mathit{subTx}\in\mathrm{subTransactions}(\mathit{topTx})}
+\mathrm{declaredNetContribution}(\mathit{subTx}) \\
 &\qquad=\mathit{declaredAmount}-\mathit{declaredAmount}=0
 \end{aligned}
 $$
@@ -1231,15 +1231,15 @@ entries. This is a test-construction invariant, not an additional protocol rule.
 **Construction:**
 
 $$
-\mathit{constructedBody}=\operatorname{declarationToTxBody}(\mathit{fixture})
+\mathit{constructedBody}=\mathrm{declarationToTxBody}(\mathit{fixture})
 $$
 
 **Invariant:**
 
 $$
 \begin{aligned}
-&\operatorname{length}\left(\operatorname{subTransactions}(\mathit{constructedBody})\right) \\
-&\qquad=\operatorname{length}\left(\operatorname{subTxDeclarations}(\mathit{fixture})\right)
+&\mathrm{length}\left(\mathrm{subTransactions}(\mathit{constructedBody})\right) \\
+&\qquad=\mathrm{length}\left(\mathrm{subTxDeclarations}(\mathit{fixture})\right)
 \end{aligned}
 $$
 
