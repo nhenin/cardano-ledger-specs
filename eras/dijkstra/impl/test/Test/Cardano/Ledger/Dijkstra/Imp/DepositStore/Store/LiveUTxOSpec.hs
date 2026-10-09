@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, should
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "Live UTxO entries retain their allocated UTxO capacity deposits (DS-STORE-005)" $ do
+spec = describe "DS-STORE-005 - Live UTxO entries retain their allocated UTxO capacity deposits" $ do
   prop "ordinary success ⇒ releasedUTxODeposits = Σ(allocatedUTxODeposit(utxo[input])) over consumed store-backed inputs" releasedDepositsMatchRecords
   prop "ordinary success ⇒ utxoAfter = (utxoBefore without regularInputs) union newRegularOutputsWithUTxODeposits" ordinaryUTxOTransition
   it "records the allocated UTxO capacity deposit alongside each newly created store-backed output" recordsDepositWithCreatedOutput

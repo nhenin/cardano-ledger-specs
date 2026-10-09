@@ -9,9 +9,12 @@ import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Tx (DijkstraEraTx (hashTx))
 import Cardano.Ledger.Hashes (extractHash)
+import Cardano.Ledger.Dijkstra.Rules (
+  DijkstraSubUtxoPredFailure (..),
+  DijkstraUtxoPredFailure (..),
+ )
 import Paths_cardano_ledger_dijkstra (getDataFileName)
 import Test.Cardano.Ledger.Binary.Golden (goldenForHashHex)
-import Cardano.Ledger.Dijkstra.Rules (DijkstraUtxoPredFailure (..))
 import Test.Cardano.Ledger.Binary.Plain.Golden (DiffView (DiffCBOR), Enc (..), expectGoldenToCBOR)
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.JSON (goldenJsonPParamsSpec, goldenJsonPParamsUpdateSpec)
@@ -30,12 +33,29 @@ spec =
         goldenForHashHex
           "golden/hashtx.hex"
           (extractHash $ hashTx exampleDijkstraTx)
-    describe "UTXO predicate failures" . forEachEraVersion @DijkstraEra $ \version ->
+    describe "UTXO predicate failures" . forEachEraVersion @DijkstraEra $ \version -> do
       it "Encodes and decodes a missing TopTx UTxO capacity deposit declaration" $ do
         let failure = MissingTopTxUTxODepositDeclaration @DijkstraEra
             encoding = Em [E $ TkListLen 1, E @Int 24]
         expectGoldenToCBOR DiffCBOR (Ev version failure) encoding
         Binary.decodeFull @(DijkstraUtxoPredFailure DijkstraEra)
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR encoding)
+          `shouldBe` Right failure
+      it "Encodes and decodes a missing declaration for TopTx's own store-backed outputs" $ do
+        let failure = MissingUTxODepositDeclaration @DijkstraEra
+            encoding = Em [E $ TkListLen 1, E @Int 25]
+        expectGoldenToCBOR DiffCBOR (Ev version failure) encoding
+        Binary.decodeFull @(DijkstraUtxoPredFailure DijkstraEra)
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR encoding)
+          `shouldBe` Right failure
+    describe "SUBUTXO predicate failures" . forEachEraVersion @DijkstraEra $ \version ->
+      it "Encodes and decodes a missing declaration for SubTx's own store-backed outputs" $ do
+        let failure = SubMissingUTxODepositDeclaration @DijkstraEra
+            encoding = Em [E $ TkListLen 1, E @Int 11]
+        expectGoldenToCBOR DiffCBOR (Ev version failure) encoding
+        Binary.decodeFull @(DijkstraSubUtxoPredFailure DijkstraEra)
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldBe` Right failure

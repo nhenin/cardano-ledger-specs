@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 -- Keep each requirement and its named check on one line.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "External UTxO capacity deposits contribute no stake or voting power (DS-STAKE-001)" $ do
+spec = describe "DS-STAKE-001 - External UTxO capacity deposits contribute no stake or voting power" $ do
   it "counts the full ADA in implicit outputs under the existing staking rules" countsFullImplicitOutputADA
   it "counts only application ADA in store-backed outputs under the existing staking rules" countsOnlyStoreBackedApplicationADA
   it "does not count allocated UTxO capacity deposits or Store balance as additional voting power" excludesDepositsFromVotingPower

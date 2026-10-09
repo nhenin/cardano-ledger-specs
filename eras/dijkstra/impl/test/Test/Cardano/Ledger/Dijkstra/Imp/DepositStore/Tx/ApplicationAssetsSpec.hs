@@ -7,7 +7,7 @@ import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, shouldBe)
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "Application assets may be empty when the UTxO capacity deposit is funded (DS-TX-012)" $ do
+  describe "DS-TX-012 - Application assets may be empty when the UTxO capacity deposit is funded" $ do
     it "accepts a store-backed output containing native assets and zero ADA" nativeAssetsNeedNoApplicationAda
     it "accepts empty application assets with a datum or reference script" datumOrScriptAllowsEmptyApplicationAssets
     it "accepts a store-backed output containing only an address" addressOnlyOutputIsAccepted

@@ -49,55 +49,64 @@ import Validation (Validation (..))
 -- outcome and expected result. All rows have implicit-deposit outputs and no
 -- Store activity; absence and explicit zero remain distinct.
 --
--- The adapter registers a separate ledger test for each row. The domain property
--- compares the validator with the rule; fixture construction is checked separately.
+-- The adapter registers a separate ledger test for each row. Nominal and failure
+-- cases state their expected outcome separately. The universal domain property
+-- covers both outcomes; fixture construction is checked separately.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "A SubTx declaration requires a TopTx declaration (DS-TX-009)" $ do
-    prop "any SubTx has a declaration ⇒ TopTx has a declaration" $
-      Fixture.forAllCases $ validateDeclaration `conformsTo` subTxDeclarationImpliesATopTxOne
-    prop "requires a TopTx declaration even when SubTx allocations equal releases, resulting in a zero net amount" $
-      forAll Fixture.equalLocalAllocationAndRelease $ \subTxDeclarations ->
-        conjoin
-          [ validateDeclaration (Declarations TopTx.NoUTxODepositDeclaration subTxDeclarations) === missingTopDeclarationFailure
-          , validateDeclaration (Declarations TopTx.DeclaresZeroNetUTxODeposit subTxDeclarations) === Success ()
-          ]
-    prop "requires a TopTx declaration whether SubTx allocations and releases are accounted for locally or delegated to TopTx" $
-      forAll Fixture.onlyExplicitSubTxDeclarations $ \subTxDeclarations ->
-        conjoin
-          [ conjoin
-              [ validateDeclaration (Declarations TopTx.NoUTxODepositDeclaration [subTxDeclaration]) === missingTopDeclarationFailure
-              , validateDeclaration (Declarations TopTx.DeclaresZeroNetUTxODeposit [subTxDeclaration]) === Success ()
-              ]
-          | subTxDeclaration <- subTxDeclarations
-          ]
-    declarationScenarios
+  describe "DS-TX-009 - A SubTx declaration requires a TopTx declaration" $ do
+    describe "Declaration rule (nominal and failure cases)" $
+      prop "any SubTx has a declaration ⇒ TopTx has a declaration" $
+        Fixture.forAllCases $ validateDeclaration `conformsTo` subTxDeclarationImpliesATopTxOne
+    describe "Nominal cases" $ do
+      prop "passes declaration presence with a TopTx zero declaration when SubTx allocations equal releases, resulting in a zero net amount" $
+        forAll Fixture.equalLocalAllocationAndRelease $ \subTxDeclarations ->
+          validateDeclaration (Declarations TopTx.DeclaresZeroNetUTxODeposit subTxDeclarations) === Success ()
+      prop "passes declaration presence with a TopTx zero declaration whether SubTx allocations and releases are accounted for locally or delegated to TopTx" $
+        forAll Fixture.onlyExplicitSubTxDeclarations $ \subTxDeclarations ->
+          conjoin
+            [ validateDeclaration (Declarations TopTx.DeclaresZeroNetUTxODeposit [subTxDeclaration]) === Success ()
+            | subTxDeclaration <- subTxDeclarations
+            ]
+      declarationScenarios
         [ ( "accepts absent declarations on both levels when there is no Store activity"
-            , Declarations TopTx.NoUTxODepositDeclaration [SubTx.NoUTxODepositDeclaration]
-            , Phase2Valid, Accepted
-            )
-          , ( "rejects a SubTx zero declaration when TopTx declares nothing"
-            , Declarations TopTx.NoUTxODepositDeclaration [SubTx.DeclaresZeroNetUTxODeposit]
-            , Phase2Valid, Rejected MissingTopTxUTxODepositDeclaration
-            )
-          , ( "accepts zero declarations on both levels when there is no Store activity"
-            , Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.DeclaresZeroNetUTxODeposit]
-            , Phase2Valid, Accepted
-            )
-          , ( "accepts a TopTx zero declaration without SubTx declarations when there is no Store activity"
-            , Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.NoUTxODepositDeclaration]
-            , Phase2Valid, Accepted
-            )
-          , ( "accepts zero declarations on both levels when phase 2 fails and there is no Store activity"
-            , Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.DeclaresZeroNetUTxODeposit]
-            , Phase2Invalid, Accepted
-            )
-          , ( "rejects a SubTx zero declaration without a TopTx declaration even when phase 2 fails"
-            , Declarations TopTx.NoUTxODepositDeclaration [SubTx.DeclaresZeroNetUTxODeposit]
-            , Phase2Invalid, Rejected MissingTopTxUTxODepositDeclaration
-            )
-          ]
+          , Declarations TopTx.NoUTxODepositDeclaration [SubTx.NoUTxODepositDeclaration]
+          , Phase2Valid, Accepted
+          )
+        , ( "accepts zero declarations on both levels when there is no Store activity"
+          , Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.DeclaresZeroNetUTxODeposit]
+          , Phase2Valid, Accepted
+          )
+        , ( "accepts a TopTx zero declaration without SubTx declarations when there is no Store activity"
+          , Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.NoUTxODepositDeclaration]
+          , Phase2Valid, Accepted
+          )
+        , ( "accepts zero declarations on both levels when phase 2 fails and there is no Store activity"
+          , Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.DeclaresZeroNetUTxODeposit]
+          , Phase2Invalid, Accepted
+          )
+        ]
+    describe "Failure cases" $ do
+      prop "rejects an absent TopTx declaration even when SubTx allocations equal releases, resulting in a zero net amount" $
+        forAll Fixture.equalLocalAllocationAndRelease $ \subTxDeclarations ->
+          validateDeclaration (Declarations TopTx.NoUTxODepositDeclaration subTxDeclarations) === missingTopDeclarationFailure
+      prop "rejects an absent TopTx declaration whether SubTx allocations and releases are accounted for locally or delegated to TopTx" $
+        forAll Fixture.onlyExplicitSubTxDeclarations $ \subTxDeclarations ->
+          conjoin
+            [ validateDeclaration (Declarations TopTx.NoUTxODepositDeclaration [subTxDeclaration]) === missingTopDeclarationFailure
+            | subTxDeclaration <- subTxDeclarations
+            ]
+      declarationScenarios
+        [ ( "rejects a SubTx zero declaration when TopTx declares nothing"
+          , Declarations TopTx.NoUTxODepositDeclaration [SubTx.DeclaresZeroNetUTxODeposit]
+          , Phase2Valid, Rejected MissingTopTxUTxODepositDeclaration
+          )
+        , ( "rejects a SubTx zero declaration without a TopTx declaration even when phase 2 fails"
+          , Declarations TopTx.NoUTxODepositDeclaration [SubTx.DeclaresZeroNetUTxODeposit]
+          , Phase2Invalid, Rejected MissingTopTxUTxODepositDeclaration
+          )
+        ]
     describe "Declaration fixture construction" $
       prop "preserves the number of SubTxs, including those with repeated declarations" $
         Fixture.forAllCases $ \declarations ->
