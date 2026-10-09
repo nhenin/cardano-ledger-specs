@@ -61,6 +61,10 @@ import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, UTXO)
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  DepositStoreDeclarationFailure (..),
+  validateTopTxNetUTxODepositDeclaration,
+ )
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (
@@ -169,6 +173,8 @@ data DijkstraUtxoPredFailure era
   | -- | Legacy-mode top-level transaction does not self-balance
     ValueNotConservedInLegacyMode
       (Mismatch RelEQ (Value era))
+  | -- | A SubTx declares a net UTxO capacity deposit change but TopTx does not.
+    MissingTopTxUTxODepositDeclaration
   deriving (Generic)
 
 type instance EraRuleFailure "UTXO" DijkstraEra = DijkstraUtxoPredFailure DijkstraEra
@@ -242,6 +248,11 @@ instance
   , NFData (PredicateFailure (EraRule "UTXOS" era))
   ) =>
   NFData (DijkstraUtxoPredFailure era)
+
+depositStoreDeclarationToUtxoPredFailure ::
+  DepositStoreDeclarationFailure -> DijkstraUtxoPredFailure era
+depositStoreDeclarationToUtxoPredFailure = \case
+  MissingTopTxDeclaration -> MissingTopTxUTxODepositDeclaration
 
 validateNoPtrInCollateralReturn ::
   ( BabbageEraTxBody era
@@ -331,6 +342,10 @@ dijkstraUtxoTransition = do
   let originalPState = originalCertState ^. certPStateL
 
   let txBody = tx ^. bodyTxL
+
+  runTestOnSignal $
+    first (fmap depositStoreDeclarationToUtxoPredFailure) $
+      validateTopTxNetUTxODepositDeclaration txBody
 
   {- inInterval (SlotOf Γ) (ValidIntervalOf txTop) -}
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
@@ -516,6 +531,7 @@ instance
       BabbageNonDisjointRefInputs x -> Sum BabbageNonDisjointRefInputs 21 !> To x
       PtrPresentInCollateralReturn x -> Sum PtrPresentInCollateralReturn 22 !> To x
       ValueNotConservedInLegacyMode mm -> Sum ValueNotConservedInLegacyMode 23 !> To mm
+      MissingTopTxUTxODepositDeclaration -> Sum MissingTopTxUTxODepositDeclaration 24
 
 instance
   ( Era era
@@ -550,6 +566,7 @@ instance
     21 -> SumD BabbageNonDisjointRefInputs <! From
     22 -> SumD PtrPresentInCollateralReturn <! From
     23 -> SumD ValueNotConservedInLegacyMode <! From
+    24 -> SumD MissingTopTxUTxODepositDeclaration
     n -> Invalid n
 
 -- =====================================================

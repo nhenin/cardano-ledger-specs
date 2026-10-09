@@ -42,6 +42,8 @@ import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
 import Cardano.Ledger.Dijkstra.TxBody (TxBody (..))
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (Language (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
@@ -140,6 +142,14 @@ instance Arbitrary SubTxNetUTxODepositChange where
   shrink = genericShrink
 
 instance Arbitrary NetUTxODepositChange where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary TopTx.TopTxUTxODepositDeclaration where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary SubTx.SubTxUTxODepositDeclaration where
   arbitrary = genericArbitraryU
   shrink = genericShrink
 

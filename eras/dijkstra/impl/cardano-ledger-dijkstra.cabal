@@ -50,6 +50,8 @@ library
     Cardano.Ledger.Dijkstra.TxOut
     Cardano.Ledger.Dijkstra.TxWits
     Cardano.Ledger.Dijkstra.UTxO
+    Cardano.Ledger.Dijkstra.UTxODeposit.SubTx
+    Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
 
   other-modules:
     Cardano.Ledger.Dijkstra.Forecast
@@ -57,6 +59,7 @@ library
     Cardano.Ledger.Dijkstra.Rules.Cert
     Cardano.Ledger.Dijkstra.Rules.Certs
     Cardano.Ledger.Dijkstra.Rules.Deleg
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration
     Cardano.Ledger.Dijkstra.Rules.Entities
     Cardano.Ledger.Dijkstra.Rules.Epoch
     Cardano.Ledger.Dijkstra.Rules.Gov
@@ -277,6 +280,12 @@ test-suite tests
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Assertions
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.DeclarationScenarios
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Declarations.SubTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Declarations.TopTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Fixture.DeclarationDependency
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Transaction
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.AccountingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TotalCollateralSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TransitionSpec
@@ -320,9 +329,13 @@ test-suite tests
     cardano-data,
     cardano-ledger-alonzo:{cardano-ledger-alonzo, testlib},
     cardano-ledger-babbage:testlib,
-    cardano-ledger-binary:testlib,
+    cardano-ledger-binary:{cardano-ledger-binary, testlib},
     cardano-ledger-conway:{cardano-ledger-conway, testlib},
     cardano-ledger-core:{cardano-ledger-core, testlib},
     cardano-ledger-dijkstra:{cardano-ledger-dijkstra, cddl, testlib},
-    cardano-ledger-shelley:testlib,
+    cardano-ledger-shelley:{cardano-ledger-shelley, testlib},
     cardano-protocol:{cardano-protocol, testlib},
+    cardano-strict-containers,
+    containers,
+    microlens,
+    validation-selective,

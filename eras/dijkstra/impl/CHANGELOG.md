@@ -2,6 +2,10 @@
 
 ## 0.4.0.1
 
+* Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxODeposit.TopTx` and `UTxODeposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
+
+* Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.
+* Isolate declaration validation in `Rules.DepositStore.Declaration`, reexported through `Cardano.Ledger.Dijkstra.Rules`. The validator returns `DepositStoreDeclarationFailure`, which UTXO maps to its predicate failure.
 * Use UTxO capacity deposit terminology throughout the API: `NetUTxODepositChange`, `SubTxNetUTxODepositChange`, allocation/release constructors and release-settlement names. Rename the JSON body field to `netUTxODepositChange` and the corresponding operation/settlement kinds. This naming change preserves CBOR numeric keys, tags and encoded bytes.
 * Add `SubTxNoUTxODepositChange` for an explicit zero SubTx contribution, encoded as CBOR `[3]` and JSON `{"kind":"noChange"}`. Require `PositiveCoin` for SubTx net allocations, funding requests and net releases; reject zero operation amounts while preserving their CBOR tags.
 * Replace the TopTx release output index with `TopTxReleaseSettlement`: `NoTopTxSettlement` or `TopTxSettlementOutput TxIx`, supporting settlement in SubTx outputs as well as mixed TopTx/SubTx settlement. The release amount remains the batch net total. CBOR releases now contain a tagged settlement instead of a bare index; JSON uses a `settlement` object instead of `outputIndex`.

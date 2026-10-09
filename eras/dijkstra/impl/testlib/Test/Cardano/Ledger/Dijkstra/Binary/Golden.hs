@@ -15,7 +15,7 @@ module Test.Cardano.Ledger.Dijkstra.Binary.Golden (
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusTxInfo, SupportedLanguage (..))
 import Cardano.Ledger.Alonzo.Scripts (plutusScriptBinary)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers)
-import Cardano.Ledger.BaseTypes (StrictMaybe (..), TxIx (..), Version)
+import Cardano.Ledger.BaseTypes (TxIx (..), Version)
 import Cardano.Ledger.Binary (
   Annotator,
   DecoderError (..),
@@ -26,6 +26,8 @@ import Cardano.Ledger.Binary (
 import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..), PositiveCoin, mkPositiveCoin, unPositiveCoin)
 import Cardano.Ledger.Dijkstra.Core
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (SLanguage (..))
 import Cardano.Ledger.TxIn (TxIn (..))
 import Control.Monad (forM_)
@@ -146,7 +148,7 @@ goldenNetUTxODepositChange version = do
           `shouldBe` Right settlement
         Aeson.eitherDecode @TopTxReleaseSettlement (Aeson.encode settlement) `shouldBe` Right settlement
   it "Omitting the operation preserves the existing body encoding" $ do
-    basicBody ^. netUTxODepositChangeTxBodyL `shouldBe` SNothing
+    basicBody ^. netUTxODepositChangeTxBodyL `shouldBe` TopTx.NoUTxODepositDeclaration
     expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
     decodeEnc @(TxBody TopTx era) version basicBodyEncoding `shouldBe` Right basicBody
   it "Decodes historical JSON without an operation as no declaration" $
@@ -156,10 +158,10 @@ goldenNetUTxODepositChange version = do
           `shouldBe` Aeson.Success basicBody
       _ -> expectationFailure "Expected a JSON object for the transaction body"
   it "Distinguishes an explicit zero net change from an absent declaration" $ do
-    let noChangeBody = basicBody & netUTxODepositChangeTxBodyL .~ SJust NoUTxODepositChange
+    let noChangeBody = basicBody & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresZeroNetUTxODeposit
     Aeson.toJSON NoUTxODepositChange
       `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
-    noChangeBody ^. netUTxODepositChangeTxBodyL `shouldBe` SJust NoUTxODepositChange
+    noChangeBody ^. netUTxODepositChangeTxBodyL `shouldBe` TopTx.DeclaresZeroNetUTxODeposit
     Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
     Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
@@ -198,7 +200,7 @@ goldenNetUTxODepositChange version = do
     ]
     $ \(name, operation, operationEncoding) ->
       it ("Round-trips a " <> name <> " in TopTx field 28 and JSON") $ do
-        let body = basicBody & netUTxODepositChangeTxBodyL .~ SJust operation
+        let body = basicBody & netUTxODepositChangeTxBodyL .~ TopTx.declareUTxODepositChange operation
             encoding = bodyWithOperationEncoding operationEncoding
         expectGoldenToCBOR DiffCBOR (Ev version body) encoding
         decodeEnc @(TxBody TopTx era) version encoding `shouldBe` Right body
@@ -318,7 +320,7 @@ goldenSubTxNetUTxODepositChange ::
   Spec
 goldenSubTxNetUTxODepositChange version = do
   it "Omitting the operation preserves the existing body encoding and does not delegate" $ do
-    basicBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SNothing
+    basicBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SubTx.NoUTxODepositDeclaration
     expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
     decodeEnc @(TxBody SubTx era) version basicBodyEncoding `shouldBe` Right basicBody
     Binary.decodeFull @(TxBody SubTx era)
@@ -342,10 +344,10 @@ goldenSubTxNetUTxODepositChange version = do
           ]
       Aeson.eitherDecode @NetUTxODepositChange (Aeson.encode request) `shouldSatisfy` isLeft
   it "Distinguishes an explicit zero change from an absent declaration" $ do
-    let noChangeBody = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SJust SubTxNoUTxODepositChange
+    let noChangeBody = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SubTx.DeclaresZeroNetUTxODeposit
     Aeson.toJSON SubTxNoUTxODepositChange
       `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
-    noChangeBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SJust SubTxNoUTxODepositChange
+    noChangeBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SubTx.DeclaresZeroNetUTxODeposit
     Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
     Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
@@ -475,7 +477,7 @@ goldenSubTxNetUTxODepositChange version = do
     releaseEncoding targetEncoding =
       Em [E $ TkListLen 3, E @Int 1, E @Int 10, targetEncoding]
     expectOperationRoundTrip operation operationEncoding = do
-      let body = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SJust operation
+      let body = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SubTx.declareUTxODepositChange operation
           encoding = bodyWithOperationEncoding operationEncoding
       expectGoldenToCBOR DiffCBOR (Ev version body) encoding
       decodeEnc @(TxBody SubTx era) version encoding `shouldBe` Right body

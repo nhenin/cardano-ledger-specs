@@ -83,12 +83,14 @@ module Cardano.Ledger.Api.Tx.Body (
   DirectDeposits (..),
   netUTxODepositChangeTxBodyL,
   NetUTxODepositChange (..),
+  TopTxUTxODepositDeclaration,
   TopTxReleaseSettlement (..),
   PositiveCoin,
   mkPositiveCoin,
   unPositiveCoin,
   subTxNetUTxODepositChangeTxBodyL,
   SubTxNetUTxODepositChange (..),
+  SubTxUTxODepositDeclaration,
   SubTxReleaseTarget (..),
 
   -- * Upgrade
@@ -129,7 +131,9 @@ import Cardano.Ledger.Dijkstra.TxBody (
   NetUTxODepositChange (..),
   SubTxNetUTxODepositChange (..),
   SubTxReleaseTarget (..),
+  SubTxUTxODepositDeclaration,
   TopTxReleaseSettlement (..),
+  TopTxUTxODepositDeclaration,
  )
 import Cardano.Ledger.Keys (KeyHash (..), KeyRole (..))
 import Cardano.Ledger.Mary.Core (MaryEraTxBody (..))

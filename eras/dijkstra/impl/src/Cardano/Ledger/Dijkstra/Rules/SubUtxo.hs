@@ -334,3 +334,4 @@ dijkstraUtxoToDijkstraSubUtxoPredFailure = \case
   BabbageNonDisjointRefInputs _ -> error "Impossible: `BabbageNonDisjointRefInputs` for SUBUTXO"
   PtrPresentInCollateralReturn _ -> error "Impossible: `PtrPresentInCollateralReturn` for SUBUTXO"
   ValueNotConservedInLegacyMode _ -> error "Impossible: `ValueNotConservedInLegacyMode` for SUBUTXO"
+  MissingTopTxUTxODepositDeclaration -> error "Impossible: `MissingTopTxUTxODepositDeclaration` for SUBUTXO"

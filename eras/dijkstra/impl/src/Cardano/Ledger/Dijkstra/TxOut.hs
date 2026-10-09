@@ -182,8 +182,7 @@ instance MemPack DijkstraStoreBackedTxOut where
   packedByteCount = packedByteCount . storeBackedPackedFields
   packM = packM . storeBackedPackedFields
   unpackM =
-    DijkstraStoreBackedTxOut
-      <$> (decompactAddr <$> unpackM)
+    (DijkstraStoreBackedTxOut . decompactAddr <$> unpackM)
       <*> (ApplicationAssets . fromCompact <$> unpackM)
       <*> unpackM
       <*> (maybeToStrictMaybe <$> unpackM)
