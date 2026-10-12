@@ -110,11 +110,25 @@ Local run evidence is in `/private/tmp/ds-business-after-adapter-removal.log`,
 not committed verification inputs. The additional codec, UTXO, SUBUTXO and LEDGER
 selections recorded on 9 October below were not rerun for this change.
 
-The final business document contains 189 case sections, 55 section introductions and
-45 collapsible groups. Its 73 mathematical expressions passed local parsing and
-rendering checks. All 244 TOC links resolve to unique explicit anchor IDs; heading
-titles omit rule tags. Navigation in the live IDE preview and GitHub's remote preview
-were not verified.
+The document is grouped into Domain model, Transaction rules, Ledger effects and
+Derived distributions, followed by appendices. Domain model now introduces Outputs,
+DepositStore, Transaction bodies and Deposit calculation directly. API details live
+in Appendix C; transaction validity and state transitions stay in their rule chapters.
+Ledger effects directly contains the former State responsibilities.
+
+The document-only checks preserve all 189 case titles, descriptions and source links.
+All 249 TOC entries match their target titles in reading order; all 251 explicit
+anchors are unique, including two aliases for relocated overviews. Each of the 44
+collapsible groups indents its children. The deepest 34 case titles use numbered bold
+text below H6 groups to stay within Markdown's heading levels.
+
+All 72 mathematical expressions parse and render with KaTeX; the document also renders
+through Pandoc. The IDE preview was checked with Deposit calculation expanded and with
+Tx → Presence → Activity → Creation expanded down to the test links. Indentation is
+visible at every level without extra bullets. A minimal nested-markup sample was also
+preserved by GitHub's Markdown API. The repository's remote page has not been visually
+checked for this update. These document changes do not rerun or alter the
+test results above.
 
 ## Test infrastructure and verification method
 
@@ -123,6 +137,10 @@ group. Adapters translate domain scenarios into ledger fixtures and observations
 Fixtures state their preconditions; transaction builders preserve intentional invalid
 amounts, missing declarations and wrong destinations. They may repair incidental
 witness or fee requirements only when that leaves the condition under test unchanged.
+
+Acceptance fixtures must satisfy the other ledger rules; rejection fixtures isolate the
+condition being rejected and include a corresponding valid control. Preserve existing
+SubTx contributions to TopTx fees when checking DepositStore conservation.
 
 Scenario tables keep the description, domain input, phase-2 outcome and expected decision
 visible in the executable spec. Each row gets fresh ledger state. Properties compare
