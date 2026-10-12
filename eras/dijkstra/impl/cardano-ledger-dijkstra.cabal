@@ -284,36 +284,57 @@ test-suite tests
   other-modules:
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
+    Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Assertions
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.DeclarationScenarios
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Declarations.SubTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Declarations.TopTx
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Fixture.DeclarationDependency
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Fixture.OutputCreation
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.OutputCreation
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Transaction
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.AccountingSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TotalCollateralSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TransitionSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.ValidationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Creation.Assertions
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Creation.Fixture
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Creation.Scenarios
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Creation.Transaction
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Dependency.Assertions
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Dependency.Fixture
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Dependency.Scenarios
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Adapter.Tx.Presence.Dependency.Transaction
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.AuthorizationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.ConservationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.FundingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.ScopeSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.SettlementSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.SurplusSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Collateral.TotalSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.CollateralSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.PricingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.StakeSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.ConwayTransitionSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.LiveUTxOSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.PricingSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Store.SolvencySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.AllocationsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.BalanceSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.ConservationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.ExecutionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.InitializationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.RecoverySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.State.SolvencySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.StateSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ApplicationAssetsSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.DeclarationDependencySpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.DeclarationSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.DelegationSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ExactAccountingSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ExplicitZeroSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.FinalReleaseSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.NettingSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ReleaseAuthoritySpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.SettlementOutputsSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.TopTxSettlementSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ValueConservationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.AttributionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.AuthorizationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ConservationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Exactness.ContributionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Exactness.NettingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.ExactnessSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.GrammarSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Presence.Activity.CreationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Presence.Activity.ScopeSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Presence.Activity.SpendingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Presence.ActivitySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Presence.DependencySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.PresenceSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Settlement.CoverageSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Settlement.DestinationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.Settlement.ParticipationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Tx.SettlementSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.VotingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec
     Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec
 

@@ -25,6 +25,7 @@ import Test.Cardano.Ledger.Dijkstra.Binary.Annotator ()
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec as Cddl
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.Golden as GoldenBinary
 import Test.Cardano.Ledger.Dijkstra.Binary.RoundTrip ()
+import qualified Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec as DepositStoreFixture
 import qualified Test.Cardano.Ledger.Dijkstra.GenesisSpec as GenesisSpec
 import qualified Test.Cardano.Ledger.Dijkstra.GoldenSpec as GoldenSpec
 import qualified Test.Cardano.Ledger.Dijkstra.Imp as Imp
@@ -42,6 +43,7 @@ main :: IO ()
 main =
   ledgerEraTestMain @DijkstraEra $ do
     DepositStore.spec
+    describe "Test infrastructure" DepositStoreFixture.spec
     describe "RoundTrip" $ do
       roundTripConwayCommonSpec @DijkstraEra
       prop "Block (Leios.Header)" $
