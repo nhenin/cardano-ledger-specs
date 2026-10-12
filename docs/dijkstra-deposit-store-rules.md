@@ -11,522 +11,340 @@ numbering. Implementation status and recorded runs belong in the
 Use the arrows to expand a domain, responsibility or case group. Select a title to jump
 to it. The domain model supplies the vocabulary; sections 2–7 follow `DepositStoreSpec`.
 
-<ul>
-  <li>
+<details>
+  <summary><a href="#section-1">1. Domain model</a></summary>
+  <a href="#section-1-1">1.1 UTxO capacity deposit terminology and state</a><br>
+  <a href="#section-1-2">1.2 Validity predicates</a><br>
+  <a href="#section-1-3">1.3 Expected transitions and derived invariants</a><br>
+  <a href="#section-1-4">1.4 Body scope</a><br>
+</details>
+<details>
+  <summary><a href="#ds-pricing">2. Pricing</a></summary>
+  <a href="#ds-pricing-p01">2.1 P01 - ordinary success ⇒ newly recorded UTxO capacity deposit amounts equal coinsPerUTxOByte * (160 + acceptedSize) for store-backed outputs</a><br>
+  <a href="#ds-pricing-n01">2.2 N01 - allocates each UTxO capacity deposit as coinsPerUTxOByte * (160 + accepted serialized output size)</a><br>
+  <a href="#ds-pricing-n02">2.3 N02 - uses the same UTxO capacity deposit formula for a store-backed collateral return</a><br>
+  <a href="#ds-pricing-n03">2.4 N03 - includes address, application assets, datum and reference script in the priced size</a><br>
+  <a href="#ds-pricing-n04">2.5 N04 - excludes the external UTxO capacity deposit amount and Store declaration from the priced output</a><br>
+  <a href="#ds-pricing-n05">2.6 N05 - handles CBOR size boundaries when an application coin amount changes</a><br>
+  <a href="#ds-pricing-n06">2.7 N06 - assigns no DepositStore obligation to implicit outputs</a><br>
+</details>
+<details>
+  <summary><a href="#ds-tx">3. Tx</a></summary>
+  <details>
+    <summary><a href="#ds-tx-grammar">3.1 Grammar</a></summary>
+    <a href="#ds-tx-grammar-n01">3.1.1 N01 - does not interpret an explicit SubTx zero as a delegation request</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-presence">3.2 Presence</a></summary>
     <details>
-      <summary><a href="#section-1">1. Domain model</a></summary>
-      <ul>
-        <li><a href="#section-1-1">1.1 UTxO capacity deposit terminology and state</a></li>
-        <li><a href="#section-1-2">1.2 Validity predicates</a></li>
-        <li><a href="#section-1-3">1.3 Expected transitions and derived invariants</a></li>
-        <li><a href="#section-1-4">1.4 Body scope</a></li>
-      </ul>
+      <summary><a href="#ds-tx-presence-activity">3.2.1 Activity</a></summary>
+      <a href="#ds-tx-presence-activity-p01">3.2.1.1 P01 - A body creating or spending store-backed outputs must declare its own UTxO capacity deposit change.</a><br>
+      <details>
+        <summary><a href="#ds-tx-presence-activity-creation">3.2.1.2 Creation</a></summary>
+        <a href="#ds-tx-presence-activity-creation-n01">3.2.1.2.1 N01 - accepts every explicit TopTx and SubTx declaration for creation presence, including zero and delegation</a><br>
+        <a href="#ds-tx-presence-activity-creation-n02">3.2.1.2.2 N02 - accepts absent declarations for empty or implicit-only own outputs</a><br>
+        <a href="#ds-tx-presence-activity-creation-f01">3.2.1.2.3 F01 - rejects a missing own declaration when a store-backed output appears at any own-output position</a><br>
+        <a href="#ds-tx-presence-activity-creation-n03">3.2.1.2.4 N03 - accepts a TopTx creating only implicit outputs without a declaration</a><br>
+        <a href="#ds-tx-presence-activity-creation-n04">3.2.1.2.5 N04 - accepts a SubTx creating only implicit outputs without either body's declaration</a><br>
+        <a href="#ds-tx-presence-activity-creation-f02">3.2.1.2.6 F02 - rejects a TopTx creating a store-backed output without its own declaration</a><br>
+        <a href="#ds-tx-presence-activity-creation-f03">3.2.1.2.7 F03 - rejects a SubTx creating a store-backed output without its own declaration</a><br>
+        <a href="#ds-tx-presence-activity-creation-f04">3.2.1.2.8 F04 - rejects a TopTx creating a store-backed output without its own declaration even when phase 2 fails</a><br>
+        <a href="#ds-tx-presence-activity-creation-f05">3.2.1.2.9 F05 - rejects a SubTx creating a store-backed output without its own declaration even when phase 2 fails</a><br>
+        <a href="#ds-tx-presence-activity-creation-f06">3.2.1.2.10 F06 - rejects a missing allocation declaration when spending a translated implicit output to create store-backed outputs</a><br>
+      </details>
+      <details>
+        <summary><a href="#ds-tx-presence-activity-spending">3.2.1.3 Spending</a></summary>
+        <a href="#ds-tx-presence-activity-spending-n01">3.2.1.3.1 N01 - accepts a TopTx spending a store-backed input with its own declaration</a><br>
+        <a href="#ds-tx-presence-activity-spending-n02">3.2.1.3.2 N02 - accepts a SubTx spending a store-backed input with its own declaration</a><br>
+        <a href="#ds-tx-presence-activity-spending-f01">3.2.1.3.3 F01 - rejects a TopTx spending a store-backed input without a declaration</a><br>
+        <a href="#ds-tx-presence-activity-spending-f02">3.2.1.3.4 F02 - rejects a SubTx spending a store-backed input without its own declaration</a><br>
+      </details>
+      <details>
+        <summary><a href="#ds-tx-presence-activity-scope">3.2.1.4 Scope</a></summary>
+        <a href="#ds-tx-presence-activity-scope-n01">3.2.1.4.1 N01 - accepts an absent TopTx declaration for creation presence when only its nested SubTx creates store-backed outputs</a><br>
+        <a href="#ds-tx-presence-activity-scope-n02">3.2.1.4.2 N02 - accepts an absent declaration for creation presence when only collateral return is store-backed</a><br>
+        <a href="#ds-tx-presence-activity-scope-n03">3.2.1.4.3 N03 - accepts an absent declaration for creation presence with reference or collateral input identifiers alone</a><br>
+        <a href="#ds-tx-presence-activity-scope-f01">3.2.1.4.4 F01 - rejects a missing TopTx declaration for its own store-backed outputs even when its nested SubTx declares</a><br>
+        <a href="#ds-tx-presence-activity-scope-f02">3.2.1.4.5 F02 - rejects a creating SubTx's missing declaration even when TopTx explicitly declares zero</a><br>
+        <a href="#ds-tx-presence-activity-scope-n04">3.2.1.4.6 N04 - does not require a declaration merely for referencing a store-backed output</a><br>
+        <a href="#ds-tx-presence-activity-scope-n05">3.2.1.4.7 N05 - does not treat collateral inputs or collateral return as ordinary Store activity</a><br>
+        <a href="#ds-tx-presence-activity-scope-n06">3.2.1.4.8 N06 - accepts Store activity in both TopTx and SubTx when each provides its own declaration</a><br>
+        <a href="#ds-tx-presence-activity-scope-f03">3.2.1.4.9 F03 - does not let a SubTx declaration replace a missing TopTx declaration</a><br>
+      </details>
     </details>
-  </li>
-  <li>
     <details>
-      <summary><a href="#ds-pricing">2. Pricing</a></summary>
-      <ul>
-        <li><a href="#ds-pricing-p01">2.1 P01 - ordinary success ⇒ newly recorded UTxO capacity deposit amounts equal coinsPerUTxOByte * (160 + acceptedSize) for store-backed outputs</a></li>
-        <li><a href="#ds-pricing-n01">2.2 N01 - allocates each UTxO capacity deposit as coinsPerUTxOByte * (160 + accepted serialized output size)</a></li>
-        <li><a href="#ds-pricing-n02">2.3 N02 - uses the same UTxO capacity deposit formula for a store-backed collateral return</a></li>
-        <li><a href="#ds-pricing-n03">2.4 N03 - includes address, application assets, datum and reference script in the priced size</a></li>
-        <li><a href="#ds-pricing-n04">2.5 N04 - excludes the external UTxO capacity deposit amount and Store declaration from the priced output</a></li>
-        <li><a href="#ds-pricing-n05">2.6 N05 - handles CBOR size boundaries when an application coin amount changes</a></li>
-        <li><a href="#ds-pricing-n06">2.7 N06 - assigns no DepositStore obligation to implicit outputs</a></li>
-      </ul>
+      <summary><a href="#ds-tx-presence-dependency">3.2.2 Dependency</a></summary>
+      <details>
+        <summary><a href="#ds-tx-presence-dependency-c01">3.2.2.1 Declaration dependency</a></summary>
+        <a href="#ds-tx-presence-dependency-c01-p01">3.2.2.1.1 P01 - any SubTx has a declaration ⇒ TopTx has a declaration</a><br>
+      </details>
+      <details>
+        <summary><a href="#ds-tx-presence-dependency-c02">3.2.2.2 Absence and explicit zero</a></summary>
+        <a href="#ds-tx-presence-dependency-c02-n01">3.2.2.2.1 N01 - accepts absent declarations at both levels</a><br>
+        <a href="#ds-tx-presence-dependency-c02-n02">3.2.2.2.2 N02 - accepts explicit zero at both levels</a><br>
+        <a href="#ds-tx-presence-dependency-c02-n03">3.2.2.2.3 N03 - accepts TopTx zero without a SubTx declaration</a><br>
+        <a href="#ds-tx-presence-dependency-c02-f01">3.2.2.2.4 F01 - rejects SubTx zero without a TopTx declaration</a><br>
+      </details>
+      <details>
+        <summary><a href="#ds-tx-presence-dependency-c03">3.2.2.3 Equal allocations and releases</a></summary>
+        <a href="#ds-tx-presence-dependency-c03-n01">3.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a><br>
+        <a href="#ds-tx-presence-dependency-c03-f01">3.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a><br>
+      </details>
+      <details>
+        <summary><a href="#ds-tx-presence-dependency-c04">3.2.2.4 Local and delegated accounting</a></summary>
+        <a href="#ds-tx-presence-dependency-c04-n01">3.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a><br>
+        <a href="#ds-tx-presence-dependency-c04-f01">3.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a><br>
+      </details>
+      <details>
+        <summary><a href="#ds-tx-presence-dependency-c05">3.2.2.5 Phase-2 failure</a></summary>
+        <a href="#ds-tx-presence-dependency-c05-n01">3.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a><br>
+        <a href="#ds-tx-presence-dependency-c05-f01">3.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a><br>
+      </details>
     </details>
-  </li>
-  <li>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-exactness">3.3 Exactness</a></summary>
     <details>
-      <summary><a href="#ds-tx">3. Tx</a></summary>
-      <ul>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-grammar">3.1 Grammar</a></summary>
-            <ul>
-              <li><a href="#ds-tx-grammar-n01">3.1.1 N01 - does not interpret an explicit SubTx zero as a delegation request</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-presence">3.2 Presence</a></summary>
-            <ul>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-presence-activity">3.2.1 Activity</a></summary>
-                  <ul>
-                    <li><a href="#ds-tx-presence-activity-p01">3.2.1.1 P01 - A body creating or spending store-backed outputs must declare its own UTxO capacity deposit change.</a></li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-activity-creation">3.2.1.2 Creation</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-activity-creation-n01">3.2.1.2.1 N01 - accepts every explicit TopTx and SubTx declaration for creation presence, including zero and delegation</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-n02">3.2.1.2.2 N02 - accepts absent declarations for empty or implicit-only own outputs</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-f01">3.2.1.2.3 F01 - rejects a missing own declaration when a store-backed output appears at any own-output position</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-n03">3.2.1.2.4 N03 - accepts a TopTx creating only implicit outputs without a declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-n04">3.2.1.2.5 N04 - accepts a SubTx creating only implicit outputs without either body&#x27;s declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-f02">3.2.1.2.6 F02 - rejects a TopTx creating a store-backed output without its own declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-f03">3.2.1.2.7 F03 - rejects a SubTx creating a store-backed output without its own declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-f04">3.2.1.2.8 F04 - rejects a TopTx creating a store-backed output without its own declaration even when phase 2 fails</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-f05">3.2.1.2.9 F05 - rejects a SubTx creating a store-backed output without its own declaration even when phase 2 fails</a></li>
-                          <li><a href="#ds-tx-presence-activity-creation-f06">3.2.1.2.10 F06 - rejects a missing allocation declaration when spending a translated implicit output to create store-backed outputs</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-activity-spending">3.2.1.3 Spending</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-activity-spending-n01">3.2.1.3.1 N01 - accepts a TopTx spending a store-backed input with its own declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-spending-n02">3.2.1.3.2 N02 - accepts a SubTx spending a store-backed input with its own declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-spending-f01">3.2.1.3.3 F01 - rejects a TopTx spending a store-backed input without a declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-spending-f02">3.2.1.3.4 F02 - rejects a SubTx spending a store-backed input without its own declaration</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-activity-scope">3.2.1.4 Scope</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-activity-scope-n01">3.2.1.4.1 N01 - accepts an absent TopTx declaration for creation presence when only its nested SubTx creates store-backed outputs</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-n02">3.2.1.4.2 N02 - accepts an absent declaration for creation presence when only collateral return is store-backed</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-n03">3.2.1.4.3 N03 - accepts an absent declaration for creation presence with reference or collateral input identifiers alone</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-f01">3.2.1.4.4 F01 - rejects a missing TopTx declaration for its own store-backed outputs even when its nested SubTx declares</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-f02">3.2.1.4.5 F02 - rejects a creating SubTx&#x27;s missing declaration even when TopTx explicitly declares zero</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-n04">3.2.1.4.6 N04 - does not require a declaration merely for referencing a store-backed output</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-n05">3.2.1.4.7 N05 - does not treat collateral inputs or collateral return as ordinary Store activity</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-n06">3.2.1.4.8 N06 - accepts Store activity in both TopTx and SubTx when each provides its own declaration</a></li>
-                          <li><a href="#ds-tx-presence-activity-scope-f03">3.2.1.4.9 F03 - does not let a SubTx declaration replace a missing TopTx declaration</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                  </ul>
-                </details>
-              </li>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-presence-dependency">3.2.2 Dependency</a></summary>
-                  <ul>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-dependency-c01">3.2.2.1 Declaration dependency</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-dependency-c01-p01">3.2.2.1.1 P01 - any SubTx has a declaration ⇒ TopTx has a declaration</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-dependency-c02">3.2.2.2 Absence and explicit zero</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-dependency-c02-n01">3.2.2.2.1 N01 - accepts absent declarations at both levels</a></li>
-                          <li><a href="#ds-tx-presence-dependency-c02-n02">3.2.2.2.2 N02 - accepts explicit zero at both levels</a></li>
-                          <li><a href="#ds-tx-presence-dependency-c02-n03">3.2.2.2.3 N03 - accepts TopTx zero without a SubTx declaration</a></li>
-                          <li><a href="#ds-tx-presence-dependency-c02-f01">3.2.2.2.4 F01 - rejects SubTx zero without a TopTx declaration</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-dependency-c03">3.2.2.3 Equal allocations and releases</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-dependency-c03-n01">3.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a></li>
-                          <li><a href="#ds-tx-presence-dependency-c03-f01">3.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-dependency-c04">3.2.2.4 Local and delegated accounting</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-dependency-c04-n01">3.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a></li>
-                          <li><a href="#ds-tx-presence-dependency-c04-f01">3.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                    <li>
-                      <details>
-                        <summary><a href="#ds-tx-presence-dependency-c05">3.2.2.5 Phase-2 failure</a></summary>
-                        <ul>
-                          <li><a href="#ds-tx-presence-dependency-c05-n01">3.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a></li>
-                          <li><a href="#ds-tx-presence-dependency-c05-f01">3.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a></li>
-                        </ul>
-                      </details>
-                    </li>
-                  </ul>
-                </details>
-              </li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-exactness">3.3 Exactness</a></summary>
-            <ul>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-exactness-contribution">3.3.1 Contribution</a></summary>
-                  <ul>
-                    <li><a href="#ds-tx-exactness-contribution-p01">3.3.1.1 P01 - ∀ s ∈ SubTxs: hasDeclaration(s) ⇒ declaredNetUTxODepositChange(s) = allocatedUTxODeposits(s) - releasedUTxODeposits(s)</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n01">3.3.1.2 N01 - accepts a contribution equal to allocated UTxO capacity deposits minus released UTxO capacity deposits</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f01">3.3.1.3 F01 - rejects a net allocation one lovelace below the required contribution</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f02">3.3.1.4 F02 - rejects a net allocation one lovelace above the required contribution</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f03">3.3.1.5 F03 - rejects a net release one lovelace below the required contribution</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f04">3.3.1.6 F04 - rejects a net release one lovelace above the required contribution</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f05">3.3.1.7 F05 - rejects opposing declaration errors even when they cancel in the batch total</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n02">3.3.1.8 N02 - checks TopTx&#x27;s own UTxO capacity deposit contribution separately from SubTx contributions</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n03">3.3.1.9 N03 - accepts an explicit zero when the declared UTxO capacity deposit contribution is zero</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f06">3.3.1.10 F06 - rejects an explicit zero when a net allocation must be funded</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n04">3.3.1.11 N04 - checks a delegated net allocation against the requesting SubTx&#x27;s exact net UTxO capacity deposit change</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n05">3.3.1.12 N05 - checks a delegated net release against the originating SubTx&#x27;s exact net UTxO capacity deposit change</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n06">3.3.1.13 N06 - requires a net release when a body spends store-backed outputs and creates only implicit outputs</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f07">3.3.1.14 F07 - rejects an explicit zero when that body must release UTxO capacity deposits</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n07">3.3.1.15 N07 - preserves that body&#x27;s net release even when another body&#x27;s net allocation offsets it</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n08">3.3.1.16 N08 - still requires the exact UTxO capacity deposit for an output with no application assets</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-n09">3.3.1.17 N09 - accepts spending a translated implicit output to create store-backed outputs with the exact declared allocation and batch funding</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f08">3.3.1.18 F08 - rejects an inexact allocation when spending a translated implicit output to create store-backed outputs</a></li>
-                    <li><a href="#ds-tx-exactness-contribution-f09">3.3.1.19 F09 - rejects an unrelated release from pre-existing Store surplus</a></li>
-                  </ul>
-                </details>
-              </li>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-exactness-netting">3.3.2 Netting</a></summary>
-                  <ul>
-                    <li><a href="#ds-tx-exactness-netting-p01">3.3.2.1 P01 - declared TopTx: declaredNetUTxODepositChange = Σ(netUTxODepositChange) over all bodies</a></li>
-                    <li><a href="#ds-tx-exactness-netting-n01">3.3.2.2 N01 - includes both TopTx and SubTx UTxO capacity deposit changes in the declared total</a></li>
-                    <li><a href="#ds-tx-exactness-netting-n02">3.3.2.3 N02 - nets a 5 ADA allocation and a 3 ADA release into AllocateUTxODeposit 2</a></li>
-                    <li><a href="#ds-tx-exactness-netting-n03">3.3.2.4 N03 - nets a 3 ADA allocation and a 5 ADA release into ReleaseUTxODeposit 2</a></li>
-                    <li><a href="#ds-tx-exactness-netting-n04">3.3.2.5 N04 - uses NoUTxODepositChange when allocations and releases cancel exactly</a></li>
-                  </ul>
-                </details>
-              </li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-attribution">3.4 Attribution</a></summary>
-            <ul>
-              <li><a href="#ds-tx-attribution-p01">3.4.1 P01 - topTxNetUTxODepositChange + Σ(subTxLocalNetUTxODepositChanges) = txTotalNetUTxODepositChange</a></li>
-              <li><a href="#ds-tx-attribution-p02">3.4.2 P02 - switching between local accounting and delegation preserves txTotalNetUTxODepositChange</a></li>
-              <li><a href="#ds-tx-attribution-n01">3.4.3 N01 - counts delegated funding once in TopTx accounting</a></li>
-              <li><a href="#ds-tx-attribution-n02">3.4.4 N02 - keeps the same batch net change when a SubTx delegates funding of its net allocation</a></li>
-              <li><a href="#ds-tx-attribution-n03">3.4.5 N03 - allows a SubTx spending its final store-backed inputs and creating no outputs to explicitly delegate the release to TopTx</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-conservation">3.5 Conservation</a></summary>
-            <ul>
-              <li><a href="#ds-tx-conservation-p01">3.5.1 P01 - consumedValue + inject(max(0, -txTotalNetUTxODepositChange)) = producedValue + inject(max(0, txTotalNetUTxODepositChange))</a></li>
-              <li><a href="#ds-tx-conservation-p02">3.5.2 P02 - ledger acceptance agrees with the model even when individual SubTxs are financially imbalanced</a></li>
-              <li><a href="#ds-tx-conservation-n01">3.5.3 N01 - counts the net allocation once on the produced side</a></li>
-              <li><a href="#ds-tx-conservation-n02">3.5.4 N02 - counts the net release once on the consumed side</a></li>
-              <li><a href="#ds-tx-conservation-n03">3.5.5 N03 - accepts financially imbalanced SubTxs when the complete batch balances</a></li>
-              <li><a href="#ds-tx-conservation-n04">3.5.6 N04 - preserves a SubTx&#x27;s ability to contribute ADA to TopTx fees</a></li>
-              <li><a href="#ds-tx-conservation-f01">3.5.7 F01 - rejects a batch imbalance of one lovelace</a></li>
-              <li><a href="#ds-tx-conservation-f02">3.5.8 F02 - rejects a native-asset imbalance even when ADA balances</a></li>
-              <li><a href="#ds-tx-conservation-f03">3.5.9 F03 - rejects a delegation request that the complete batch does not fund</a></li>
-              <li><a href="#ds-tx-conservation-n05">3.5.10 N05 - accepts offsetting delegated operations in a financially balanced batch</a></li>
-              <li><a href="#ds-tx-conservation-n06">3.5.11 N06 - requires an output of 12 ADA for 10 input ADA and a 2 ADA net release with no other ADA flows</a></li>
-              <li><a href="#ds-tx-conservation-n07">3.5.12 N07 - allows an output of 10 ADA when the other 2 ADA contributes to TopTx fees</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-authorization">3.6 Authorization</a></summary>
-            <ul>
-              <li><a href="#ds-tx-authorization-n01">3.6.1 N01 - allows the authorized spender to release UTxO capacity deposits paid by another person</a></li>
-              <li><a href="#ds-tx-authorization-n02">3.6.2 N02 - does not require a separate signature from the original UTxO capacity deposit funder</a></li>
-              <li><a href="#ds-tx-authorization-f01">3.6.3 F01 - rejects unauthorized spending even when the Store declaration is exact</a></li>
-              <li><a href="#ds-tx-authorization-n03">3.6.4 N03 - does not release UTxO capacity deposits for a reference input</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-settlement">3.7 Settlement</a></summary>
-            <ul>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-settlement-participation">3.7.1 Participation</a></summary>
-                  <ul>
-                    <li><a href="#ds-tx-settlement-participation-p01">3.7.1.1 P01 - for a batch net release: NoTopTxSettlement ⇔ topTxNetRelease = 0</a></li>
-                    <li><a href="#ds-tx-settlement-participation-n01">3.7.1.2 N01 - requires NoTopTxSettlement when SubTxs settle the entire net release locally</a></li>
-                    <li><a href="#ds-tx-settlement-participation-n02">3.7.1.3 N02 - requires a TopTx settlement output when the batch declares a net release and TopTx has a positive share</a></li>
-                    <li><a href="#ds-tx-settlement-participation-n03">3.7.1.4 N03 - accepts a net release settled across TopTx and SubTx outputs</a></li>
-                    <li><a href="#ds-tx-settlement-participation-n04">3.7.1.5 N04 - allows TopTx&#x27;s settlement amount to exceed the batch net release when SubTxs fund net allocations locally</a></li>
-                    <li><a href="#ds-tx-settlement-participation-f01">3.7.1.6 F01 - rejects NoTopTxSettlement when the batch declares a net release and TopTx has a positive share</a></li>
-                    <li><a href="#ds-tx-settlement-participation-f02">3.7.1.7 F02 - rejects a TopTx settlement output when TopTx has no net release to settle</a></li>
-                    <li><a href="#ds-tx-settlement-participation-n05">3.7.1.8 N05 - does not require a TopTx settlement output when the batch declares a net allocation</a></li>
-                    <li><a href="#ds-tx-settlement-participation-n06">3.7.1.9 N06 - does not require a TopTx settlement output for an explicit-zero batch even when TopTx&#x27;s derived accounting portion is negative</a></li>
-                  </ul>
-                </details>
-              </li>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-settlement-destination">3.7.2 Destination</a></summary>
-                  <ul>
-                    <li><a href="#ds-tx-settlement-destination-p01">3.7.2.1 P01 - each settlement output: 0 ≤ index &lt; length(ownOutputs)</a></li>
-                    <li><a href="#ds-tx-settlement-destination-f01">3.7.2.2 F01 - rejects an index outside the declaring body&#x27;s output sequence</a></li>
-                    <li><a href="#ds-tx-settlement-destination-f02">3.7.2.3 F02 - does not resolve a SubTx settlement index against TopTx outputs</a></li>
-                    <li><a href="#ds-tx-settlement-destination-f03">3.7.2.4 F03 - does not resolve a settlement index against collateral return</a></li>
-                    <li><a href="#ds-tx-settlement-destination-f04">3.7.2.5 F04 - rejects a local settlement target when a SubTx spends its final store-backed inputs and creates no outputs</a></li>
-                  </ul>
-                </details>
-              </li>
-              <li>
-                <details>
-                  <summary><a href="#ds-tx-settlement-coverage">3.7.3 Coverage</a></summary>
-                  <ul>
-                    <li><a href="#ds-tx-settlement-coverage-p01">3.7.3.1 P01 - each settlement output: coin(ownOutputs[index]) ≥ settlementAmount</a></li>
-                    <li><a href="#ds-tx-settlement-coverage-f01">3.7.3.2 F01 - rejects a settlement output containing less ADA than its settlement amount</a></li>
-                    <li><a href="#ds-tx-settlement-coverage-n01">3.7.3.3 N01 - accepts a settlement output containing exactly its settlement amount</a></li>
-                    <li><a href="#ds-tx-settlement-coverage-n02">3.7.3.4 N02 - accepts a settlement output containing the settlement amount and additional funds</a></li>
-                    <li><a href="#ds-tx-settlement-coverage-f02">3.7.3.5 F02 - rejects a store-backed settlement output with insufficient application ADA even when its external UTxO capacity deposit would cover the difference</a></li>
-                    <li><a href="#ds-tx-settlement-coverage-n03">3.7.3.6 N03 - accepts a store-backed settlement output with application ADA equal to the settlement amount</a></li>
-                    <li><a href="#ds-tx-settlement-coverage-n04">3.7.3.7 N04 - checks TopTx&#x27;s derived settlement amount rather than the entire batch net release</a></li>
-                  </ul>
-                </details>
-              </li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-tx-application-assets">3.8 Application assets</a></summary>
-            <ul>
-              <li><a href="#ds-tx-application-assets-n01">3.8.1 N01 - accepts a store-backed output containing native assets and zero ADA</a></li>
-              <li><a href="#ds-tx-application-assets-n02">3.8.2 N02 - accepts empty application assets with a datum or reference script</a></li>
-              <li><a href="#ds-tx-application-assets-n03">3.8.3 N03 - accepts a store-backed output containing only an address</a></li>
-              <li><a href="#ds-tx-application-assets-n04">3.8.4 N04 - preserves the minimum-coin requirement for implicit outputs</a></li>
-            </ul>
-          </details>
-        </li>
-      </ul>
+      <summary><a href="#ds-tx-exactness-contribution">3.3.1 Contribution</a></summary>
+      <a href="#ds-tx-exactness-contribution-p01">3.3.1.1 P01 - ∀ s ∈ SubTxs: hasDeclaration(s) ⇒ declaredNetUTxODepositChange(s) = allocatedUTxODeposits(s) - releasedUTxODeposits(s)</a><br>
+      <a href="#ds-tx-exactness-contribution-n01">3.3.1.2 N01 - accepts a contribution equal to allocated UTxO capacity deposits minus released UTxO capacity deposits</a><br>
+      <a href="#ds-tx-exactness-contribution-f01">3.3.1.3 F01 - rejects a net allocation one lovelace below the required contribution</a><br>
+      <a href="#ds-tx-exactness-contribution-f02">3.3.1.4 F02 - rejects a net allocation one lovelace above the required contribution</a><br>
+      <a href="#ds-tx-exactness-contribution-f03">3.3.1.5 F03 - rejects a net release one lovelace below the required contribution</a><br>
+      <a href="#ds-tx-exactness-contribution-f04">3.3.1.6 F04 - rejects a net release one lovelace above the required contribution</a><br>
+      <a href="#ds-tx-exactness-contribution-f05">3.3.1.7 F05 - rejects opposing declaration errors even when they cancel in the batch total</a><br>
+      <a href="#ds-tx-exactness-contribution-n02">3.3.1.8 N02 - checks TopTx's own UTxO capacity deposit contribution separately from SubTx contributions</a><br>
+      <a href="#ds-tx-exactness-contribution-n03">3.3.1.9 N03 - accepts an explicit zero when the declared UTxO capacity deposit contribution is zero</a><br>
+      <a href="#ds-tx-exactness-contribution-f06">3.3.1.10 F06 - rejects an explicit zero when a net allocation must be funded</a><br>
+      <a href="#ds-tx-exactness-contribution-n04">3.3.1.11 N04 - checks a delegated net allocation against the requesting SubTx's exact net UTxO capacity deposit change</a><br>
+      <a href="#ds-tx-exactness-contribution-n05">3.3.1.12 N05 - checks a delegated net release against the originating SubTx's exact net UTxO capacity deposit change</a><br>
+      <a href="#ds-tx-exactness-contribution-n06">3.3.1.13 N06 - requires a net release when a body spends store-backed outputs and creates only implicit outputs</a><br>
+      <a href="#ds-tx-exactness-contribution-f07">3.3.1.14 F07 - rejects an explicit zero when that body must release UTxO capacity deposits</a><br>
+      <a href="#ds-tx-exactness-contribution-n07">3.3.1.15 N07 - preserves that body's net release even when another body's net allocation offsets it</a><br>
+      <a href="#ds-tx-exactness-contribution-n08">3.3.1.16 N08 - still requires the exact UTxO capacity deposit for an output with no application assets</a><br>
+      <a href="#ds-tx-exactness-contribution-n09">3.3.1.17 N09 - accepts spending a translated implicit output to create store-backed outputs with the exact declared allocation and batch funding</a><br>
+      <a href="#ds-tx-exactness-contribution-f08">3.3.1.18 F08 - rejects an inexact allocation when spending a translated implicit output to create store-backed outputs</a><br>
+      <a href="#ds-tx-exactness-contribution-f09">3.3.1.19 F09 - rejects an unrelated release from pre-existing Store surplus</a><br>
     </details>
-  </li>
-  <li>
     <details>
-      <summary><a href="#ds-collateral">4. Collateral</a></summary>
-      <ul>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-scope">4.1 Scope</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-scope-f01">4.1.1 F01 - rejects TopTx redeemers without collateral</a></li>
-              <li><a href="#ds-collateral-scope-f02">4.1.2 F02 - rejects SubTx redeemers without collateral even when TopTx has none</a></li>
-              <li><a href="#ds-collateral-scope-f03">4.1.3 F03 - rejects redeemers in both TopTx and SubTxs without collateral</a></li>
-              <li><a href="#ds-collateral-scope-n01">4.1.4 N01 - does not require collateral merely because a transaction uses the DepositStore</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-authorization">4.2 Authorization</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-authorization-f01">4.2.1 F01 - rejects collateral inputs that fail the existing key-control checks</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-funding">4.3 Funding</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-funding-f01">4.3.1 F01 - rejects insufficient collateral funding when redeemers trigger validation even if all scripts succeed</a></li>
-              <li><a href="#ds-collateral-funding-n01">4.3.2 N01 - accepts a batch whose scripts succeed when its required collateral is fully funded and all other rules hold</a></li>
-              <li><a href="#ds-collateral-funding-n02">4.3.3 N02 - accepts funded collateral with implicit or store-backed inputs and returns</a></li>
-              <li><a href="#ds-collateral-funding-n03">4.3.4 N03 - reuses released UTxO capacity deposits when the collateral return requires the same amount</a></li>
-              <li><a href="#ds-collateral-funding-n04">4.3.5 N04 - funds additional return UTxO capacity deposits from collateral coins</a></li>
-              <li><a href="#ds-collateral-funding-f02">4.3.6 F02 - rejects collateral coins below the minimum fee after funding the return and additional UTxO capacity deposits</a></li>
-              <li><a href="#ds-collateral-funding-p01">4.3.7 P01 - accepted phase-2 failure ⇒ collateralCoinFee ≥ ceil(txFee * collateralPercentage / 100)</a></li>
-              <li><a href="#ds-collateral-funding-f03">4.3.8 F03 - rejects collateral whose minimum fee depends on released UTxO capacity deposit surplus</a></li>
-              <li><a href="#ds-collateral-funding-f04">4.3.9 F04 - rejects a collateral return whose funding depends on released UTxO capacity deposit surplus</a></li>
-              <li><a href="#ds-collateral-funding-f05">4.3.10 F05 - rejects a collateral funding shortfall of one lovelace</a></li>
-              <li><a href="#ds-collateral-funding-n05">4.3.11 N05 - counts implicit collateral inputs&#x27; full ADA as coins and zero released Store deposits when mixed with store-backed inputs</a></li>
-              <li><a href="#ds-collateral-funding-n06">4.3.12 N06 - allocates no Store deposit to an implicit collateral return even when consuming store-backed collateral inputs</a></li>
-              <li><a href="#ds-collateral-funding-n07">4.3.13 N07 - accepts a store-backed collateral return with zero application ADA when its deposit and the minimum fee are funded</a></li>
-              <li><a href="#ds-collateral-funding-f06">4.3.14 F06 - rejects underfunded collateral when the optional total is absent</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-surplus">4.4 Surplus</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-surplus-n01">4.4.1 N01 - credits excess released UTxO capacity deposits to fees rather than the treasury</a></li>
-              <li><a href="#ds-collateral-surplus-p01">4.4.2 P01 - accepted phase-2 failure ⇒ feesAfter = feesBefore + collateralCoinFee + releasedUTxODepositFee</a></li>
-              <li><a href="#ds-collateral-surplus-p02">4.4.3 P02 - accepted phase-2 failure ⇒ treasuryAfter = treasuryBefore</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-total">4.5 Total</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-total-n01">4.5.1 N01 - accepts a declared total equal to collateral input coins minus return coins</a></li>
-              <li><a href="#ds-collateral-total-f01">4.5.2 F01 - rejects a declared total differing by one lovelace when collateral validation applies</a></li>
-              <li><a href="#ds-collateral-total-f02">4.5.3 F02 - rejects an incorrect supplied total when redeemers trigger collateral validation even if all scripts succeed</a></li>
-              <li><a href="#ds-collateral-total-n02">4.5.4 N02 - includes coins funding additional UTxO capacity deposits in the declared total</a></li>
-              <li><a href="#ds-collateral-total-n03">4.5.5 N03 - excludes UTxO capacity deposits released from the Store from the declared total</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-settlement">4.6 Settlement</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-settlement-n01">4.6.1 N01 - derives Store changes from collateral inputs and return without a separate declaration</a></li>
-              <li><a href="#ds-collateral-settlement-p01">4.6.2 P01 - does not let ordinary Store declarations change collateral settlement</a></li>
-              <li><a href="#ds-collateral-settlement-n02">4.6.3 N02 - settles multiple collateral inputs with no return output</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-collateral-conservation">4.7 Conservation</a></summary>
-            <ul>
-              <li><a href="#ds-collateral-conservation-n01">4.7.1 N01 - conserves ADA across collateral inputs, return, Store and fees</a></li>
-              <li><a href="#ds-collateral-conservation-p01">4.7.2 P01 - accepted phase-2 failure ⇒ collateralInputCoins + releasedUTxODeposits = collateralReturnCoins + collateralReturnUTxODeposit + collateralFee</a></li>
-              <li><a href="#ds-collateral-conservation-f01">4.7.3 F01 - rejects a collateral native-asset imbalance</a></li>
-            </ul>
-          </details>
-        </li>
-      </ul>
+      <summary><a href="#ds-tx-exactness-netting">3.3.2 Netting</a></summary>
+      <a href="#ds-tx-exactness-netting-p01">3.3.2.1 P01 - declared TopTx: declaredNetUTxODepositChange = Σ(netUTxODepositChange) over all bodies</a><br>
+      <a href="#ds-tx-exactness-netting-n01">3.3.2.2 N01 - includes both TopTx and SubTx UTxO capacity deposit changes in the declared total</a><br>
+      <a href="#ds-tx-exactness-netting-n02">3.3.2.3 N02 - nets a 5 ADA allocation and a 3 ADA release into AllocateUTxODeposit 2</a><br>
+      <a href="#ds-tx-exactness-netting-n03">3.3.2.4 N03 - nets a 3 ADA allocation and a 5 ADA release into ReleaseUTxODeposit 2</a><br>
+      <a href="#ds-tx-exactness-netting-n04">3.3.2.5 N04 - uses NoUTxODepositChange when allocations and releases cancel exactly</a><br>
     </details>
-  </li>
-  <li>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-attribution">3.4 Attribution</a></summary>
+    <a href="#ds-tx-attribution-p01">3.4.1 P01 - topTxNetUTxODepositChange + Σ(subTxLocalNetUTxODepositChanges) = txTotalNetUTxODepositChange</a><br>
+    <a href="#ds-tx-attribution-p02">3.4.2 P02 - switching between local accounting and delegation preserves txTotalNetUTxODepositChange</a><br>
+    <a href="#ds-tx-attribution-n01">3.4.3 N01 - counts delegated funding once in TopTx accounting</a><br>
+    <a href="#ds-tx-attribution-n02">3.4.4 N02 - keeps the same batch net change when a SubTx delegates funding of its net allocation</a><br>
+    <a href="#ds-tx-attribution-n03">3.4.5 N03 - allows a SubTx spending its final store-backed inputs and creating no outputs to explicitly delegate the release to TopTx</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-conservation">3.5 Conservation</a></summary>
+    <a href="#ds-tx-conservation-p01">3.5.1 P01 - consumedValue + inject(max(0, -txTotalNetUTxODepositChange)) = producedValue + inject(max(0, txTotalNetUTxODepositChange))</a><br>
+    <a href="#ds-tx-conservation-p02">3.5.2 P02 - ledger acceptance agrees with the model even when individual SubTxs are financially imbalanced</a><br>
+    <a href="#ds-tx-conservation-n01">3.5.3 N01 - counts the net allocation once on the produced side</a><br>
+    <a href="#ds-tx-conservation-n02">3.5.4 N02 - counts the net release once on the consumed side</a><br>
+    <a href="#ds-tx-conservation-n03">3.5.5 N03 - accepts financially imbalanced SubTxs when the complete batch balances</a><br>
+    <a href="#ds-tx-conservation-n04">3.5.6 N04 - preserves a SubTx's ability to contribute ADA to TopTx fees</a><br>
+    <a href="#ds-tx-conservation-f01">3.5.7 F01 - rejects a batch imbalance of one lovelace</a><br>
+    <a href="#ds-tx-conservation-f02">3.5.8 F02 - rejects a native-asset imbalance even when ADA balances</a><br>
+    <a href="#ds-tx-conservation-f03">3.5.9 F03 - rejects a delegation request that the complete batch does not fund</a><br>
+    <a href="#ds-tx-conservation-n05">3.5.10 N05 - accepts offsetting delegated operations in a financially balanced batch</a><br>
+    <a href="#ds-tx-conservation-n06">3.5.11 N06 - requires an output of 12 ADA for 10 input ADA and a 2 ADA net release with no other ADA flows</a><br>
+    <a href="#ds-tx-conservation-n07">3.5.12 N07 - allows an output of 10 ADA when the other 2 ADA contributes to TopTx fees</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-authorization">3.6 Authorization</a></summary>
+    <a href="#ds-tx-authorization-n01">3.6.1 N01 - allows the authorized spender to release UTxO capacity deposits paid by another person</a><br>
+    <a href="#ds-tx-authorization-n02">3.6.2 N02 - does not require a separate signature from the original UTxO capacity deposit funder</a><br>
+    <a href="#ds-tx-authorization-f01">3.6.3 F01 - rejects unauthorized spending even when the Store declaration is exact</a><br>
+    <a href="#ds-tx-authorization-n03">3.6.4 N03 - does not release UTxO capacity deposits for a reference input</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-settlement">3.7 Settlement</a></summary>
     <details>
-      <summary><a href="#ds-state">5. State</a></summary>
-      <ul>
-        <li>
-          <details>
-            <summary><a href="#ds-state-execution">5.1 Execution</a></summary>
-            <ul>
-              <li><a href="#ds-state-execution-p01">5.1.1 P01 - ordinary success ⇒ utxoAfter = (utxoBefore without regularInputs) union newRegularOutputsWithUTxODeposits</a></li>
-              <li><a href="#ds-state-execution-n01">5.1.2 N01 - applies ordinary Store operations and leaves collateral untouched on success</a></li>
-              <li><a href="#ds-state-execution-n02">5.1.3 N02 - applies collateral settlement and no ordinary Store operations on an accepted phase-2 failure</a></li>
-              <li><a href="#ds-state-execution-n03">5.1.4 N03 - consumes only collateral inputs and creates only the specified collateral return in the UTxO on an accepted phase-2 failure</a></li>
-              <li><a href="#ds-state-execution-n04">5.1.5 N04 - does not credit the settlement amount to the selected output a second time</a></li>
-              <li><a href="#ds-state-execution-f01">5.1.6 F01 - leaves the entire ledger state unchanged on rejection, including UTxO, allocated deposit records and Store balance</a></li>
-              <li><a href="#ds-state-execution-p02">5.1.7 P02 - batch rejected ⇒ acceptedLedgerStateAfter = acceptedLedgerStateBefore</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-state-allocations">5.2 Allocations</a></summary>
-            <ul>
-              <li><a href="#ds-state-allocations-p01">5.2.1 P01 - ordinary success ⇒ releasedUTxODeposits = Σ(allocatedUTxODeposit(utxo[input])) over consumed store-backed inputs</a></li>
-              <li><a href="#ds-state-allocations-n01">5.2.2 N01 - records the allocated UTxO capacity deposit alongside each newly created store-backed output</a></li>
-              <li><a href="#ds-state-allocations-n02">5.2.3 N02 - removes a spent output&#x27;s UTxO capacity deposit record and releases its UTxO capacity deposit exactly once</a></li>
-              <li><a href="#ds-state-allocations-n03">5.2.4 N03 - keeps UTxO capacity deposit records unchanged when outputs are only referenced</a></li>
-              <li><a href="#ds-state-allocations-n04">5.2.5 N04 - keeps Σ(live allocated UTxO capacity deposits) equal to outstanding UTxO capacity deposit obligations</a></li>
-              <li><a href="#ds-state-allocations-n05">5.2.6 N05 - does not leave missing or orphan UTxO capacity deposit records after accepted transitions</a></li>
-              <li><a href="#ds-state-allocations-n06">5.2.7 N06 - releases the allocated UTxO capacity deposit even when reserialization would change the output size</a></li>
-              <li><a href="#ds-state-allocations-n07">5.2.8 N07 - does not release UTxO capacity deposits from the DepositStore when a translated implicit output is spent</a></li>
-              <li><a href="#ds-state-allocations-p02">5.2.9 P02 - ordinary success ⇒ totalUTxODepositsAfter = totalUTxODepositsBefore + txTotalNetUTxODepositChange</a></li>
-              <li><a href="#ds-state-allocations-n08">5.2.10 N08 - removes consumed store-backed collateral records and records the return only when store-backed, preserving records outside collateral inputs on an accepted phase-2 failure</a></li>
-              <li><a href="#ds-state-allocations-p03">5.2.11 P03 - accepted phase-2 failure ⇒ totalUTxODepositsAfter = totalUTxODepositsBefore + collateralReturnUTxODeposit - releasedUTxODeposits</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-state-balance">5.3 Balance</a></summary>
-            <ul>
-              <li><a href="#ds-state-balance-p01">5.3.1 P01 - ordinary success ⇒ storeBalanceAfter = storeBalanceBefore + txTotalNetUTxODepositChange</a></li>
-              <li><a href="#ds-state-balance-n01">5.3.2 N01 - changes the balance by exactly the applied allocations minus releases</a></li>
-              <li><a href="#ds-state-balance-p02">5.3.3 P02 - accepted phase-2 failure ⇒ storeBalanceAfter = storeBalanceBefore + collateralReturnUTxODeposit - releasedUTxODeposits</a></li>
-              <li><a href="#ds-state-balance-p03">5.3.4 P03 - ordinary success ⇒ storeBalanceAfter - totalUTxODepositsAfter = storeBalanceBefore - totalUTxODepositsBefore</a></li>
-              <li><a href="#ds-state-balance-n02">5.3.5 N02 - preserves pre-existing Store surplus across accepted ordinary transactions</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-state-solvency">5.4 Solvency</a></summary>
-            <ul>
-              <li><a href="#ds-state-solvency-p01">5.4.1 P01 - ordinary success ⇒ storeBalanceAfter ≥ totalUTxODepositsAfter ≥ 0</a></li>
-              <li><a href="#ds-state-solvency-n01">5.4.2 N01 - keeps the Store balance at least equal to outstanding UTxO capacity deposit obligations</a></li>
-              <li><a href="#ds-state-solvency-f01">5.4.3 F01 - rejects a transition that would leave the Store insolvent</a></li>
-              <li><a href="#ds-state-solvency-n02">5.4.4 N02 - checks the accepted batch result without requiring each SubTx to balance independently</a></li>
-              <li><a href="#ds-state-solvency-n03">5.4.5 N03 - fixed pricing and a solvent initial state ⇒ epoch transitions preserve Store solvency</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-state-conservation">5.5 Conservation</a></summary>
-            <ul>
-              <li><a href="#ds-state-conservation-n01">5.5.1 N01 - still counts Store ADA in total monetary conservation</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-state-initialization">5.6 Initialization</a></summary>
-            <ul>
-              <li><a href="#ds-state-initialization-n01">5.6.1 N01 - preserves existing output references and values and keeps those outputs implicit</a></li>
-              <li><a href="#ds-state-initialization-n02">5.6.2 N02 - initializes Store balance and UTxO capacity deposit obligations to zero</a></li>
-              <li><a href="#ds-state-initialization-n03">5.6.3 N03 - does not transfer funds from another ledger pot during initialization</a></li>
-            </ul>
-          </details>
-        </li>
-        <li>
-          <details>
-            <summary><a href="#ds-state-recovery">5.7 Recovery</a></summary>
-            <ul>
-              <li><a href="#ds-state-recovery-n01">5.7.1 N01 - preserves allocated UTxO capacity deposits through state serialization and restoration</a></li>
-              <li><a href="#ds-state-recovery-n02">5.7.2 N02 - restores outputs, UTxO capacity deposit records and Store balance together on rollback</a></li>
-            </ul>
-          </details>
-        </li>
-      </ul>
+      <summary><a href="#ds-tx-settlement-participation">3.7.1 Participation</a></summary>
+      <a href="#ds-tx-settlement-participation-p01">3.7.1.1 P01 - for a batch net release: NoTopTxSettlement ⇔ topTxNetRelease = 0</a><br>
+      <a href="#ds-tx-settlement-participation-n01">3.7.1.2 N01 - requires NoTopTxSettlement when SubTxs settle the entire net release locally</a><br>
+      <a href="#ds-tx-settlement-participation-n02">3.7.1.3 N02 - requires a TopTx settlement output when the batch declares a net release and TopTx has a positive share</a><br>
+      <a href="#ds-tx-settlement-participation-n03">3.7.1.4 N03 - accepts a net release settled across TopTx and SubTx outputs</a><br>
+      <a href="#ds-tx-settlement-participation-n04">3.7.1.5 N04 - allows TopTx's settlement amount to exceed the batch net release when SubTxs fund net allocations locally</a><br>
+      <a href="#ds-tx-settlement-participation-f01">3.7.1.6 F01 - rejects NoTopTxSettlement when the batch declares a net release and TopTx has a positive share</a><br>
+      <a href="#ds-tx-settlement-participation-f02">3.7.1.7 F02 - rejects a TopTx settlement output when TopTx has no net release to settle</a><br>
+      <a href="#ds-tx-settlement-participation-n05">3.7.1.8 N05 - does not require a TopTx settlement output when the batch declares a net allocation</a><br>
+      <a href="#ds-tx-settlement-participation-n06">3.7.1.9 N06 - does not require a TopTx settlement output for an explicit-zero batch even when TopTx's derived accounting portion is negative</a><br>
     </details>
-  </li>
-  <li>
     <details>
-      <summary><a href="#ds-stake">6. Stake</a></summary>
-      <ul>
-        <li><a href="#ds-stake-n01">6.1 N01 - counts the full ADA in implicit outputs under the existing staking rules</a></li>
-        <li><a href="#ds-stake-n02">6.2 N02 - counts only application ADA in store-backed outputs under the existing staking rules</a></li>
-        <li><a href="#ds-stake-n03">6.3 N03 - does not add the global Store balance to stake totals</a></li>
-        <li><a href="#ds-stake-n04">6.4 N04 - ordinary success ⇒ a net allocation changes stake only through its applied ordinary UTxO effects</a></li>
-        <li><a href="#ds-stake-n05">6.5 N05 - ordinary success ⇒ a net release changes stake only through its applied ordinary UTxO effects</a></li>
-        <li><a href="#ds-stake-n06">6.6 N06 - ordinary success ⇒ unapplied collateral settlement and collateral return add no stake effects</a></li>
-        <li><a href="#ds-stake-n07">6.7 N07 - accepted phase-2 failure ⇒ stake follows collateral consumption and return without effects from unapplied ordinary allocations, releases or outputs</a></li>
-        <li><a href="#ds-stake-n08">6.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects</a></li>
-      </ul>
+      <summary><a href="#ds-tx-settlement-destination">3.7.2 Destination</a></summary>
+      <a href="#ds-tx-settlement-destination-p01">3.7.2.1 P01 - each settlement output: 0 ≤ index &lt; length(ownOutputs)</a><br>
+      <a href="#ds-tx-settlement-destination-f01">3.7.2.2 F01 - rejects an index outside the declaring body's output sequence</a><br>
+      <a href="#ds-tx-settlement-destination-f02">3.7.2.3 F02 - does not resolve a SubTx settlement index against TopTx outputs</a><br>
+      <a href="#ds-tx-settlement-destination-f03">3.7.2.4 F03 - does not resolve a settlement index against collateral return</a><br>
+      <a href="#ds-tx-settlement-destination-f04">3.7.2.5 F04 - rejects a local settlement target when a SubTx spends its final store-backed inputs and creates no outputs</a><br>
     </details>
-  </li>
-  <li>
     <details>
-      <summary><a href="#ds-voting">7. Voting</a></summary>
-      <ul>
-        <li><a href="#ds-voting-n01">7.1 N01 - does not count allocated UTxO capacity deposits or Store balance as additional voting power</a></li>
-      </ul>
+      <summary><a href="#ds-tx-settlement-coverage">3.7.3 Coverage</a></summary>
+      <a href="#ds-tx-settlement-coverage-p01">3.7.3.1 P01 - each settlement output: coin(ownOutputs[index]) ≥ settlementAmount</a><br>
+      <a href="#ds-tx-settlement-coverage-f01">3.7.3.2 F01 - rejects a settlement output containing less ADA than its settlement amount</a><br>
+      <a href="#ds-tx-settlement-coverage-n01">3.7.3.3 N01 - accepts a settlement output containing exactly its settlement amount</a><br>
+      <a href="#ds-tx-settlement-coverage-n02">3.7.3.4 N02 - accepts a settlement output containing the settlement amount and additional funds</a><br>
+      <a href="#ds-tx-settlement-coverage-f02">3.7.3.5 F02 - rejects a store-backed settlement output with insufficient application ADA even when its external UTxO capacity deposit would cover the difference</a><br>
+      <a href="#ds-tx-settlement-coverage-n03">3.7.3.6 N03 - accepts a store-backed settlement output with application ADA equal to the settlement amount</a><br>
+      <a href="#ds-tx-settlement-coverage-n04">3.7.3.7 N04 - checks TopTx's derived settlement amount rather than the entire batch net release</a><br>
     </details>
-  </li>
-  <li>
-    <details>
-      <summary><a href="#section-8">8. Remaining design work</a></summary>
-      <ul>
-        <li><a href="#ds-pricing-history">8.1 Historical pricing</a></li>
-        <li><a href="#ds-plutus-compatibility">8.2 Plutus compatibility</a></li>
-        <li><a href="#ds-tx-settlement-refinement">8.3 Local settlement</a></li>
-        <li><a href="#ds-state-representation">8.4 State representation</a></li>
-      </ul>
-    </details>
-  </li>
-  <li><a href="#section-9">9. Tag migration</a></li>
-  <li><a href="#section-10">10. Code references</a></li>
-</ul>
+  </details>
+  <details>
+    <summary><a href="#ds-tx-application-assets">3.8 Application assets</a></summary>
+    <a href="#ds-tx-application-assets-n01">3.8.1 N01 - accepts a store-backed output containing native assets and zero ADA</a><br>
+    <a href="#ds-tx-application-assets-n02">3.8.2 N02 - accepts empty application assets with a datum or reference script</a><br>
+    <a href="#ds-tx-application-assets-n03">3.8.3 N03 - accepts a store-backed output containing only an address</a><br>
+    <a href="#ds-tx-application-assets-n04">3.8.4 N04 - preserves the minimum-coin requirement for implicit outputs</a><br>
+  </details>
+</details>
+<details>
+  <summary><a href="#ds-collateral">4. Collateral</a></summary>
+  <details>
+    <summary><a href="#ds-collateral-scope">4.1 Scope</a></summary>
+    <a href="#ds-collateral-scope-f01">4.1.1 F01 - rejects TopTx redeemers without collateral</a><br>
+    <a href="#ds-collateral-scope-f02">4.1.2 F02 - rejects SubTx redeemers without collateral even when TopTx has none</a><br>
+    <a href="#ds-collateral-scope-f03">4.1.3 F03 - rejects redeemers in both TopTx and SubTxs without collateral</a><br>
+    <a href="#ds-collateral-scope-n01">4.1.4 N01 - does not require collateral merely because a transaction uses the DepositStore</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-collateral-authorization">4.2 Authorization</a></summary>
+    <a href="#ds-collateral-authorization-f01">4.2.1 F01 - rejects collateral inputs that fail the existing key-control checks</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-collateral-funding">4.3 Funding</a></summary>
+    <a href="#ds-collateral-funding-f01">4.3.1 F01 - rejects insufficient collateral funding when redeemers trigger validation even if all scripts succeed</a><br>
+    <a href="#ds-collateral-funding-n01">4.3.2 N01 - accepts a batch whose scripts succeed when its required collateral is fully funded and all other rules hold</a><br>
+    <a href="#ds-collateral-funding-n02">4.3.3 N02 - accepts funded collateral with implicit or store-backed inputs and returns</a><br>
+    <a href="#ds-collateral-funding-n03">4.3.4 N03 - reuses released UTxO capacity deposits when the collateral return requires the same amount</a><br>
+    <a href="#ds-collateral-funding-n04">4.3.5 N04 - funds additional return UTxO capacity deposits from collateral coins</a><br>
+    <a href="#ds-collateral-funding-f02">4.3.6 F02 - rejects collateral coins below the minimum fee after funding the return and additional UTxO capacity deposits</a><br>
+    <a href="#ds-collateral-funding-p01">4.3.7 P01 - accepted phase-2 failure ⇒ collateralCoinFee ≥ ceil(txFee * collateralPercentage / 100)</a><br>
+    <a href="#ds-collateral-funding-f03">4.3.8 F03 - rejects collateral whose minimum fee depends on released UTxO capacity deposit surplus</a><br>
+    <a href="#ds-collateral-funding-f04">4.3.9 F04 - rejects a collateral return whose funding depends on released UTxO capacity deposit surplus</a><br>
+    <a href="#ds-collateral-funding-f05">4.3.10 F05 - rejects a collateral funding shortfall of one lovelace</a><br>
+    <a href="#ds-collateral-funding-n05">4.3.11 N05 - counts implicit collateral inputs' full ADA as coins and zero released Store deposits when mixed with store-backed inputs</a><br>
+    <a href="#ds-collateral-funding-n06">4.3.12 N06 - allocates no Store deposit to an implicit collateral return even when consuming store-backed collateral inputs</a><br>
+    <a href="#ds-collateral-funding-n07">4.3.13 N07 - accepts a store-backed collateral return with zero application ADA when its deposit and the minimum fee are funded</a><br>
+    <a href="#ds-collateral-funding-f06">4.3.14 F06 - rejects underfunded collateral when the optional total is absent</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-collateral-surplus">4.4 Surplus</a></summary>
+    <a href="#ds-collateral-surplus-n01">4.4.1 N01 - credits excess released UTxO capacity deposits to fees rather than the treasury</a><br>
+    <a href="#ds-collateral-surplus-p01">4.4.2 P01 - accepted phase-2 failure ⇒ feesAfter = feesBefore + collateralCoinFee + releasedUTxODepositFee</a><br>
+    <a href="#ds-collateral-surplus-p02">4.4.3 P02 - accepted phase-2 failure ⇒ treasuryAfter = treasuryBefore</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-collateral-total">4.5 Total</a></summary>
+    <a href="#ds-collateral-total-n01">4.5.1 N01 - accepts a declared total equal to collateral input coins minus return coins</a><br>
+    <a href="#ds-collateral-total-f01">4.5.2 F01 - rejects a declared total differing by one lovelace when collateral validation applies</a><br>
+    <a href="#ds-collateral-total-f02">4.5.3 F02 - rejects an incorrect supplied total when redeemers trigger collateral validation even if all scripts succeed</a><br>
+    <a href="#ds-collateral-total-n02">4.5.4 N02 - includes coins funding additional UTxO capacity deposits in the declared total</a><br>
+    <a href="#ds-collateral-total-n03">4.5.5 N03 - excludes UTxO capacity deposits released from the Store from the declared total</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-collateral-settlement">4.6 Settlement</a></summary>
+    <a href="#ds-collateral-settlement-n01">4.6.1 N01 - derives Store changes from collateral inputs and return without a separate declaration</a><br>
+    <a href="#ds-collateral-settlement-p01">4.6.2 P01 - does not let ordinary Store declarations change collateral settlement</a><br>
+    <a href="#ds-collateral-settlement-n02">4.6.3 N02 - settles multiple collateral inputs with no return output</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-collateral-conservation">4.7 Conservation</a></summary>
+    <a href="#ds-collateral-conservation-n01">4.7.1 N01 - conserves ADA across collateral inputs, return, Store and fees</a><br>
+    <a href="#ds-collateral-conservation-p01">4.7.2 P01 - accepted phase-2 failure ⇒ collateralInputCoins + releasedUTxODeposits = collateralReturnCoins + collateralReturnUTxODeposit + collateralFee</a><br>
+    <a href="#ds-collateral-conservation-f01">4.7.3 F01 - rejects a collateral native-asset imbalance</a><br>
+  </details>
+</details>
+<details>
+  <summary><a href="#ds-state">5. State</a></summary>
+  <details>
+    <summary><a href="#ds-state-execution">5.1 Execution</a></summary>
+    <a href="#ds-state-execution-p01">5.1.1 P01 - ordinary success ⇒ utxoAfter = (utxoBefore without regularInputs) union newRegularOutputsWithUTxODeposits</a><br>
+    <a href="#ds-state-execution-n01">5.1.2 N01 - applies ordinary Store operations and leaves collateral untouched on success</a><br>
+    <a href="#ds-state-execution-n02">5.1.3 N02 - applies collateral settlement and no ordinary Store operations on an accepted phase-2 failure</a><br>
+    <a href="#ds-state-execution-n03">5.1.4 N03 - consumes only collateral inputs and creates only the specified collateral return in the UTxO on an accepted phase-2 failure</a><br>
+    <a href="#ds-state-execution-n04">5.1.5 N04 - does not credit the settlement amount to the selected output a second time</a><br>
+    <a href="#ds-state-execution-f01">5.1.6 F01 - leaves the entire ledger state unchanged on rejection, including UTxO, allocated deposit records and Store balance</a><br>
+    <a href="#ds-state-execution-p02">5.1.7 P02 - batch rejected ⇒ acceptedLedgerStateAfter = acceptedLedgerStateBefore</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-state-allocations">5.2 Allocations</a></summary>
+    <a href="#ds-state-allocations-p01">5.2.1 P01 - ordinary success ⇒ releasedUTxODeposits = Σ(allocatedUTxODeposit(utxo[input])) over consumed store-backed inputs</a><br>
+    <a href="#ds-state-allocations-n01">5.2.2 N01 - records the allocated UTxO capacity deposit alongside each newly created store-backed output</a><br>
+    <a href="#ds-state-allocations-n02">5.2.3 N02 - removes a spent output's UTxO capacity deposit record and releases its UTxO capacity deposit exactly once</a><br>
+    <a href="#ds-state-allocations-n03">5.2.4 N03 - keeps UTxO capacity deposit records unchanged when outputs are only referenced</a><br>
+    <a href="#ds-state-allocations-n04">5.2.5 N04 - keeps Σ(live allocated UTxO capacity deposits) equal to outstanding UTxO capacity deposit obligations</a><br>
+    <a href="#ds-state-allocations-n05">5.2.6 N05 - does not leave missing or orphan UTxO capacity deposit records after accepted transitions</a><br>
+    <a href="#ds-state-allocations-n06">5.2.7 N06 - releases the allocated UTxO capacity deposit even when reserialization would change the output size</a><br>
+    <a href="#ds-state-allocations-n07">5.2.8 N07 - does not release UTxO capacity deposits from the DepositStore when a translated implicit output is spent</a><br>
+    <a href="#ds-state-allocations-p02">5.2.9 P02 - ordinary success ⇒ totalUTxODepositsAfter = totalUTxODepositsBefore + txTotalNetUTxODepositChange</a><br>
+    <a href="#ds-state-allocations-n08">5.2.10 N08 - removes consumed store-backed collateral records and records the return only when store-backed, preserving records outside collateral inputs on an accepted phase-2 failure</a><br>
+    <a href="#ds-state-allocations-p03">5.2.11 P03 - accepted phase-2 failure ⇒ totalUTxODepositsAfter = totalUTxODepositsBefore + collateralReturnUTxODeposit - releasedUTxODeposits</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-state-balance">5.3 Balance</a></summary>
+    <a href="#ds-state-balance-p01">5.3.1 P01 - ordinary success ⇒ storeBalanceAfter = storeBalanceBefore + txTotalNetUTxODepositChange</a><br>
+    <a href="#ds-state-balance-n01">5.3.2 N01 - changes the balance by exactly the applied allocations minus releases</a><br>
+    <a href="#ds-state-balance-p02">5.3.3 P02 - accepted phase-2 failure ⇒ storeBalanceAfter = storeBalanceBefore + collateralReturnUTxODeposit - releasedUTxODeposits</a><br>
+    <a href="#ds-state-balance-p03">5.3.4 P03 - ordinary success ⇒ storeBalanceAfter - totalUTxODepositsAfter = storeBalanceBefore - totalUTxODepositsBefore</a><br>
+    <a href="#ds-state-balance-n02">5.3.5 N02 - preserves pre-existing Store surplus across accepted ordinary transactions</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-state-solvency">5.4 Solvency</a></summary>
+    <a href="#ds-state-solvency-p01">5.4.1 P01 - ordinary success ⇒ storeBalanceAfter ≥ totalUTxODepositsAfter ≥ 0</a><br>
+    <a href="#ds-state-solvency-n01">5.4.2 N01 - keeps the Store balance at least equal to outstanding UTxO capacity deposit obligations</a><br>
+    <a href="#ds-state-solvency-f01">5.4.3 F01 - rejects a transition that would leave the Store insolvent</a><br>
+    <a href="#ds-state-solvency-n02">5.4.4 N02 - checks the accepted batch result without requiring each SubTx to balance independently</a><br>
+    <a href="#ds-state-solvency-n03">5.4.5 N03 - fixed pricing and a solvent initial state ⇒ epoch transitions preserve Store solvency</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-state-conservation">5.5 Conservation</a></summary>
+    <a href="#ds-state-conservation-n01">5.5.1 N01 - still counts Store ADA in total monetary conservation</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-state-initialization">5.6 Initialization</a></summary>
+    <a href="#ds-state-initialization-n01">5.6.1 N01 - preserves existing output references and values and keeps those outputs implicit</a><br>
+    <a href="#ds-state-initialization-n02">5.6.2 N02 - initializes Store balance and UTxO capacity deposit obligations to zero</a><br>
+    <a href="#ds-state-initialization-n03">5.6.3 N03 - does not transfer funds from another ledger pot during initialization</a><br>
+  </details>
+  <details>
+    <summary><a href="#ds-state-recovery">5.7 Recovery</a></summary>
+    <a href="#ds-state-recovery-n01">5.7.1 N01 - preserves allocated UTxO capacity deposits through state serialization and restoration</a><br>
+    <a href="#ds-state-recovery-n02">5.7.2 N02 - restores outputs, UTxO capacity deposit records and Store balance together on rollback</a><br>
+  </details>
+</details>
+<details>
+  <summary><a href="#ds-stake">6. Stake</a></summary>
+  <a href="#ds-stake-n01">6.1 N01 - counts the full ADA in implicit outputs under the existing staking rules</a><br>
+  <a href="#ds-stake-n02">6.2 N02 - counts only application ADA in store-backed outputs under the existing staking rules</a><br>
+  <a href="#ds-stake-n03">6.3 N03 - does not add the global Store balance to stake totals</a><br>
+  <a href="#ds-stake-n04">6.4 N04 - ordinary success ⇒ a net allocation changes stake only through its applied ordinary UTxO effects</a><br>
+  <a href="#ds-stake-n05">6.5 N05 - ordinary success ⇒ a net release changes stake only through its applied ordinary UTxO effects</a><br>
+  <a href="#ds-stake-n06">6.6 N06 - ordinary success ⇒ unapplied collateral settlement and collateral return add no stake effects</a><br>
+  <a href="#ds-stake-n07">6.7 N07 - accepted phase-2 failure ⇒ stake follows collateral consumption and return without effects from unapplied ordinary allocations, releases or outputs</a><br>
+  <a href="#ds-stake-n08">6.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects</a><br>
+</details>
+<details>
+  <summary><a href="#ds-voting">7. Voting</a></summary>
+  <a href="#ds-voting-n01">7.1 N01 - does not count allocated UTxO capacity deposits or Store balance as additional voting power</a><br>
+</details>
+<details>
+  <summary><a href="#section-8">8. Remaining design work</a></summary>
+  <a href="#ds-pricing-history">8.1 Historical pricing</a><br>
+  <a href="#ds-plutus-compatibility">8.2 Plutus compatibility</a><br>
+  <a href="#ds-tx-settlement-refinement">8.3 Local settlement</a><br>
+  <a href="#ds-state-representation">8.4 State representation</a><br>
+</details>
+<a href="#section-9">9. Tag migration</a><br>
+<a href="#section-10">10. Code references</a><br>
 
 <a id="section-1" name="section-1"></a>
 
