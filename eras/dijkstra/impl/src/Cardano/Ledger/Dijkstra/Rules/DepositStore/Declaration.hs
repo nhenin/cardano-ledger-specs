@@ -37,7 +37,7 @@ data DepositStoreOutputDeclarationFailure
   = MissingBodyUTxODepositDeclaration
   deriving (Eq, Show)
 
--- | DS-TX-001, creation: check only TopTx's own regular outputs. SubTx outputs
+-- | DS-TX-PRESENCE-ACTIVITY-CREATION: check only TopTx's own regular outputs. SubTx outputs
 -- and collateral return do not establish Store activity for this check.
 -- Success establishes declaration presence, not the correctness of its amount.
 validateTopTxCreatedOutputsDeclaration ::
@@ -49,7 +49,7 @@ validateTopTxCreatedOutputsDeclaration txBody =
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
--- | DS-TX-001, creation: a SubTx must declare its own change when it creates
+-- | DS-TX-PRESENCE-ACTIVITY-CREATION: a SubTx must declare its own change when it creates
 -- store-backed outputs. A TopTx declaration cannot substitute for it.
 validateSubTxCreatedOutputsDeclaration ::
   DijkstraEraTxBody era =>
@@ -84,7 +84,7 @@ hasSubTxNetUTxODepositDeclaration ::
 hasSubTxNetUTxODepositDeclaration subTx =
   SubTx.hasUTxODepositDeclaration $ subTx ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL
 
--- | DS-TX-009: any SubTx declaration requires a TopTx declaration.
+-- | DS-TX-PRESENCE-DEPENDENCY: any SubTx declaration requires a TopTx declaration.
 -- Explicit zero counts as a declaration, regardless of local or delegated accounting.
 validateTopTxNetUTxODepositDeclaration ::
   (EraTx era, DijkstraEraTxBody era) =>
