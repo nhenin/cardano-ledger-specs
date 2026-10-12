@@ -13,67 +13,167 @@ Section numbers organize the document; `DS-*` tags identify stable protocol rule
 The domain model defines the shared concepts, followed by rules grouped by domain,
 remaining design questions, executable examples and code references.
 
-- [1. Mathematical domain model](#1-mathematical-domain-model)
-  - [1.1 UTxO capacity deposit terminology and state](#11-utxo-capacity-deposit-terminology-and-state)
-  - [1.2 Validity predicates](#12-validity-predicates)
-  - [1.3 Expected transitions and derived invariants](#13-expected-transitions-and-derived-invariants)
-- [2. Transaction body scope](#2-transaction-body-scope)
-- [3. Transaction declarations and accounting](#3-transaction-declarations-and-accounting)
-  - [3.1 DS-TX-001 - A body creating or spending store-backed outputs must declare its own UTxO capacity deposit change](#31-ds-tx-001---a-body-creating-or-spending-store-backed-outputs-must-declare-its-own-utxo-capacity-deposit-change)
-    - [3.1.1 Acceptance cases](#311-acceptance-cases)
-  - [3.2 DS-TX-002 - Batch net change and accounting responsibility](#32-ds-tx-002---batch-net-change-and-accounting-responsibility)
-  - [3.3 DS-TX-003 - Exact UTxO capacity deposit accounting for each body](#33-ds-tx-003---exact-utxo-capacity-deposit-accounting-for-each-body)
-  - [3.4 DS-TX-004 - Financial balance of TopTx](#34-ds-tx-004---financial-balance-of-toptx)
-  - [3.5 DS-TX-005 - Net release when leaving store-backed outputs](#35-ds-tx-005---net-release-when-leaving-store-backed-outputs)
-  - [3.6 DS-TX-006 - TopTx participation in net-release settlement](#36-ds-tx-006---toptx-participation-in-net-release-settlement)
-  - [3.7 DS-TX-007 - Settlement output validation](#37-ds-tx-007---settlement-output-validation)
-    - [3.7.1 Local release accounting refinement](#371-local-release-accounting-refinement)
-  - [3.8 DS-TX-008 - Explicit zero contribution and positive SubTx amounts](#38-ds-tx-008---explicit-zero-contribution-and-positive-subtx-amounts)
-  - [3.9 DS-TX-009 - A SubTx declaration requires a TopTx declaration](#39-ds-tx-009---a-subtx-declaration-requires-a-toptx-declaration)
-    - [3.9.1 DS-TX-009-C01 - Declaration dependency](#391-ds-tx-009-c01---declaration-dependency)
-      - [3.9.1.1 P01 - any SubTx has a declaration ⇒ TopTx has a declaration](#3911-p01---any-subtx-has-a-declaration--toptx-has-a-declaration)
-    - [3.9.2 DS-TX-009-C02 - Absence and explicit zero](#392-ds-tx-009-c02---absence-and-explicit-zero)
-      - [3.9.2.1 N01 - accepts absent declarations at both levels](#3921-n01---accepts-absent-declarations-at-both-levels)
-      - [3.9.2.2 N02 - accepts explicit zero at both levels](#3922-n02---accepts-explicit-zero-at-both-levels)
-      - [3.9.2.3 N03 - accepts TopTx zero without a SubTx declaration](#3923-n03---accepts-toptx-zero-without-a-subtx-declaration)
-      - [3.9.2.4 F01 - rejects SubTx zero without a TopTx declaration](#3924-f01---rejects-subtx-zero-without-a-toptx-declaration)
-    - [3.9.3 DS-TX-009-C03 - Equal allocations and releases](#393-ds-tx-009-c03---equal-allocations-and-releases)
-      - [3.9.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount](#3931-n01---passes-declaration-presence-with-toptx-declaring-the-zero-net-amount)
-      - [3.9.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount](#3932-f01---rejects-an-absent-toptx-declaration-despite-the-zero-net-amount)
-    - [3.9.4 DS-TX-009-C04 - Local and delegated accounting](#394-ds-tx-009-c04---local-and-delegated-accounting)
-      - [3.9.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form](#3941-n01---passes-declaration-presence-with-toptx-zero-for-every-explicit-subtx-form)
-      - [3.9.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form](#3942-f01---rejects-an-absent-toptx-declaration-for-every-explicit-subtx-form)
-    - [3.9.5 DS-TX-009-C05 - Phase-2 failure](#395-ds-tx-009-c05---phase-2-failure)
-      - [3.9.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path](#3951-n01---accepts-zero-declarations-at-both-levels-on-the-phase-2-failure-path)
-      - [3.9.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path](#3952-f01---rejects-subtx-zero-without-a-toptx-declaration-on-the-phase-2-failure-path)
-    - [3.9.6 DS-TX-009-C06 - Fixture integrity](#396-ds-tx-009-c06---fixture-integrity)
-      - [3.9.6.1 P01 - preserves the number of SubTxs, including those with repeated declarations](#3961-p01---preserves-the-number-of-subtxs-including-those-with-repeated-declarations)
-  - [3.10 DS-TX-010 - Validation of delegated SubTx contributions](#310-ds-tx-010---validation-of-delegated-subtx-contributions)
-  - [3.11 DS-TX-011 - UTxO capacity deposit release authority follows the store-backed output](#311-ds-tx-011---utxo-capacity-deposit-release-authority-follows-the-store-backed-output)
-  - [3.12 DS-TX-012 - Zero application ADA and empty application assets](#312-ds-tx-012---zero-application-ada-and-empty-application-assets)
-- [4. Collateral](#4-collateral)
-  - [4.1 DS-COLL-001 - Both output variants supported for collateral](#41-ds-coll-001---both-output-variants-supported-for-collateral)
-  - [4.2 DS-COLL-002 - Collateral UTxO capacity deposit surplus and shortfall](#42-ds-coll-002---collateral-utxo-capacity-deposit-surplus-and-shortfall)
-  - [4.3 DS-COLL-003 - Total collateral declaration](#43-ds-coll-003---total-collateral-declaration)
-  - [4.4 DS-COLL-004 - Derived collateral DepositStore settlement](#44-ds-coll-004---derived-collateral-depositstore-settlement)
-- [5. DepositStore state and pricing](#5-depositstore-state-and-pricing)
-  - [5.1 DS-STORE-001 - DepositStore solvency](#51-ds-store-001---depositstore-solvency)
-  - [5.2 DS-STORE-002 - Historical pricing for output UTxO capacity deposits](#52-ds-store-002---historical-pricing-for-output-utxo-capacity-deposits)
-  - [5.3 DS-STORE-003 - UTxO capacity deposits calculated from output size](#53-ds-store-003---utxo-capacity-deposits-calculated-from-output-size)
-  - [5.4 DS-STORE-004 - DepositStore initialization at the Conway transition](#54-ds-store-004---depositstore-initialization-at-the-conway-transition)
-  - [5.5 DS-STORE-005 - Consistency of UTxO capacity deposit records](#55-ds-store-005---consistency-of-utxo-capacity-deposit-records)
-- [6. Script compatibility](#6-script-compatibility)
-  - [6.1 DS-PLUTUS-001 - Plutus compatibility](#61-ds-plutus-001---plutus-compatibility)
-- [7. Stake and voting](#7-stake-and-voting)
-  - [7.1 DS-STAKE-001 - Stake and voting power](#71-ds-stake-001---stake-and-voting-power)
-- [8. Remaining design work](#8-remaining-design-work)
-- [9. Executable domain specification](#9-executable-domain-specification)
-  - [9.1 Domain scenarios](#91-domain-scenarios)
-  - [9.2 Ledger adapter boundary](#92-ledger-adapter-boundary)
-  - [9.3 DS-TX-009 - Declaration dependency examples](#93-ds-tx-009---declaration-dependency-examples)
-  - [9.4 DS-TX-001 - Creation declaration examples](#94-ds-tx-001---creation-declaration-examples)
-  - [9.5 Business rules and executable specs](#95-business-rules-and-executable-specs)
-- [10. Code references](#10-code-references)
+Use the arrows to expand sections, rules and test categories. Select a title to jump to it.
+
+<ul>
+  <li>
+    <details>
+      <summary><a href="#1-mathematical-domain-model">1. Mathematical domain model</a></summary>
+      <ul>
+        <li><a href="#11-utxo-capacity-deposit-terminology-and-state">1.1 UTxO capacity deposit terminology and state</a></li>
+        <li><a href="#12-validity-predicates">1.2 Validity predicates</a></li>
+        <li><a href="#13-expected-transitions-and-derived-invariants">1.3 Expected transitions and derived invariants</a></li>
+      </ul>
+    </details>
+  </li>
+  <li><a href="#2-transaction-body-scope">2. Transaction body scope</a></li>
+  <li>
+    <details>
+      <summary><a href="#3-transaction-declarations-and-accounting">3. Transaction declarations and accounting</a></summary>
+      <ul>
+        <li>
+          <details>
+            <summary><a href="#31-ds-tx-001---a-body-creating-or-spending-store-backed-outputs-must-declare-its-own-utxo-capacity-deposit-change">3.1 DS-TX-001 - A body creating or spending store-backed outputs must declare its own UTxO capacity deposit change</a></summary>
+            <ul>
+              <li><a href="#311-acceptance-cases">3.1.1 Acceptance cases</a></li>
+            </ul>
+          </details>
+        </li>
+        <li><a href="#32-ds-tx-002---batch-net-change-and-accounting-responsibility">3.2 DS-TX-002 - Batch net change and accounting responsibility</a></li>
+        <li><a href="#33-ds-tx-003---exact-utxo-capacity-deposit-accounting-for-each-body">3.3 DS-TX-003 - Exact UTxO capacity deposit accounting for each body</a></li>
+        <li><a href="#34-ds-tx-004---financial-balance-of-toptx">3.4 DS-TX-004 - Financial balance of TopTx</a></li>
+        <li><a href="#35-ds-tx-005---net-release-when-leaving-store-backed-outputs">3.5 DS-TX-005 - Net release when leaving store-backed outputs</a></li>
+        <li><a href="#36-ds-tx-006---toptx-participation-in-net-release-settlement">3.6 DS-TX-006 - TopTx participation in net-release settlement</a></li>
+        <li>
+          <details>
+            <summary><a href="#37-ds-tx-007---settlement-output-validation">3.7 DS-TX-007 - Settlement output validation</a></summary>
+            <ul>
+              <li><a href="#371-local-release-accounting-refinement">3.7.1 Local release accounting refinement</a></li>
+            </ul>
+          </details>
+        </li>
+        <li><a href="#38-ds-tx-008---explicit-zero-contribution-and-positive-subtx-amounts">3.8 DS-TX-008 - Explicit zero contribution and positive SubTx amounts</a></li>
+        <li>
+          <details>
+            <summary><a href="#39-ds-tx-009---a-subtx-declaration-requires-a-toptx-declaration">3.9 DS-TX-009 - A SubTx declaration requires a TopTx declaration</a></summary>
+            <ul>
+              <li>
+                <details>
+                  <summary><a href="#391-ds-tx-009-c01---declaration-dependency">3.9.1 DS-TX-009-C01 - Declaration dependency</a></summary>
+                  <ul>
+                    <li><a href="#3911-p01---any-subtx-has-a-declaration--toptx-has-a-declaration">3.9.1.1 P01 - any SubTx has a declaration ⇒ TopTx has a declaration</a></li>
+                  </ul>
+                </details>
+              </li>
+              <li>
+                <details>
+                  <summary><a href="#392-ds-tx-009-c02---absence-and-explicit-zero">3.9.2 DS-TX-009-C02 - Absence and explicit zero</a></summary>
+                  <ul>
+                    <li><a href="#3921-n01---accepts-absent-declarations-at-both-levels">3.9.2.1 N01 - accepts absent declarations at both levels</a></li>
+                    <li><a href="#3922-n02---accepts-explicit-zero-at-both-levels">3.9.2.2 N02 - accepts explicit zero at both levels</a></li>
+                    <li><a href="#3923-n03---accepts-toptx-zero-without-a-subtx-declaration">3.9.2.3 N03 - accepts TopTx zero without a SubTx declaration</a></li>
+                    <li><a href="#3924-f01---rejects-subtx-zero-without-a-toptx-declaration">3.9.2.4 F01 - rejects SubTx zero without a TopTx declaration</a></li>
+                  </ul>
+                </details>
+              </li>
+              <li>
+                <details>
+                  <summary><a href="#393-ds-tx-009-c03---equal-allocations-and-releases">3.9.3 DS-TX-009-C03 - Equal allocations and releases</a></summary>
+                  <ul>
+                    <li><a href="#3931-n01---passes-declaration-presence-with-toptx-declaring-the-zero-net-amount">3.9.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a></li>
+                    <li><a href="#3932-f01---rejects-an-absent-toptx-declaration-despite-the-zero-net-amount">3.9.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a></li>
+                  </ul>
+                </details>
+              </li>
+              <li>
+                <details>
+                  <summary><a href="#394-ds-tx-009-c04---local-and-delegated-accounting">3.9.4 DS-TX-009-C04 - Local and delegated accounting</a></summary>
+                  <ul>
+                    <li><a href="#3941-n01---passes-declaration-presence-with-toptx-zero-for-every-explicit-subtx-form">3.9.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a></li>
+                    <li><a href="#3942-f01---rejects-an-absent-toptx-declaration-for-every-explicit-subtx-form">3.9.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a></li>
+                  </ul>
+                </details>
+              </li>
+              <li>
+                <details>
+                  <summary><a href="#395-ds-tx-009-c05---phase-2-failure">3.9.5 DS-TX-009-C05 - Phase-2 failure</a></summary>
+                  <ul>
+                    <li><a href="#3951-n01---accepts-zero-declarations-at-both-levels-on-the-phase-2-failure-path">3.9.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a></li>
+                    <li><a href="#3952-f01---rejects-subtx-zero-without-a-toptx-declaration-on-the-phase-2-failure-path">3.9.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a></li>
+                  </ul>
+                </details>
+              </li>
+              <li>
+                <details>
+                  <summary><a href="#396-ds-tx-009-c06---fixture-integrity">3.9.6 DS-TX-009-C06 - Fixture integrity</a></summary>
+                  <ul>
+                    <li><a href="#3961-p01---preserves-the-number-of-subtxs-including-those-with-repeated-declarations">3.9.6.1 P01 - preserves the number of SubTxs, including those with repeated declarations</a></li>
+                  </ul>
+                </details>
+              </li>
+            </ul>
+          </details>
+        </li>
+        <li><a href="#310-ds-tx-010---validation-of-delegated-subtx-contributions">3.10 DS-TX-010 - Validation of delegated SubTx contributions</a></li>
+        <li><a href="#311-ds-tx-011---utxo-capacity-deposit-release-authority-follows-the-store-backed-output">3.11 DS-TX-011 - UTxO capacity deposit release authority follows the store-backed output</a></li>
+        <li><a href="#312-ds-tx-012---zero-application-ada-and-empty-application-assets">3.12 DS-TX-012 - Zero application ADA and empty application assets</a></li>
+      </ul>
+    </details>
+  </li>
+  <li>
+    <details>
+      <summary><a href="#4-collateral">4. Collateral</a></summary>
+      <ul>
+        <li><a href="#41-ds-coll-001---both-output-variants-supported-for-collateral">4.1 DS-COLL-001 - Both output variants supported for collateral</a></li>
+        <li><a href="#42-ds-coll-002---collateral-utxo-capacity-deposit-surplus-and-shortfall">4.2 DS-COLL-002 - Collateral UTxO capacity deposit surplus and shortfall</a></li>
+        <li><a href="#43-ds-coll-003---total-collateral-declaration">4.3 DS-COLL-003 - Total collateral declaration</a></li>
+        <li><a href="#44-ds-coll-004---derived-collateral-depositstore-settlement">4.4 DS-COLL-004 - Derived collateral DepositStore settlement</a></li>
+      </ul>
+    </details>
+  </li>
+  <li>
+    <details>
+      <summary><a href="#5-depositstore-state-and-pricing">5. DepositStore state and pricing</a></summary>
+      <ul>
+        <li><a href="#51-ds-store-001---depositstore-solvency">5.1 DS-STORE-001 - DepositStore solvency</a></li>
+        <li><a href="#52-ds-store-002---historical-pricing-for-output-utxo-capacity-deposits">5.2 DS-STORE-002 - Historical pricing for output UTxO capacity deposits</a></li>
+        <li><a href="#53-ds-store-003---utxo-capacity-deposits-calculated-from-output-size">5.3 DS-STORE-003 - UTxO capacity deposits calculated from output size</a></li>
+        <li><a href="#54-ds-store-004---depositstore-initialization-at-the-conway-transition">5.4 DS-STORE-004 - DepositStore initialization at the Conway transition</a></li>
+        <li><a href="#55-ds-store-005---consistency-of-utxo-capacity-deposit-records">5.5 DS-STORE-005 - Consistency of UTxO capacity deposit records</a></li>
+      </ul>
+    </details>
+  </li>
+  <li>
+    <details>
+      <summary><a href="#6-script-compatibility">6. Script compatibility</a></summary>
+      <ul>
+        <li><a href="#61-ds-plutus-001---plutus-compatibility">6.1 DS-PLUTUS-001 - Plutus compatibility</a></li>
+      </ul>
+    </details>
+  </li>
+  <li>
+    <details>
+      <summary><a href="#7-stake-and-voting">7. Stake and voting</a></summary>
+      <ul>
+        <li><a href="#71-ds-stake-001---stake-and-voting-power">7.1 DS-STAKE-001 - Stake and voting power</a></li>
+      </ul>
+    </details>
+  </li>
+  <li><a href="#8-remaining-design-work">8. Remaining design work</a></li>
+  <li>
+    <details>
+      <summary><a href="#9-executable-domain-specification">9. Executable domain specification</a></summary>
+      <ul>
+        <li><a href="#91-domain-scenarios">9.1 Domain scenarios</a></li>
+        <li><a href="#92-ledger-adapter-boundary">9.2 Ledger adapter boundary</a></li>
+        <li><a href="#93-ds-tx-009---declaration-dependency-examples">9.3 DS-TX-009 - Declaration dependency examples</a></li>
+        <li><a href="#94-ds-tx-001---creation-declaration-examples">9.4 DS-TX-001 - Creation declaration examples</a></li>
+        <li><a href="#95-business-rules-and-executable-specs">9.5 Business rules and executable specs</a></li>
+      </ul>
+    </details>
+  </li>
+  <li><a href="#10-code-references">10. Code references</a></li>
+</ul>
 
 ## 1. Mathematical domain model
 
