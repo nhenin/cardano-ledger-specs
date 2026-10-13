@@ -58,10 +58,10 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-toptx-amounts">2.1.1.1.1 Amounts</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-p01">2.1.1.1.1.1 P01 - preserves StrictlyPositiveCoin amounts in every TopTx declaration form</a><br>
-                            <a href="#ds-tx-grammar-f01">2.1.1.1.1.2 F01 - rejects zero amounts in TopTx declarations</a><br>
-                            <a href="#ds-tx-grammar-f12">2.1.1.1.1.3 F12 - rejects negative amounts in TopTx declarations</a><br>
-                            <a href="#ds-tx-grammar-f13">2.1.1.1.1.4 F13 - rejects overflowing amounts in TopTx declarations</a><br>
+                            <a href="#ds-tx-grammar-p01">2.1.1.1.1.1 P01 - Positive amounts survive encoding</a><br>
+                            <a href="#ds-tx-grammar-f01">2.1.1.1.1.2 F01 - Zero operation amount</a><br>
+                            <a href="#ds-tx-grammar-f12">2.1.1.1.1.3 F12 - Negative operation amount</a><br>
+                            <a href="#ds-tx-grammar-f13">2.1.1.1.1.4 F13 - Overflowing operation amount</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -69,7 +69,7 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-toptx-absence">2.1.1.1.2 Absence</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-n03">2.1.1.1.2.1 N03 - preserves the distinction between an absent TopTx declaration and explicit zero</a><br>
+                            <a href="#ds-tx-grammar-n03">2.1.1.1.2.1 N03 - Absence remains distinct from zero</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -77,8 +77,8 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-toptx-forms">2.1.1.1.3 Forms</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-n05">2.1.1.1.3.1 N05 - preserves every TopTx declaration form, amount and settlement</a><br>
-                            <a href="#ds-tx-grammar-f06">2.1.1.1.3.2 F06 - rejects a SubTx funding request as a TopTx operation</a><br>
+                            <a href="#ds-tx-grammar-n05">2.1.1.1.3.1 N05 - Every TopTx declaration form</a><br>
+                            <a href="#ds-tx-grammar-f06">2.1.1.1.3.2 F06 - Funding request in TopTx</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -86,7 +86,7 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-toptx-structure">2.1.1.1.4 Structure</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-f02">2.1.1.1.4.1 F02 - rejects unknown TopTx operations, missing required fields and invalid declaration structures</a><br>
+                            <a href="#ds-tx-grammar-f02">2.1.1.1.4.1 F02 - Malformed declarations</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -94,9 +94,9 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-toptx-destinations">2.1.1.1.5 Destinations</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-f04">2.1.1.1.5.1 F04 - rejects unknown release settlements, missing local indices and invalid settlement structures</a><br>
-                            <a href="#ds-tx-grammar-f14">2.1.1.1.5.2 F14 - rejects negative TopTx release output indices</a><br>
-                            <a href="#ds-tx-grammar-f15">2.1.1.1.5.3 F15 - rejects TopTx release output indices above 65535</a><br>
+                            <a href="#ds-tx-grammar-f04">2.1.1.1.5.1 F04 - Malformed release settlements</a><br>
+                            <a href="#ds-tx-grammar-f14">2.1.1.1.5.2 F14 - Negative output index</a><br>
+                            <a href="#ds-tx-grammar-f15">2.1.1.1.5.3 F15 - Overflowing output index</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -111,10 +111,10 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-subtx-amounts">2.1.1.2.1 Amounts</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-p02">2.1.1.2.1.1 P02 - preserves StrictlyPositiveCoin amounts in every SubTx declaration form</a><br>
-                            <a href="#ds-tx-grammar-f07">2.1.1.2.1.2 F07 - rejects zero amounts in SubTx declarations</a><br>
-                            <a href="#ds-tx-grammar-f08">2.1.1.2.1.3 F08 - rejects negative amounts in SubTx declarations</a><br>
-                            <a href="#ds-tx-grammar-f09">2.1.1.2.1.4 F09 - rejects overflowing amounts in SubTx declarations</a><br>
+                            <a href="#ds-tx-grammar-p02">2.1.1.2.1.1 P02 - Positive amounts survive encoding</a><br>
+                            <a href="#ds-tx-grammar-f07">2.1.1.2.1.2 F07 - Zero operation amount</a><br>
+                            <a href="#ds-tx-grammar-f08">2.1.1.2.1.3 F08 - Negative operation amount</a><br>
+                            <a href="#ds-tx-grammar-f09">2.1.1.2.1.4 F09 - Overflowing operation amount</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -122,7 +122,7 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-subtx-absence">2.1.1.2.2 Absence</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-n04">2.1.1.2.2.1 N04 - preserves the distinction between an absent SubTx declaration and explicit zero</a><br>
+                            <a href="#ds-tx-grammar-n04">2.1.1.2.2.1 N04 - Absence remains distinct from zero</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -130,7 +130,7 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-subtx-forms">2.1.1.2.3 Forms</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-n06">2.1.1.2.3.1 N06 - preserves every SubTx declaration form, amount and target</a><br>
+                            <a href="#ds-tx-grammar-n06">2.1.1.2.3.1 N06 - Every SubTx declaration form</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -138,7 +138,7 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-subtx-structure">2.1.1.2.4 Structure</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-f03">2.1.1.2.4.1 F03 - rejects unknown SubTx operations, missing required fields and invalid declaration structures</a><br>
+                            <a href="#ds-tx-grammar-f03">2.1.1.2.4.1 F03 - Malformed declarations</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -146,9 +146,9 @@ Appendices contain the open design questions and supporting references.
                         <summary><a href="#ds-tx-grammar-subtx-destinations">2.1.1.2.5 Destinations</a></summary>
                         <dl>
                           <dd>
-                            <a href="#ds-tx-grammar-f05">2.1.1.2.5.1 F05 - rejects unknown release targets, missing local indices and invalid target structures</a><br>
-                            <a href="#ds-tx-grammar-f10">2.1.1.2.5.2 F10 - rejects negative SubTx release output indices</a><br>
-                            <a href="#ds-tx-grammar-f11">2.1.1.2.5.3 F11 - rejects SubTx release output indices above 65535</a><br>
+                            <a href="#ds-tx-grammar-f05">2.1.1.2.5.1 F05 - Malformed release targets</a><br>
+                            <a href="#ds-tx-grammar-f10">2.1.1.2.5.2 F10 - Negative output index</a><br>
+                            <a href="#ds-tx-grammar-f11">2.1.1.2.5.3 F11 - Overflowing output index</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -953,63 +953,69 @@ owns state application and rejection atomicity.
 
 #### 2.1.1 Grammar
 
-> **Define which declarations can be represented.**
->
-> Nonzero operation $\text{amount}>0$ · Explicit zero has its own form · Release carries a destination form.
+> **Preserve valid declaration forms; reject malformed representations.**
 
-**Decision:** Agreed. These checks use constructors and decoders, without resolving
-inputs, inspecting outputs or reading Store state. A well-formed declaration can
-still fail Presence, Exactness or Settlement.
+**Decision:** Agreed.
 
-| Form | TopTx | SubTx |
-| --- | --- | --- |
-| Absent | No declaration | No declaration |
-| Explicit zero | Declares the batch net change as zero | Declares the own net contribution as zero |
-| Allocation | Positive amount | Positive amount, locally accounted |
-| Funding request | Not a TopTx form | Positive amount, explicitly delegated to TopTx |
-| Release | Positive amount and a TopTx settlement form | Positive amount and a local or delegated target |
+Grammar reads the declaration itself. It needs no resolved inputs, outputs or Store
+state. Its result is **decoded or rejected**; successful decoding alone does not
+establish that a transaction may be submitted successfully.
 
-A TopTx release carries either `NoTopTxSettlement` or `TopTxSettlementOutput index`.
-A SubTx release carries either `SubTxSettlementOutput index` or `DelegateToTopTx`.
-[Participation](#ds-tx-settlement-participation) checks which TopTx form is appropriate.
-[Destination](#ds-tx-settlement-destination) checks whether an index resolves in its
-own body. Grammar only checks representability: indices range from 0 to 65535.
-
-Amounts range from 1 to 18446744073709551615 lovelace. Neither allocation nor release
-nor a funding request can use zero as its amount. Absence and explicit zero remain
-distinct through body serialization. Whether a declaration is required belongs to
-[Presence](#ds-tx-presence); zero's accounting projection belongs to
-[Attribution](#ds-tx-attribution-n04).
-
-The shared `Codecs` adapter checks CBOR and JSON together, so each assertion covers
-both representations. Format-specific assertions name their codec explicitly.
-The representations have different structural rules:
-
-| Representation | Decoder checks |
+| Responsibility | Rule |
 | --- | --- |
-| CBOR | Constructor tags, field counts and values, at every supported Dijkstra version. |
-| JSON | Operation kinds, required fields and values. Additional object keys remain permitted. |
+| **Amounts** | $1\le\text{amount}\le 2^{64}-1$ lovelace for every amount-bearing operation. |
+| **Absence** | $\text{Absent}\ne\text{ExplicitZero}$. Encoding must preserve the distinction. |
+| **Forms** | Preserve the operation, amount and destination. Funding requests belong to SubTx. |
+| **Structure** | Recognize the operation and require its fields. |
+| **Destinations** | Recognize the destination form; a local index must satisfy $0\le\text{outputIndex}\le65535$. |
 
-Both preserve valid declarations and reject invalid amounts. Whole-body CBOR
-round-trips use the production annotated decoder. Exact-byte goldens, historical
-field omission and embedding in transaction body field 28 remain in the
-[encoding reference](#declaration-encoding).
+**Available forms**
+
+| Declaration | TopTx | SubTx |
+| --- | --- | --- |
+| Absent | No declaration. | No declaration. |
+| Explicit zero | Declare the transaction's total net change as zero. | Declare the body's own net contribution as zero. |
+| Allocate | Positive amount. | Positive amount, accounted locally. |
+| Request funding | Unavailable. | Positive amount, requested explicitly from TopTx. |
+| Release | Positive amount with no own settlement, or an own output index. | Positive amount with delegation to TopTx, or an own output index. |
+
+[Presence](#ds-tx-presence) determines when a declaration is required.
+[Exactness](#ds-tx-exactness) checks its amount.
+[Settlement](#ds-tx-settlement) checks participation, output existence and coverage.
+
+**Encoding contract**
+
+$$
+\text{decode}(\text{encode}(\text{declaration}))=\text{declaration}
+$$
+
+Unless a case names one codec, its checks cover **CBOR and JSON**.
+
+| Representation | Structural checks |
+| --- | --- |
+| CBOR | Known constructor tag and exact field count, at every supported Dijkstra version. |
+| JSON | Known operation kind and required fields. Additional object keys are allowed. |
+
+Whole-body cases also preserve the surrounding body fields. Wire tags and body
+field 28 are detailed in the [encoding reference](#declaration-encoding).
 
 <a id="ds-tx-grammar-n02" name="ds-tx-grammar-n02"></a>
 
-The reusable `StrictlyPositiveCoin` type owns $1 \le \mathit{amount} \le 2^{64}-1$.
-Its constructor, scalar codecs, valid bounds and invalid ranges are tested in
-[`StrictlyPositiveCoinSpec`](../libs/cardano-ledger-core/test/Test/Cardano/Ledger/StrictlyPositiveCoinSpec.hs),
-outside DepositStore. Haskell enforces the declaration constructors' parameter type;
-Grammar checks that declaration encoding preserves the amount and decoding rejects
-invalid external amounts.
+The reusable `StrictlyPositiveCoin` type owns the positive-amount invariant;
+[`StrictlyPositiveCoinSpec`](../libs/cardano-ledger-core/test/Test/Cardano/Ledger/StrictlyPositiveCoinSpec.hs)
+tests its constructor and scalar codecs. Grammar checks the type's use **inside
+declarations**, including rejection of raw external values that bypass construction.
 
-TopTx and SubTx have separate executable specifications below. Both follow the same
-reading order: **Amounts → Absence → Forms → Structure → Destinations**.
+TopTx and SubTx follow the same reading order:
+**Amounts → Absence → Forms → Structure → Destinations**.
+Case numbers restart within each category; each tag links to its executable check.
 
 <a id="ds-tx-grammar-toptx" name="ds-tx-grammar-toptx"></a>
 
 ##### 2.1.1.1 TopTx
+
+TopTx declares the transaction total. Its grammar permits explicit zero, allocation
+or release; a funding request is a SubTx operation.
 
 <a id="ds-tx-grammar-amounts" name="ds-tx-grammar-amounts"></a>
 
@@ -1017,58 +1023,21 @@ reading order: **Amounts → Absence → Forms → Structure → Destinations**.
 
 ###### 2.1.1.1.1 Amounts
 
-> allocation and release declarations require $\text{coins}>0$ (`StrictlyPositiveCoin`).
+> **Allocation and release carry a strictly positive amount.**
 
-Each rejection property below, [F01](#ds-tx-grammar-f01), [F12](#ds-tx-grammar-f12)
-and [F13](#ds-tx-grammar-f13), generates declaration inputs carrying its fixed raw
-amount. Every draw includes allocation, release without TopTx settlement and local
-release at $0$, $65535$ and a generated index in $1\ldots65534$: five CBOR inputs
-and five JSON inputs. Settlements remain well formed so the invalid amount is the
-reason for rejection. Both index bounds are retained in every draw.
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-p01" name="ds-tx-grammar-p01"></a>**1. [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L36)** | **Positive amounts survive encoding.** A generated `StrictlyPositiveCoin` in every amount-bearing form. | Preserve the operation, amount and settlement through both codecs. |
+| <a id="ds-tx-grammar-f01" name="ds-tx-grammar-f01"></a>**2. [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L40)** | **Zero operation amount.** Raw $\text{amount}=0$. | Reject decoding. Explicit zero has its own form. |
+| <a id="ds-tx-grammar-f12" name="ds-tx-grammar-f12"></a>**3. [F12](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L43)** | **Negative operation amount.** Raw $\text{amount}=-1$. | Reject decoding: below the lower bound. |
+| <a id="ds-tx-grammar-f13" name="ds-tx-grammar-f13"></a>**4. [F13](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L46)** | **Overflowing operation amount.** Raw $\text{amount}=2^{64}$. | Reject decoding without truncation or wrapping. |
 
-<a id="ds-tx-grammar-p01" name="ds-tx-grammar-p01"></a>
-
-**2.1.1.1.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L36) - preserves StrictlyPositiveCoin amounts in every TopTx declaration form**
-
-For each generated `StrictlyPositiveCoin`, generate all amount-bearing TopTx forms:
-allocation, release without TopTx settlement, and local release at $0$, $65535$
-and a generated index in $1\ldots65534$. Decode all five declarations through CBOR
-at every supported Dijkstra version and through JSON. Every result must preserve
-the complete declaration, including its amount and settlement.
-
-$$
-\forall \mathit{amount}\in\mathsf{StrictlyPositiveCoin}:\quad
-\mathsf{decode}(\mathsf{encode}(\mathit{topTxDeclaration}(\mathit{amount})))
-=\mathit{topTxDeclaration}(\mathit{amount})
-$$
-
-<a id="ds-tx-grammar-f01" name="ds-tx-grammar-f01"></a>
-
-**2.1.1.1.1.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L40) - rejects zero amounts in TopTx declarations**
-
-Generate otherwise well-formed TopTx allocation and release payloads carrying raw $0$.
-CBOR decoding at every supported Dijkstra version and JSON decoding must reject
-each payload: operation amounts must satisfy $\mathit{amount}>0$. The explicit-zero
-declaration is a distinct form, preserved by [N03](#ds-tx-grammar-n03); an operation
-carrying a zero amount cannot substitute for it.
-
-<a id="ds-tx-grammar-f12" name="ds-tx-grammar-f12"></a>
-
-**2.1.1.1.1.3 [F12](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L43) - rejects negative amounts in TopTx declarations**
-
-Generate otherwise well-formed TopTx allocation and release payloads carrying raw $-1$.
-This amount is below the lower bound of $1$ lovelace. CBOR decoding at every
-supported Dijkstra version and JSON decoding must reject each payload, even though
-it bypasses the checked constructor.
-
-<a id="ds-tx-grammar-f13" name="ds-tx-grammar-f13"></a>
-
-**2.1.1.1.1.4 [F13](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L46) - rejects overflowing amounts in TopTx declarations**
-
-Generate otherwise well-formed TopTx allocation and release payloads carrying raw
-$2^{64}$. This exceeds the maximum amount, $2^{64}-1$ lovelace. CBOR decoding at
-every supported Dijkstra version and JSON decoding must reject each payload
-without truncating or wrapping the amount.
+Every generated set includes allocation, release without TopTx settlement, and
+local release at indices $0$, $65535$ and one generated interior index. Thus each
+amount is checked in **five declarations per codec**, with valid destinations.
+The three rejection cases fix the amount at the stated boundary value while
+varying the surrounding declaration. Explicit zero uses a separate form, not an
+allocation or release of zero.
 
 <a id="ds-tx-grammar-absence" name="ds-tx-grammar-absence"></a>
 
@@ -1076,18 +1045,25 @@ without truncating or wrapping the amount.
 
 ###### 2.1.1.1.2 Absence
 
-> $\mathsf{Absent} \ne \mathsf{ExplicitZero}$ for TopTx.
+> **Declaring zero is different from declaring nothing.**
 
-<a id="ds-tx-grammar-n03" name="ds-tx-grammar-n03"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-n03" name="ds-tx-grammar-n03"></a>**1. [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L51)** | **Absence remains distinct from zero.** Two otherwise identical complete bodies, differing only in their declaration. | Distinct encodings; decoding preserves each complete body. |
 
-**2.1.1.1.2.1 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L51) - preserves the distinction between an absent TopTx declaration and explicit zero**
+Both bodies share the same generated spending inputs, reference inputs and
+auxiliary-data hash. Only the declaration differs:
 
-Generate a TopTx body with varying spending inputs, reference inputs and auxiliary
-data hash. Pair it with a copy that differs only in its declaration: absent in the
-first body, explicit zero in the second. Round-trip both bodies through CBOR and
-JSON, preserving each complete body and requiring distinct encodings in both
-formats. Shared surrounding fields make the declaration the only possible reason
-for that difference. Zero must not disappear during serialization.
+$$
+\begin{aligned}
+\text{encode(absentBody)} &\ne \text{encode(explicitZeroBody)} \\
+\text{decode(encode(absentBody))} &= \text{absentBody} \\
+\text{decode(encode(explicitZeroBody))} &= \text{explicitZeroBody}
+\end{aligned}
+$$
+
+This preserves the distinction needed by Presence without deciding whether either
+body has declared enough for its Store activity.
 
 <a id="ds-tx-grammar-forms" name="ds-tx-grammar-forms"></a>
 
@@ -1095,26 +1071,26 @@ for that difference. Zero must not disappear during serialization.
 
 ###### 2.1.1.1.3 Forms
 
-> Preserve each TopTx operation; funding requests belong to SubTx.
+> **Preserve every TopTx form; keep funding requests specific to SubTx.**
 
-<a id="ds-tx-grammar-n05" name="ds-tx-grammar-n05"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-n05" name="ds-tx-grammar-n05"></a>**1. [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L58)** | **Every TopTx declaration form.** Explicit zero and all amount-bearing forms at both amount bounds. | Preserve each form, amount and settlement. |
+| <a id="ds-tx-grammar-f06" name="ds-tx-grammar-f06"></a>**2. [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L62)** | **Funding request in TopTx.** A valid SubTx funding request is passed to the TopTx decoder. | SubTx preserves the request in both codecs; TopTx rejects its JSON representation. |
 
-**2.1.1.1.3.1 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L58) - preserves every TopTx declaration form, amount and settlement**
+N05 includes explicit zero and every amount-bearing variant at **both** positive
+bounds, $1$ and $2^{64}-1$: eleven declarations per draw. Release variants include
+`NoTopTxSettlement` and `TopTxSettlementOutput` at indices $0$, $65535$ and a
+generated interior index. No output needs to exist at those indices for decoding.
 
-Each draw contains explicit zero and all five amount-bearing TopTx forms at both
-positive amount bounds, $1$ and $2^{64}-1$: eleven declarations in total. Releases
-cover no TopTx settlement and local indices $0$, $65535$ and a generated interior
-index. Round-trip every declaration through CBOR and JSON, preserving its form,
-amount and settlement. The fixture does not need an output at that index.
+**Funding-request example**
 
-<a id="ds-tx-grammar-f06" name="ds-tx-grammar-f06"></a>
+| Input | SubTx decoder | TopTx decoder |
+| --- | --- | --- |
+| JSON `{"kind":"requestUTxODepositFromTopTx","amount":1}` | Decoded as a funding request. | Rejected: unavailable TopTx operation. |
 
-**2.1.1.1.3.2 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L62) - rejects a SubTx funding request as a TopTx operation**
-
-Generate a SubTx funding request with a strictly positive amount. Require it to
-round-trip as a SubTx operation through CBOR and JSON, then require the TopTx JSON
-decoder to reject that same request. The amount varies across draws; the operation
-remains well formed for SubTx and unavailable to TopTx.
+F06 also round-trips the valid SubTx request through CBOR. Its cross-level rejection
+assertion is specifically a **JSON** check.
 
 <a id="ds-tx-grammar-structure" name="ds-tx-grammar-structure"></a>
 
@@ -1122,21 +1098,25 @@ remains well formed for SubTx and unavailable to TopTx.
 
 ###### 2.1.1.1.4 Structure
 
-> Reject unknown operations and missing required fields.
+> **A recognized operation must carry exactly its required CBOR fields, or all required JSON fields.**
 
-<a id="ds-tx-grammar-f02" name="ds-tx-grammar-f02"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-f02" name="ds-tx-grammar-f02"></a>**1. [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L68)** | **Malformed declarations.** Invalid containers, unknown operations, missing required fields or extra CBOR fields. | Reject each malformed input in its own format. |
 
-**2.1.1.1.4.1 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L68) - rejects unknown TopTx operations, missing required fields and invalid declaration structures**
+**Representative invalid inputs**
 
-Generate raw TopTx declarations with invalid containers, unknown operations,
-missing required fields or extra CBOR fields. An allocation must carry its amount;
-a release must carry both its amount and settlement. Explicit zero carries neither.
+| Defect | Example | Why it fails |
+| --- | --- | --- |
+| Wrong container or empty declaration | CBOR `0` or `[]`; JSON `null` or `{}`. | No complete operation is represented. |
+| Unknown operation | JSON `{"kind":"unknown"}`. | The kind does not identify a TopTx operation. |
+| Missing amount | CBOR `[0]`; JSON `{"kind":"allocate"}`. | Allocation requires an amount. Releases also require one. |
+| Missing settlement | CBOR `[1,1]`. | Release carries both an amount and a settlement form. |
+| Extra CBOR fields | `[2,0]` or `[0,1,0]`. | Explicit zero has no payload; allocation has only an amount. |
 
-Each generated set includes every structural defect: seven CBOR cases and seven
-JSON cases. Positive amounts, unknown tags and kinds, and extra CBOR fields vary
-between draws. CBOR decoding at every supported Dijkstra version and JSON decoding
-must reject every input. Valid amounts isolate structure as the reason for
-rejection.
+Every draw covers seven CBOR and seven JSON defects. Amounts and any supplied
+valid fields remain well formed, isolating structure as the reason for rejection.
+Extra JSON keys are permitted and are not among these defects.
 
 <a id="ds-tx-grammar-destinations" name="ds-tx-grammar-destinations"></a>
 
@@ -1144,234 +1124,145 @@ rejection.
 
 ###### 2.1.1.1.5 Destinations
 
-> no TopTx settlement or a local output index in $0\ldots65535$.
+> **A release names no TopTx settlement, or a representable own output index.**
 
-A TopTx release settlement is either `NoTopTxSettlement` or
-`TopTxSettlementOutput index`. Grammar checks that the settlement decodes in CBOR
-and JSON, including the local index's representable range. Whether that index
-selects an existing output belongs to
-[DS-TX-SETTLEMENT-DESTINATION](#ds-tx-settlement-destination).
-[N05](#ds-tx-grammar-n05) supplies valid controls for no TopTx settlement and local
-indices $0$ and $65535$.
+| Valid form | Payload |
+| --- | --- |
+| `NoTopTxSettlement` | No index. |
+| `TopTxSettlementOutput outputIndex` | $0\le\text{outputIndex}\le65535$. |
 
-<a id="ds-tx-grammar-f04" name="ds-tx-grammar-f04"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-f04" name="ds-tx-grammar-f04"></a>**1. [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L73)** | **Malformed release settlements.** Wrong container, unknown form, missing local index or extra CBOR fields. | Reject decoding with otherwise valid indices. |
+| <a id="ds-tx-grammar-f14" name="ds-tx-grammar-f14"></a>**2. [F14](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L76)** | **Negative output index.** Generated $\text{outputIndex}<0$, favouring $-1$. | Reject the local settlement in both codecs. |
+| <a id="ds-tx-grammar-f15" name="ds-tx-grammar-f15"></a>**3. [F15](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L80)** | **Overflowing output index.** Generated $\text{outputIndex}>65535$, favouring $65536$. | Reject the settlement without truncation or wrapping. |
 
-**2.1.1.1.5.1 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L73) - rejects unknown release settlements, missing local indices and invalid settlement structures**
+F04 covers six CBOR and five JSON structural defects per draw: invalid containers,
+unknown forms, missing local indices and extra CBOR fields. Examples include CBOR
+`[0,1]` (an index on the no-settlement form) and `[1]` (a local form without its
+index). Any supplied local index remains within range.
 
-Generate raw release settlements with invalid containers, unknown tags or JSON
-kinds, missing local indices, or extra CBOR fields, including an index attached
-to the no-settlement form. Each draw covers all six CBOR and five JSON structural
-defects while varying unknown tags, kinds and valid local indices. Every input
-must fail to decode in its respective format.
-
-Local indices remain in $0\ldots65535$ here, so rejection concerns the settlement's
-structure. Index range failures belong to [F14](#ds-tx-grammar-f14) and
-[F15](#ds-tx-grammar-f15).
-
-<a id="ds-tx-grammar-f14" name="ds-tx-grammar-f14"></a>
-
-**2.1.1.1.5.2 [F14](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L76) - rejects negative TopTx release output indices**
-
-Generate negative integer indices, favouring the boundary $-1$, and insert each
-into an otherwise well-formed local release settlement. CBOR decoding at every
-supported Dijkstra version and JSON decoding must reject the settlement.
-
-$$
-\mathit{outputIndex}<0\implies\mathsf{DecodeRejected}
-$$
-
-Shrinking preserves the negative range, so a reduced counterexample still
-violates the same rule. [N05](#ds-tx-grammar-n05) covers the valid lower bound, $0$.
-
-<a id="ds-tx-grammar-f15" name="ds-tx-grammar-f15"></a>
-
-**2.1.1.1.5.3 [F15](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/TopTxSpec.hs#L80) - rejects TopTx release output indices above 65535**
-
-Generate integer indices above $65535$, favouring the first invalid value
-$65536$, and insert each into an otherwise well-formed local release settlement.
-CBOR decoding at every supported Dijkstra version and JSON decoding must reject
-the settlement without truncating or wrapping the index.
-
-$$
-\mathit{outputIndex}>65535\implies\mathsf{DecodeRejected}
-$$
-
-Shrinking stays above $65535$. [N05](#ds-tx-grammar-n05) covers the valid upper
-bound, $65535$.
+F14 and F15 generate values throughout their respective invalid ranges, favouring
+$-1$ and $65536$. Shrinking keeps a counterexample in the same invalid range.
+[N05](#ds-tx-grammar-n05) supplies the valid $0$ and $65535$ controls.
+[Settlement](#ds-tx-settlement-destination) separately checks that the index names
+an existing output in TopTx.
 
 <a id="ds-tx-grammar-subtx" name="ds-tx-grammar-subtx"></a>
 
 ##### 2.1.1.2 SubTx
 
+A SubTx can declare zero, allocate locally, request funding from TopTx, or release
+to its own output or TopTx. Encoding preserves which choice it made.
+
 <a id="ds-tx-grammar-subtx-amounts" name="ds-tx-grammar-subtx-amounts"></a>
 
 ###### 2.1.1.2.1 Amounts
 
-> allocation, release and funding-request declarations require $\text{coins}>0$ (`StrictlyPositiveCoin`).
+> **Allocation, funding requests and releases carry a strictly positive amount.**
 
-Each rejection property below, [F07](#ds-tx-grammar-f07), [F08](#ds-tx-grammar-f08)
-and [F09](#ds-tx-grammar-f09), generates declaration inputs carrying its fixed raw
-amount. Every draw includes allocation, funding request, delegated release and local
-release at $0$, $65535$ and a generated index in $1\ldots65534$: six CBOR inputs
-and six JSON inputs. Release targets remain well formed so the invalid amount is
-the reason for rejection. Both index bounds are retained in every draw.
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-p02" name="ds-tx-grammar-p02"></a>**1. [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L33)** | **Positive amounts survive encoding.** A generated `StrictlyPositiveCoin` in every amount-bearing form. | Preserve the operation, amount and target through both codecs. |
+| <a id="ds-tx-grammar-f07" name="ds-tx-grammar-f07"></a>**2. [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L37)** | **Zero operation amount.** Raw $\text{amount}=0$. | Reject decoding. An amount-bearing operation cannot stand in for explicit zero. |
+| <a id="ds-tx-grammar-f08" name="ds-tx-grammar-f08"></a>**3. [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L40)** | **Negative operation amount.** Raw $\text{amount}=-1$. | Reject decoding: the amount is below the lower bound. |
+| <a id="ds-tx-grammar-f09" name="ds-tx-grammar-f09"></a>**4. [F09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L43)** | **Overflowing operation amount.** Raw $\text{amount}=2^{64}$. | Reject decoding without truncation or wrapping. |
 
-<a id="ds-tx-grammar-p02" name="ds-tx-grammar-p02"></a>
-
-**2.1.1.2.1.1 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L33) - preserves StrictlyPositiveCoin amounts in every SubTx declaration form**
-
-For each generated `StrictlyPositiveCoin`, generate all amount-bearing SubTx forms:
-allocation, funding request, delegated release, and local release at $0$, $65535$
-and a generated index in $1\ldots65534$. Decode all six declarations through CBOR
-at every supported Dijkstra version and through JSON. Every result must preserve
-the typed amount and the operation's remaining fields.
-
-$$
-\forall \mathit{amount}\in\mathsf{StrictlyPositiveCoin}:\quad
-\mathsf{decode}(\mathsf{encode}(\mathit{subTxDeclaration}(\mathit{amount})))
-=\mathit{subTxDeclaration}(\mathit{amount})
-$$
-
-<a id="ds-tx-grammar-f07" name="ds-tx-grammar-f07"></a>
-
-**2.1.1.2.1.2 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L37) - rejects zero amounts in SubTx declarations**
-
-Generate otherwise well-formed SubTx allocation, funding-request and release
-payloads carrying raw $0$. CBOR decoding at every supported Dijkstra version and JSON
-decoding must reject each payload: operation amounts must satisfy $\mathit{amount}>0$.
-The explicit-zero declaration is a distinct form, preserved by [N04](#ds-tx-grammar-n04);
-an operation carrying a zero amount cannot substitute for it.
-
-<a id="ds-tx-grammar-f08" name="ds-tx-grammar-f08"></a>
-
-**2.1.1.2.1.3 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L40) - rejects negative amounts in SubTx declarations**
-
-Generate otherwise well-formed SubTx allocation, funding-request and release
-payloads carrying raw $-1$. This amount is below the lower bound of $1$ lovelace. CBOR
-decoding at every supported Dijkstra version and JSON decoding must reject each
-payload, even though it bypasses the checked constructor.
-
-<a id="ds-tx-grammar-f09" name="ds-tx-grammar-f09"></a>
-
-**2.1.1.2.1.4 [F09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L43) - rejects overflowing amounts in SubTx declarations**
-
-Generate otherwise well-formed SubTx allocation, funding-request and release
-payloads carrying raw $2^{64}$. This exceeds the maximum amount, $2^{64}-1$ lovelace. CBOR
-decoding at every supported Dijkstra version and JSON decoding must reject each
-payload without truncating or wrapping the amount.
+F07–F09 generate declaration payloads around the **fixed raw amount shown**;
+they do not generate arbitrary negative or overflowing amounts. Each draw covers
+six declarations per codec: allocation, request, delegated release, and local
+release at $0$, $65535$ and a generated index in $1\ldots65534$.
 
 <a id="ds-tx-grammar-subtx-absence" name="ds-tx-grammar-subtx-absence"></a>
 
 ###### 2.1.1.2.2 Absence
 
-> $\mathsf{Absent} \ne \mathsf{ExplicitZero}$ declarations for SubTx.
+> **Declaring zero is different from declaring nothing.**
 
-<a id="ds-tx-grammar-n04" name="ds-tx-grammar-n04"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-n04" name="ds-tx-grammar-n04"></a>**1. [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L48)** | **Absence remains distinct from zero.** The same complete body, differing only in its declaration. | Distinct CBOR and JSON representations; decoding preserves each complete body. |
 
-**2.1.1.2.2.1 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L48) - preserves the distinction between an absent SubTx declaration and explicit zero**
+Both bodies share the same generated spending inputs, reference inputs and
+auxiliary-data hash. Only the declaration differs:
 
-Generate a SubTx body with varying spending inputs, reference inputs and auxiliary
-data hash. Pair it with a copy that differs only in its declaration: absent in the
-first body, explicit zero in the second. Round-trip both bodies through CBOR and
-JSON, preserving each complete body and requiring distinct encodings in both
-formats. Shared surrounding fields isolate the declaration's representation.
-This establishes the distinction used by Presence without claiming that either
-body is valid for particular Store activity.
+$$
+\begin{aligned}
+\text{encode(absentBody)} &\ne \text{encode(explicitZeroBody)} \\
+\text{decode(encode(absentBody))} &= \text{absentBody} \\
+\text{decode(encode(explicitZeroBody))} &= \text{explicitZeroBody}
+\end{aligned}
+$$
+
+This preserves the distinction needed by Presence without deciding whether either
+body has declared enough for its Store activity.
 
 <a id="ds-tx-grammar-subtx-forms" name="ds-tx-grammar-subtx-forms"></a>
 
 ###### 2.1.1.2.3 Forms
 
-> Preserve each SubTx operation, including funding requests.
+> **Preserve every SubTx form, including explicit funding requests.**
 
-<a id="ds-tx-grammar-n06" name="ds-tx-grammar-n06"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-n06" name="ds-tx-grammar-n06"></a>**1. [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L55)** | **Every SubTx declaration form.** Explicit zero and every amount-bearing form at both amount bounds. | Preserve each form, amount and target through both codecs. |
 
-**2.1.1.2.3.1 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L55) - preserves every SubTx declaration form, amount and target**
-
-Each draw contains explicit zero and all six amount-bearing SubTx forms at both
-positive amount bounds, $1$ and $2^{64}-1$: thirteen declarations in total. Releases
-cover delegation and local indices $0$, $65535$ and a generated interior index.
-Round-trip every declaration through CBOR and JSON, preserving its form, amount
-and target.
+The amount bounds are $1$ and $2^{64}-1$. Local releases use $0$, $65535$ and a
+generated interior index in $1\ldots65534$. Together with explicit zero, these
+produce thirteen declarations per draw. P02 varies the amount across its valid
+range; N06 always includes both bounds.
 
 <a id="ds-tx-grammar-subtx-structure" name="ds-tx-grammar-subtx-structure"></a>
 
 ###### 2.1.1.2.4 Structure
 
-> Reject unknown operations and missing required fields.
+> **A recognized operation must carry exactly its required CBOR fields, or all required JSON fields.**
 
-<a id="ds-tx-grammar-f03" name="ds-tx-grammar-f03"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-f03" name="ds-tx-grammar-f03"></a>**1. [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L61)** | **Malformed declarations.** Invalid containers, unknown operations, missing required fields or extra CBOR fields. | Reject each malformed input in its own format. |
 
-**2.1.1.2.4.1 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L61) - rejects unknown SubTx operations, missing required fields and invalid declaration structures**
+**Representative invalid inputs**
 
-Generate raw SubTx declarations with invalid containers, unknown operations,
-missing required fields or extra CBOR fields. A release must carry a target;
-allocations and funding requests must carry an amount and no CBOR target.
+| Defect | Example | Why it fails |
+| --- | --- | --- |
+| Wrong container or empty declaration | CBOR `0` or `[]`; JSON `null` or `{}`. | No complete operation is represented. |
+| Unknown operation | JSON `{"kind":"unknown"}`. | The kind does not identify a SubTx operation. |
+| Missing amount | CBOR `[0]` or `[2]`. | Allocation and funding requests require an amount. Releases also require one. |
+| Missing target | CBOR `[1,1]`; JSON `{"kind":"release","amount":1}`. | Release carries both an amount and a target. |
+| Extra CBOR fields | `[3,0]`, `[0,1,0]` or `[2,1,0]`. | Explicit zero has no payload; allocation and funding request have only an amount. |
 
-Each generated set includes every structural defect: nine CBOR cases and eight
-JSON cases. Positive amounts, unknown tags and kinds, and extra CBOR fields vary
-between draws. CBOR decoding at every supported Dijkstra version and JSON
-decoding must reject every input. Valid amounts isolate structure as the reason
-for rejection.
+Every draw covers nine CBOR and eight JSON defects. Amounts and any supplied
+valid fields remain well formed, isolating structure as the reason for rejection.
+Extra JSON keys are permitted and are not among these defects.
 
 <a id="ds-tx-grammar-subtx-destinations" name="ds-tx-grammar-subtx-destinations"></a>
 
 ###### 2.1.1.2.5 Destinations
 
-> release to TopTx or a local output index in $0\ldots65535$.
+> **A release delegates to TopTx, or names a representable own output index.**
 
-A SubTx release target is either `DelegateToTopTx` or
-`SubTxSettlementOutput index`. Grammar checks that the target decodes in CBOR and
-JSON, including the local index's representable range. Whether that index selects
-an existing output belongs to
-[DS-TX-SETTLEMENT-DESTINATION](#ds-tx-settlement-destination).
-[N06](#ds-tx-grammar-n06) supplies valid controls for delegation and local indices
-$0$ and $65535$.
+| Valid form | Payload |
+| --- | --- |
+| `DelegateToTopTx` | No local index. |
+| `SubTxSettlementOutput outputIndex` | $0\le\text{outputIndex}\le65535$. |
 
-<a id="ds-tx-grammar-f05" name="ds-tx-grammar-f05"></a>
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-tx-grammar-f05" name="ds-tx-grammar-f05"></a>**1. [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L66)** | **Malformed release targets.** Wrong container, unknown target, missing local index or extra CBOR fields. | Reject decoding with otherwise valid indices. |
+| <a id="ds-tx-grammar-f10" name="ds-tx-grammar-f10"></a>**2. [F10](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L69)** | **Negative output index.** Generated $\text{outputIndex}<0$, favouring $-1$. | Reject a local target carrying that index in both codecs. |
+| <a id="ds-tx-grammar-f11" name="ds-tx-grammar-f11"></a>**3. [F11](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L73)** | **Overflowing output index.** Generated $\text{outputIndex}>65535$, favouring $65536$. | Reject the target without truncation or wrapping. |
 
-**2.1.1.2.5.1 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L66) - rejects unknown release targets, missing local indices and invalid target structures**
+F05 covers six CBOR and five JSON structural defects per draw: invalid containers,
+unknown forms, missing local indices and extra CBOR fields. Examples include CBOR
+`[1,0]` (an index attached to delegation) and `[0]` (a local target without its
+index). Any supplied local index remains within range.
 
-Generate raw release targets with invalid containers, unknown tags or JSON kinds,
-missing local indices, or extra CBOR fields, including an index attached to
-delegation. Each draw covers all six CBOR and five JSON structural defects while
-varying unknown tags, kinds and valid local indices. Every input must fail to
-decode in its respective format.
-
-Local indices remain in $0\ldots65535$ here, so rejection concerns the target's
-structure. Index range failures belong to [F10](#ds-tx-grammar-f10) and
-[F11](#ds-tx-grammar-f11).
-
-<a id="ds-tx-grammar-f10" name="ds-tx-grammar-f10"></a>
-
-**2.1.1.2.5.2 [F10](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L69) - rejects negative SubTx release output indices**
-
-Generate negative integer indices, favouring the boundary $-1$, and insert each
-into an otherwise well-formed local release target. CBOR decoding at every
-supported Dijkstra version and JSON decoding must reject the target.
-
-$$
-\mathit{outputIndex}<0\implies\mathsf{DecodeRejected}
-$$
-
-Shrinking preserves the negative range, so a reduced counterexample still
-violates the same rule. [N06](#ds-tx-grammar-n06) covers the valid lower bound, $0$.
-
-<a id="ds-tx-grammar-f11" name="ds-tx-grammar-f11"></a>
-
-**2.1.1.2.5.3 [F11](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Grammar/SubTxSpec.hs#L73) - rejects SubTx release output indices above 65535**
-
-Generate integer indices above $65535$, favouring the first invalid value
-$65536$, and insert each into an otherwise well-formed local release target.
-CBOR decoding at every supported Dijkstra version and JSON decoding must reject
-the target without truncating or wrapping the index.
-
-$$
-\mathit{outputIndex}>65535\implies\mathsf{DecodeRejected}
-$$
-
-Shrinking stays above $65535$. [N06](#ds-tx-grammar-n06) covers the valid upper
-bound, $65535$.
+F10 and F11 generate values throughout their respective invalid ranges, favouring
+$-1$ and $65536$. Shrinking keeps a counterexample in the same invalid range.
+[N06](#ds-tx-grammar-n06) supplies the valid $0$ and $65535$ controls.
+[Settlement](#ds-tx-settlement-destination) separately checks that the index names
+an existing output in this SubTx.
 
 <a id="ds-tx-presence" name="ds-tx-presence"></a>
 
