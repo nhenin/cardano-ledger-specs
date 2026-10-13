@@ -38,6 +38,7 @@ import Cardano.Ledger.Shelley.Rewards (
  )
 import Cardano.Ledger.State
 import Control.DeepSeq (NFData (rnf), deepseq)
+import Data.Default (def)
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -65,13 +66,15 @@ smartUTxOState ::
   GovState era ->
   Coin ->
   UTxOState era
-smartUTxOState _pp utxo c1 c2 st =
+smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
     utxo
     c1
     c2
     st
     (addInstantStake utxo mempty)
+    donation
+    def
 
 -- =====================================================
 -- Part 3 Apply a reward update, in NewEpoch rule

@@ -62,8 +62,26 @@ roundTripStateEraTypesSpec = do
     roundTripShareEraSpec @era @(GovState era)
   describe "State Types" $ do
     roundTripShareEraTypeSpec @era @UTxOState
+    when (eraProtVerLow @era < natVersion @12) $
+      prop "preserves the six-field UTxOState snapshot encoding before Dijkstra" $ \(state :: UTxOState era) ->
+        forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
+          serialize version state `shouldBe` serialize version (legacyUTxOStateEncoding state)
     roundTripEraTypeSpec @era @EpochState
     roundTripEraTypeSpec @era @NewEpochState
+
+-- | The pre-Dijkstra snapshot layout, retained as a compatibility oracle.
+legacyUTxOStateEncoding ::
+  (EraTxOut era, EraStake era, EncCBOR (GovState era)) =>
+  UTxOState era ->
+  Encoding
+legacyUTxOStateEncoding state =
+  encodeListLen 6
+    <> encodeMap encodeMemPack encodeMemPack (unUTxO $ utxosUtxo state)
+    <> encCBOR (utxosDeposited state)
+    <> encCBOR (utxosFees state)
+    <> encCBOR (utxosGovState state)
+    <> encCBOR (utxosInstantStake state)
+    <> encCBOR (utxosDonation state)
 
 metadatumSizeLimitSpec :: Version -> Spec
 metadatumSizeLimitSpec v = do

@@ -149,8 +149,10 @@ utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState}
        _utxosFees
        utxosGovState
        _utxosStakeDistr
-       _utxosDonation ->
-          [ assert $ utxosUtxo ==. lit uecUTxO
+       _utxosDonation
+       utxosDepositStore ->
+          [ assert $ utxosDepositStore ==. lit (DepositStore (Coin 0) mempty)
+          , assert $ utxosUtxo ==. lit uecUTxO
           , match utxosGovState $ \props _ constitution _ _ _ _ ->
               match constitution $ \_ policy ->
                 satisfies props $

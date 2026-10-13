@@ -9,12 +9,14 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   validateTopTxNetUTxODepositDeclaration,
   validateTopTxCreatedOutputsDeclaration,
   validateSubTxCreatedOutputsDeclaration,
+  validateTopTxSpendingInputsDeclaration,
+  validateSubTxSpendingInputsDeclaration,
 ) where
 
 import Cardano.Ledger.Dijkstra.Core (
   DijkstraEraTxBody (..),
   EraTx (bodyTxL),
-  EraTxBody (outputsTxBodyL),
+  EraTxBody (inputsTxBodyL, outputsTxBodyL),
   SubTx,
   TopTx,
   Tx,
@@ -23,6 +25,7 @@ import Cardano.Ledger.Dijkstra.Core (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import Cardano.Ledger.State (UTxO (..), txInsFilter)
 import Data.List.NonEmpty (NonEmpty)
 import Lens.Micro ((^.))
 import Validation (Validation, failureUnless)
@@ -31,7 +34,7 @@ data DepositStoreDeclarationFailure
   = MissingTopTxDeclaration
   deriving (Eq, Show)
 
--- | A body creating store-backed outputs has not declared its UTxO capacity
+-- | A body creating or spending store-backed outputs has not declared its UTxO capacity
 -- deposit change. Independent of the TopTx/SubTx declaration dependency.
 data DepositStoreOutputDeclarationFailure
   = MissingBodyUTxODepositDeclaration
@@ -45,7 +48,7 @@ validateTopTxCreatedOutputsDeclaration ::
   TxBody TopTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateTopTxCreatedOutputsDeclaration txBody =
-  validateCreatedOutputsDeclaration
+  validateStoreBackedOutputsDeclaration
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
@@ -56,17 +59,43 @@ validateSubTxCreatedOutputsDeclaration ::
   TxBody SubTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateSubTxCreatedOutputsDeclaration txBody =
-  validateCreatedOutputsDeclaration
+  validateStoreBackedOutputsDeclaration
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
--- | Creating any store-backed output requires the creating body's declaration.
-validateCreatedOutputsDeclaration ::
+-- | DS-TX-PRESENCE-ACTIVITY-SPENDING: resolve TopTx's own ordinary spending inputs
+-- against the original UTxO. Reference and collateral inputs do not count.
+-- Missing inputs remain the responsibility of the existing BadInputs check.
+validateTopTxSpendingInputsDeclaration ::
+  DijkstraEraTxBody era =>
+  UTxO era ->
+  TxBody TopTx era ->
+  Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
+validateTopTxSpendingInputsDeclaration originalUtxo txBody =
+  validateStoreBackedOutputsDeclaration
+    (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
+    (unUTxO $ txInsFilter originalUtxo (txBody ^. inputsTxBodyL))
+
+-- | DS-TX-PRESENCE-ACTIVITY-SPENDING: spending a store-backed output requires
+-- SubTx's own declaration, even when its new outputs are all implicit.
+-- This checks presence only; no recorded deposit amount is needed.
+validateSubTxSpendingInputsDeclaration ::
+  DijkstraEraTxBody era =>
+  UTxO era ->
+  TxBody SubTx era ->
+  Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
+validateSubTxSpendingInputsDeclaration originalUtxo txBody =
+  validateStoreBackedOutputsDeclaration
+    (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
+    (unUTxO $ txInsFilter originalUtxo (txBody ^. inputsTxBodyL))
+
+-- | Creating or spending any store-backed output requires the body's declaration.
+validateStoreBackedOutputsDeclaration ::
   Foldable f =>
   Bool ->
   f (TxOut era) ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
-validateCreatedOutputsDeclaration hasDeclaration outputs =
+validateStoreBackedOutputsDeclaration hasDeclaration outputs =
   failureUnless
     (hasDeclaration || not (any isStoreBackedOutput outputs))
     MissingBodyUTxODepositDeclaration

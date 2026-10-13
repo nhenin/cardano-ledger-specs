@@ -471,3 +471,6 @@ instance Arbitrary EbReferences where
       . filter (not . SimpleOMap.null)
       . shrink
       . getEbReferences
+
+instance Arbitrary DepositStoreAccountingFailure where
+  arbitrary = genericArbitraryU

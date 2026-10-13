@@ -6,13 +6,16 @@ module Test.Cardano.Ledger.Dijkstra.GoldenSpec (spec) where
 
 import Cardano.Ledger.Binary (Tokens (..))
 import qualified Cardano.Ledger.Binary as Binary
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Tx (DijkstraEraTx (hashTx))
 import Cardano.Ledger.Hashes (extractHash)
 import Cardano.Ledger.Dijkstra.Rules (
+  DepositStoreAccountingFailure (..),
   DijkstraSubUtxoPredFailure (..),
   DijkstraUtxoPredFailure (..),
  )
+import Cardano.Ledger.TxIn (TxIn (..))
 import Paths_cardano_ledger_dijkstra (getDataFileName)
 import Test.Cardano.Ledger.Binary.Golden (goldenForHashHex)
 import Test.Cardano.Ledger.Binary.Plain.Golden (DiffView (DiffCBOR), Enc (..), expectGoldenToCBOR)
@@ -50,6 +53,16 @@ spec =
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldBe` Right failure
+      prop "Preserves negative amounts in DepositStore failures" $ \(Positive amount :: Positive Integer) input@(TxIn txId _) ->
+        forM_
+          [ InexactTopTxDepositChange (Coin $ negate amount) (Coin $ negate amount - 1)
+          , InexactSubTxDepositChange txId (Coin $ negate amount) (Coin $ negate amount - 1)
+          , NegativeDepositAllocation input (Coin $ negate amount)
+          , DepositStoreInsolvent (Coin $ negate amount) (Coin $ amount + 1)
+          ]
+          $ \accountingFailure -> do
+            let failure = DepositStoreFailure accountingFailure :: DijkstraUtxoPredFailure DijkstraEra
+            Binary.decodeFull version (Binary.serialize version failure) `shouldBe` Right failure
     describe "SUBUTXO predicate failures" . forEachEraVersion @DijkstraEra $ \version ->
       it "Encodes and decodes a missing declaration for SubTx's own store-backed outputs" $ do
         let failure = SubMissingUTxODepositDeclaration @DijkstraEra

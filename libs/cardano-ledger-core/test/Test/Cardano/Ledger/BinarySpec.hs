@@ -11,6 +11,7 @@ import Cardano.Ledger.Compactible
 import Cardano.Ledger.DRep (DRep (..), DRepState (..))
 import Cardano.Ledger.Hashes (EraIndependentData, SafeHash, ScriptHash)
 import Cardano.Ledger.Keys
+import Cardano.Ledger.State (DepositStore)
 import Cardano.Ledger.TxIn
 import qualified PlutusLedgerApi.V1 as PV1
 import Test.Cardano.Ledger.Binary (decoderEquivalenceSpec)
@@ -23,6 +24,7 @@ spec :: Spec
 spec = do
   describe "RoundTrip" $ do
     roundTripCborSpec @Coin
+    roundTripCborSpec @DepositStore
     roundTripCborSpec @(CompactForm Coin)
     prop "Encode CompactCoin - Decode Coin" $
       roundTripExpectation @Coin (mkTrip (encCBOR . compactCoinOrError) decCBOR)

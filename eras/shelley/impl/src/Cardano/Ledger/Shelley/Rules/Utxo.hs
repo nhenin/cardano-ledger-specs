@@ -367,7 +367,7 @@ utxoInductive = do
   TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       utxo = utxoState ^. utxoL
-      UTxOState _ _ _ ppup _ _ = utxoState
+      UTxOState _ _ _ ppup _ _ _ = utxoState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
       genDelegs = dsGenDelegs (certState ^. certDStateL)

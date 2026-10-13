@@ -166,6 +166,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
               , utxosGovState = emptyGovState
               , utxosInstantStake = mempty
               , utxosDonation = mempty
+              , utxosDepositStore = def
               }
         , lsCertState = mkShelleyCertState def dState
         }

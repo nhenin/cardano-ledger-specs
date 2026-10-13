@@ -175,7 +175,7 @@ utxoTransition ::
 utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      Shelley.UTxOState utxo _ _ ppup _ _ = utxos
+      Shelley.UTxOState utxo _ _ ppup _ _ _ = utxos
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
 

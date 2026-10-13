@@ -1,6 +1,6 @@
 -- | Scope activity determines whether each body needs its own declaration.
--- Isolated-validator success establishes presence only. Ledger acceptance uses
--- implicit outputs; pending spending and accounting rules remain explicit backlog.
+-- Isolated-validator success establishes presence only. The cross-body rejection
+-- requires the child's missing declaration even when the parent also fails exactness.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Presence.Activity.ScopeSpec (spec) where
 
 import Cardano.Ledger.Dijkstra.Core (IsPhase2Valid (..))
@@ -54,7 +54,7 @@ spec =
     outputCreationScenarios
       [ ( "DS-TX-PRESENCE-ACTIVITY-SCOPE-F02 - rejects a creating SubTx's missing declaration even when TopTx explicitly declares zero"
         , Output.TxOutputs TopTx.DeclaresZeroNetUTxODeposit [] [(SubTx.NoUTxODepositDeclaration, [Output.StoreBackedOutput])]
-        , Phase2Valid, RejectedSubTx SubMissingUTxODepositDeclaration
+        , Phase2Valid, RejectedIncludingSubTx SubMissingUTxODepositDeclaration
         )
       ]
     it "DS-TX-PRESENCE-ACTIVITY-SCOPE-N04 - does not require a declaration merely for referencing a store-backed output" referenceInputsNeedNoDeclaration

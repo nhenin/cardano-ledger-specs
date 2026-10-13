@@ -1559,6 +1559,10 @@ instance
   ) =>
   HasSpec (LedgerState era)
 
+instance HasSimpleRep DepositStore
+
+instance HasSpec DepositStore
+
 instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
 
 instance

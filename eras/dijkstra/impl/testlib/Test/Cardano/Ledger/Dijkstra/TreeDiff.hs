@@ -393,3 +393,5 @@ instance
 instance ToExpr (AccountBalanceInterval era)
 
 instance ToExpr (AccountBalanceIntervals era)
+
+instance ToExpr DepositStoreAccountingFailure

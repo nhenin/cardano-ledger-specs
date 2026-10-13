@@ -2,7 +2,7 @@
 
 ## 1.10.2.1
 
-*
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.10.2.0
 

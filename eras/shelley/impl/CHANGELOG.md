@@ -28,7 +28,7 @@
 
 ## 1.20.0.1
 
-*
+* Add `utxosDepositStore` and its lens to `UTxOState`, retaining pre-Dijkstra snapshot encoding; include the separate Store balance in ADA pots.
 
 ## 1.20.0.0
 

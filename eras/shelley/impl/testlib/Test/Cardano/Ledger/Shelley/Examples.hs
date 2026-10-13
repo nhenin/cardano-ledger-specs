@@ -247,6 +247,7 @@ exampleNewEpochState value ppp pp =
                     , utxosGovState = emptyGovState
                     , utxosInstantStake = mempty
                     , utxosDonation = mempty
+                    , utxosDepositStore = def
                     }
               , lsCertState = def
               }
