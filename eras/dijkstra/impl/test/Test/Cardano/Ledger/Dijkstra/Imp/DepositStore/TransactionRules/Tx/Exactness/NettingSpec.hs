@@ -1,4 +1,5 @@
--- | Netting requirements, retained as executable backlog until implemented.
+-- | Exactness rejects both understated and overstated declarations.
+-- The remaining netting requirements stay visible as executable backlog.
 --
 -- Contract: for an explicit TopTx declaration and exact SubTx contributions,
 -- compare the isolated netting validator with declared batch change == independently
@@ -8,7 +9,20 @@
 -- outcomes; State.Execution alone selects the actual applied Store transfer.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Exactness.NettingSpec (spec) where
 
-import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop, shouldBe)
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Dijkstra.Core (injectFailure)
+import Cardano.Ledger.Dijkstra.Rules (
+  DepositStoreAccountingFailure (..),
+  DijkstraUtxoPredFailure (..),
+ )
+import Cardano.Ledger.Val (Val ((<->)))
+import Test.Cardano.Ledger.Common (Expectation, Spec, describe, forAll, it, prop, shouldBe)
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as TopTx
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Spending (
+  fundSpendingScenario,
+  submitTxAndExpectFailureContaining,
+ )
+import Test.Cardano.Ledger.Dijkstra.ImpTest (fixupTx, rederiveAddrTxWits)
 
 -- | Keep each mathematical requirement beside its named example.
 {- FOURMOLU_DISABLE -}
@@ -20,10 +34,38 @@ spec =
     it "DS-TX-EXACTNESS-NETTING-N02 - nets a 5 ADA allocation and a 3 ADA release into a TopTx allocation of 2 ADA" allocationExceedsRelease
     it "DS-TX-EXACTNESS-NETTING-N03 - nets a 3 ADA allocation and a 5 ADA release into a TopTx release of 2 ADA" releaseExceedsAllocation
     it "DS-TX-EXACTNESS-NETTING-N04 - uses TopTx explicit zero when nonzero body contributions cancel exactly" allocationsAndReleasesCancel
-    it "DS-TX-EXACTNESS-NETTING-F01 - rejects a TopTx net allocation one lovelace below the required batch total" understatedTopTxAllocationIsRejected
-    it "DS-TX-EXACTNESS-NETTING-F02 - rejects a TopTx net allocation one lovelace above the required batch total" overstatedTopTxAllocationIsRejected
-    it "DS-TX-EXACTNESS-NETTING-F03 - rejects a TopTx net release one lovelace below the required batch release" understatedTopTxReleaseIsRejected
-    it "DS-TX-EXACTNESS-NETTING-F04 - rejects a TopTx net release one lovelace above the required batch release" overstatedTopTxReleaseIsRejected
+    prop "DS-TX-EXACTNESS-NETTING-F01 - rejects a TopTx net allocation one lovelace below the required batch total" $
+      forAll TopTx.withoutSubTxsConsumingDepositsRequiringNetAllocation $ \scenario -> do
+        (ledgerState, topTx) <- fundSpendingScenario scenario
+        let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
+            declared = required <-> Coin 1
+        prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
+        invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
+        submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
+    prop "DS-TX-EXACTNESS-NETTING-F02 - rejects a TopTx net allocation one lovelace above the required batch total" $
+      forAll TopTx.withoutSubTxsConsumingDepositsRequiringNetAllocation $ \scenario -> do
+        (ledgerState, topTx) <- fundSpendingScenario scenario
+        let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
+            declared = required <> Coin 1
+        prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
+        invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
+        submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
+    prop "DS-TX-EXACTNESS-NETTING-F03 - rejects a TopTx net release one lovelace below the required batch release" $
+      forAll TopTx.withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs $ \scenario -> do
+        (ledgerState, topTx) <- fundSpendingScenario scenario
+        let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
+            declared = required <> Coin 1
+        prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
+        invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
+        submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
+    prop "DS-TX-EXACTNESS-NETTING-F04 - rejects a TopTx net release one lovelace above the required batch release" $
+      forAll TopTx.withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs $ \scenario -> do
+        (ledgerState, topTx) <- fundSpendingScenario scenario
+        let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
+            declared = required <-> Coin 1
+        prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
+        invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
+        submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
     it "DS-TX-EXACTNESS-NETTING-F05 - rejects TopTx explicit zero when the required batch total is nonzero" topTxZeroCannotReplaceNonzeroBatchTotal
     it "DS-TX-EXACTNESS-NETTING-F06 - rejects a nonzero TopTx declaration when the required batch total is zero" nonzeroTopTxTotalCannotReplaceZero
     it "DS-TX-EXACTNESS-NETTING-F07 - rejects a TopTx declaration whose sign opposes the required batch total" topTxTotalMustHaveRequiredSign
@@ -58,26 +100,6 @@ releaseExceedsAllocation = False `shouldBe` True
 -- Executable backlog: replace with a ledger check against independent expectations.
 allocationsAndReleasesCancel :: Expectation
 allocationsAndReleasesCancel = False `shouldBe` True
-
--- | Rejects a TopTx net allocation one lovelace below the required batch total
--- Executable backlog: replace with a ledger check against independent expectations.
-understatedTopTxAllocationIsRejected :: Expectation
-understatedTopTxAllocationIsRejected = False `shouldBe` True
-
--- | Rejects a TopTx net allocation one lovelace above the required batch total
--- Executable backlog: replace with a ledger check against independent expectations.
-overstatedTopTxAllocationIsRejected :: Expectation
-overstatedTopTxAllocationIsRejected = False `shouldBe` True
-
--- | Rejects a TopTx net release one lovelace below the required batch release
--- Executable backlog: replace with a ledger check against independent expectations.
-understatedTopTxReleaseIsRejected :: Expectation
-understatedTopTxReleaseIsRejected = False `shouldBe` True
-
--- | Rejects a TopTx net release one lovelace above the required batch release
--- Executable backlog: replace with a ledger check against independent expectations.
-overstatedTopTxReleaseIsRejected :: Expectation
-overstatedTopTxReleaseIsRejected = False `shouldBe` True
 
 -- | Rejects TopTx explicit zero when the required batch total is nonzero
 -- Executable backlog: replace with a ledger check against independent expectations.

@@ -41,6 +41,7 @@ import Cardano.Ledger.Binary (
   encodeListLen,
   encodeMap,
   encodeMemPack,
+  natVersion,
  )
 import Cardano.Ledger.Binary.Coders (Decode (From, RecD), Encode (..), decode, encode, (!>), (<!))
 import Cardano.Ledger.Coin (Coin (..))
@@ -202,6 +203,7 @@ data UTxOState era = UTxOState
   , utxosGovState :: !(GovState era)
   , utxosInstantStake :: !(InstantStake era)
   , utxosDonation :: !Coin
+  , utxosDepositStore :: !DepositStore
   }
   deriving (Generic)
 
@@ -252,18 +254,21 @@ instance
   ) =>
   EncCBOR (UTxOState era)
   where
-  encCBOR utxos@(UTxOState _ _ _ _ _ _) =
-    let UTxOState {..} = utxos
-     in encode $
-          Rec UTxOState
-            -- We need to define encoder with MemPack manually here instead of changing the `EncCBOR`
-            -- instance for `UTxO` in order to not affect some of the ledger state queries.
-            !> E (encodeMap encodeMemPack encodeMemPack . unUTxO) utxosUtxo
-            !> To utxosDeposited
-            !> To utxosFees
-            !> To utxosGovState
-            !> To utxosInstantStake
-            !> To utxosDonation
+  encCBOR UTxOState {..} =
+    encodeListLen (if hasDepositStore @era then 7 else 6)
+      -- UTxO snapshots use MemPack without changing the UTxO query encoding.
+      <> encodeMap encodeMemPack encodeMemPack (unUTxO utxosUtxo)
+      <> encCBOR utxosDeposited
+      <> encCBOR utxosFees
+      <> encCBOR utxosGovState
+      <> encCBOR utxosInstantStake
+      <> encCBOR utxosDonation
+      <> if hasDepositStore @era then encCBOR utxosDepositStore else mempty
+
+-- | The Store is part of ledger snapshots from Dijkstra onwards. Earlier eras
+-- retain their six-field snapshot representation and have an empty Store.
+hasDepositStore :: forall era. Era era => Bool
+hasDepositStore = eraProtVerLow @era >= natVersion @12
 
 instance (EraTxOut era, EraGov era, EraStake era) => DecShareCBOR (UTxOState era) where
   type
@@ -274,13 +279,14 @@ instance (EraTxOut era, EraGov era, EraStake era) => DecShareCBOR (UTxOState era
       , Interns (Credential HotCommitteeRole)
       )
   decShareCBOR is@(cs, _, _, _) =
-    decodeRecordNamed "UTxOState" (const 6) $ do
+    decodeRecordNamed "UTxOState" (const $ if hasDepositStore @era then 7 else 6) $ do
       utxosUtxo <- decShareCBOR cs
       utxosDeposited <- decCBOR
       utxosFees <- decCBOR
       utxosGovState <- decShareCBOR is
       utxosInstantStake <- decShareCBOR cs
       utxosDonation <- decCBOR
+      utxosDepositStore <- if hasDepositStore @era then decCBOR else pure def
       pure UTxOState {..}
 
 deriving via
@@ -289,7 +295,7 @@ deriving via
     (EraTxOut era, EraGov era, EraStake era) => ToJSON (UTxOState era)
 
 instance (EraTxOut era, EraGov era, EraStake era) => ToKeyValuePairs (UTxOState era) where
-  toKeyValuePairs utxoState@(UTxOState _ _ _ _ _ _) =
+  toKeyValuePairs utxoState@(UTxOState _ _ _ _ _ _ _) =
     let UTxOState {..} = utxoState
      in [ "utxo" .= utxosUtxo
         , "deposited" .= utxosDeposited
@@ -297,6 +303,7 @@ instance (EraTxOut era, EraGov era, EraStake era) => ToKeyValuePairs (UTxOState 
         , "ppups" .= utxosGovState
         , "stake" .= utxosInstantStake
         ]
+          <> ["depositStore" .= utxosDepositStore | hasDepositStore @era]
 
 -- | New Epoch state and environment
 data NewEpochState era = NewEpochState
@@ -551,7 +558,7 @@ instance
 --------------------------------------------------------------------------------
 
 instance (EraGov era, EraStake era) => Default (UTxOState era) where
-  def = UTxOState mempty mempty mempty def mempty mempty
+  def = UTxOState mempty mempty mempty def mempty mempty def
 
 instance
   Default (LedgerState era) =>
@@ -631,6 +638,10 @@ utxosFeesL = lens utxosFees (\x y -> x {utxosFees = y})
 
 utxosGovStateL :: Lens' (UTxOState era) (GovState era)
 utxosGovStateL = lens utxosGovState (\x y -> x {utxosGovState = y})
+
+utxosDepositStoreL :: Lens' (UTxOState era) DepositStore
+utxosDepositStoreL = lens utxosDepositStore (\state store -> state {utxosDepositStore = store})
+{-# INLINE utxosDepositStoreL #-}
 
 utxosDonationL :: Lens' (UTxOState era) Coin
 utxosDonationL = lens utxosDonation (\x y -> x {utxosDonation = y})

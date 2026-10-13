@@ -144,6 +144,7 @@ instance TranslateEra MaryEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosDepositStore = DepositStore mempty mempty
         }
 
 instance TranslateEra MaryEra ShelleyInstantStake where

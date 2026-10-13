@@ -101,6 +101,7 @@ initUTxO n =
     def
     mempty
     mempty
+    def
 
 -- Protocal Parameters used for the benchmarknig tests.
 -- Note that the fees and deposits are set to zero for

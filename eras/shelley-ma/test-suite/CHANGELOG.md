@@ -2,7 +2,7 @@
 
 ## 1.4.0.3
 
-*
+* Adapt UTxO state patterns to the separate DepositStore state field.
 
 ## 1.4.0.2
 

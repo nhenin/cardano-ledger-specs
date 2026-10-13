@@ -460,3 +460,6 @@ genNonEmptyAccountBalanceIntervals = AccountBalanceIntervals . Map.fromList . ge
 instance Arbitrary (AccountBalanceInterval era) where
   arbitrary = genericArbitraryU
   shrink = genericShrink
+
+instance Arbitrary DepositStoreAccountingFailure where
+  arbitrary = genericArbitraryU

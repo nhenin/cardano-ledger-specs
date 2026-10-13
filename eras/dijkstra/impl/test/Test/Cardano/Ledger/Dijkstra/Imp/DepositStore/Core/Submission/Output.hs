@@ -18,23 +18,25 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   checkPreservedCreationFixture,
   preparePhase2InvalidTx,
   submitPreparedRejection,
+  submitTxAndExpectFailureContaining,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (LedgerSpec, fixupTx, submitTx_, withNoFixup)
 import Test.Cardano.Ledger.Imp.Common (withImpInit)
 
--- | The exact submission result stated by each scenario.
+-- | State whether a scenario requires an exact rejection or one named failure
+-- among the errors accumulated by independent rules.
 data ExpectedSubmission
   = Accepted
   | RejectedTopTx (DijkstraUtxoPredFailure DijkstraEra)
   | RejectedSubTx (DijkstraSubUtxoPredFailure DijkstraEra)
+  | RejectedIncludingSubTx (DijkstraSubUtxoPredFailure DijkstraEra)
 
 -- | Register one fresh ledger test per row. Store-backed fixtures are submitted
 -- only for rejection; fee and application-asset balancing does not fund a capacity
 -- deposit. Accepted controls contain only implicit-deposit outputs.
--- These are layer-limited presence failures, not otherwise valid Store transactions.
--- Once exactness and Store conservation are enforced, derive rejection fixtures
--- from exact funded acceptance controls before removing the declaration, or retain
--- an explicitly isolated-validator check. Do not infer deposit funding from fixup.
+-- A rejection fixture may deliberately violate several independent rules. Use
+-- RejectedIncludingSubTx when the named presence failure must be included even if
+-- the parent declaration also fails exactness. Exact outcomes remain exact.
 outputCreationScenarios :: [(String, Fixture.TxOutputs, IsPhase2Valid, ExpectedSubmission)] -> Spec
 outputCreationScenarios scenarios =
   withImpInit @(LedgerSpec DijkstraEra) $
@@ -49,3 +51,4 @@ outputCreationScenarios scenarios =
           Accepted -> withNoFixup $ submitTx_ fixed
           RejectedTopTx failure -> submitPreparedRejection (injectFailure failure) fixed
           RejectedSubTx failure -> submitPreparedRejection (injectFailure failure) fixed
+          RejectedIncludingSubTx failure -> submitTxAndExpectFailureContaining (injectFailure failure) fixed

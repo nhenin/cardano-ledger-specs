@@ -87,6 +87,7 @@ import Control.Exception (assert)
 import Control.Monad.Identity (Identity)
 import Control.State.Transition (PredicateFailure)
 import Data.Containers.ListUtils (nubOrdOn)
+import Data.Default (def)
 import qualified Data.ListMap as LM
 import qualified Data.Map.Strict as Map (fromList)
 import Data.Sequence.Strict (fromList)
@@ -212,6 +213,7 @@ instance
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> if eraProtVerLow @era >= natVersion @12 then arbitrary else pure def
 
   -- The 'genericShrink' function returns first the immediate subterms of a
   -- value (in case it is a recursive data-type), and then shrinks the value

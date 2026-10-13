@@ -101,6 +101,7 @@ library
     Cardano.Ledger.State.Account
     Cardano.Ledger.State.CertState
     Cardano.Ledger.State.ChainAccount
+    Cardano.Ledger.State.DepositStore
     Cardano.Ledger.State.Governance
     Cardano.Ledger.State.LeiosCommittee
     Cardano.Ledger.State.PoolDistr

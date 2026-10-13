@@ -69,6 +69,7 @@ genesisState genDelegs0 utxo0 =
         emptyGovState
         mempty
         mempty
+        def
     )
     ( def
         & certDStateL .~ dState

@@ -43,6 +43,7 @@ import Cardano.Ledger.Dijkstra.Era (
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreOutputDeclarationFailure (..),
   validateSubTxCreatedOutputsDeclaration,
+  validateSubTxSpendingInputsDeclaration,
  )
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
@@ -100,7 +101,7 @@ data DijkstraSubUtxoPredFailure era
   | -- | list of supplied transaction outputs that are too small,
     -- together with the minimum value for the given output.
     SubBabbageOutputTooSmallUTxO (NonEmpty (TxOut era, Coin))
-  | -- | This SubTx creates a store-backed output without its own UTxO deposit declaration.
+  | -- | This SubTx creates or spends a store-backed output without its own UTxO deposit declaration.
     SubMissingUTxODepositDeclaration
   deriving (Generic)
 
@@ -259,6 +260,10 @@ dijkstraSubUtxoTransition = do
   let inputs = txBody ^. inputsTxBodyL
   runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxoState) inputs
 
+  -- Resolve ordinary spending against the original UTxO before choosing execution effects.
+  validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $
+    validateSubTxSpendingInputsDeclaration originalUtxo txBody
+
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
   runTestOnSignal $
@@ -349,3 +354,5 @@ dijkstraUtxoToDijkstraSubUtxoPredFailure = \case
   ValueNotConservedInLegacyMode _ -> error "Impossible: `ValueNotConservedInLegacyMode` for SUBUTXO"
   MissingTopTxUTxODepositDeclaration -> error "Impossible: `MissingTopTxUTxODepositDeclaration` for SUBUTXO"
   MissingUTxODepositDeclaration -> SubMissingUTxODepositDeclaration
+  -- Accounting uses the complete batch and is validated only by TopTx's UTXO rule.
+  DepositStoreFailure _ -> error "Impossible: `DepositStoreFailure` for SUBUTXO"

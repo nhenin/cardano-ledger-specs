@@ -60,6 +60,8 @@ library
     Cardano.Ledger.Dijkstra.Rules.Cert
     Cardano.Ledger.Dijkstra.Rules.Certs
     Cardano.Ledger.Dijkstra.Rules.Deleg
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration
     Cardano.Ledger.Dijkstra.Rules.Entities
     Cardano.Ledger.Dijkstra.Rules.Epoch
@@ -296,9 +298,13 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.SubTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.TopTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Collateral
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Declaration
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Output
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Spending
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.AllocationsSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.BalanceSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.ConservationSpec

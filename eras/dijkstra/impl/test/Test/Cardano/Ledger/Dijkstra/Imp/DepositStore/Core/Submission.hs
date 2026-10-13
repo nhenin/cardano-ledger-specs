@@ -14,6 +14,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitPreparedTxAndExpectAcceptance,
   submitPreparedTxAndExpectRejection,
   submitPreparedRejection,
+  submitTxAndExpectFailureContaining,
   checkPreservedCreationFixture,
 ) where
 
@@ -90,11 +91,11 @@ preparePhase2InvalidBatch batch = do
     fixupTx $
       batch
         & bodyTxL
-        . subTransactionsTxBodyL
-        .~ OMap.fromFoldable balancedSubs
+          . subTransactionsTxBodyL
+          .~ OMap.fromFoldable balancedSubs
         & bodyTxL
-        . inputsTxBodyL
-        .~ Set.singleton failingInput
+          . inputsTxBodyL
+          .~ Set.singleton failingInput
   checkPreservedDeclarations batch fixed
   pure $ fixed & isPhase2ValidTxL .~ Phase2Invalid
 
@@ -112,8 +113,8 @@ buildTxWithCreatedOutputs (Output.TxOutputs declaration variants subBodies) = do
   pure $
     mkBasicTx (topTxBody (Output.CreatedOutputs address variants) declaration)
       & bodyTxL
-      . subTransactionsTxBodyL
-      .~ OMap.fromFoldable subTxs
+        . subTransactionsTxBodyL
+        .~ OMap.fromFoldable subTxs
 
 -- | Add a real failing V4 script before fixup, retaining every supplied output.
 -- V4 avoids the legacy balancing SubTx. Set the phase-2 result only after fixup;
@@ -134,8 +135,8 @@ buildSubTx (declaration, variants) = do
   pure $
     mkBasicTx (subTxBody (Output.CreatedOutputs address variants) declaration)
       & bodyTxL
-      . inputsTxBodyL
-      .~ Set.singleton input
+        . inputsTxBodyL
+        .~ Set.singleton input
 
 -- | Prepare and submit a transaction, including any SubTxs it contains, to the test
 -- ledger, requiring acceptance.
@@ -180,6 +181,17 @@ submitPreparedRejection expectedFailure fixed = do
   after <- getsNES $ nesEsL . esLStateL
   after `shouldBe` before
 
+-- | Removing or changing a declaration can also break ADA conservation. Require
+-- the intended rule failure among the accumulated failures, and preserve the full
+-- ledger state, including every Store allocation and its balance.
+submitTxAndExpectFailureContaining ::
+  DijkstraLedgerPredFailure DijkstraEra -> Tx TopTx DijkstraEra -> ImpTestM DijkstraEra ()
+submitTxAndExpectFailureContaining expectedFailure fixed = do
+  before <- getsNES $ nesEsL . esLStateL
+  withNoFixup $ submitFailingSubsetTx fixed (expectedFailure :| [])
+  after <- getsNES $ nesEsL . esLStateL
+  after `shouldBe` before
+
 -- | Check the submitted shape after fixup, including the absence of Store activity.
 withPreservedDeclarations ::
   Tx TopTx DijkstraEra -> ImpTestM DijkstraEra a -> ImpTestM DijkstraEra a
@@ -198,8 +210,8 @@ checkPreservedDeclarations prepared submitted = do
           <> concatMap (toList . (^. bodyTxL . outputsTxBodyL)) submittedSubs
   submitted
     ^. bodyTxL
-    . netUTxODepositChangeTxBodyL
-    `shouldBe` (prepared ^. bodyTxL . netUTxODepositChangeTxBodyL)
+      . netUTxODepositChangeTxBodyL
+      `shouldBe` (prepared ^. bodyTxL . netUTxODepositChangeTxBodyL)
   length submittedSubs `shouldBe` length preparedSubs
   fmap subTxDepositDeclaration submittedSubs `shouldBe` fmap subTxDepositDeclaration preparedSubs
   all isImplicitOutput allOutputs `shouldBe` True
@@ -222,8 +234,8 @@ checkPreservedCreationFixture prepared submitted = do
   all isImplicitOutput (drop (length preparedOutputs) submittedOutputs) `shouldBe` True
   submitted
     ^. bodyTxL
-    . netUTxODepositChangeTxBodyL
-    `shouldBe` (prepared ^. bodyTxL . netUTxODepositChangeTxBodyL)
+      . netUTxODepositChangeTxBodyL
+      `shouldBe` (prepared ^. bodyTxL . netUTxODepositChangeTxBodyL)
   length submittedSubs `shouldBe` length preparedSubs
   map (^. bodyTxL . outputsTxBodyL) submittedSubs
     `shouldBe` map (^. bodyTxL . outputsTxBodyL) preparedSubs

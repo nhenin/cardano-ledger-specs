@@ -187,6 +187,7 @@ instance TranslateEra ConwayEra UTxOState where
         , API.utxosGovState = translateGovState ctxt $ API.utxosGovState us
         , API.utxosInstantStake = ConwayInstantStake . sisCredentialStake $ API.utxosInstantStake us
         , API.utxosDonation = API.utxosDonation us
+        , API.utxosDepositStore = def
         }
 
 instance TranslateEra ConwayEra API.UTxO where

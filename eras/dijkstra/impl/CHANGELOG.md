@@ -18,7 +18,13 @@
 
 ## 0.4.0.1
 
-* Require each TopTx and SubTx creating store-backed regular outputs to carry its own UTxO capacity deposit declaration (the creation part of DS-TX-001). Add `MissingUTxODepositDeclaration` to UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` to SUBUTXO at tag `11`. Declaration presence for spent outputs and exact deposit accounting remain pending.
+* Implement recorded UTxO capacity deposits in ledger state. Ordinary transactions allocate newly priced output deposits, release recorded input deposits and update the Store once for the complete batch.
+* Validate exact TopTx batch totals, each SubTx contribution, release settlement destinations and Store solvency in `Rules.DepositStore.Accounting`. Add `DepositStoreFailure` to UTXO at CBOR tag `26`, including signed amount diagnostics.
+* Include the declared batch net allocation or release exactly once in ADA conservation, preserving independent SubTx financial imbalance and local/delegated attribution.
+* Derive collateral deposit settlement from consumed allocations and the return output. Fund any additional return deposit before the coin minimum; credit released deposit surplus to fees. Ordinary Store effects remain unapplied on phase-2 failure.
+* Initialize the Store empty on Conway translation and include it in Dijkstra ledger snapshots.
+
+* Require each TopTx and SubTx creating or spending store-backed outputs to carry its own UTxO capacity deposit declaration. Resolve each body's ordinary spending inputs against the original UTxO on both phase-2 outcomes. Use `MissingUTxODepositDeclaration` in UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` in SUBUTXO at tag `11`.
 
 * Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxODeposit.TopTx` and `UTxODeposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
 

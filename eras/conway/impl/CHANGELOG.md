@@ -14,7 +14,7 @@
 
 ## 1.24.0.1
 
-*
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.24.0.0
 

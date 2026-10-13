@@ -292,6 +292,7 @@ utxoState =
     def
     mempty
     mempty
+    def
 
 dpState :: CertState ShelleyEra
 dpState = def

@@ -143,6 +143,7 @@ instance TranslateEra AlonzoEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosDepositStore = def
         }
 
 instance TranslateEra AlonzoEra ShelleyInstantStake where
