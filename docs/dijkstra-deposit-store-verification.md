@@ -139,7 +139,9 @@ dijkstra_test_binary="$(cabal --config-file=/private/tmp/ds-structure-cabal.conf
 The complete outline was enumerated with `--dry-run`: **242 registered examples**.
 This checks registration without running their assertions. Documentation checks resolve
 all **330 TOC links** and **242 case source links**, including the 13 Spending cases in
-runtime order. Pandoc renders the **105 display-math blocks** without warnings.
+runtime order. After the Grammar presentation update, its **21 cases** remain linked
+in the same order through numbered table rows. Pandoc renders the **102 display-math
+blocks** without warnings. These documentation checks do not rerun the tests.
 
 ## Initial recorded DepositStore implementation verified on 13 October 2026
 
