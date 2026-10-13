@@ -85,6 +85,7 @@ library
     Cardano.Ledger.Rules.ValidationMode
     Cardano.Ledger.Slot
     Cardano.Ledger.State
+    Cardano.Ledger.StrictlyPositiveCoin
     Cardano.Ledger.Tools
     Cardano.Ledger.TxIn
     Cardano.Ledger.Val
@@ -330,6 +331,7 @@ test-suite tests
     Test.Cardano.Ledger.State.SnapShotsSpec
     Test.Cardano.Ledger.State.StakePoolSpec
     Test.Cardano.Ledger.StorableSpec
+    Test.Cardano.Ledger.StrictlyPositiveCoinSpec
     Test.Cardano.Ledger.ToolsSpec
 
   default-language: Haskell2010

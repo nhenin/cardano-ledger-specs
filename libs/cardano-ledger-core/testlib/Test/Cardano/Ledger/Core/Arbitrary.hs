@@ -81,9 +81,6 @@ import Cardano.Ledger.Coin (
   Coin (..),
   CompactForm (..),
   DeltaCoin (..),
-  PositiveCoin,
-  mkPositiveCoin,
-  unPositiveCoin,
  )
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..), Ptr (..), SlotNo32 (..), StakeReference (..))
@@ -107,6 +104,11 @@ import Cardano.Ledger.Plutus.ExUnits (ExUnits (..), Prices (..))
 import Cardano.Ledger.Plutus.Language (Language (..), nonNativeLanguages)
 import Cardano.Ledger.Rewards (Reward (..), RewardType (..))
 import Cardano.Ledger.State
+import Cardano.Ledger.StrictlyPositiveCoin (
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
+ )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Slotting.Slot (SlotInterval (..))
 import Control.Monad (replicateM)
@@ -404,9 +406,9 @@ instance Arbitrary Coin where
   arbitrary = Coin <$> oneof [choose (0, 1000000), getNonNegative <$> arbitrary]
   shrink (Coin i) = Coin <$> shrink i
 
-instance Arbitrary PositiveCoin where
-  arbitrary = suchThatMap (Coin . toInteger <$> arbitrary @Word64) mkPositiveCoin
-  shrink = mapMaybe mkPositiveCoin . shrink . unPositiveCoin
+instance Arbitrary StrictlyPositiveCoin where
+  arbitrary = suchThatMap (Coin . toInteger <$> arbitrary @Word64) mkStrictlyPositiveCoin
+  shrink = mapMaybe mkStrictlyPositiveCoin . shrink . unStrictlyPositiveCoin
 
 instance Arbitrary DeltaCoin where
   arbitrary = DeltaCoin <$> choose (-1000000, 1000000)

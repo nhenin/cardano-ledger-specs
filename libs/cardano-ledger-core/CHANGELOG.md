@@ -14,7 +14,7 @@
 
 ## 1.22.0.1
 
-* Add abstract `PositiveCoin` with checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkPositiveCoin` and `unPositiveCoin`.
+* Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
 
 ## 1.22.0.0
 
