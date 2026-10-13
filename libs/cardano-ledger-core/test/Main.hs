@@ -10,6 +10,7 @@ import qualified Test.Cardano.Ledger.State.LeiosCommitteeSpec as LeiosCommitteeS
 import qualified Test.Cardano.Ledger.State.SnapShotsSpec as SnapShotsSpec
 import qualified Test.Cardano.Ledger.State.StakePoolSpec as StakePoolSpec
 import qualified Test.Cardano.Ledger.StorableSpec as StorableSpec
+import qualified Test.Cardano.Ledger.StrictlyPositiveCoinSpec as StrictlyPositiveCoinSpec
 import qualified Test.Cardano.Ledger.ToolsSpec as ToolsSpec
 
 main :: IO ()
@@ -25,4 +26,5 @@ main =
       SnapShotsSpec.spec
       StakePoolSpec.spec
       StorableSpec.spec
+      StrictlyPositiveCoinSpec.spec
       ToolsSpec.spec

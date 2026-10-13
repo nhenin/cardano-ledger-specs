@@ -25,7 +25,7 @@ module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx (
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), TxIx (..), kindObjectValue)
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
 import Cardano.Ledger.Binary.Coders
-import Cardano.Ledger.Coin (PositiveCoin)
+import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin)
 import Control.DeepSeq (NFData)
 import Data.Aeson (FromJSON (..), ToJSON (..), withObject, (.:), (.=))
 import Data.Aeson.Types (Parser)
@@ -45,12 +45,12 @@ pattern NoUTxODepositDeclaration = MkTopTxUTxODepositDeclaration SNothing
 pattern DeclaresZeroNetUTxODeposit :: TopTxUTxODepositDeclaration
 pattern DeclaresZeroNetUTxODeposit = MkTopTxUTxODepositDeclaration (SJust NoUTxODepositChange)
 
-pattern DeclaresNetUTxODepositAllocation :: PositiveCoin -> TopTxUTxODepositDeclaration
+pattern DeclaresNetUTxODepositAllocation :: StrictlyPositiveCoin -> TopTxUTxODepositDeclaration
 pattern DeclaresNetUTxODepositAllocation amount =
   MkTopTxUTxODepositDeclaration (SJust (AllocateUTxODeposit amount))
 
 pattern DeclaresNetUTxODepositRelease ::
-  PositiveCoin -> TopTxReleaseSettlement -> TopTxUTxODepositDeclaration
+  StrictlyPositiveCoin -> TopTxReleaseSettlement -> TopTxUTxODepositDeclaration
 pattern DeclaresNetUTxODepositRelease amount settlement =
   MkTopTxUTxODepositDeclaration (SJust (ReleaseUTxODeposit amount settlement))
 
@@ -96,8 +96,8 @@ encodeKeyedUTxODepositDeclaration key (MkTopTxUTxODepositDeclaration change) =
 -- SubTx settlement outputs remain in their own declarations.
 data NetUTxODepositChange
   = NoUTxODepositChange
-  | AllocateUTxODeposit !PositiveCoin
-  | ReleaseUTxODeposit !PositiveCoin !TopTxReleaseSettlement
+  | AllocateUTxODeposit !StrictlyPositiveCoin
+  | ReleaseUTxODeposit !StrictlyPositiveCoin !TopTxReleaseSettlement
   deriving (Eq, Show, Generic)
 
 instance NFData NetUTxODepositChange

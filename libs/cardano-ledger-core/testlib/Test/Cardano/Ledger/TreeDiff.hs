@@ -35,6 +35,7 @@ import Cardano.Ledger.Keys
 import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.State
+import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn
 import Cardano.Slotting.Slot (SlotInterval (..))
 import Data.Functor.Identity
@@ -50,8 +51,8 @@ import Type.Reflection (Typeable, typeRep)
 -- Coin
 instance ToExpr Coin
 
-instance ToExpr PositiveCoin where
-  toExpr coin = App "PositiveCoin" [toExpr $ unPositiveCoin coin]
+instance ToExpr StrictlyPositiveCoin where
+  toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]
 
 instance ToExpr DeltaCoin
 

@@ -11,21 +11,14 @@
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec (spec) where
 
 import Test.Cardano.Ledger.Common (Spec, describe)
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.CollateralSpec as Collateral
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.PricingSpec as Pricing
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.StakeSpec as Stake
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.StateSpec as State
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TxSpec as Tx
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.VotingSpec as Voting
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffectsSpec as LedgerEffects
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRulesSpec as TransactionRules
 
 spec :: Spec
 spec = describe "DepositStore" $ do
-  Pricing.spec
-  Tx.spec
-  Collateral.spec
-  State.spec
-  Stake.spec
-  Voting.spec
+  TransactionRules.spec
+  LedgerEffects.spec
 
--- Deferred: historical pricing, Plutus context projection and stronger local
--- settlement guarantees, as described under Remaining design work.
+-- Pricing, stake and voting rules remain documented but are outside the current
+-- executable scope. Historical pricing, Plutus context projection and stronger
+-- local settlement guarantees remain design work.

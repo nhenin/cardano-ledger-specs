@@ -85,9 +85,9 @@ module Cardano.Ledger.Api.Tx.Body (
   NetUTxODepositChange (..),
   TopTxUTxODepositDeclaration,
   TopTxReleaseSettlement (..),
-  PositiveCoin,
-  mkPositiveCoin,
-  unPositiveCoin,
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
   subTxNetUTxODepositChangeTxBodyL,
   SubTxNetUTxODepositChange (..),
   SubTxUTxODepositDeclaration,
@@ -109,7 +109,7 @@ import Cardano.Ledger.Api.Tx.Out
 import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))
 import Cardano.Ledger.BaseTypes (Network, StrictMaybe, strictMaybeToMaybe)
 import Cardano.Ledger.Binary.Decoding (Sized)
-import Cardano.Ledger.Coin (Coin, PositiveCoin, mkPositiveCoin, unPositiveCoin)
+import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Conway.Governance (
   ProposalProcedure (..),
   VotingProcedure (..),
@@ -144,6 +144,11 @@ import Cardano.Ledger.Shelley.Core (ShelleyEraTxBody (..))
 import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.UTxO (getProducedValue)
 import Cardano.Ledger.State (EraUTxO (getConsumedValue), UTxO)
+import Cardano.Ledger.StrictlyPositiveCoin (
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
+ )
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val ((<->))
 import Data.Map.Strict (Map)

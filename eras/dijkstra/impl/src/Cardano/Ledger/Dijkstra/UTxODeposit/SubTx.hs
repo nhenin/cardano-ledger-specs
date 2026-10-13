@@ -26,7 +26,7 @@ module Cardano.Ledger.Dijkstra.UTxODeposit.SubTx (
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), TxIx (..), kindObjectValue)
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
 import Cardano.Ledger.Binary.Coders
-import Cardano.Ledger.Coin (PositiveCoin)
+import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin)
 import Control.DeepSeq (NFData)
 import Data.Aeson (FromJSON (..), ToJSON (..), withObject, (.:), (.=))
 import Data.Aeson.Types (Parser)
@@ -46,16 +46,16 @@ pattern NoUTxODepositDeclaration = MkSubTxUTxODepositDeclaration SNothing
 pattern DeclaresZeroNetUTxODeposit :: SubTxUTxODepositDeclaration
 pattern DeclaresZeroNetUTxODeposit = MkSubTxUTxODepositDeclaration (SJust SubTxNoUTxODepositChange)
 
-pattern DeclaresNetUTxODepositAllocation :: PositiveCoin -> SubTxUTxODepositDeclaration
+pattern DeclaresNetUTxODepositAllocation :: StrictlyPositiveCoin -> SubTxUTxODepositDeclaration
 pattern DeclaresNetUTxODepositAllocation amount =
   MkSubTxUTxODepositDeclaration (SJust (SubTxAllocateUTxODeposit amount))
 
 pattern DeclaresNetUTxODepositRelease ::
-  PositiveCoin -> SubTxReleaseTarget -> SubTxUTxODepositDeclaration
+  StrictlyPositiveCoin -> SubTxReleaseTarget -> SubTxUTxODepositDeclaration
 pattern DeclaresNetUTxODepositRelease amount target =
   MkSubTxUTxODepositDeclaration (SJust (SubTxReleaseUTxODeposit amount target))
 
-pattern RequestsUTxODepositFromTopTx :: PositiveCoin -> SubTxUTxODepositDeclaration
+pattern RequestsUTxODepositFromTopTx :: StrictlyPositiveCoin -> SubTxUTxODepositDeclaration
 pattern RequestsUTxODepositFromTopTx amount =
   MkSubTxUTxODepositDeclaration (SJust (SubTxRequestUTxODepositFromTopTx amount))
 
@@ -142,9 +142,9 @@ instance FromJSON SubTxReleaseTarget where
 -- Absence of this field requests neither an operation nor delegation.
 data SubTxNetUTxODepositChange
   = SubTxNoUTxODepositChange
-  | SubTxAllocateUTxODeposit !PositiveCoin
-  | SubTxRequestUTxODepositFromTopTx !PositiveCoin
-  | SubTxReleaseUTxODeposit !PositiveCoin !SubTxReleaseTarget
+  | SubTxAllocateUTxODeposit !StrictlyPositiveCoin
+  | SubTxRequestUTxODepositFromTopTx !StrictlyPositiveCoin
+  | SubTxReleaseUTxODeposit !StrictlyPositiveCoin !SubTxReleaseTarget
   deriving (Eq, Show, Generic)
 
 instance NFData SubTxNetUTxODepositChange

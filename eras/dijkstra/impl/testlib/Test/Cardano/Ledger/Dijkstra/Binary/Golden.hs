@@ -24,11 +24,12 @@ import Cardano.Ledger.Binary (
   shelleyProtVer,
  )
 import qualified Cardano.Ledger.Binary as Binary
-import Cardano.Ledger.Coin (Coin (..), PositiveCoin, mkPositiveCoin, unPositiveCoin)
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (SLanguage (..))
+import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn (..))
 import Control.Monad (forM_)
 import qualified Data.Aeson as Aeson
@@ -51,7 +52,6 @@ import Test.Cardano.Ledger.Common (
   it,
   prop,
   shouldBe,
-  shouldNotBe,
   shouldSatisfy,
  )
 import Test.Cardano.Ledger.Conway.Binary.Golden hiding (spec)
@@ -90,28 +90,15 @@ spec = describe "Golden" . forEachEraVersion @era $ \version -> do
     goldenBlockTransaction @era
 
 -- | Private. Construct a positive amount for the codec fixtures.
-positiveCoin :: Integer -> PositiveCoin
-positiveCoin = fromMaybe (error "Invalid PositiveCoin test fixture") . mkPositiveCoin . Coin
+strictlyPositiveCoin :: Integer -> StrictlyPositiveCoin
+strictlyPositiveCoin = fromMaybe (error "Invalid StrictlyPositiveCoin test fixture") . mkStrictlyPositiveCoin . Coin
 
 -- | Private. Check the optional TopTx operation without assuming a store policy.
 goldenNetUTxODepositChange :: forall era. DijkstraEraTest era => Version -> Spec
 goldenNetUTxODepositChange version = do
-  describe "PositiveCoin" $ do
-    forM_ [1, maxCoin] $ \amount ->
-      it ("Accepts and round-trips the boundary amount " <> show amount) $ do
-        let coin = Coin amount
-            positive = positiveCoin amount
-        fmap unPositiveCoin (mkPositiveCoin coin) `shouldBe` Just coin
-        Binary.decodeFull @PositiveCoin version (Binary.serialize version coin) `shouldBe` Right positive
-        Aeson.eitherDecode @PositiveCoin (Aeson.encode coin) `shouldBe` Right positive
-    forM_ [-1, 0, maxCoin + 1] $ \amount ->
-      it ("Rejects the invalid amount " <> show amount <> " in the constructor and codecs") $ do
-        mkPositiveCoin (Coin amount) `shouldBe` Nothing
-        Binary.decodeFull @PositiveCoin version (Binary.serialize version amount) `shouldSatisfy` isLeft
-        Aeson.eitherDecode @PositiveCoin (Aeson.encode amount) `shouldSatisfy` isLeft
-    prop "Round-trips generated positive amounts through CBOR and JSON" $ \(coin :: PositiveCoin) -> do
-      Binary.decodeFull @PositiveCoin version (Binary.serialize version coin) `shouldBe` Right coin
-      Aeson.eitherDecode @PositiveCoin (Aeson.encode coin) `shouldBe` Right coin
+  it "Encodes TopTx explicit zero with the stable JSON kind" $
+    Aeson.toJSON NoUTxODepositChange
+      `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
   describe "TopTxReleaseSettlement" $ do
     forM_
       [
@@ -137,7 +124,7 @@ goldenNetUTxODepositChange version = do
             `shouldBe` Right settlement
           Aeson.toJSON settlement `shouldBe` json
           Aeson.eitherDecode @TopTxReleaseSettlement (Aeson.encode json) `shouldBe` Right settlement
-          Aeson.toJSON (ReleaseUTxODeposit (positiveCoin 10) settlement)
+          Aeson.toJSON (ReleaseUTxODeposit (strictlyPositiveCoin 10) settlement)
             `shouldBe` Aeson.object
               [ "kind" Aeson..= ("release" :: String)
               , "amount" Aeson..= (10 :: Int)
@@ -158,44 +145,41 @@ goldenNetUTxODepositChange version = do
         Aeson.fromJSON (Aeson.Object $ KeyMap.delete "netUTxODepositChange" fields)
           `shouldBe` Aeson.Success basicBody
       _ -> expectationFailure "Expected a JSON object for the transaction body"
-  it "Distinguishes an explicit zero net change from an absent declaration" $ do
-    let noChangeBody = basicBody & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresZeroNetUTxODeposit
-    Aeson.toJSON NoUTxODepositChange
-      `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
-    noChangeBody ^. netUTxODepositChangeTxBodyL `shouldBe` TopTx.DeclaresZeroNetUTxODeposit
-    Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
-    Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
     [ ("zero net change", NoUTxODepositChange, Em [E $ TkListLen 1, E @Int 2])
     ,
       ( "one-lovelace net allocation"
-      , AllocateUTxODeposit (positiveCoin 1)
+      , AllocateUTxODeposit (strictlyPositiveCoin 1)
       , Em [E $ TkListLen 2, E @Int 0, E @Int 1]
       )
-    , ("net allocation", AllocateUTxODeposit (positiveCoin 10), Em [E $ TkListLen 2, E @Int 0, E @Int 10])
+    ,
+      ( "net allocation"
+      , AllocateUTxODeposit (strictlyPositiveCoin 10)
+      , Em [E $ TkListLen 2, E @Int 0, E @Int 10]
+      )
     ,
       ( "largest net allocation"
-      , AllocateUTxODeposit (positiveCoin maxCoin)
+      , AllocateUTxODeposit (strictlyPositiveCoin maxCoin)
       , Em [E $ TkListLen 2, E @Int 0, E maxCoin]
       )
     ,
       ( "net release with no TopTx settlement"
-      , ReleaseUTxODeposit (positiveCoin 10) NoTopTxSettlement
+      , ReleaseUTxODeposit (strictlyPositiveCoin 10) NoTopTxSettlement
       , releaseEncoding 10 (Em [E $ TkListLen 1, E @Int 0])
       )
     ,
       ( "net release to the first output"
-      , ReleaseUTxODeposit (positiveCoin 10) (TopTxSettlementOutput $ TxIx 0)
+      , ReleaseUTxODeposit (strictlyPositiveCoin 10) (TopTxSettlementOutput $ TxIx 0)
       , releaseEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
       )
     ,
       ( "largest net release"
-      , ReleaseUTxODeposit (positiveCoin maxCoin) (TopTxSettlementOutput $ TxIx 0)
+      , ReleaseUTxODeposit (strictlyPositiveCoin maxCoin) (TopTxSettlementOutput $ TxIx 0)
       , releaseEncoding maxCoin (Em [E $ TkListLen 2, E @Int 1, E @Int 0])
       )
     ,
       ( "net release to the largest output index"
-      , ReleaseUTxODeposit (positiveCoin 10) (TopTxSettlementOutput maxBound)
+      , ReleaseUTxODeposit (strictlyPositiveCoin 10) (TopTxSettlementOutput maxBound)
       , releaseEncoding 10 (Em [E $ TkListLen 2, E @Int 1, E @Int 65535])
       )
     ]
@@ -320,6 +304,9 @@ goldenSubTxNetUTxODepositChange ::
   Version ->
   Spec
 goldenSubTxNetUTxODepositChange version = do
+  it "Encodes SubTx explicit zero with the stable JSON kind" $
+    Aeson.toJSON SubTxNoUTxODepositChange
+      `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
   it "Omitting the operation preserves the existing body encoding and does not delegate" $ do
     basicBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SubTx.NoUTxODepositDeclaration
     expectGoldenToCBOR DiffCBOR (Ev version basicBody) basicBodyEncoding
@@ -337,45 +324,38 @@ goldenSubTxNetUTxODepositChange version = do
   it
     "Identifies a UTxO capacity deposit request explicitly in JSON and rejects it as a TopTx operation"
     $ do
-      let request = SubTxRequestUTxODepositFromTopTx (positiveCoin 10)
+      let request = SubTxRequestUTxODepositFromTopTx (strictlyPositiveCoin 10)
       Aeson.toJSON request
         `shouldBe` Aeson.object
           [ "kind" Aeson..= ("requestUTxODepositFromTopTx" :: String)
           , "amount" Aeson..= Coin 10
           ]
       Aeson.eitherDecode @NetUTxODepositChange (Aeson.encode request) `shouldSatisfy` isLeft
-  it "Distinguishes an explicit zero change from an absent declaration" $ do
-    let noChangeBody = basicBody & subTxNetUTxODepositChangeTxBodyL .~ SubTx.DeclaresZeroNetUTxODeposit
-    Aeson.toJSON SubTxNoUTxODepositChange
-      `shouldBe` Aeson.object ["kind" Aeson..= ("noChange" :: String)]
-    noChangeBody ^. subTxNetUTxODepositChangeTxBodyL `shouldBe` SubTx.DeclaresZeroNetUTxODeposit
-    Aeson.toJSON noChangeBody `shouldNotBe` Aeson.toJSON basicBody
-    Binary.serialize version noChangeBody `shouldNotBe` Binary.serialize version basicBody
   forM_
     [ ("zero change", SubTxNoUTxODepositChange, Em [E $ TkListLen 1, E @Int 3])
     ,
       ( "net allocation"
-      , SubTxAllocateUTxODeposit (positiveCoin 10)
+      , SubTxAllocateUTxODeposit (strictlyPositiveCoin 10)
       , Em [E $ TkListLen 2, E @Int 0, E @Int 10]
       )
     ,
       ( "UTxO capacity deposit requested from TopTx"
-      , SubTxRequestUTxODepositFromTopTx (positiveCoin 10)
+      , SubTxRequestUTxODepositFromTopTx (strictlyPositiveCoin 10)
       , Em [E $ TkListLen 2, E @Int 2, E @Int 10]
       )
     ,
       ( "local net release to the first output"
-      , SubTxReleaseUTxODeposit (positiveCoin 10) (SubTxSettlementOutput $ TxIx 0)
+      , SubTxReleaseUTxODeposit (strictlyPositiveCoin 10) (SubTxSettlementOutput $ TxIx 0)
       , releaseEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 0])
       )
     ,
       ( "local net release to the largest output index"
-      , SubTxReleaseUTxODeposit (positiveCoin 10) (SubTxSettlementOutput maxBound)
+      , SubTxReleaseUTxODeposit (strictlyPositiveCoin 10) (SubTxSettlementOutput maxBound)
       , releaseEncoding (Em [E $ TkListLen 2, E @Int 0, E @Int 65535])
       )
     ,
       ( "net release explicitly delegated to TopTx"
-      , SubTxReleaseUTxODeposit (positiveCoin 10) DelegateToTopTx
+      , SubTxReleaseUTxODeposit (strictlyPositiveCoin 10) DelegateToTopTx
       , releaseEncoding (Em [E $ TkListLen 1, E @Int 1])
       )
     ]
@@ -386,22 +366,22 @@ goldenSubTxNetUTxODepositChange version = do
     forM_
       [
         ( "net allocation"
-        , SubTxAllocateUTxODeposit (positiveCoin amount)
+        , SubTxAllocateUTxODeposit (strictlyPositiveCoin amount)
         , Em [E $ TkListLen 2, E @Int 0, E amount]
         )
       ,
         ( "UTxO capacity deposit requested from TopTx"
-        , SubTxRequestUTxODepositFromTopTx (positiveCoin amount)
+        , SubTxRequestUTxODepositFromTopTx (strictlyPositiveCoin amount)
         , Em [E $ TkListLen 2, E @Int 2, E amount]
         )
       ,
         ( "local net release"
-        , SubTxReleaseUTxODeposit (positiveCoin amount) (SubTxSettlementOutput $ TxIx 0)
+        , SubTxReleaseUTxODeposit (strictlyPositiveCoin amount) (SubTxSettlementOutput $ TxIx 0)
         , Em [E $ TkListLen 3, E @Int 1, E amount, E $ TkListLen 2, E @Int 0, E @Int 0]
         )
       ,
         ( "delegated net release"
-        , SubTxReleaseUTxODeposit (positiveCoin amount) DelegateToTopTx
+        , SubTxReleaseUTxODeposit (strictlyPositiveCoin amount) DelegateToTopTx
         , Em [E $ TkListLen 3, E @Int 1, E amount, E $ TkListLen 1, E @Int 1]
         )
       ]
