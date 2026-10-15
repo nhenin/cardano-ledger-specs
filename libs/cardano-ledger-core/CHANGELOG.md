@@ -4,6 +4,9 @@
 
 * Remove `DecCBOR` instances from `Data` and `PlutusData`
 * Add optional `BlsKeyState` argument to `mkStakePoolState`
+* Add `DepositStore`, reexported from `Cardano.Ledger.State`, with a separate ADA balance, per-`TxIn` recorded UTxO capacity deposits, state lenses and serialization.
+* Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
+
 * Select the Leios voting committee (CIP-0164) when the mark snapshot is created, instead of when it rotates into the set position:
   - Add `msStakePoolDistr`, `msLeiosMaxKeyAge` and `msLeiosCommittee` fields to `MarkSnapShot`, memoizing lazily the stake pool distribution and the committee
   - Add `mkMarkSnapShot`
@@ -13,11 +16,6 @@
   - `MarkSnapShot` now also encodes `msLeiosMaxKeyAge`, so the on-disk ledger state format changes and requires replay
 * Remove `ssStakeMarkPoolDistr` field from `SnapShots` and `ssStakeMarkPoolDistrL` in favor of `msStakePoolDistr`
 * Add `EraIndependentBlockHeaderBody` phantom type to `Cardano.Ledger.Hashes`
-
-## 1.22.0.1
-
-* Add `DepositStore`, reexported from `Cardano.Ledger.State`, with a separate ADA balance, per-`TxIn` recorded UTxO capacity deposits, state lenses and serialization.
-* Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
 
 ## 1.22.0.0
 

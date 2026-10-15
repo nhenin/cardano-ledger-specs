@@ -2,6 +2,8 @@
 
 ## 1.25.0.0
 
+* Initialize the new UTxO DepositStore state to empty during era translation.
+
 * Change `TICKF` to run the `SNAP` rule at the epoch boundary:
   - Add `SNAP` related constraints to the `STS` instance of `TICKF`
   - Add `Embed (SNAP era) (TICKF era)` instance for Shelley's `SNAP` rule
@@ -11,10 +13,6 @@
 ### `testlib`
 
 * Add `ToExpr` instance for `ConwayTickfEvent`
-
-## 1.24.0.1
-
-* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.24.0.0
 

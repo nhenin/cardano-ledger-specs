@@ -249,7 +249,7 @@ spec = describe "SUBUTXOW" $ do
           subTx =
             mkBasicTx mkBasicTxBody
               & bodyTxL . outputsTxBodyL
-                .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+                .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
               & witsTxL . hashDataTxWitsL .~ [datum]
       submitTx_ $ mkTopTxWithSubTxs [subTx]
 
@@ -259,7 +259,7 @@ spec = describe "SUBUTXOW" $ do
         submitTx $
           mkBasicTx mkBasicTxBody
             & bodyTxL . outputsTxBodyL
-              .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+              .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
       let subTx :: Tx SubTx era
           subTx =
             mkBasicTx mkBasicTxBody

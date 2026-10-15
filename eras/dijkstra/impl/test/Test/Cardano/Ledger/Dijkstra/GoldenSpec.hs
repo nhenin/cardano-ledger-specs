@@ -8,13 +8,13 @@ import Cardano.Ledger.Binary (Tokens (..))
 import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
-import Cardano.Ledger.Dijkstra.Tx (DijkstraEraTx (hashTx))
-import Cardano.Ledger.Hashes (extractHash)
 import Cardano.Ledger.Dijkstra.Rules (
   DepositStoreAccountingFailure (..),
   DijkstraSubUtxoPredFailure (..),
   DijkstraUtxoPredFailure (..),
  )
+import Cardano.Ledger.Dijkstra.Tx (DijkstraEraTx (hashTx))
+import Cardano.Ledger.Hashes (extractHash)
 import Cardano.Ledger.TxIn (TxIn (..))
 import Paths_cardano_ledger_dijkstra (getDataFileName)
 import Test.Cardano.Ledger.Binary.Golden (goldenForHashHex)

@@ -4,6 +4,11 @@
 
 * Add `queryStakePoolState` with the `QueryResultStakePoolState` result type
 * Add `queryLeiosCommittee` (`GetLeiosCommittee`) with the `QueryResultLeiosCommittee` result type
+* Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
+* Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
+* Re-export abstract `StrictlyPositiveCoin`, `mkStrictlyPositiveCoin`, and `unStrictlyPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
+* Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
+
 * Add methods to `AnyEraTxBody`:
   - `subTransactionsTxBodyG`
   - `requiredTopLevelGuardsTxBodyG`
@@ -16,15 +21,10 @@
 * Add `queryStakePoolStateExamples`
 * Add `Arbitrary` instance for `QueryResultLeiosCommittee`
 
-## 1.15.0.1
-
-* Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
-* Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
-* Re-export abstract `StrictlyPositiveCoin`, `mkStrictlyPositiveCoin`, and `unStrictlyPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
-* Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
-
 ## 1.15.0.0
 
+* Add `ssLeiosCommittee` to `StakeSnapshots`: the Leios voting committee seated on the `set` snapshot, in seat order, each seat attributed to its pool and carrying the pool's registered key with its registration epoch and whether that key is still honoured. Adds `QueryLeiosSeat`
+* Replace `qpsrStakePoolParams` and `qpsrDeposits` with a single `qpsrStakePools` reporting `StakePoolState`, so `queryPoolState` exposes a pool's registered BLS key with the epoch it was registered in, plus its delegators. `queryPoolState` and `mkQueryPoolStateResult` no longer take a `Network`
 * Add `queryNonMyopicMemberRewards` (`GetNonMyopicMemberRewards`) with the `QueryResultNonMyopicMemberRewards` result type
 * Move `allInputsTxBodyF` from `EraTxBody` to `EraTx` in order to workaround a GHC bug
 * Add `era` parameter to `QueryPoolStateResult`, `StakePoolParams`

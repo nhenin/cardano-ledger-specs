@@ -2,17 +2,13 @@
 
 ## 1.18.0.0
 
-*
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ### `testlib`
 
 * Change `mkTxWithPlutusAndBootstrapAddress` and `mkTokenMintingTx` to return `AnyLevelTx`
 * Add `DecCBOR` instances for `PlutusData` and `Data`
 * Add `mkTokenMintingTx`
-
-## 1.17.0.1
-
-* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.17.0.0
 
