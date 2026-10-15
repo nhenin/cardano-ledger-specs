@@ -2,22 +2,6 @@
 
 ## 0.5.0.0
 
-* Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
-* Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
-* Add `getDijkstraSupplementalDataHashes` and use it for `getSupplementalDataHashes`, so that,
-  outside legacy mode, a top-level transaction can supply datums for the outputs and reference
-  inputs of its sub-transactions
-* Add `kesMaxKeyAgeEpochs` to compute how many epochs a registered Leios voting key (CIP-0164) stays valid from the KES parameters
-* Change `seatInitialLeiosCommittee` to accept a `TransitionConfig` and also seat the Leios voting committee (CIP-0164) in the set and go snapshots
-* Add `Embed (SNAP era) (TICKF era)` instance, so that `TICKF` runs the Dijkstra `SNAP` rule
-* Change `eraMaxLanguage` to `PlutusV4`
-
-### `testlib`
-
-* Add `DijkstraEraForecast` superclass to `DijkstraEraImp`
-
-## 0.4.0.1
-
 * Implement recorded UTxO capacity deposits in ledger state. Ordinary transactions allocate newly priced output deposits, release recorded input deposits and update the Store once for the complete batch.
 * Validate exact TopTx batch totals, each SubTx contribution, release settlement destinations and Store solvency in `Rules.DepositStore.Accounting`. Add `DepositStoreFailure` to UTXO at CBOR tag `26`, including signed amount diagnostics.
 * Include the declared batch net allocation or release exactly once in ADA conservation, preserving independent SubTx financial imbalance and local/delegated attribution.
@@ -37,6 +21,20 @@
 * Add an optional `NetUTxODepositChange` to top-level transaction bodies, with a net allocation or a net release referencing a top-level output by index; encode it at CBOR key `28` and describe it in the CDDL schema.
 * Add an optional `SubTxNetUTxODepositChange` to sub-transaction bodies at CBOR key `28`: net allocations can request funding from the top-level transaction; net releases declare their amount and either a local output index or an explicit request to delegate accounting to the top-level transaction.
 * Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
+
+* Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
+* Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
+* Add `getDijkstraSupplementalDataHashes` and use it for `getSupplementalDataHashes`, so that,
+  outside legacy mode, a top-level transaction can supply datums for the outputs and reference
+  inputs of its sub-transactions
+* Add `kesMaxKeyAgeEpochs` to compute how many epochs a registered Leios voting key (CIP-0164) stays valid from the KES parameters
+* Change `seatInitialLeiosCommittee` to accept a `TransitionConfig` and also seat the Leios voting committee (CIP-0164) in the set and go snapshots
+* Add `Embed (SNAP era) (TICKF era)` instance, so that `TICKF` runs the Dijkstra `SNAP` rule
+* Change `eraMaxLanguage` to `PlutusV4`
+
+### `testlib`
+
+* Add `DijkstraEraForecast` superclass to `DijkstraEraImp`
 
 ## 0.4.0.0
 

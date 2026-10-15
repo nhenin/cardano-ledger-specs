@@ -216,7 +216,7 @@ spec = describe "UTXOW" $ do
         mkTopTxWithSubTxs
           [ mkBasicTx $
               mkBasicTxBody
-                & outputsTxBodyL .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+                & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
           ]
           & witsTxL . hashDataTxWitsL .~ [datum]
 
@@ -241,7 +241,7 @@ spec = describe "UTXOW" $ do
             mkBasicTx $
               mkBasicTxBody
                 & outputsTxBodyL
-                  .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust outputDatumHash]
+                  .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust outputDatumHash]
       txIn <- produceDatumHashOutput referencedDatumHash
       let tx =
             mkTopTxWithSubTxs
@@ -270,11 +270,11 @@ spec = describe "UTXOW" $ do
           mkTopTxWithSubTxs
             [ mkBasicTx $
                 mkBasicTxBody
-                  & outputsTxBodyL .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+                  & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
             , mkBasicTx $ mkBasicTxBody & referenceInputsTxBodyL .~ [txIn]
             ]
             & bodyTxL . outputsTxBodyL
-              .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust topLevelDatumHash]
+              .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust topLevelDatumHash]
             & witsTxL . hashDataTxWitsL .~ [datum, topLevelDatum, referencedDatum]
       submitFailingTx
         tx
@@ -397,7 +397,7 @@ mkPlutusSpendingTx plutus = do
     submitTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . outputsTxBodyL
-          .~ [mkBasicTxOut refAddr mempty & referenceScriptTxOutL .~ SJust script]
+          .~ [mkBasicTxOutWithImplicitDeposit refAddr mempty & referenceScriptTxOutL .~ SJust script]
   redeemer <- arbitrary @(Data era)
   fixupPPHash $
     mkBasicTx mkBasicTxBody
@@ -425,5 +425,5 @@ produceDatumHashOutput datumHash = do
     submitTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . outputsTxBodyL
-          .~ [mkBasicTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+          .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
   pure $ txInAt 0 referencedTx

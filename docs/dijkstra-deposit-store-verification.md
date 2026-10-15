@@ -1,6 +1,6 @@
 # Dijkstra DepositStore verification record
 
-**Updated:** 13 October 2026
+**Updated:** 15 October 2026
 
 **Spending presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -21,11 +21,9 @@ from the new structural verification.
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
 registers **242 business examples: 68 implemented checks and 174 deliberate `False`
 placeholders**. The implemented checks comprise 21 Grammar, 38 Presence, four Exactness
-and five Collateral examples. This inventory adds six Spending properties to the previous
-complete run's 236 examples; the complete suite has **not** been rerun since that addition.
-The latest targeted Spending run passed all 13 examples with no failures or pending cases.
-The earlier complete run passed all 62 then-implemented checks; each of its 174 failures
-matched a deliberate placeholder.
+and five Collateral examples. The 15 October rebase verification reran all 242 examples:
+all 68 implemented checks passed, including all 13 Spending examples. Its 174 failing
+case IDs exactly match the earlier complete run's deliberate placeholders.
 
 Production state now retains a Store balance and the exact allocation for each live
 store-backed `TxIn`. Ordinary validation checks per-body contributions, the batch net
@@ -79,6 +77,58 @@ projection, and the unresolved stronger settlement guarantee remain deferred. An
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Leios rebase verification on 15 October 2026
+
+Rebased onto `origin/leios-prototype` at `8a15ddc07ef35868aef459af3ae71445c9beae94`.
+The updated dependency pins are retained. Compatibility adjustments preserve the new
+input getter, snapshot constructors and phase-2 conservation guard, restore the original
+UTxO binding needed by SubTx deposit validation, and adapt new output-constructor calls.
+
+The Dijkstra test target, ledger-core and Shelley test targets, ledger API and ledger-state
+libraries all build with tests and benchmarks enabled.
+
+| Check | Result | Wall time |
+| --- | --- | ---: |
+| Complete DepositStore outline | **68 implemented checks passed**; all 174 failures match the previous deliberate placeholders by case ID. | 2.8709 s |
+| Declaration fixture | Passed 100 generated cases. | 0.1300 s |
+| Dijkstra golden/codec checks | 128 passed, including `hashTx` and predicate failures. | 0.6407 s |
+| TxInfo | 41 passed. | 0.0628 s |
+| CDDL/Huddle | 115 passed initially; one generator exhausted its discard allowance, then passed 100 cases with the allowance raised from 10 to 20. | 49.8328 s + 0.0879 s retry |
+| StrictlyPositiveCoin | All five checks passed. | 0.0073 s |
+| DepositStore codec | Passed 100 generated cases. | 0.0595 s |
+| Shelley UTxOState | Roundtrip and six-field encoding compatibility each passed 100 cases. | 0.0441 s |
+| Dijkstra UTxOState | Passed 100 generated cases, maximum size 10. | 218.4197 s |
+| Dijkstra EpochState and NewEpochState | Both passed 10 cases, maximum size 3. | 46.4823 s |
+| Upstream Dijkstra regressions | **238 passed; 27 failed** in the batch script checks described below. | 11.5674 s |
+
+These are observed run times, not benchmarks; some checks ran concurrently with compilation
+or other checks. All runs used seed `739231514`. The initial EpochState run was stopped
+before completion and is not counted; the smaller completed run is reported explicitly.
+The first direct golden invocation lacked Cabal's data-directory environment variable;
+the table reports the rerun against the repository's existing golden files.
+
+### Upstream batch script failures
+
+The 27 failures exercise behavior deliberately removed by upstream commit
+[`d93c65469`](https://github.com/IntersectMBO/cardano-ledger/commit/d93c654699c8f10c883a625168f65dd387abc695),
+which was already our pre-rebase base. Its commit message records an ungated consensus
+change and defers restoration until protocol-version gating is available:
+
+- 26 cases expect TopTx to evaluate or collect errors from child Plutus scripts.
+- One case expects the execution-unit limit to include child budgets. Its fixture also
+  expects explicitly supplied child budgets to survive fixup.
+
+The relevant upstream behavior and assertions are unchanged by this rebase. This
+attribution comes from source comparison and the original implementation/revert history;
+pristine upstream was not separately built and executed. These failures are distinct
+from the 174 intentional DepositStore placeholders. The overall suite is **not green**.
+
+Run evidence is in `/private/tmp/leios-rebase-20261015/`, including `build.log`,
+`support-build.log`, `deposit-store-tests.log`, `deposit-store-audit.json`,
+`dijkstra-regressions.log` and the individual codec/state logs. Direct execution of the
+Dijkstra binary uses `cardano_ledger_dijkstra_datadir="$PWD/eras/dijkstra/impl"` for
+golden files. The CDDL retry uses `--qc-max-discard=20`; assertions are unchanged.
 
 ## Latest Spending verification on 13 October 2026
 

@@ -424,7 +424,7 @@ dijkstraUtxoTransition = do
       validateTopTxSpendingInputsDeclaration originalUtxo txBody
 
   -- Recorded deposits survive SubTx processing until this complete-batch check.
-  -- Explicit amounts and hypothetical ordinary conservation apply on both paths.
+  -- Deposit exactness and prospective Store solvency apply on both paths.
   runTest $
     first (fmap DepositStoreFailure) $
       DepositStore.validateOrdinaryDepositStore pp originalUtxo (utxosDepositStore utxos) txBody

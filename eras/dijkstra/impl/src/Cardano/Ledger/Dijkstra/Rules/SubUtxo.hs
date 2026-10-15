@@ -236,7 +236,7 @@ dijkstraSubUtxoTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXO" era)
 dijkstraSubUtxoTransition = do
-  TRC (SubUtxoEnv slot pp _ _ topTxIsPhase2Valid, utxoState, stAnnTx) <-
+  TRC (SubUtxoEnv slot pp _ originalUtxo topTxIsPhase2Valid, utxoState, stAnnTx) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 

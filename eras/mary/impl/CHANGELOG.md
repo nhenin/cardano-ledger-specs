@@ -2,15 +2,11 @@
 
 ## 1.12.0.0
 
-*
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ### `testlib`
 
 * Move `mkTokenMintingTx` to `cardano-ledger-alonzo:testlib`
-
-## 1.11.1.1
-
-* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.11.1.0
 

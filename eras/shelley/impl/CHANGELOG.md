@@ -2,6 +2,8 @@
 
 ## 1.21.0.0
 
+* Add `utxosDepositStore` and its lens to `UTxOState`, retaining pre-Dijkstra snapshot encoding; include the separate Store balance in ADA pots.
+
 * Remove `nesPd` field from `NewEpochState` and `nesPdL`:
   - Add `nesStakePoolDistrG`, which reads the stake pool distribution from the set snapshot instead
   - Remove the re-export of `ssStakeMarkPoolDistrL` from `Cardano.Ledger.Shelley.LedgerState`
@@ -18,10 +20,6 @@
 
 * Add `EraForecast` superclass to `ShelleyEraImp`, together with `Eq`, `ToExpr`, `NFData` and `Typeable` superclasses for the `TICKF` event
 * Add `ToExpr` instance for `ShelleyTickfEvent`
-
-## 1.20.0.1
-
-* Add `utxosDepositStore` and its lens to `UTxOState`, retaining pre-Dijkstra snapshot encoding; include the separate Store balance in ADA pots.
 
 ## 1.20.0.0
 

@@ -2,15 +2,11 @@
 
 ## 1.17.1.0
 
-*
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ### `testlib`
 
 * Add `mkTokenMintingTx`
-
-## 1.17.0.1
-
-* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.17.0.0
 
