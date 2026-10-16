@@ -30,7 +30,7 @@ testGroupByronTranslation =
 prop_translateTxOut_correctness :: Byron.CompactTxOut -> Property
 prop_translateTxOut_correctness compactTxOut =
   translateTxOutByronToShelley (Byron.fromCompactTxOut compactTxOut)
-    === translateCompactTxOutByronToShelley compactTxOut
+    === ImplicitDepositTxOut (translateCompactTxOutByronToShelley compactTxOut)
 
 {------------------------------------------------------------------------------
   Reference implementation
@@ -38,7 +38,7 @@ prop_translateTxOut_correctness compactTxOut =
 
 translateTxOutByronToShelley :: Byron.TxOut -> TxOut ShelleyEra
 translateTxOutByronToShelley (Byron.TxOut addr amount) =
-  mkBasicTxOut (translateAddr addr) (translateAmount amount)
+  mkBasicTxOutWithImplicitDeposit (translateAddr addr) (translateAmount amount)
   where
     translateAmount :: Byron.Lovelace -> Coin
     translateAmount = Coin . Byron.lovelaceToInteger

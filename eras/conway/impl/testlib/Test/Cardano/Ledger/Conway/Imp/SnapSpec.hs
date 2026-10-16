@@ -3,6 +3,7 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Test.Cardano.Ledger.Conway.Imp.SnapSpec (
   spec,
@@ -20,7 +21,7 @@ module Test.Cardano.Ledger.Conway.Imp.SnapSpec (
   setupRetiredPoolInLeaderDistr,
 ) where
 
-import Cardano.Ledger.BaseTypes (EpochInterval (..), addEpochInterval)
+import Cardano.Ledger.BaseTypes (EpochInterval (..), addEpochInterval, epochInfoPure)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Conway.Core
@@ -28,10 +29,16 @@ import Cardano.Ledger.Conway.Governance
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Shelley.LedgerState
+import Cardano.Ledger.Slot (epochInfoFirst)
 import Cardano.Ledger.Val ((<->))
+import Control.Monad.Reader (runReader)
+import Control.State.Transition.Extended (TRC (..), applySTS)
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as SSeq
-import Lens.Micro ((&), (.~))
+import Data.Void (absurd)
+import Lens.Micro ((&), (.~), (^.))
+import Lens.Micro.Mtl (use)
 import Test.Cardano.Ledger.Conway.ImpTest
 import Test.Cardano.Ledger.Imp.Common
 
@@ -47,7 +54,7 @@ getDRepVotingStake drep = do
 
 getLeaderElectionStake :: KeyHash StakePool -> ImpTestM era Coin
 getLeaderElectionStake pool =
-  fromCompact . individualTotalPoolStake . (Map.! pool) . unPoolDistr <$> getsNES nesPdL
+  fromCompact . individualTotalPoolStake . (Map.! pool) . unPoolDistr <$> getsNES nesStakePoolDistrG
 
 getActiveProposalDeposits :: ConwayEraImp era => KeyHash StakePool -> ImpTestM era Coin
 getActiveProposalDeposits pool = do
@@ -139,7 +146,7 @@ setupCombinedScenario = do
   pure (poolActive, drep, govActionDeposit <> poolDeposit <> Coin 1_000_000)
 
 isPoolInLeaderDistr :: KeyHash StakePool -> ImpTestM era Bool
-isPoolInLeaderDistr pool = Map.member pool . unPoolDistr <$> getsNES nesPdL
+isPoolInLeaderDistr pool = Map.member pool . unPoolDistr <$> getsNES nesStakePoolDistrG
 
 isPoolInRewardSnapshot :: KeyHash StakePool -> ImpTestM era Bool
 isPoolInRewardSnapshot pool =
@@ -165,6 +172,45 @@ spec ::
   ConwayEraImp era =>
   SpecWith (ImpInit (LedgerSpec era))
 spec = describe "SNAP" $ do
+  -- 'TICKF' skips 'SNAP', because a forecast never needs the new mark snapshot
+  -- that 'SNAP' spends its time aggregating. It must still perform the cheap
+  -- half, the rotation, since a forecast across an epoch boundary reads the set
+  -- snapshot: Dijkstra's takes the Leios voting committee from it.
+  it "TICKF rotates the stake snapshots" $ do
+    -- Delegate stake and then cross a boundary, so that the mark snapshot holds
+    -- that stake while set and go do not. Without divergent snapshots, rotating
+    -- them would be unobservable and the assertions below vacuous --- which the
+    -- 'shouldNotBe' guards against.
+    _ <- setupPoolWithStake (Coin 500_000_000)
+    passEpoch
+    nes <- getsNES id
+    globals <- use impGlobalsL
+    -- The first slot of the next epoch, where TICKF crosses the boundary.
+    let nextEpochStart =
+          epochInfoFirst (epochInfoPure globals) (succ (nes ^. nesELL))
+        ticked =
+          either (absurd . NE.head) id
+            . flip runReader globals
+            $ applySTS @(EraRule "TICKF" era) (TRC ((), nes, nextEpochStart))
+        snapshotsOf s = s ^. nesEsL . esSnapshotsL
+    -- Only the underlying 'SnapShot' rotates; the set position additionally
+    -- derives its pool distribution and Leios committee from the mark.
+    snapshotsOf nes
+      ^. ssStakeMarkL
+        . msSnapShotL
+        `shouldNotBe` snapshotsOf nes
+      ^. ssStakeSetL . ssSnapShotL
+    snapshotsOf ticked
+      ^. ssStakeSetL
+        . ssSnapShotL
+        `shouldBe` snapshotsOf nes
+      ^. ssStakeMarkL . msSnapShotL
+    snapshotsOf ticked
+      ^. ssStakeGoL
+        . gsSnapShotL
+        `shouldBe` snapshotsOf nes
+      ^. ssStakeSetL . ssSnapShotL
+
   it "SPO voting stake exceeds leader election stake by the active proposal deposit" $ do
     modifyPParams $ \pp ->
       pp

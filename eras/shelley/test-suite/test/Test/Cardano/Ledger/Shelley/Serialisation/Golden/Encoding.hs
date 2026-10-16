@@ -49,7 +49,6 @@ import Cardano.Ledger.Binary (
   encodeFixedSized,
   fromPlainEncoding,
   hashWithEncoder,
-  ipv4ToBytes,
   shelleyProtVer,
   toCBOR,
   toPlainEncoding,
@@ -404,7 +403,7 @@ tests =
        in checkEncodingCBOR
             shelleyProtVer
             "txout"
-            (mkBasicTxOut @ShelleyEra a (Coin 2))
+            (mkBasicTxOutWithImplicitDeposit @ShelleyEra a (Coin 2))
             ( T (TkListLen 2)
                 <> S a
                 <> S (Coin 2)
@@ -486,7 +485,7 @@ tests =
           poolUrl = "pool.io"
           poolMDHash = byteArrayFromShortByteString "{}"
           ipv4 = toIPv4 [127, 0, 0, 1]
-          ipv4Bytes = ipv4ToBytes . toIPv4 $ [127, 0, 0, 1]
+          ipv4Bytes = "\DEL\NUL\NUL\SOH"
           poolRelays =
             StrictSeq.fromList
               [ SingleHostAddr SNothing (SJust ipv4) SNothing
@@ -676,7 +675,7 @@ tests =
                 <> S e
             )
     , -- checkEncodingCBOR "minimal_txn_body"
-      let tout = mkCoinTxOut testAddrE (Coin 2)
+      let tout = ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2)
        in checkEncodingCBORAnnotated
             shelleyProtVer
             "txbody"
@@ -699,7 +698,7 @@ tests =
                 <> T (TkWord64 500)
             )
     , -- checkEncodingCBOR "transaction_mixed"
-      let tout = mkCoinTxOut testAddrE (Coin 2)
+      let tout = ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2)
           ra = AccountAddress Testnet (AccountId (KeyHashObj testKeyHash2))
           ras = Map.singleton ra (Coin 123)
           up =
@@ -737,7 +736,7 @@ tests =
                 <> S up
             )
     , -- checkEncodingCBOR "full_txn_body"
-      let tout = mkCoinTxOut testAddrE (Coin 2)
+      let tout = ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2)
           reg = RegTxCert testStakeCred
           ra = AccountAddress Testnet (AccountId (KeyHashObj testKeyHash2))
           ras = Map.singleton ra (Coin 123)
@@ -789,7 +788,7 @@ tests =
       let txb =
             mkBasicTxBody @ShelleyEra
               & inputsTxBodyL .~ Set.fromList [TxIn genesisId (mkTxIxPartial 1)]
-              & outputsTxBodyL .~ StrictSeq.singleton (mkCoinTxOut testAddrE (Coin 2))
+              & outputsTxBodyL .~ StrictSeq.singleton (ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2))
               & feeTxBodyL .~ Coin 9
               & ttlTxBodyL .~ SlotNo 500
           txbh = hashAnnotated txb
@@ -812,7 +811,7 @@ tests =
       let txb =
             mkBasicTxBody @ShelleyEra
               & inputsTxBodyL .~ Set.fromList [genesisTxIn1]
-              & outputsTxBodyL .~ StrictSeq.singleton (mkCoinTxOut testAddrE (Coin 2))
+              & outputsTxBodyL .~ StrictSeq.singleton (ImplicitDepositTxOut $ mkCoinTxOut testAddrE (Coin 2))
               & feeTxBodyL .~ Coin 9
               & ttlTxBodyL .~ SlotNo 500
           txbh = hashAnnotated txb
@@ -947,7 +946,7 @@ tests =
       let sig :: SignedKES (KES MockCrypto) (BHBody MockCrypto)
           sig = unsoundPureSignedKES () 0 (testBHB @ShelleyEra) (kesSignKey testKESKeys)
           bh = BHeader (testBHB @ShelleyEra) sig
-          tout = StrictSeq.singleton $ mkCoinTxOut @ShelleyEra testAddrE (Coin 2)
+          tout = StrictSeq.singleton . ImplicitDepositTxOut $ mkCoinTxOut @ShelleyEra testAddrE (Coin 2)
           txb :: Word64 -> TxBody TopTx ShelleyEra
           txb s =
             mkBasicTxBody
@@ -1047,17 +1046,15 @@ tests =
           actualHex = B16.encode actual
           expectedHex =
             mconcat
-              [ "8700a1581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825410aa1581ca646"
+              [ "8600a1581ce0a714319812c3f773ba04ec5d6b3ffcd5aad85006805b047b0825410aa1581ca646"
               , "474b8f5431261506b6c273d307c7569a4eb6c96b42dd4a29520a0384821927101903e8828284a0"
               , "a0a0a08482a0a0a0a084a0a0000086a15822ee155ace9c40292074cb6aff8c9ccdd273c81648ff"
               , "1149ef36bcea6ebb8a3e250000583d003900cb9358529df4729c3246a2a033cb9821abbfd16de4"
               , "888005904abc410d6a577e9441ad8ed9663931906e4d43ece8f82c712b1d0235affb06000a1903"
               , "e80185a0a091000000190800000000001864d81e820001d81e820001d81e820001d81e82000181"
               , "00820200010091000000190800000000001864d81e820001d81e820001d81e820001d81e820001"
-              , "81008202000000810082a0a000848382a0a000008282a0a0808182a0a00082a000818300880082"
-              , "020082a000000000a0a08401848000820200a0a082a0a082a1581ce0a714319812c3f773ba04ec"
-              , "5d6b3ffcd5aad85006805b047b08254183820101015820c5e21ab1c9f6022d81c3b25e3436cb7f"
-              , "1df77f9652ae3e1310c28e621dd87b4c01a0"
+              , "81008202000000810082a0a000848482a0a00000008282a0a0808182a0a00082a0008183008800"
+              , "82020082a000000000a0a08401848000820200a0a082a0a0a0"
               ]
        in testCase "ledger state golden test" $
             unless (actual == expected) $

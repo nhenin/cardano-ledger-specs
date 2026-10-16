@@ -2,7 +2,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -47,6 +49,7 @@ import Cardano.Ledger.Val (Val)
 import Control.DeepSeq (NFData (rnf))
 import Data.Aeson (FromJSON (..), ToJSON (..), (.:), (.=))
 import qualified Data.Aeson as Aeson
+import Data.Function (on)
 import Data.Maybe (fromMaybe)
 import Data.MemPack
 import GHC.Generics (Generic)
@@ -78,21 +81,71 @@ instance (Era era, MemPack (CompactForm (Value era))) => MemPack (ShelleyTxOut e
   {-# INLINE unpackM #-}
 
 instance EraTxOut ShelleyEra where
-  type TxOut ShelleyEra = ShelleyTxOut ShelleyEra
-
-  mkBasicTxOut = ShelleyTxOut
+  type ImplicitDepositTxOut ShelleyEra = ShelleyTxOut ShelleyEra
+  type StoreBackedTxOut ShelleyEra = NoStoreBackedTxOut ShelleyEra
 
   -- Calling this partial function will result in compilation error, since ByronEra has
   -- no instance for EraTxOut type class.
   upgradeTxOut = error "It is not possible to translate Byron TxOut with 'upgradeTxOut'"
 
-  addrEitherTxOutL = addrEitherShelleyTxOutL
+  addrEitherTxOutL =
+    lens shelleyTxOut (const ImplicitDepositTxOut) . addrEitherShelleyTxOutL
   {-# INLINE addrEitherTxOutL #-}
+
+instance EraImplicitDepositTxOut ShelleyEra where
+  mkBasicImplicitDepositTxOut = ShelleyTxOut
 
   valueEitherTxOutL = valueEitherShelleyTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinTxOut pp _ = pp ^. ppMinUTxOValueL
+
+instance EraStoreBackedTxOut ShelleyEra where
+  mkBasicStoreBackedTxOut = notSupportedInThisEra
+
+  applicationAssetsTxOutL _ unavailable = case unavailable of {}
+
+-- | Private: recover the historical representation from Shelley's only supported variant.
+shelleyTxOut :: TxOut ShelleyEra -> ShelleyTxOut ShelleyEra
+shelleyTxOut (ImplicitDepositTxOut output) = output
+{-# INLINE shelleyTxOut #-}
+
+-- The wrapper retains the historical instances and encodings without a variant tag.
+instance Eq (TxOut ShelleyEra) where
+  (==) = (==) `on` shelleyTxOut
+
+instance Ord (TxOut ShelleyEra) where
+  compare = compare `on` shelleyTxOut
+
+instance Show (TxOut ShelleyEra) where
+  showsPrec precedence = showsPrec precedence . shelleyTxOut
+
+instance NFData (TxOut ShelleyEra) where
+  rnf = rnf . shelleyTxOut
+
+deriving via InspectHeapNamed "TxOut" (TxOut ShelleyEra) instance NoThunks (TxOut ShelleyEra)
+
+instance EncCBOR (TxOut ShelleyEra) where
+  encCBOR = encCBOR . shelleyTxOut
+
+instance DecCBOR (TxOut ShelleyEra) where
+  decCBOR = ImplicitDepositTxOut <$> decCBOR
+
+instance DecShareCBOR (TxOut ShelleyEra) where
+  type Share (TxOut ShelleyEra) = Interns (Credential Staking)
+  decShareCBOR = fmap ImplicitDepositTxOut . decShareCBOR
+
+instance MemPack (TxOut ShelleyEra) where
+  packedByteCount = packedByteCount . shelleyTxOut
+  packM = packM . shelleyTxOut
+  unpackM = ImplicitDepositTxOut <$> unpackM
+
+instance ToJSON (TxOut ShelleyEra) where
+  toJSON = toJSON . shelleyTxOut
+  toEncoding = toEncoding . shelleyTxOut
+
+instance FromJSON (TxOut ShelleyEra) where
+  parseJSON = fmap ImplicitDepositTxOut . parseJSON
 
 addrEitherShelleyTxOutL :: Lens' (ShelleyTxOut era) (Either Addr CompactAddr)
 addrEitherShelleyTxOutL =

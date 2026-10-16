@@ -93,10 +93,10 @@ evaluateTransactionBalanceShelley ::
 evaluateTransactionBalanceShelley pp dpstate utxo txBody = consumed <-> produced
   where
     produced =
-      sumUTxO (txouts txBody)
+      unAssets (sumUTxO (txouts txBody))
         <+> inject (txBody ^. feeTxBodyL <+> totalTxDeposits pp dpstate txBody)
     consumed =
-      sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+      unAssets (sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL)))
         <> inject (refunds <> withdrawals)
     refunds = keyTxRefunds pp dpstate txBody
     withdrawals = fold . unWithdrawals $ txBody ^. withdrawalsTxBodyL

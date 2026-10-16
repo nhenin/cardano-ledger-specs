@@ -645,7 +645,7 @@ genesisUTxO genesis =
       [ (txIn, txOut)
       | (addr, amount) <- LM.unListMap (sgInitialFunds genesis)
       , let txIn = initialFundsPseudoTxIn addr
-            txOut = mkBasicTxOut addr (Val.inject amount)
+            txOut = mkBasicTxOutWithImplicitDeposit addr (Val.inject amount)
       ]
 
 -- | Compute the 'TxIn' of the initial UTxO pseudo-transaction corresponding

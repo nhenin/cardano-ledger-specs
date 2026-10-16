@@ -1,0 +1,362 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | Exact UTxO capacity deposit accounting. Input allocations are recorded
+-- ledger obligations; only newly created outputs are priced. Transaction
+-- declarations authorize the resulting net transfer, never a second transfer
+-- alongside their SubTx contributions.
+module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
+  DepositStoreAccountingFailure (..),
+  requiredUTxODeposit,
+  allocatedUTxODeposits,
+  releasedUTxODeposits,
+  requiredNetUTxODeposit,
+  requiredTxTotalNetUTxODeposit,
+  declaredTopTxNetUTxODeposit,
+  declaredSubTxNetUTxODeposit,
+  locallyAccountedSubTxNetUTxODeposit,
+  validateDepositStoreInputs,
+  validateDepositStoreSolvency,
+  validateOrdinaryDepositStore,
+  applyOrdinaryDepositStore,
+  applyDepositAllocations,
+  CollateralDepositSettlement (..),
+  collateralDepositSettlement,
+) where
+
+import Cardano.Ledger.Babbage.Collateral (mkCollateralTxIn)
+import Cardano.Ledger.Babbage.TxOut (babbageMinUTxOValue)
+import Cardano.Ledger.BaseTypes (TxIx, txIxToInt)
+import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), Sized (..))
+import Cardano.Ledger.Binary.Coders
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Dijkstra.Core
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import Cardano.Ledger.State (DepositStore (..), UTxO (..), sumAllCoin)
+import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
+import Cardano.Ledger.TxIn (TxId, TxIn (..))
+import Cardano.Ledger.Val ((<->))
+import Control.DeepSeq (NFData)
+import Control.Monad (when)
+import Data.Foldable (fold, toList, traverse_)
+import Data.List.NonEmpty (NonEmpty)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import Data.Maybe.Strict (StrictMaybe (..))
+import Data.Set (Set)
+import GHC.Generics (Generic)
+import Lens.Micro ((^.))
+import Validation (Validation, failureUnless)
+
+-- | Supplied and required amounts are signed: allocations are positive and
+-- releases are negative. Input failures describe retained ledger metadata;
+-- declaration failures describe the transaction being validated.
+data DepositStoreAccountingFailure
+  = MissingDepositAllocation !TxIn
+  | UnexpectedDepositAllocation !TxIn
+  | NegativeDepositAllocation !TxIn !Coin
+  | InexactTopTxDepositChange !Coin !Coin
+  | InexactSubTxDepositChange !TxId !Coin !Coin
+  | MissingTopTxSettlement !Coin
+  | UnexpectedTopTxSettlement !TxIx
+  | InvalidSettlementOutput !TxId !TxIx
+  | InsufficientSettlementOutput !TxId !TxIx !Coin !Coin
+  | DepositStoreInsolvent !Coin !Coin
+  deriving (Eq, Ord, Show, Generic)
+
+instance NFData DepositStoreAccountingFailure
+
+instance EncCBOR DepositStoreAccountingFailure where
+  encCBOR =
+    encode . \case
+      MissingDepositAllocation input -> Sum MissingDepositAllocation 0 !> To input
+      UnexpectedDepositAllocation input -> Sum UnexpectedDepositAllocation 1 !> To input
+      NegativeDepositAllocation input amount -> Sum NegativeDepositAllocation 2 !> To input !> To amount
+      InexactTopTxDepositChange supplied required -> Sum InexactTopTxDepositChange 3 !> To supplied !> To required
+      InexactSubTxDepositChange body supplied required -> Sum InexactSubTxDepositChange 4 !> To body !> To supplied !> To required
+      MissingTopTxSettlement required -> Sum MissingTopTxSettlement 5 !> To required
+      UnexpectedTopTxSettlement index -> Sum UnexpectedTopTxSettlement 6 !> To index
+      InvalidSettlementOutput body index -> Sum InvalidSettlementOutput 7 !> To body !> To index
+      InsufficientSettlementOutput body index supplied required -> Sum InsufficientSettlementOutput 8 !> To body !> To index !> To supplied !> To required
+      DepositStoreInsolvent balance obligations -> Sum DepositStoreInsolvent 9 !> To balance !> To obligations
+
+instance DecCBOR DepositStoreAccountingFailure where
+  decCBOR = decode $ Summands "DepositStoreAccountingFailure" $ \case
+    0 -> SumD MissingDepositAllocation <! From
+    1 -> SumD UnexpectedDepositAllocation <! From
+    2 -> SumD (\input amount -> NegativeDepositAllocation input (Coin amount)) <! From <! From
+    3 ->
+      SumD (\supplied required -> InexactTopTxDepositChange (Coin supplied) (Coin required))
+        <! From
+        <! From
+    4 ->
+      SumD (\body supplied required -> InexactSubTxDepositChange body (Coin supplied) (Coin required))
+        <! From
+        <! From
+        <! From
+    5 -> SumD MissingTopTxSettlement <! From
+    6 -> SumD UnexpectedTopTxSettlement <! From
+    7 -> SumD InvalidSettlementOutput <! From <! From
+    8 -> SumD InsufficientSettlementOutput <! From <! From <! From <! From
+    9 ->
+      SumD (\balance obligations -> DepositStoreInsolvent (Coin balance) (Coin obligations))
+        <! From
+        <! From
+    tag -> Invalid tag
+
+-- | Price the accepted serialized size of a new output, including its output
+-- variant. Implicit deposits are already in the output coins and add no Store
+-- obligation. The byte-price formula and 160-byte overhead match Babbage.
+requiredUTxODeposit :: BabbageEraPParams era => PParams era -> Sized (TxOut era) -> Coin
+requiredUTxODeposit pp output = case sizedValue output of
+  ImplicitDepositTxOut _ -> mempty
+  StoreBackedTxOut _ -> babbageMinUTxOValue pp output
+
+-- | The body's own regular outputs only; collateral and nested bodies are
+-- accounted separately.
+allocatedUTxODeposits :: DijkstraEraTxBody era => PParams era -> TxBody l era -> Coin
+allocatedUTxODeposits pp body = foldMap (requiredUTxODeposit pp) (body ^. sizedOutputsTxBodyL)
+
+-- | Release only records selected by this body's ordinary inputs. Missing
+-- records are rejected by 'validateDepositStoreInputs', never repriced.
+releasedUTxODeposits :: EraTxBody era => DepositStore -> TxBody l era -> Coin
+releasedUTxODeposits store body = releasedInputDeposits store (body ^. inputsTxBodyL)
+
+releasedInputDeposits :: DepositStore -> Set TxIn -> Coin
+releasedInputDeposits store inputs = fold $ Map.restrictKeys (depositStoreAllocations store) inputs
+
+requiredNetUTxODeposit ::
+  DijkstraEraTxBody era => PParams era -> DepositStore -> TxBody l era -> Coin
+requiredNetUTxODeposit pp store body = allocatedUTxODeposits pp body <-> releasedUTxODeposits store body
+
+requiredTxTotalNetUTxODeposit ::
+  (EraTx era, DijkstraEraTxBody era) => PParams era -> DepositStore -> TxBody TopTx era -> Coin
+requiredTxTotalNetUTxODeposit pp store body =
+  requiredNetUTxODeposit pp store body
+    <> foldMap (requiredNetUTxODeposit pp store . (^. bodyTxL)) (body ^. subTransactionsTxBodyL)
+
+-- | Monetary transfer described by TopTx. Absence contributes no transfer;
+-- presence and exactness are validated independently.
+declaredTopTxNetUTxODeposit :: TopTx.TopTxUTxODepositDeclaration -> Coin
+declaredTopTxNetUTxODeposit = \case
+  TopTx.NoUTxODepositDeclaration -> mempty
+  TopTx.DeclaresZeroNetUTxODeposit -> mempty
+  TopTx.DeclaresNetUTxODepositAllocation amount -> unStrictlyPositiveCoin amount
+  TopTx.DeclaresNetUTxODepositRelease amount _ -> mempty <-> unStrictlyPositiveCoin amount
+
+-- | The originating SubTx contribution, unchanged by delegation.
+declaredSubTxNetUTxODeposit :: SubTx.SubTxUTxODepositDeclaration -> Coin
+declaredSubTxNetUTxODeposit = \case
+  SubTx.NoUTxODepositDeclaration -> mempty
+  SubTx.DeclaresZeroNetUTxODeposit -> mempty
+  SubTx.DeclaresNetUTxODepositAllocation amount -> unStrictlyPositiveCoin amount
+  SubTx.RequestsUTxODepositFromTopTx amount -> unStrictlyPositiveCoin amount
+  SubTx.DeclaresNetUTxODepositRelease amount _ -> mempty <-> unStrictlyPositiveCoin amount
+
+-- | Delegation changes attribution, not the batch contribution or its amount.
+locallyAccountedSubTxNetUTxODeposit :: SubTx.SubTxUTxODepositDeclaration -> Coin
+locallyAccountedSubTxNetUTxODeposit = \case
+  SubTx.RequestsUTxODepositFromTopTx _ -> mempty
+  SubTx.DeclaresNetUTxODepositRelease _ SubTx.DelegateToTopTx -> mempty
+  declaration -> declaredSubTxNetUTxODeposit declaration
+
+-- | Validate the metadata of resolved inputs. Unknown inputs remain the
+-- existing BadInputs rule's responsibility. Zero records are possible under a
+-- zero byte price; negative records never describe a valid obligation.
+validateDepositStoreInputs ::
+  UTxO era -> DepositStore -> Set TxIn -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateDepositStoreInputs (UTxO outputs) store inputs =
+  traverse_ (validateInputAllocation store) $ Map.toList $ Map.restrictKeys outputs inputs
+
+validateInputAllocation ::
+  DepositStore -> (TxIn, TxOut era) -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateInputAllocation store (input, output) =
+  case (output, Map.lookup input $ depositStoreAllocations store) of
+    (StoreBackedTxOut _, Nothing) -> failureUnless False (MissingDepositAllocation input)
+    (ImplicitDepositTxOut _, Just _) -> failureUnless False (UnexpectedDepositAllocation input)
+    (_, Just amount) -> failureUnless (amount >= mempty) (NegativeDepositAllocation input amount)
+    (_, Nothing) -> pure ()
+
+validateDepositStoreSolvency ::
+  DepositStore -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateDepositStoreSolvency DepositStore {depositStoreBalance, depositStoreAllocations} =
+  failureUnless
+    (depositStoreBalance >= fold depositStoreAllocations)
+    (DepositStoreInsolvent depositStoreBalance $ fold depositStoreAllocations)
+
+-- | Validate the hypothetical ordinary transaction regardless of the eventual
+-- script outcome. Missing declarations are owned by presence rules; amount
+-- and settlement validation do not manufacture further failures for absence.
+validateOrdinaryDepositStore ::
+  (EraTx era, DijkstraEraTxBody era) =>
+  PParams era ->
+  UTxO era ->
+  DepositStore ->
+  TxBody TopTx era ->
+  Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateOrdinaryDepositStore pp originalUTxO store body =
+  validateDepositStoreInputs originalUTxO store (ordinaryBatchInputs body)
+    *> validateTopTxExactness pp store body
+    *> traverse_ (validateSubTxAccounting pp store . (^. bodyTxL)) (body ^. subTransactionsTxBodyL)
+    *> when
+      (all (hasKnownSubTxContribution pp store . (^. bodyTxL)) (body ^. subTransactionsTxBodyL))
+      (validateTopTxSettlement body)
+    *> validateDepositStoreSolvency (applyOrdinaryDepositStore pp store body)
+
+-- | An absent nonzero contribution is already a presence failure. Do not
+-- derive a misleading TopTx settlement share by treating that contribution as
+-- zero. A body without a net contribution does not change the derived share.
+hasKnownSubTxContribution ::
+  DijkstraEraTxBody era => PParams era -> DepositStore -> TxBody SubTx era -> Bool
+hasKnownSubTxContribution pp store body =
+  SubTx.hasUTxODepositDeclaration (body ^. subTxNetUTxODepositChangeTxBodyL)
+    || requiredNetUTxODeposit pp store body == mempty
+
+validateTopTxExactness ::
+  (EraTx era, DijkstraEraTxBody era) =>
+  PParams era ->
+  DepositStore ->
+  TxBody TopTx era ->
+  Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateTopTxExactness pp store body =
+  let declaration = body ^. netUTxODepositChangeTxBodyL
+      supplied = declaredTopTxNetUTxODeposit declaration
+      required = requiredTxTotalNetUTxODeposit pp store body
+   in when (TopTx.hasUTxODepositDeclaration declaration) $
+        failureUnless (supplied == required) (InexactTopTxDepositChange supplied required)
+
+validateSubTxAccounting ::
+  DijkstraEraTxBody era =>
+  PParams era ->
+  DepositStore ->
+  TxBody SubTx era ->
+  Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateSubTxAccounting pp store body =
+  let declaration = body ^. subTxNetUTxODepositChangeTxBodyL
+      supplied = declaredSubTxNetUTxODeposit declaration
+      required = requiredNetUTxODeposit pp store body
+   in when
+        (SubTx.hasUTxODepositDeclaration declaration)
+        (failureUnless (supplied == required) (InexactSubTxDepositChange (txIdTxBody body) supplied required))
+        *> case declaration of
+          SubTx.DeclaresNetUTxODepositRelease amount (SubTx.SubTxSettlementOutput index) ->
+            validateSettlementOutput body index (unStrictlyPositiveCoin amount)
+          _ -> pure ()
+
+validateTopTxSettlement ::
+  (EraTx era, DijkstraEraTxBody era) =>
+  TxBody TopTx era -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateTopTxSettlement body =
+  case body ^. netUTxODepositChangeTxBodyL of
+    TopTx.DeclaresNetUTxODepositRelease _ settlement ->
+      let attributedChange =
+            declaredTopTxNetUTxODeposit (body ^. netUTxODepositChangeTxBodyL)
+              <-> foldMap
+                (locallyAccountedSubTxNetUTxODeposit . (^. bodyTxL . subTxNetUTxODepositChangeTxBodyL))
+                (body ^. subTransactionsTxBodyL)
+          requiredRelease = max mempty (mempty <-> attributedChange)
+       in case settlement of
+            TopTx.NoTopTxSettlement -> failureUnless (requiredRelease == mempty) (MissingTopTxSettlement requiredRelease)
+            TopTx.TopTxSettlementOutput index ->
+              failureUnless (requiredRelease > mempty) (UnexpectedTopTxSettlement index)
+                *> validateSettlementOutput body index requiredRelease
+    _ -> pure ()
+
+validateSettlementOutput ::
+  EraTxBody era =>
+  TxBody l era -> TxIx -> Coin -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateSettlementOutput body index required =
+  case drop (txIxToInt index) (toList $ body ^. outputsTxBodyL) of
+    [] -> failureUnless False (InvalidSettlementOutput (txIdTxBody body) index)
+    output : _ ->
+      let supplied = output ^. coinTxOutL
+       in failureUnless
+            (supplied >= required)
+            (InsufficientSettlementOutput (txIdTxBody body) index supplied required)
+
+ordinaryBatchInputs :: (EraTx era, DijkstraEraTxBody era) => TxBody TopTx era -> Set TxIn
+ordinaryBatchInputs body =
+  (body ^. inputsTxBodyL) <> foldMap (^. bodyTxL . inputsTxBodyL) (body ^. subTransactionsTxBodyL)
+
+-- | Keep accepted serialized sizes when creating records. The output-reference
+-- enumeration is identical to the regular UTxO output enumeration.
+createdDepositAllocations ::
+  DijkstraEraTxBody era => PParams era -> TxBody l era -> Map TxIn Coin
+createdDepositAllocations pp body =
+  Map.fromList
+    [ (TxIn (txIdTxBody body) index, requiredUTxODeposit pp output)
+    | (index, output) <- zip [minBound .. maxBound] (toList $ body ^. sizedOutputsTxBodyL)
+    , StoreBackedTxOut _ <- [sizedValue output]
+    ]
+
+-- | Apply once for the complete ordinary transaction after successful
+-- validation. Do not call this independently for each SubTx: TopTx already
+-- declares the complete transfer. Unrelated records and any Store surplus
+-- remain unchanged.
+applyOrdinaryDepositStore ::
+  (EraTx era, DijkstraEraTxBody era) =>
+  PParams era -> DepositStore -> TxBody TopTx era -> DepositStore
+applyOrdinaryDepositStore pp store body =
+  let consumed = ordinaryBatchInputs body
+      created =
+        createdDepositAllocations pp body
+          <> foldMap (createdDepositAllocations pp . (^. bodyTxL)) (body ^. subTransactionsTxBodyL)
+   in applyDepositAllocations store consumed created
+
+applyDepositAllocations :: DepositStore -> Set TxIn -> Map TxIn Coin -> DepositStore
+applyDepositAllocations store consumed created =
+  DepositStore
+    { depositStoreBalance =
+        (depositStoreBalance store <> fold created) <-> releasedInputDeposits store consumed
+    , depositStoreAllocations =
+        Map.union created $ Map.withoutKeys (depositStoreAllocations store) consumed
+    }
+
+-- | Collateral funding distinguishes the coin-funded minimum fee from the
+-- complete fee credit. Released deposit surplus is credited to fees but cannot
+-- fund either the minimum fee or a larger signed return.
+data CollateralDepositSettlement = CollateralDepositSettlement
+  { collateralReleasedDeposits :: !Coin
+  , collateralReturnDeposit :: !Coin
+  , collateralAdditionalDeposit :: !Coin
+  , collateralReleasedSurplus :: !Coin
+  , collateralCoinFee :: !Coin
+  , collateralFee :: !Coin
+  , collateralStore :: !DepositStore
+  }
+  deriving (Eq, Show, Generic)
+
+instance NFData CollateralDepositSettlement
+
+collateralDepositSettlement ::
+  DijkstraEraTxBody era =>
+  PParams era -> UTxO era -> DepositStore -> TxBody TopTx era -> CollateralDepositSettlement
+collateralDepositSettlement pp (UTxO outputs) store body =
+  let consumed = body ^. collateralInputsTxBodyL
+      released = releasedInputDeposits store consumed
+      returnDeposit = foldMap (requiredUTxODeposit pp) (body ^. sizedCollateralReturnTxBodyL)
+      inputCoins = sumAllCoin $ Map.restrictKeys outputs consumed
+      returnCoins = foldMap (^. coinTxOutL) (body ^. collateralReturnTxBodyL)
+      additionalDeposit = max mempty (returnDeposit <-> released)
+      releasedSurplus = max mempty (released <-> returnDeposit)
+      coinFee = inputCoins <-> returnCoins <-> additionalDeposit
+      created = case body ^. sizedCollateralReturnTxBodyL of
+        SJust output
+          | StoreBackedTxOut _ <- sizedValue output ->
+              Map.singleton (mkCollateralTxIn body) returnDeposit
+        _ -> mempty
+   in CollateralDepositSettlement
+        { collateralReleasedDeposits = released
+        , collateralReturnDeposit = returnDeposit
+        , collateralAdditionalDeposit = additionalDeposit
+        , collateralReleasedSurplus = releasedSurplus
+        , collateralCoinFee = coinFee
+        , collateralFee = coinFee <> releasedSurplus
+        , collateralStore = applyDepositAllocations store consumed created
+        }

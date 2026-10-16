@@ -42,6 +42,7 @@ import Cardano.Crypto.DSIGN (
   BLS12381MinSigDSIGN,
   DSIGNAggregatable (PossessionProofDSIGN, createPossessionProofDSIGN),
   DSIGNAlgorithm (genKeyDSIGNWithContext),
+  deriveVerKeyDSIGN,
   seedSizeDSIGN,
  )
 import Cardano.Crypto.Hash.Class
@@ -75,7 +76,12 @@ import Cardano.Ledger.BaseTypes (
  )
 import qualified Cardano.Ledger.BaseTypes as BaseTypes
 import Cardano.Ledger.Binary (EncCBOR, Sized, mkSized)
-import Cardano.Ledger.Coin (Coin (..), CompactForm (..), DeltaCoin (..))
+import Cardano.Ledger.Block (BlockHeaderVersionInfo (..))
+import Cardano.Ledger.Coin (
+  Coin (..),
+  CompactForm (..),
+  DeltaCoin (..),
+ )
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..), Ptr (..), SlotNo32 (..), StakeReference (..))
 import Cardano.Ledger.Genesis (NoGenesis (..))
@@ -98,7 +104,13 @@ import Cardano.Ledger.Plutus.ExUnits (ExUnits (..), Prices (..))
 import Cardano.Ledger.Plutus.Language (Language (..), nonNativeLanguages)
 import Cardano.Ledger.Rewards (Reward (..), RewardType (..))
 import Cardano.Ledger.State
+import Cardano.Ledger.StrictlyPositiveCoin (
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
+ )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
+import Cardano.Slotting.Slot (SlotInterval (..))
 import Control.Monad (replicateM)
 import Control.Monad.Identity (Identity)
 import Control.Monad.Trans.Fail.String (errorFail)
@@ -108,6 +120,7 @@ import Data.GenValidity
 import Data.Int (Int64)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (mapMaybe)
 import Data.Ratio ((%))
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -145,6 +158,11 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.BaseTypes --------------------------------------------------------------
 ------------------------------------------------------------------------------------------
+
+-- State serialization generators need not satisfy transition invariants.
+instance Arbitrary DepositStore where
+  arbitrary = DepositStore <$> arbitrary <*> arbitrary
+  shrink = genericShrink
 
 instance Arbitrary ActiveSlotCoeff where
   arbitrary = mkActiveSlotCoeff <$> arbitrary
@@ -189,6 +207,9 @@ instance Arbitrary Port where
 
 instance Arbitrary Milliseconds32 where
   arbitrary = Milliseconds32 <$> arbitrary
+
+instance Arbitrary SlotInterval where
+  arbitrary = SlotInterval <$> arbitrary
 
 -- JSON instances can't roundtrip, unless these are decimal.
 
@@ -277,6 +298,9 @@ instance Arbitrary CertIx where
 
 instance Arbitrary ProtVer where
   arbitrary = ProtVer <$> arbitrary <*> arbitrary
+
+instance Arbitrary BlockHeaderVersionInfo where
+  arbitrary = BlockHeaderVersionInfo <$> arbitrary <*> arbitrary
 
 -- | Generate a 'ProtVer' whose major version falls within the era's accepted range.
 genEraProtVer :: forall era. Era era => Gen ProtVer
@@ -386,6 +410,10 @@ instance Arbitrary Coin where
   -- Cannot be negative even though it is an 'Integer'
   arbitrary = Coin <$> oneof [choose (0, 1000000), getNonNegative <$> arbitrary]
   shrink (Coin i) = Coin <$> shrink i
+
+instance Arbitrary StrictlyPositiveCoin where
+  arbitrary = suchThatMap (Coin . toInteger <$> arbitrary @Word64) mkStrictlyPositiveCoin
+  shrink = mapMaybe mkStrictlyPositiveCoin . shrink . unStrictlyPositiveCoin
 
 instance Arbitrary DeltaCoin where
   arbitrary = DeltaCoin <$> choose (-1000000, 1000000)
@@ -498,7 +526,12 @@ instance Arbitrary PoolMetadata where
   arbitrary = PoolMetadata <$> arbitrary <*> arbitrary
 
 instance Arbitrary BlsKey where
-  arbitrary = BlsKey <$> arbitrary <*> arbitrary
+  arbitrary = do
+    signingKey <- arbitrary
+    pure $
+      BlsKey
+        (deriveVerKeyDSIGN signingKey)
+        (createPossessionProofDSIGN signingKey)
 
 instance Arbitrary BlsKeyState where
   arbitrary = BlsKeyState <$> arbitrary <*> arbitrary
@@ -788,15 +821,12 @@ resetStakePoolSnapShotFromPoolParams stakePools ss@SnapShot {..} =
         (unActiveStake ssActiveStake)
 
 instance Arbitrary MarkSnapShot where
-  arbitrary = MarkSnapShot <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = mkMarkSnapShot <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 -- | Builds a consistent set snapshot: its pool distribution and committee are
 -- seated from the mark it rotates, never generated independently.
 instance Arbitrary SetSnapShot where
-  arbitrary = do
-    mark <- arbitrary
-    maxKeyAge <- arbitrary
-    pure $ mkSetSnapShot mark maxKeyAge
+  arbitrary = mkSetSnapShot <$> arbitrary
 
 instance Arbitrary GoSnapShot where
   arbitrary = mkGoSnapShot <$> arbitrary
@@ -807,7 +837,6 @@ instance Arbitrary (SnapShots era) where
     ssStakeSet <- arbitrary
     ssStakeGo <- arbitrary
     ssFee <- arbitrary
-    let ssStakeMarkPoolDistr = calculatePoolDistr (msSnapShot ssStakeMark)
     pure $ SnapShots {..}
 
 -- | In the system, Stake never contains more than the sum of all Ada (which is constant).

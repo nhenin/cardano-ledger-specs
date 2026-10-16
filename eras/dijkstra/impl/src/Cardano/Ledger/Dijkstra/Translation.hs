@@ -45,6 +45,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsUTxOStateL,
  )
 import Data.Coerce (coerce)
+import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((&), (.~), (^.))
 
@@ -76,7 +77,6 @@ instance TranslateEra DijkstraEra NewEpochState where
         , nesBcur = nesBcur nes
         , nesEs = translateEra' ctxt $ nesEs nes
         , nesRu = nesRu nes
-        , nesPd = nesPd nes
         , stashedAVVMAddresses = ()
         }
 
@@ -221,6 +221,7 @@ instance TranslateEra DijkstraEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = coerce $ utxosInstantStake us
         , utxosDonation = utxosDonation us
+        , utxosDepositStore = def
         }
 
 instance TranslateEra DijkstraEra UTxO where

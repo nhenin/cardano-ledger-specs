@@ -63,11 +63,11 @@ header_body =
   , vrf_vkey                       : vrf_vkey
   , vrf_result                     : vrf_cert
   , block_body_size                : uint .size 4
-  , block_body_hash                : hash32                ; merkle triple root
+  , block_body_hash                : hash32                           ; merkle triple root
   , operational_cert
-  , protocol_version
+  , header_version_info
   , block_body_contains_leios_cert : bool
-  , eb_announcement                : eb_announcement/ nil
+  , eb_references_announcement     : eb_references_announcement/ nil
   ]
 
 block_number = uint .size 8
@@ -97,13 +97,14 @@ kes_period = uint .size 8
 
 signature = bytes .size 64
 
-protocol_version = [major_protocol_version, uint .size 4]
+header_version_info =
+  [ highest_supported_major_version : uint .size 4
+  , self_reported_software_tag : uint .size 4
+  ]
 
-major_protocol_version = 0 .. 13
-
-eb_announcement =
+eb_references_announcement =
   [ eb_hash : hash32
-  , eb_size : uint .size 4 ; size of the EB block closure
+  , eb_size : uint .size 4 ; size of the EB references
   ]
 
 block_body =
@@ -138,6 +139,7 @@ transaction_body =
   , ? 25 : direct_deposits                    ; direct deposits
   , ? 26 : account_balance_intervals          ; account balance intervals
   , ? 27 : starting_account_balance_intervals ; starting account balance intervals
+  , ? 28 : net_utxo_deposit_change
   }
 
 set<a0> = #6.258([* a0])/ [* a0]
@@ -146,9 +148,12 @@ transaction_input = [transaction_id : transaction_id, index : uint .size 2]
 
 transaction_id = hash32
 
-; Both of the Alonzo and Babbage style TxOut formats are equally valid
-; and can be used interchangeably
-transaction_output = alonzo_transaction_output/ babbage_transaction_output
+; Implicit-deposit outputs retain the Alonzo and Babbage formats.
+; Store-backed outputs use key 4 for application assets instead of key 1.
+transaction_output =
+  alonzo_transaction_output
+  / babbage_transaction_output
+  / store_backed_transaction_output
 
 alonzo_transaction_output = [address, amount : value, ? datum_hash : hash32]
 
@@ -450,6 +455,11 @@ plutus_v3_script = bytes
 ; Dijkstra introduces Plutus V4.
 plutus_v4_script = bytes
 
+store_backed_transaction_output =
+  {0 : address, 4 : application_assets, ? 2 : datum_option, ? 3 : script_ref}
+
+application_assets = value
+
 certificates = nonempty_oset<certificate>
 
 nonempty_oset<a0> = #6.258([+ a0])/ [+ a0]
@@ -679,51 +689,59 @@ parameter_change_action =
   (0, gov_action_id/ nil, protocol_param_update, guardrails_script_hash/ nil)
 
 protocol_param_update =
-  { ? 0  : coin                   ; minfeeA
-  , ? 1  : coin                   ; minfeeB
-  , ? 2  : uint .size 4           ; max block body size
-  , ? 3  : uint .size 4           ; max transaction size
-  , ? 4  : uint .size 2           ; max block header size
-  , ? 5  : coin                   ; key deposit
-  , ? 6  : coin                   ; pool deposit
-  , ? 7  : epoch_interval         ; maximum epoch
-  , ? 8  : uint .size 2           ; n_opt: desired number of stake pools
-  , ? 9  : nonnegative_interval   ; pool pledge influence
-  , ? 10 : unit_interval          ; expansion rate
-  , ? 11 : unit_interval          ; treasury growth rate
-  , ? 16 : coin                   ; min pool cost
-  , ? 17 : coin                   ; ada per utxo byte
-  , ? 18 : cost_models            ; cost models for script languages
-  , ? 19 : ex_unit_prices         ; execution costs
-  , ? 20 : ex_units               ; max tx ex units
-  , ? 21 : ex_units               ; max block ex units
-  , ? 22 : uint .size 4           ; max value size
-  , ? 23 : uint .size 2           ; collateral percentage
-  , ? 24 : uint .size 2           ; max collateral inputs
-  , ? 25 : pool_voting_thresholds ; pool voting thresholds
-  , ? 26 : drep_voting_thresholds ; drep voting thresholds
-  , ? 27 : uint .size 2           ; min committee size
-  , ? 28 : epoch_interval         ; committee term limit
-  , ? 29 : epoch_interval         ; goveranance action validity period
-  , ? 30 : coin                   ; governance action deposit
-  , ? 31 : coin                   ; drep deposit
-  , ? 32 : epoch_interval         ; drep inactivity period
-  , ? 33 : nonnegative_interval   ; minfee refScript coins per byte
-  , ? 34 : uint .size 4           ; max refScript size per block
-  , ? 35 : uint .size 4           ; max refScript size per tx
-  , ? 36 : positive_word32        ; refScript cost stride
-  , ? 37 : positive_interval      ; refScript cost multiplier
-  , ? 38 : max_pledge_leverage    ; max pledge leverage
-  , ? 39 : unit_interval          ; min pool margin
-  , ? 40 : uint .size 4           ; leios announcement period length in ms
-  , ? 41 : uint .size 4           ; leios vote period length in ms
-  , ? 42 : uint .size 4           ; leios diffusion period length in ms
-  , ? 43 : uint .size 2           ; leios committee size
-  , ? 44 : unit_interval          ; leios quorum stake threshold
-  , ? 45 : uint .size 4           ; max endorser block references size
-  , ? 46 : uint .size 4           ; max endorser block txs size
-  , ? 47 : ex_units               ; max endorser block ex units
-  , ? 48 : uint .size 4           ; max ref script size per endorser block
+  { ? 0  : coin                        ; minfeeA
+  , ? 1  : coin                        ; minfeeB
+  , ? 2  : uint .size 4                ; max block body size
+  , ? 3  : uint .size 4                ; max transaction size
+  , ? 4  : uint .size 2                ; max block header size
+  , ? 5  : coin                        ; key deposit
+  , ? 6  : coin                        ; pool deposit
+  , ? 7  : epoch_interval              ; maximum epoch
+  , ? 8  : uint .size 2                ; n_opt: desired number of stake pools
+  , ? 9  : nonnegative_interval        ; pool pledge influence
+  , ? 10 : unit_interval               ; expansion rate
+  , ? 11 : unit_interval               ; treasury growth rate
+  , ? 16 : coin                        ; min pool cost
+  , ? 17 : coin                        ; ada per utxo byte
+  , ? 18 : cost_models                 ; cost models for script languages
+  , ? 19 : ex_unit_prices              ; execution costs
+  , ? 20 : ex_units                    ; max tx ex units
+  , ? 21 : ex_units                    ; max block ex units
+  , ? 22 : uint .size 4                ; max value size
+  , ? 23 : uint .size 2                ; collateral percentage
+  , ? 24 : uint .size 2                ; max collateral inputs
+  , ? 25 : pool_voting_thresholds      ; pool voting thresholds
+  , ? 26 : drep_voting_thresholds      ; drep voting thresholds
+  , ? 27 : uint .size 2                ; min committee size
+  , ? 28 : epoch_interval              ; committee term limit
+  , ? 29 : epoch_interval              ; goveranance action validity period
+  , ? 30 : coin                        ; governance action deposit
+  , ? 31 : coin                        ; drep deposit
+  , ? 32 : epoch_interval              ; drep inactivity period
+  , ? 33 : nonnegative_interval        ; minfee refScript coins per byte
+  , ? 34 : uint .size 4                ; max refScript size per block
+  , ? 35 : uint .size 4                ; max refScript size per tx
+  , ? 36 : positive_word32             ; refScript cost stride
+  , ? 37 : positive_interval           ; refScript cost multiplier
+  , ? 38 : max_pledge_leverage         ; max pledge leverage
+  , ? 39 : unit_interval               ; min pool margin
+  , ? 40 : uint .size 4                ; leios announcement period length in ms
+  , ? 41 : uint .size 4                ; leios vote period length in ms
+  , ? 42 : uint .size 4                ; leios diffusion period length in ms
+  , ? 43 : uint .size 2                ; leios committee size
+  , ? 44 : unit_interval               ; leios quorum stake threshold
+  , ? 45 : uint .size 4                ; max endorser block references size
+  , ? 46 : uint .size 4                ; max endorser block txs size
+  , ? 47 : ex_units                    ; max endorser block ex units
+  , ? 48 : uint .size 4                ; max ref script size per endorser block
+  , ? 49 : slot_interval               ; peras minimum candidate block age in slots
+  , ? 50 : positive_interval           ; peras healing factor
+  , ? 51 : uint .size 2                ; peras certificate boost
+  , ? 52 : uint .size 2                ; peras target committee size
+  , ? 53 : nil/ uint .size 4 ; peras bootstrap round
+  , ? 54 : unit_interval               ; peras quorum threshold safety margin
+  , ? 55 : coin                        ; minfee per multi-asset policy id in reference inputs
+  , ? 56 : coin                        ; minfee per datum byte in reference inputs
   }
 
 epoch_interval = uint .size 4
@@ -783,9 +801,15 @@ positive_interval = #6.30([positive_int, positive_int])
 
 max_pledge_leverage = nonnegative_interval/ nil
 
+slot_interval = uint .size 4
+
 guardrails_script_hash = script_hash
 
 hard_fork_initiation_action = (1, gov_action_id/ nil, protocol_version)
+
+protocol_version = [major_protocol_version, uint .size 4]
+
+major_protocol_version = 0 .. 13
 
 treasury_withdrawals_action =
   (2, {* reward_account => coin}, guardrails_script_hash/ nil)
@@ -831,6 +855,7 @@ sub_transaction_body =
   , ? 24 : required_top_level_guards
   , ? 25 : direct_deposits
   , ? 26 : account_balance_intervals
+  , ? 28 : sub_tx_net_utxo_deposit_change
   }
 
 required_top_level_guards = {+ credential => plutus_data/ nil}
@@ -844,6 +869,34 @@ account_balance_interval =
   / [inclusive_lower_bound : coin/ nil, exclusive_upper_bound : coin]
   / coin
 
+; A sub-transaction declares its own net UTxO capacity deposit allocation, release, or no net change.
+; An absent operation does not delegate accounting to the top-level transaction.
+sub_tx_net_utxo_deposit_change =
+  sub_tx_allocate_utxo_deposit
+  / sub_tx_request_utxo_deposit_from_top_tx
+  / sub_tx_release_utxo_deposit
+  / sub_tx_no_utxo_deposit_change
+
+sub_tx_allocate_utxo_deposit = [0, amount : positive_coin]
+
+;An explicit request for the top-level transaction to fund this UTxO capacity deposit allocation.
+sub_tx_request_utxo_deposit_from_top_tx = [2, amount : positive_coin]
+
+sub_tx_release_utxo_deposit =
+  [1, amount : positive_coin, target : sub_tx_release_target]
+
+sub_tx_release_target = sub_tx_settlement_output/ delegate_to_top_tx
+
+; The output index is zero-based and refers to this sub-transaction's outputs.
+; The released amount is already included in the settlement output's value.
+sub_tx_settlement_output = [0, output_index : uint .size 2]
+
+;An explicit request for the top-level transaction to account for this UTxO capacity deposit release.
+delegate_to_top_tx = [1]
+
+;An explicit absence of net UTxO capacity deposit change, with no delegation request.
+sub_tx_no_utxo_deposit_change = [3]
+
 transaction_witness_set =
   { ? 0 : nonempty_set<vkeywitness>
   , ? 1 : nonempty_set<native_script>
@@ -853,6 +906,7 @@ transaction_witness_set =
   , ? 5 : redeemers
   , ? 6 : nonempty_set<plutus_v2_script>
   , ? 7 : nonempty_set<plutus_v3_script>
+  , ? 8 : nonempty_set<plutus_v4_script>
   }
 
 vkeywitness = [vkey, signature]
@@ -917,6 +971,29 @@ auxiliary_data_map =
 
 starting_account_balance_intervals =
   {+ reward_account => account_balance_interval}
+
+;A top-level transaction declares a net UTxO capacity deposit allocation, release, or no net change.
+net_utxo_deposit_change =
+  allocate_utxo_deposit/ release_utxo_deposit/ no_utxo_deposit_change
+
+allocate_utxo_deposit = [0, amount : positive_coin]
+
+; The amount is the net UTxO capacity deposit release for the entire transaction batch.
+; Settlement may occur in both top-level and sub-transaction outputs.
+release_utxo_deposit =
+  [1, amount : positive_coin, settlement : top_tx_release_settlement]
+
+top_tx_release_settlement = no_top_tx_settlement/ top_tx_settlement_output
+
+;No share of the release is settled in a top-level output.
+no_top_tx_settlement = [0]
+
+; The output index is zero-based and refers to the top-level body's outputs.
+; Its value already includes the top-level share of the release,
+; which need not equal the entire batch's net release amount.
+top_tx_settlement_output = [1, output_index : uint .size 2]
+
+no_utxo_deposit_change = [2]
 
 leios_certificate =
   [ signers   : bytes .size (0 .. 8192) ;bitfield with up to 65536 entries

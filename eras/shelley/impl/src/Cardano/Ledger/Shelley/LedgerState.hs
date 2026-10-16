@@ -50,7 +50,7 @@ module Cardano.Ledger.Shelley.LedgerState (
   startStep,
   pulseStep,
   completeStep,
-  NewEpochState (NewEpochState, nesEL, nesEs, nesRu, nesPd, nesBprev, nesBcur),
+  NewEpochState (NewEpochState, nesEL, nesEs, nesRu, nesBprev, nesBcur),
   StashedAVVMAddresses,
   stashedAVVMAddresses,
   getGKeys,
@@ -69,7 +69,6 @@ module Cardano.Ledger.Shelley.LedgerState (
   ShelleyGovState (..),
 
   -- * Lenses from Types
-  nesPdL,
   nesEsL,
   nesELL,
   nesBprevL,
@@ -89,11 +88,13 @@ module Cardano.Ledger.Shelley.LedgerState (
   utxosFeesL,
   utxosGovStateL,
   utxosDonationL,
+  utxosDepositStoreL,
   epochStateGovStateL,
   epochStateStakeDistrL,
   epochStateStakePoolsL,
   epochStateDonationL,
   newEpochStateGovStateL,
+  nesStakePoolDistrG,
 
   -- * Lenses from CertState
   dsGenDelegsL,
@@ -106,7 +107,6 @@ module Cardano.Ledger.Shelley.LedgerState (
 
   -- * Lenses from SnapShot(s)
   ssStakeMarkL,
-  ssStakeMarkPoolDistrL,
   ssStakeSetL,
   ssStakeGoL,
   ssFeeL,

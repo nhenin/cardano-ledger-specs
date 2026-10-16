@@ -12,6 +12,7 @@ module Test.Cardano.Ledger.Dijkstra.TxInfoSpec (spec) where
 import Cardano.Ledger.Alonzo.Plutus.Context (
   EraPlutusContext (..),
   EraPlutusTxInfo (..),
+  LedgerLevelTxInfo (..),
   PlutusTxInfoResult (..),
   SupportedLanguage (..),
   toPlutusTxInfoForPurpose,
@@ -45,6 +46,7 @@ import Cardano.Ledger.Plutus (
   transCred,
   transSafeHash,
   transScriptHash,
+  transTxIx,
  )
 import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
@@ -84,26 +86,35 @@ spec = describe "TxInfo" $ do
             ss = systemStart testGlobals
          in mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss utxo tx
   describe "PlutusV4" $ do
+    prop "Threads the sub-transaction index into txInfoSubTxIx" $ \(txIx :: TxIx) -> do
+      let
+        tx = mkBasicTx @era @SubTx mkBasicTxBody
+        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerSubTxInfo txIx
+      case unPlutusTxInfoResult (toPlutusTxInfo SPlutusV4 ledgerTxInfo) of
+        Right txInfo ->
+          PV4.txInfoSubTxIx txInfo `shouldBe` Just (transTxIx txIx)
+        Left failure ->
+          expectationFailure $ "Failed to translate sub-transaction TxInfo: " <> show failure
     prop "Fails translation when Ptr present in outputs" $ do
       paymentCred <- arbitrary
       ptr <- arbitrary
       val <- arbitrary
       let
-        txOut = mkBasicTxOut (Addr Testnet paymentCred (StakeRefPtr ptr)) val
+        txOut = mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred (StakeRefPtr ptr)) val
       txIn <- arbitrary
       paymentCred2 <- arbitrary
       stakeRef <- oneof [StakeRefBase <$> arbitrary, pure StakeRefNull]
       let
         utxo =
           UTxO
-            [ (txIn, mkBasicTxOut (Addr Testnet paymentCred2 stakeRef) val)
+            [ (txIn, mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef) val)
             ]
         tx =
           mkBasicTx @era @TopTx $
             mkBasicTxBody
               & outputsTxBodyL .~ [txOut]
               & inputsTxBodyL .~ [txIn]
-        ledgerTxInfo = mkLocalLedgerTxInfo utxo tx
+        ledgerTxInfo = mkLocalLedgerTxInfo utxo tx $ LedgerTopTxInfo mempty
       pure $
         toPlutusTxInfoForPurpose SPlutusV4 ledgerTxInfo (SpendingPurpose AsPurpose)
           `shouldBeLeft` inject (PointerPresentInOutput @era (TxOutFromOutput $ TxIx 0))
@@ -116,12 +127,12 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOut (AddrBootstrap ba0) val0
-          , mkBasicTxOut (Addr Testnet paymentCred StakeRefNull) val1
-          , mkBasicTxOut (AddrBootstrap ba2) val2
+          [ mkBasicTxOutWithImplicitDeposit (AddrBootstrap ba0) val0
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred StakeRefNull) val1
+          , mkBasicTxOutWithImplicitDeposit (AddrBootstrap ba2) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
-        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
+        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
       pure $
         toPlutusTxInfoForPurpose SPlutusV4 ledgerTxInfo (SpendingPurpose AsPurpose)
           `shouldBeLeft` inject (ByronTxOutInContext @era (TxOutFromOutput $ TxIx 0))
@@ -136,12 +147,12 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOut (Addr Testnet pc0 (StakeRefPtr ptr0)) val0
-          , mkBasicTxOut (AddrBootstrap bootstrapAddr) val1
-          , mkBasicTxOut (Addr Testnet pc2 (StakeRefPtr ptr2)) val2
+          [ mkBasicTxOutWithImplicitDeposit (Addr Testnet pc0 (StakeRefPtr ptr0)) val0
+          , mkBasicTxOutWithImplicitDeposit (AddrBootstrap bootstrapAddr) val1
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet pc2 (StakeRefPtr ptr2)) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
-        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
+        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
       pure $
         toPlutusTxInfoForPurpose SPlutusV4 ledgerTxInfo (SpendingPurpose AsPurpose)
           `shouldBeLeft` inject (PointerPresentInOutput @era (TxOutFromOutput $ TxIx 0))
@@ -154,12 +165,12 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOut (Addr Testnet pc0 StakeRefNull) val0
-          , mkBasicTxOut (Addr Testnet pc1 StakeRefNull) val1
-          , mkBasicTxOut (Addr Testnet pc2 StakeRefNull) val2
+          [ mkBasicTxOutWithImplicitDeposit (Addr Testnet pc0 StakeRefNull) val0
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet pc1 StakeRefNull) val1
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet pc2 StakeRefNull) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
-        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
+        ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
       pure $
         case toPlutusTxInfoForPurpose SPlutusV4 ledgerTxInfo (SpendingPurpose AsPurpose) of
           Right txInfo ->
@@ -182,12 +193,12 @@ spec = describe "TxInfo" $ do
           proxy = Proxy @PlutusV4
           scriptHash = hashPlutusScript plutusScript
           paymentCred2 = ScriptHashObj scriptHash
-          txOut = mkBasicTxOut (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
+          txOut = mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
           utxo =
             UTxO
               [
                 ( txIn
-                , mkBasicTxOut (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)
+                , mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)
                 )
               ]
           tx =
@@ -199,7 +210,7 @@ spec = describe "TxInfo" $ do
               & witsTxL . rdmrsTxWitsL . unRedeemersL
                 .~ Map.singleton (SpendingPurpose $ AsIx 0) (redeemer, exUnits)
               & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash (fromPlutusScript script)
-          lti = mkLocalLedgerTxInfo utxo tx
+          lti = mkLocalLedgerTxInfo utxo tx $ LedgerTopTxInfo mempty
           purpose = SpendingPurpose @era $ AsIxItem 0 txIn
           TxIn (TxId txIdHash) (TxIx txIx) = txIn
           TxId txBodyHash = txIdTx tx
@@ -266,10 +277,8 @@ spec = describe "TxInfo" $ do
       it "UnsupportedScriptInSubTx" $ do
         let
           tx = mkBasicTx @era @SubTx mkBasicTxBody
-          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
-          txInfoResult =
-            ($ SpendingPurpose AsPurpose)
-              <$> unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
+          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerSubTxInfo (TxIx 0)
+          txInfoResult = unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
         txInfoResult
           `shouldBeLeft` inject (UnsupportedScriptInSubTx @era (plutusLanguage slang) (txIdTx tx))
       prop "DirectDepositsNotSupported" $ do
@@ -280,10 +289,8 @@ spec = describe "TxInfo" $ do
           tx =
             mkBasicTx @era @TopTx $
               mkBasicTxBody & directDepositsTxBodyL .~ dd
-          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
-          txInfoResult =
-            ($ SpendingPurpose AsPurpose)
-              <$> unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
+          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
+          txInfoResult = unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
         pure $
           txInfoResult `shouldBeLeft` inject (DirectDepositsNotSupported @era dd)
       prop "AccountBalanceIntervalsNotSupported" $ \neAccountBalanceIntervals ->
@@ -292,10 +299,8 @@ spec = describe "TxInfo" $ do
           tx =
             mkBasicTx @era @TopTx $
               mkBasicTxBody & accountBalanceIntervalsTxBodyL .~ abi
-          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
-          txInfoResult =
-            ($ SpendingPurpose AsPurpose)
-              <$> unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
+          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
+          txInfoResult = unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
          in
           txInfoResult `shouldBeLeft` inject (AccountBalanceIntervalsNotSupported @era abi)
       prop "GuardScriptHashesNotSupported" $ \(scriptHash :: ScriptHash) ->
@@ -305,10 +310,8 @@ spec = describe "TxInfo" $ do
           tx =
             mkBasicTx @era @TopTx $
               mkBasicTxBody & guardsTxBodyL .~ guards
-          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
-          txInfoResult =
-            ($ SpendingPurpose AsPurpose)
-              <$> unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
+          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
+          txInfoResult = unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
          in
           txInfoResult `shouldBeLeft` inject (GuardScriptHashesNotSupported @era neScriptHashes)
       prop "RequiredTopLevelGuardsNotSupported" $ \neRequiredTopLevelGuards ->
@@ -316,10 +319,8 @@ spec = describe "TxInfo" $ do
           tx =
             mkBasicTx @era @TopTx $
               mkBasicTxBody & requiredTopLevelGuardsL .~ NEM.toMap neRequiredTopLevelGuards
-          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx
-          txInfoResult =
-            ($ SpendingPurpose AsPurpose)
-              <$> unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
+          ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
+          txInfoResult = unPlutusTxInfoResult (toPlutusTxInfo slang ledgerTxInfo)
          in
           txInfoResult
             `shouldBeLeft` inject (RequiredTopLevelGuardsNotSupported @era neRequiredTopLevelGuards)

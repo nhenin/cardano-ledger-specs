@@ -56,7 +56,7 @@ testScriptPostTranslation =
             S.UTxO $
               Map.singleton
                 (S.TxIn bootstrapTxId minBound)
-                (mkCoinTxOut addr (S.Coin 1))
+                (ImplicitDepositTxOut $ mkCoinTxOut addr (S.Coin 1))
           env =
             S.LedgerEnv
               (SlotNo 0)

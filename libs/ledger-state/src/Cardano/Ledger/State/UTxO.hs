@@ -132,7 +132,7 @@ txIxNestedInsert !im (TxIn !txId !txIx, !v) =
    in IntMap.alter f (txIxToInt txIx) im
 
 totalADA :: Map.Map TxIn (TxOut CurrentEra) -> MaryValue
-totalADA = foldMap (^. valueTxOutL)
+totalADA = unAssets . sumAllAssets
 
 readBinUTxO ::
   FilePath ->
@@ -361,7 +361,7 @@ instance Pretty NewEpochStateStats where
       ]
 
 countNewEpochStateStats :: NewEpochState CurrentEra -> NewEpochStateStats
-countNewEpochStateStats NewEpochState {..} =
+countNewEpochStateStats nes@NewEpochState {..} =
   let ness =
         NewEpochStateStats
           { nessPrevBlocksMade = statMapKeys (unBlocksMade nesBprev)
@@ -369,7 +369,7 @@ countNewEpochStateStats NewEpochState {..} =
           , nessBlocksMade = mempty
           , nessEpochStateStats = countEpochStateStats nesEs
           , nessRewardUpdate = RewardUpdateStats
-          , nessPoolDistrStats = calcPoolDistrStats nesPd
+          , nessPoolDistrStats = calcPoolDistrStats (nes ^. nesStakePoolDistrG)
           , nessAggregateStats = mempty
           }
    in ness
@@ -615,9 +615,9 @@ countTxOutStats :: [TxOut CurrentEra] -> TxOutStats
 countTxOutStats = foldMap countTxOutStat
   where
     countTxOutStat :: TxOut CurrentEra -> TxOutStats
-    countTxOutStat txOut =
+    countTxOutStat txOut@(ImplicitDepositTxOut output) =
       let addr = txOut ^. addrTxOutL
-          MaryValue (Coin v) (MultiAsset m) = txOut ^. valueTxOutL
+          MaryValue (Coin v) (MultiAsset m) = output ^. valueTxOutL
           !dataStat =
             strictMaybe
               mempty

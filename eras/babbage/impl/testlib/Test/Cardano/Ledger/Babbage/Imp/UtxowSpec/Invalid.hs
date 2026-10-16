@@ -46,7 +46,7 @@ spec = describe "Invalid" $ do
   it "Inline datum with Plutus V1" $ do
     let scriptHash = withSLanguage PlutusV1 $ hashPlutusScript . alwaysSucceedsWithDatum
         txOut =
-          mkBasicTxOut (mkAddr scriptHash StakeRefNull) mempty
+          mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
             & datumTxOutL .~ mkInlineDatum (PV1.I 0)
         tx = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
     txIn <- txInAt 0 <$> submitTx tx
@@ -85,7 +85,7 @@ spec = describe "Invalid" $ do
           let tx =
                 mkBasicTx mkBasicTxBody
                   & bodyTxL . outputsTxBodyL
-                    .~ [ mkBasicTxOut addr mempty & referenceScriptTxOutL .~ SJust script
+                    .~ [ mkBasicTxOutWithImplicitDeposit addr mempty & referenceScriptTxOutL .~ SJust script
                        ]
           submitFailingTx
             tx
@@ -114,7 +114,7 @@ spec = describe "Invalid" $ do
         it "Inline datum with a failing script" $ do
           let scriptHash = hashPlutusScript $ evenDatum lang
               txOut =
-                mkBasicTxOut (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.I 1)
               tx = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
           txIn <- txInAt 0 <$> submitTx tx
@@ -127,7 +127,7 @@ spec = describe "Invalid" $ do
               datum = Data @era $ PV1.B "abcde"
               datumHash = hashData datum
               txOut =
-                mkBasicTxOut (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ DatumHash datumHash
               tx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [txOut]
           ProtVer pv _ <- getProtVer
@@ -137,7 +137,7 @@ spec = describe "Invalid" $ do
               then freshKeyAddr_
               else freshKeyAddrNoPtr_
           coll <- sendCoinTo addr $ Coin 5_000_000
-          let collReturn = mkBasicTxOut addr . inject $ Coin 2_000_000
+          let collReturn = mkBasicTxOutWithImplicitDeposit addr . inject $ Coin 2_000_000
           submitPhase2Invalid_ $
             mkBasicTx mkBasicTxBody
               & bodyTxL . inputsTxBodyL .~ [txIn]
@@ -148,15 +148,18 @@ spec = describe "Invalid" $ do
         -- Spend a UTxO that has an inline datum, using a reference script,
         -- and also redundantly supply the script witness.
         it "Inline datum and ref script and redundant script witness" $ do
-          addr <- freshKeyAddr_
+          addr <-
+            if slang >= PlutusV4
+              then freshKeyAddrNoPtr_
+              else freshKeyAddr_
           plutus <- mkPlutusScript $ alwaysSucceedsWithDatum lang
           let script = fromPlutusScript plutus
               scriptHash = hashScript script
               txOutDatum =
-                mkBasicTxOut (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.B "abcde")
               txOutScript =
-                mkBasicTxOut addr mempty
+                mkBasicTxOutWithImplicitDeposit addr mempty
                   & referenceScriptTxOutL .~ SJust script
           tx <-
             submitTx $
@@ -178,7 +181,7 @@ spec = describe "Invalid" $ do
         it "Inline datum with redundant datum witness" $ do
           let scriptHash = hashPlutusScript $ alwaysSucceedsWithDatum lang
               txOut =
-                mkBasicTxOut (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.B "abcde")
               tx = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
           txIn <- txInAt 0 <$> submitTx tx
@@ -196,16 +199,19 @@ spec = describe "Invalid" $ do
         -- include a reference input that contains an inline datum and have it count
         -- for the datum witness where ever it is needed.
         it "No such thing as a reference datum" $ do
-          addr <- freshKeyAddr_
+          addr <-
+            if slang >= PlutusV4
+              then freshKeyAddrNoPtr_
+              else freshKeyAddr_
 
           let scriptHash = hashPlutusScript $ alwaysFailsWithDatum lang
               datum = PV1.B "abcde"
               datumHash = hashData $ Data @era datum
               txOutInline =
-                mkBasicTxOut addr mempty
+                mkBasicTxOutWithImplicitDeposit addr mempty
                   & datumTxOutL .~ mkInlineDatum datum
               txOutHash =
-                mkBasicTxOut (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ DatumHash datumHash
 
           tx <-

@@ -41,6 +41,7 @@ data AdaPots = AdaPots
   , rewardsAdaPot :: Coin
   , utxoAdaPot :: Coin
   , feesAdaPot :: Coin
+  , depositStoreAdaPot :: Coin
   , obligationsPot :: Obligations
   }
   deriving (Show, Eq, Generic)
@@ -62,10 +63,11 @@ totalAdaPotsES (EpochState (ChainAccountState {casTreasury, casReserves}) ls _ _
     , rewardsAdaPot = rewards_
     , utxoAdaPot = coins
     , feesAdaPot = fees_
+    , depositStoreAdaPot = depositStoreBalance store
     , obligationsPot = obligationCertState certState <> govStateObligations
     }
   where
-    UTxOState u _ fees_ _ _ _ = lsUTxOState ls
+    UTxOState u _ fees_ _ _ _ store = lsUTxOState ls
     certState = ls ^. lsCertStateL
     rewards_ = sumBalancesAccounts (certState ^. certDStateL . accountsL)
     coins = sumCoinUTxO u
@@ -79,6 +81,7 @@ sumAdaPots
     , rewardsAdaPot
     , utxoAdaPot
     , feesAdaPot
+    , depositStoreAdaPot
     , obligationsPot
     } =
     treasuryAdaPot
@@ -86,6 +89,7 @@ sumAdaPots
       <> rewardsAdaPot
       <> utxoAdaPot
       <> feesAdaPot
+      <> depositStoreAdaPot
       <> sumObligation obligationsPot
 
 -- | Calculate the total ada in the epoch state

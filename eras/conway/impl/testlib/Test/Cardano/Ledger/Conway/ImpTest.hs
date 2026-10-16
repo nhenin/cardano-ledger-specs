@@ -199,7 +199,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesELL,
   nesEpochStateL,
   nesEsL,
-  nesPdL,
+  nesStakePoolDistrG,
   newEpochStateGovStateL,
   utxosGovStateL,
  )
@@ -334,6 +334,8 @@ conwayModifyImpInitProtVer ver =
   where
     ratifyState es = def & rsEnactStateL .~ mkEnactState (es ^. epochStateGovStateL)
 
+instance AllegraEraImp ConwayEra
+
 instance MaryEraImp ConwayEra
 
 instance AlonzoEraImp ConwayEra where
@@ -369,6 +371,7 @@ class
   , InjectRuleEvent "TICK" ConwayHardForkEvent era
   , InjectRuleEvent "TICK" ConwayEpochEvent era
   , Inject (NonEmpty (PredicateFailure (EraRule "LEDGER" era))) (ApplyTxError era)
+  , ToExpr (ApplyTxError era)
   ) =>
   ConwayEraImp era
 
@@ -523,7 +526,7 @@ delegateToDRep cred stake dRep = do
   submitTxAnn_ "Delegate to DRep" $
     mkBasicTx mkBasicTxBody
       & bodyTxL . outputsTxBodyL
-        .~ SSeq.singleton (mkBasicTxOut (mkAddr spendingKP cred) (inject stake))
+        .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit (mkAddr spendingKP cred) (inject stake))
       & bodyTxL . certsTxBodyL
         .~ SSeq.fromList [DelegTxCert cred (DelegVote dRep)]
   pure spendingKP
@@ -1028,7 +1031,7 @@ getRatifyEnv :: (ConwayEraGov era, ConwayEraCertState era) => ImpTestM era (Rati
 getRatifyEnv = do
   eNo <- getsNES nesELL
   instantStake <- getsNES instantStakeG
-  poolDistr <- getsNES nesPdL
+  poolDistr <- getsNES nesStakePoolDistrG
   drepDistr <- getsNES $ nesEsL . epochStateDRepPulsingStateL . psDRepDistrG
   drepState <- getsNES $ nesEsL . esLStateL . lsCertStateL . certVStateL . vsDRepsL
   committeeState <- getsNES $ nesEsL . esLStateL . lsCertStateL . certVStateL . vsCommitteeStateL
@@ -1800,7 +1803,7 @@ showConwayTxBalance pp certState utxo tx =
     , "\tTotal:      \t" <> show (coin $ shelleyConsumed pp accounts utxo txBody)
     , ""
     , "Produced:"
-    , "\tOutputs:   \t" <> show (coin $ sumAllValue (txBody ^. outputsTxBodyL))
+    , "\tOutputs:   \t" <> show (coin outputs)
     , "\tDonations: \t" <> show (txBody ^. treasuryDonationTxBodyL)
     , "\tDeposits:  \t" <> show (getTotalDepositsTxBody pp isRegPoolId txBody)
     , "\tFees:      \t" <> show (txBody ^. feeTxBodyL)
@@ -1808,7 +1811,8 @@ showConwayTxBalance pp certState utxo tx =
     ]
   where
     txBody = tx ^. bodyTxL
-    inputs = sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+    Assets inputs = sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+    Assets outputs = sumAllAssets (txBody ^. outputsTxBodyL)
     accounts = certState ^. certDStateL . accountsL
     pState = certState ^. certPStateL
     refunds = getTotalRefundsTxBody pp (`lookupAccountDeposit` accounts) txBody

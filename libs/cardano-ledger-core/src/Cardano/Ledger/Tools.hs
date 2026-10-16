@@ -43,6 +43,7 @@ import Cardano.Ledger.Keys (
  )
 import Cardano.Ledger.State (EraCertState)
 import Cardano.Ledger.State.UTxO (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.Val (coin, modifyCoin)
 import Data.Bits (Bits (..), shiftR)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -81,10 +82,12 @@ setMinFeeTxUtxo pp tx utxo =
 -- the minimaly required.
 --
 -- @
--- > ensureMinCoinTxOut pp (txOut & coinTxOutL .~ zero) == setMinCoinTxOut pp (txOut & coinTxOutL .~ zero)
--- > (ensureMinCoinTxOut pp txOut ^. coinTxOutL) >= (setMinCoinTxOut pp txOut ^. coinTxOutL)
+-- > let zeroCoinOutput = txOut & valueTxOutL %~ modifyCoin (const zero)
+-- > ensureMinCoinTxOut pp zeroCoinOutput == setMinCoinTxOut pp zeroCoinOutput
+-- > coin (ensureMinCoinTxOut pp txOut ^. valueTxOutL) >= coin (setMinCoinTxOut pp txOut ^. valueTxOutL)
 -- @
-ensureMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
+ensureMinCoinTxOut ::
+  EraImplicitDepositTxOut era => PParams era -> ImplicitDepositTxOut era -> ImplicitDepositTxOut era
 ensureMinCoinTxOut = setMinCoinTxOutWith (>=)
 
 setMinFeeTxInternal ::
@@ -283,23 +286,24 @@ addDummyWitsTx pp tx numKeyWits byronAttrs =
 
 -- | Same as `setMinCoinSizedTxOut`, except it doesn't require the size of the
 -- TxOut and will recompute it if needed. Initial amount is not important.
-setMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
+setMinCoinTxOut ::
+  EraImplicitDepositTxOut era => PParams era -> ImplicitDepositTxOut era -> ImplicitDepositTxOut era
 setMinCoinTxOut = setMinCoinTxOutWith (==)
 
 setMinCoinTxOutWith ::
-  EraTxOut era =>
+  EraImplicitDepositTxOut era =>
   (Coin -> Coin -> Bool) ->
   PParams era ->
-  TxOut era ->
-  TxOut era
+  ImplicitDepositTxOut era ->
+  ImplicitDepositTxOut era
 setMinCoinTxOutWith f pp = go
   where
     go !txOut =
       let curMinCoin = getMinCoinTxOut pp txOut
-          curCoin = txOut ^. coinTxOutL
+          curCoin = coin (txOut ^. valueTxOutL)
        in if curCoin `f` curMinCoin
             then txOut
-            else go (txOut & coinTxOutL .~ curMinCoin)
+            else go (txOut & valueTxOutL %~ modifyCoin (const curMinCoin))
 
 -- | A helpful placeholder to use during development.
 boom :: HasCallStack => a
