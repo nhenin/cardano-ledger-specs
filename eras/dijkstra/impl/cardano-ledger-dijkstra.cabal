@@ -298,6 +298,7 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.SubTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.TopTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Balance
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.SubTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.TopTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations
@@ -312,6 +313,7 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Collateral
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Declaration
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Operations
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Output
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release
@@ -331,13 +333,14 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.SurplusSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.TotalSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.CollateralSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.BalanceSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.SubTxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.TopTxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChangeSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AccountingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ApplicationAssetsSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AttributionSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AuthorizationSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ConservationSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.SubTxSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.TopTxSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AccountingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.DeclarationsSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.SubTxSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.TopTxSpec
@@ -382,6 +385,7 @@ test-suite tests
     cardano-ledger-conway:{cardano-ledger-conway, testlib},
     cardano-ledger-core:{cardano-ledger-core, testlib},
     cardano-ledger-dijkstra:{cardano-ledger-dijkstra, cddl, testlib},
+    cardano-ledger-mary,
     cardano-ledger-shelley:{cardano-ledger-shelley, testlib},
     cardano-protocol:{cardano-protocol, testlib},
     cardano-strict-containers,

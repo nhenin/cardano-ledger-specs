@@ -6,7 +6,6 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ApplicationAssetsSpec as ApplicationAssets
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AttributionSpec as Attribution
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AuthorizationSpec as Authorization
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ConservationSpec as Conservation
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.DeclarationsSpec as Declarations
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.SettlementSpec as Settlement
 
@@ -16,7 +15,6 @@ spec = describe "DS-TX - Tx" $ do
   Declarations.spec
   Accounting.spec
   Attribution.spec
-  Conservation.spec
   Authorization.spec
   Settlement.spec
   ApplicationAssets.spec

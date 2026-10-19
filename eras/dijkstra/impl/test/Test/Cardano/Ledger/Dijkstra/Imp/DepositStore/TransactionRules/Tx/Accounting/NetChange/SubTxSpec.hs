@@ -27,7 +27,7 @@
 -- Unless stated otherwise, phase 2 succeeds. Phase-2 failure cases use a real
 -- failing-script control marked Invalid; a rejection does not claim that ledger
 -- validation reaches script execution after the exactness check fails.
-module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.SubTxSpec (spec) where
+module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.SubTxSpec (spec) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Coin (Coin (..))
@@ -81,10 +81,10 @@ import Validation (Validation (..))
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "DS-TX-ACCOUNTING-SUBTX - Each SubTx declares its exact own change" $ do
+  describe "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX - Each SubTx declares its exact own change" $ do
     -- Each SubTx declares its own exact change.
     -- Compare the isolated SubTx exactness result with independent input records and output prices; include exact and inexact declarations.
-    prop "DS-TX-ACCOUNTING-SUBTX-P01 - subTxAccountingValid ⇔ (∀ subTx ∈ declaredSubTxs: declaredNetDeposit(subTx) = ownNetDeposit(subTx))" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-P01 - subTxNetChangeValid ⇔ (∀ subTx ∈ declaredSubTxs: declaredNetDeposit(subTx) = ownNetDeposit(subTx))" $
       forAll Cases.declarationErrors $ \(scenario, errors, delegatedForms) -> do
         proposal <- fundAccountingScenario scenario
         let requiredChanges = zipWith (<->) (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
@@ -120,7 +120,7 @@ spec =
 
     -- Exact own change, with any allocation and release combination.
     -- Exercise positive allocation, negative release and explicit zero with local accounting; N03/N04 cover the delegated forms.
-    prop "DS-TX-ACCOUNTING-SUBTX-N01 - declaredNetDeposit(subTx) = allocatedDeposits(subTx) - releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N01 - declaredNetDeposit(subTx) = allocatedDeposits(subTx) - releasedDeposits(subTx) ⇒ accepted" $
       forAll Cases.anyOwnNetChange $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let requiredChanges = zipWith (<->) (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
@@ -142,7 +142,7 @@ spec =
 
     -- Net allocation understated by one lovelace.
     -- The required allocation exceeds one lovelace so the mutated declaration remains a positive allocation.
-    prop "DS-TX-ACCOUNTING-SUBTX-F01 - ownNetDeposit(subTx) > 1 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F01 - ownNetDeposit(subTx) > 1 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netAllocation $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -160,7 +160,7 @@ spec =
 
     -- Net allocation overstated by one lovelace.
     -- Keep the increased amount representable; this checks exactness rather than decoder overflow.
-    prop "DS-TX-ACCOUNTING-SUBTX-F02 - ownNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) + 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F02 - ownNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) + 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netAllocation $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -178,7 +178,7 @@ spec =
 
     -- Net release understated by one lovelace.
     -- Reducing the positive release magnitude increases its signed declaration; the required release exceeds one lovelace.
-    prop "DS-TX-ACCOUNTING-SUBTX-F03 - ownNetDeposit(subTx) < -1 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) + 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F03 - ownNetDeposit(subTx) < -1 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) + 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netRelease $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -196,7 +196,7 @@ spec =
 
     -- Net release overstated by one lovelace.
     -- Increasing the positive release magnitude decreases its signed declaration; keep the magnitude representable.
-    prop "DS-TX-ACCOUNTING-SUBTX-F04 - ownNetDeposit(subTx) < 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F04 - ownNetDeposit(subTx) < 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - 1 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netRelease $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -214,7 +214,7 @@ spec =
 
     -- Opposing SubTx errors cancel in the total.
     -- Both distinct SubTxs are in the transaction. Their errors cancel, but require a SubTx exactness failure.
-    prop "DS-TX-ACCOUNTING-SUBTX-F05 - firstSubTx ≠ secondSubTx ∧ declarationError(firstSubTx) = -declarationError(secondSubTx) ≠ 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F05 - firstSubTx ≠ secondSubTx ∧ declarationError(firstSubTx) = -declarationError(secondSubTx) ≠ 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.twoAllocatingSubTxs $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let requiredChanges = zipWith (<->) (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
@@ -233,7 +233,7 @@ spec =
 
     -- Equal own allocations and releases, explicit zero.
     -- Use an explicit-zero declaration, including both zero operations and nonzero allocations equal to releases.
-    prop "DS-TX-ACCOUNTING-SUBTX-N02 - allocatedDeposits(subTx) = releasedDeposits(subTx) ∧ declaredNetDeposit(subTx) = 0 ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N02 - allocatedDeposits(subTx) = releasedDeposits(subTx) ∧ declaredNetDeposit(subTx) = 0 ⇒ accepted" $
       forAll Cases.equalAllocationsAndReleases $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         buildAndSignTx (TopTx.addDeclaration
@@ -242,7 +242,7 @@ spec =
 
     -- Explicit zero cannot replace a required allocation.
     -- The field is present as explicit zero; its amount is incorrect.
-    prop "DS-TX-ACCOUNTING-SUBTX-F06 - ownNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) = 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F06 - ownNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) = 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netAllocation $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -260,7 +260,7 @@ spec =
 
     -- Exact allocation requested from TopTx.
     -- RequestsUTxODepositFromTopTx carries the requesting SubTx own net allocation, while TopTx declares the transaction total.
-    prop "DS-TX-ACCOUNTING-SUBTX-N03 - ownNetDeposit(subTx) > 0 ∧ delegatesAllocation(subTx) ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N03 - ownNetDeposit(subTx) > 0 ∧ delegatesAllocation(subTx) ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) ⇒ accepted" $
       forAll Cases.netAllocation $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -272,7 +272,7 @@ spec =
 
     -- Exact release delegated to TopTx.
     -- The release targets DelegateToTopTx; its magnitude remains exactly the originating SubTx own net release.
-    prop "DS-TX-ACCOUNTING-SUBTX-N04 - ownNetDeposit(subTx) < 0 ∧ delegatesRelease(subTx) ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N04 - ownNetDeposit(subTx) < 0 ∧ delegatesRelease(subTx) ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) ⇒ accepted" $
       forAll Cases.netRelease $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -284,7 +284,7 @@ spec =
 
     -- Released deposits, only implicit outputs.
     -- Implicit outputs require no new Store allocation, so the declaration releases the complete recorded input deposit.
-    prop "DS-TX-ACCOUNTING-SUBTX-N05 - releasedDeposits(subTx) > 0 ∧ storeBackedOutputs(subTx) = ∅ ∧ declaredNetDeposit(subTx) = -releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N05 - releasedDeposits(subTx) > 0 ∧ storeBackedOutputs(subTx) = ∅ ∧ declaredNetDeposit(subTx) = -releasedDeposits(subTx) ⇒ accepted" $
       forAll Cases.onlyImplicitOutputs $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin released = foldMap id $ SubTx.releasedDeposits proposal
@@ -296,7 +296,7 @@ spec =
 
     -- Explicit zero cannot replace a required release.
     -- The field is present as explicit zero; a negative own change still requires a release declaration.
-    prop "DS-TX-ACCOUNTING-SUBTX-F07 - ownNetDeposit(subTx) < 0 ∧ declaredNetDeposit(subTx) = 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F07 - ownNetDeposit(subTx) < 0 ∧ declaredNetDeposit(subTx) = 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netRelease $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -314,7 +314,7 @@ spec =
 
     -- Another body offsets the SubTx release.
     -- The other body is TopTx or another SubTx. Cover partial, equal and greater offsets; none changes this SubTx own release.
-    prop "DS-TX-ACCOUNTING-SUBTX-N06 - otherBody ≠ subTx ∧ ownNetDeposit(subTx) < 0 < ownNetDeposit(otherBody) ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N06 - otherBody ≠ subTx ∧ ownNetDeposit(subTx) < 0 < ownNetDeposit(otherBody) ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) ⇒ accepted" $
       forAll Cases.releaseWithAnotherBodyAllocation $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let requiredChanges = zipWith (<->) (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
@@ -336,7 +336,7 @@ spec =
 
     -- An output without application assets still requires a deposit.
     -- The output still has an address and encoding overhead. Use positive pricing and declare the exact allocation.
-    prop "DS-TX-ACCOUNTING-SUBTX-N07 - storeBackedOutputs(subTx) = {output} ∧ applicationAssets(output) = ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N07 - storeBackedOutputs(subTx) = {output} ∧ applicationAssets(output) = ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
       forAll Cases.outputWithoutApplicationAssets $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -348,7 +348,7 @@ spec =
 
     -- A translated implicit input funds an exact allocation.
     -- The live input was translated from the previous era into an implicit output. Its coins fund new Store obligations, but it releases no Store deposit.
-    prop "DS-TX-ACCOUNTING-SUBTX-N08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ storeBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ storeBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
       forAll Cases.translatedImplicitInput $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -360,7 +360,7 @@ spec =
 
     -- A translated implicit input does not excuse an inexact allocation.
     -- Use the N08 allocation scenario, changing only the positive SubTx declaration to a different representable amount.
-    prop "DS-TX-ACCOUNTING-SUBTX-F08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ storeBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ allocatedDeposits(subTx) > 0 ∧ declaredNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) ≠ allocatedDeposits(subTx) ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ storeBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ allocatedDeposits(subTx) > 0 ∧ declaredNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) ≠ allocatedDeposits(subTx) ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.translatedImplicitInput $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -378,7 +378,7 @@ spec =
 
     -- Store surplus cannot increase a SubTx release.
     -- An additional release within the existing Store surplus can preserve solvency; it is still not released by this SubTx inputs.
-    prop "DS-TX-ACCOUNTING-SUBTX-F09 - 0 < unrelatedRelease ≤ storeSurplus ∧ ownNetDeposit(subTx) ≤ 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - unrelatedRelease ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F09 - 0 < unrelatedRelease ≤ storeSurplus ∧ ownNetDeposit(subTx) ≤ 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - unrelatedRelease ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.nonPositiveOwnNetChange $ \scenario ->
         forAll (chooseInteger (1, 2000000)) $ \unrelatedRelease -> do
           addStoreSurplus $ Coin unrelatedRelease
@@ -400,7 +400,7 @@ spec =
 
     -- A release cannot replace a required allocation.
     -- Exercise valid local and delegated release forms; their sign contradicts the independently required own change.
-    prop "DS-TX-ACCOUNTING-SUBTX-F10 - ownNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) < 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F10 - ownNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) < 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netAllocation $ \scenario ->
         forAll (elements [False, True]) $ \delegateRelease -> do
           proposal <- fundAccountingScenario scenario
@@ -419,7 +419,7 @@ spec =
 
     -- An allocation cannot replace a required release.
     -- Exercise a local allocation and a funding request to TopTx; neither can represent the required own release.
-    prop "DS-TX-ACCOUNTING-SUBTX-F11 - ownNetDeposit(subTx) < 0 ∧ declaredNetDeposit(subTx) > 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F11 - ownNetDeposit(subTx) < 0 ∧ declaredNetDeposit(subTx) > 0 ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.netRelease $ \scenario ->
         forAll (elements [False, True]) $ \requestFunding -> do
           proposal <- fundAccountingScenario scenario
@@ -439,7 +439,7 @@ spec =
 
     -- Exact SubTx declarations when phase 2 fails.
     -- Use a real failing script with otherwise valid declarations and transaction terms. Acceptance follows the collateral outcome, without ordinary Store effects.
-    prop "DS-TX-ACCOUNTING-SUBTX-N09 - declaredSubTxs ≠ ∅ ∧ (∀ subTx ∈ declaredSubTxs: declaredNetDeposit(subTx) = ownNetDeposit(subTx)) ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N09 - declaredSubTxs ≠ ∅ ∧ (∀ subTx ∈ declaredSubTxs: declaredNetDeposit(subTx) = ownNetDeposit(subTx)) ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ accepted" $
       forAll Cases.anyOwnNetChange $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let requiredChanges = zipWith (<->) (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
@@ -461,7 +461,7 @@ spec =
 
     -- An inexact SubTx declaration still fails before the collateral outcome.
     -- Start from N09 failing-script controls and mutate a SubTx amount. The independently established script failure does not waive the earlier exactness check.
-    prop "DS-TX-ACCOUNTING-SUBTX-F12 - declaredNetDeposit(subTx) ≠ ownNetDeposit(subTx) ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F12 - declaredNetDeposit(subTx) ≠ ownNetDeposit(subTx) ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.anyOwnNetChange $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let requiredChanges = zipWith (<->) (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)

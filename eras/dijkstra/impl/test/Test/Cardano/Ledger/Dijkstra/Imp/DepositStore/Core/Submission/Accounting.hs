@@ -165,6 +165,8 @@ paddedOutput address amount padding marker =
 
 -- | Balance only child application ADA, then preserve the supplied declarations
 -- and Store-backed outputs while ordinary fee fixup adds parent funding/witnesses.
+-- NetChange cases use this to prepare funded controls. Balance rejection cases
+-- must introduce their imbalance after this preparation or use another builder.
 buildAndSignTx :: ReleaseTx -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
 buildAndSignTx = Release.buildAndSignTx . balanceChildApplicationCoins
 
@@ -173,9 +175,10 @@ buildAndSignTx = Release.buildAndSignTx . balanceChildApplicationCoins
 buildAndSignPhase2InvalidTx :: ReleaseTx -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
 buildAndSignPhase2InvalidTx = Release.buildAndSignPhase2InvalidTx . balanceChildApplicationCoins
 
--- | Child conservation depends on locally accounted deposits: delegated amounts
--- belong to TopTx's balance. Change only the implicit output zero; no Store output
--- is repriced and no declaration is inferred from its operations.
+-- | Prepare individually balanced children using their locally accounted deposits;
+-- delegated amounts are left for TopTx funding. This fixture choice does not impose
+-- an independent SubTx balance rule. Change only implicit output zero; no Store
+-- output is repriced and no declaration is inferred from its operations.
 balanceChildApplicationCoins :: ReleaseTx -> ReleaseTx
 balanceChildApplicationCoins context =
   context
