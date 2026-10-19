@@ -129,7 +129,7 @@ subTxWithDepositDeclaration input declaration =
 
 -- | Compute the expected result without using the production presence predicate.
 -- Reject exactly when TopTx has no declaration and at least one SubTx declares
--- an operation, including zero. Success means only that DS-TX-REQUIRED-DECLARATIONS-SUBTX-DECLARATIONS is satisfied.
+-- an operation, including zero. Success means only that DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS is satisfied.
 subTxDeclarationImpliesATopTxOne ::
   Declarations ->
   Validation (NonEmpty DepositStoreDeclarationFailure) ()

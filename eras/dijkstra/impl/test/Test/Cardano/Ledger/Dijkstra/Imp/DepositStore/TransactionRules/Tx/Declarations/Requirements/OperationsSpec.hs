@@ -10,7 +10,7 @@
 -- body's hypothetical ordinary inputs and outputs. Presence requires its own
 -- field; TopTx's amount still declares the complete batch, not its own contribution.
 -- Accepted-case coverage must include both outcomes and both body levels.
-module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.RequiredDeclarations.OperationsSpec (spec) where
+module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.OperationsSpec (spec) where
 
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core (IsPhase2Valid (..))
@@ -30,18 +30,18 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   removeTopTxReleaseDeclaration,
   submitTx,
  )
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.RequiredDeclarations.Operations.AllocationSpec as Allocation
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.RequiredDeclarations.Operations.ReleaseSpec as Release
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.RequiredDeclarations.Operations.ZeroNetChangeSpec as ZeroNetChange
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.AllocationSpec as Allocation
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ReleaseSpec as Release
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ZeroNetChangeSpec as ZeroNetChange
 import Test.Cardano.Ledger.Dijkstra.ImpTest (getUTxO)
 
 -- | Register the requirements in domain order.
 spec :: Spec
 spec = describe
-  "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS - Each body performing Store operations must declare"
+  "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS - Each body performing Store operations must declare"
   $ do
     prop
-      "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-P01 - accepted transaction ⇒ every body requiring Store allocations or releases has its own declaration"
+      "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-P01 - accepted transaction ⇒ every body requiring Store allocations or releases has its own declaration"
       $ forAll Operations.independentBodyOperations
       $ \scenario ->
         -- Zero price makes every exact amount zero, but never removes an output's

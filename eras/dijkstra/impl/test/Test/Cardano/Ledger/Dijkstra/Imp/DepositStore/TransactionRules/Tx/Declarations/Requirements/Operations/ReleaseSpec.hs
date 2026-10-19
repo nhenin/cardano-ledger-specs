@@ -17,7 +17,7 @@
 -- through real ledger transactions. Reference and collateral inputs do not
 -- release ordinary deposits; a child declaration cannot supply the parent field.
 -- These scenarios check transaction acceptance or the required rejection reason.
-module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.RequiredDeclarations.Operations.ReleaseSpec (spec) where
+module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ReleaseSpec (spec) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Coin (Coin (..))
@@ -39,7 +39,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE - ∀ body: storeBackedInputs(body) ≠ ∅ ⇒ hasDeclaration(body)" $ do
+  describe "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE - ∀ body: storeBackedInputs(body) ≠ ∅ ⇒ hasDeclaration(body)" $ do
     -- Apply the presence rule independently to TopTx and every SubTx:
     --
     -- Store-backed inputs | Own declaration | Presence result
@@ -58,7 +58,7 @@ spec =
     -- N09-N10 exclude reference and collateral access; F06 keeps the parent field mandatory.
 
     -- Standalone TopTx, any output form.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N01 - subTxs = ∅ ∧ releasedDeposits > 0 ∧ declaredNetDeposit = allocatedDeposits - releasedDeposits ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N01 - subTxs = ∅ ∧ releasedDeposits > 0 ∧ declaredNetDeposit = allocatedDeposits - releasedDeposits ⇒ accepted" $
       forAllStandaloneReleaseTx TopTx.standaloneTopTxAnyOutputForm $ \topTxWithoutTopDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -81,7 +81,7 @@ spec =
 
     -- Standalone TopTx, only implicit outputs.
     -- No new allocation is required; output zero receives application ADA plus the release.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N02 - subTxs = ∅ ∧ releasedDeposits > 0 ∧ storeBackedOutputs = ∅ ∧ declaredNetDeposit = -releasedDeposits ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N02 - subTxs = ∅ ∧ releasedDeposits > 0 ∧ storeBackedOutputs = ∅ ∧ declaredNetDeposit = -releasedDeposits ⇒ accepted" $
       forAllStandaloneReleaseTx TopTx.standaloneTopTxOnlyImplicitOutputs $ \topTxWithoutTopDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -95,7 +95,7 @@ spec =
 
     -- One SubTx releases its deposit into its own output.
     -- TopTx declares the matching total.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N03 - subTxs = {subTx} ∧ releasedDeposits(subTx) > 0 ∧ allocatedDeposits(subTx) = 0 ∧ declaredNetDeposit(topTx) = declaredNetDeposit(subTx) = -releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N03 - subTxs = {subTx} ∧ releasedDeposits(subTx) > 0 ∧ allocatedDeposits(subTx) = 0 ∧ declaredNetDeposit(topTx) = declaredNetDeposit(subTx) = -releasedDeposits(subTx) ⇒ accepted" $
       forAllSingleSubTxReleaseTx SubTx.oneSubTxReleasingDepositIntoOwnOutput $ \recordedDeposit topTxWithoutDeclarations ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -107,7 +107,7 @@ spec =
 
     -- Standalone TopTx spends store-backed outputs without its own declaration.
     -- With no SubTx, dependency passes; the proposed release requires the declaration.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-F01 - subTxs = ∅ ∧ releasedDeposits(topTx) > 0 ∧ ¬hasDeclaration(topTx) ⇒ rejected" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F01 - subTxs = ∅ ∧ releasedDeposits(topTx) > 0 ∧ ¬hasDeclaration(topTx) ⇒ rejected" $
       forAllStandaloneReleaseTx TopTx.standaloneTopTxOnlyImplicitOutputs $ \topTxWithoutTopDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -123,7 +123,7 @@ spec =
 
     -- SubTx spends a store-backed output without its own declaration, despite TopTx declaring.
     -- Use N03's generated inputs and settlement, but leave the SubTx declaration absent.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-F02 - subTxs = {subTx} ∧ releasedDeposits(subTx) > 0 ∧ declaredNetDeposit(topTx) = -releasedDeposits(subTx) ∧ ¬hasDeclaration(subTx) ⇒ rejected" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F02 - subTxs = {subTx} ∧ releasedDeposits(subTx) > 0 ∧ declaredNetDeposit(topTx) = -releasedDeposits(subTx) ∧ ¬hasDeclaration(subTx) ⇒ rejected" $
       forAllSingleSubTxReleaseTx SubTx.oneSubTxReleasingDepositIntoOwnOutput $ \recordedDeposit topTxWithoutDeclarations ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -136,7 +136,7 @@ spec =
 
     -- Phase 2 fails with valid declarations.
     -- Every generated source is tested with both owners and must be accepted.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N04 - releasedDeposits(body) > 0 ∧ declaredNetDeposit(topTx) = declaredNetDeposit(body) = -releasedDeposits(body) ∧ phase1Valid ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N04 - releasedDeposits(body) > 0 ∧ declaredNetDeposit(topTx) = declaredNetDeposit(body) = -releasedDeposits(body) ∧ phase1Valid ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ accepted" $
       forAll Release.oneBodyReleasingDepositIntoOwnOutput $ \scenario ->
         forM_ [TopTxReleasing, SubTxReleasing] $ \owner -> do
           SignedReleaseTx{signedTx} <-
@@ -151,7 +151,7 @@ spec =
 
     -- Phase 2 fails with a missing release declaration.
     -- Both owners must be rejected for the missing release declaration.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-F03 - releasedDeposits(body) > 0 ∧ ¬hasDeclaration(body) ∧ phase2Script = AlwaysFails ∧ declaredPhase2 = Invalid ⇒ rejected" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F03 - releasedDeposits(body) > 0 ∧ ¬hasDeclaration(body) ∧ phase2Script = AlwaysFails ∧ declaredPhase2 = Invalid ⇒ rejected" $
       forAll Release.oneBodyReleasingDepositIntoOwnOutput $ \scenario ->
         forM_
           [ (TopTxReleasing, isRejectedWith (MissingUTxODepositDeclaration @DijkstraEra))
@@ -177,7 +177,7 @@ spec =
 
     -- Several SubTxs release their deposits.
     -- Every child declares its own release; TopTx declares their sum.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N05 - |subTxs| ≥ 2 ∧ (∀ subTx ∈ subTxs: releasedDeposits(subTx) > 0 ∧ declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N05 - |subTxs| ≥ 2 ∧ (∀ subTx ∈ subTxs: releasedDeposits(subTx) > 0 ∧ declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ⇒ accepted" $
       forAllSubTxReleaseTx SubTx.severalSubTxsReleasingDeposits $ \topTxWithoutDeclarations ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -195,7 +195,7 @@ spec =
 
     -- One SubTx releasing deposits omits its declaration; TopTx and its siblings still declare.
     -- Try every child position separately, then submit the unchanged valid control.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-F04 - |subTxs| ≥ 2 ∧ (∃! subTx ∈ subTxs: ¬hasDeclaration(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ⇒ rejected" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F04 - |subTxs| ≥ 2 ∧ (∃! subTx ∈ subTxs: ¬hasDeclaration(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ⇒ rejected" $
       forAllSubTxReleaseTx SubTx.severalSubTxsReleasingDeposits $ \topTxWithoutDeclarations -> do
         signedTx <- buildAndSignTx
           (TopTx.addDeclaration
@@ -219,7 +219,7 @@ spec =
 
     -- Only some SubTxs release Store deposits.
     -- Children without Store releases omit their declaration; the others declare their release.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N06 - ∅ ⊂ releasingSubTxs ⊂ subTxs ∧ (∀ subTx ∈ releasingSubTxs: declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ (∀ subTx ∈ subTxs ∖ releasingSubTxs: ¬hasDeclaration(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N06 - ∅ ⊂ releasingSubTxs ⊂ subTxs ∧ (∀ subTx ∈ releasingSubTxs: declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ (∀ subTx ∈ subTxs ∖ releasingSubTxs: ¬hasDeclaration(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ⇒ accepted" $
       forAllSubTxReleaseTx SubTx.onlySomeSubTxsReleasingDeposits $ \topTxWithoutDeclarations ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -240,7 +240,7 @@ spec =
 
     -- TopTx and several SubTxs release deposits.
     -- Each body settles its own release; TopTx declares their combined total once.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N07 - |subTxs| ≥ 2 ∧ releasedDeposits(topTx) > 0 ∧ (∀ subTx ∈ subTxs: declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ declaredNetDeposit(topTx) = -releasedDeposits(topTx) - Σ releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N07 - |subTxs| ≥ 2 ∧ releasedDeposits(topTx) > 0 ∧ (∀ subTx ∈ subTxs: declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ declaredNetDeposit(topTx) = -releasedDeposits(topTx) - Σ releasedDeposits(subTx) ⇒ accepted" $
       forAllSubTxReleaseTx SubTx.topTxAndSeveralSubTxsReleasingDeposits $ \topTxWithoutDeclarations ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -258,7 +258,7 @@ spec =
 
     -- Phase 2 fails with several correctly declared SubTx releases.
     -- Every SubTx proposing a release declares it; TopTx declares the total.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N08 - |subTxs| ≥ 2 ∧ (∀ subTx ∈ subTxs: declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ∧ phase1Valid ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N08 - |subTxs| ≥ 2 ∧ (∀ subTx ∈ subTxs: declaredNetDeposit(subTx) = -releasedDeposits(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ∧ phase1Valid ∧ phase2Result = Failed ∧ declaredPhase2 = Invalid ⇒ accepted" $
       forAllSubTxReleaseTx SubTx.severalSubTxsReleasingDeposits $ \topTxWithoutDeclarations ->
         buildAndSignPhase2InvalidTx
           (TopTx.addDeclaration
@@ -276,7 +276,7 @@ spec =
 
     -- A phase-2-invalid proposal still requires every releasing SubTx's declaration.
     -- Omit each child in turn and require rejection.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-F05 - |subTxs| ≥ 2 ∧ (∃! subTx ∈ subTxs: ¬hasDeclaration(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ∧ phase2Script = AlwaysFails ∧ declaredPhase2 = Invalid ⇒ rejected" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F05 - |subTxs| ≥ 2 ∧ (∃! subTx ∈ subTxs: ¬hasDeclaration(subTx)) ∧ declaredNetDeposit(topTx) = -Σ releasedDeposits(subTx) ∧ phase2Script = AlwaysFails ∧ declaredPhase2 = Invalid ⇒ rejected" $
       forAllSubTxReleaseTx SubTx.severalSubTxsReleasingDeposits $ \topTxWithoutDeclarations -> do
         signedTx <- buildAndSignPhase2InvalidTx
           (TopTx.addDeclaration
@@ -300,7 +300,7 @@ spec =
 
     -- Store-backed reference inputs retain their allocations. Ordinary inputs and
     -- outputs are implicit, so the absent declaration is accepted.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N09 - Standalone TopTx, reference-only Store access" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N09 - Standalone TopTx, reference-only Store access" $
       forAllReferenceOnlyStoreTx TopTx.standaloneTopTxWithStoreBackedReferenceInputs $ \topTxWithoutDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration (Declarations TopTx.NoUTxODepositDeclaration []) topTxWithoutDeclaration)
@@ -309,7 +309,7 @@ spec =
     -- Store-backed collateral input only, return only, or both. Every generated
     -- amount pair exercises all three placements with actual script success and
     -- failure. Ordinary Store operations remain absent on both execution paths.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-N10 - Standalone TopTx, collateral-only Store operations" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N10 - Standalone TopTx, collateral-only Store operations" $
       forAll Release.collateralOnlyStoreOperations $ \scenarios ->
         forM_ scenarios $ \scenario ->
           buildAndSignCollateralOnlyTx scenario (Declarations TopTx.NoUTxODepositDeclaration [])
@@ -318,7 +318,7 @@ spec =
     -- TopTx and its children each release recorded deposits into implicit outputs.
     -- Removing only the parent's declaration must produce its own release-presence
     -- failure, even though SubTx declarations also trigger the parent dependency.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-F06 - A SubTx declaration cannot satisfy TopTx release presence" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F06 - A SubTx declaration cannot satisfy TopTx release presence" $
       forAllSubTxReleaseTx SubTx.topTxAndSeveralSubTxsReleasingDeposits $ \topTxWithoutDeclarations -> do
         signedTx <- buildAndSignTx
           (TopTx.addDeclaration

@@ -22,6 +22,8 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   locallyAccountedSubTxNetUTxODeposit,
   validateDepositStoreInputs,
   validateDepositStoreSolvency,
+  validateTopTxExactness,
+  validateSubTxExactness,
   validateOrdinaryDepositStore,
   applyOrdinaryDepositStore,
   applyDepositAllocations,
@@ -218,6 +220,8 @@ hasKnownSubTxContribution pp store body =
   SubTx.hasUTxODepositDeclaration (body ^. subTxNetUTxODepositChangeTxBodyL)
     || requiredNetUTxODeposit pp store body == mempty
 
+-- | An explicit TopTx declaration describes the complete transaction's net
+-- deposit change, including every SubTx exactly once.
 validateTopTxExactness ::
   (EraTx era, DijkstraEraTxBody era) =>
   PParams era ->
@@ -231,6 +235,23 @@ validateTopTxExactness pp store body =
    in when (TopTx.hasUTxODepositDeclaration declaration) $
         failureUnless (supplied == required) (InexactTopTxDepositChange supplied required)
 
+-- | An explicit SubTx declaration describes only that body's own net deposit
+-- change. Delegation affects responsibility, not the required signed amount.
+validateSubTxExactness ::
+  DijkstraEraTxBody era =>
+  PParams era ->
+  DepositStore ->
+  TxBody SubTx era ->
+  Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateSubTxExactness pp store body =
+  let declaration = body ^. subTxNetUTxODepositChangeTxBodyL
+      supplied = declaredSubTxNetUTxODeposit declaration
+      required = requiredNetUTxODeposit pp store body
+   in when
+        (SubTx.hasUTxODepositDeclaration declaration)
+        (failureUnless (supplied == required) (InexactSubTxDepositChange (txIdTxBody body) supplied required))
+
+-- | Validate the originating amount before checking its local settlement target.
 validateSubTxAccounting ::
   DijkstraEraTxBody era =>
   PParams era ->
@@ -238,16 +259,11 @@ validateSubTxAccounting ::
   TxBody SubTx era ->
   Validation (NonEmpty DepositStoreAccountingFailure) ()
 validateSubTxAccounting pp store body =
-  let declaration = body ^. subTxNetUTxODepositChangeTxBodyL
-      supplied = declaredSubTxNetUTxODeposit declaration
-      required = requiredNetUTxODeposit pp store body
-   in when
-        (SubTx.hasUTxODepositDeclaration declaration)
-        (failureUnless (supplied == required) (InexactSubTxDepositChange (txIdTxBody body) supplied required))
-        *> case declaration of
-          SubTx.DeclaresNetUTxODepositRelease amount (SubTx.SubTxSettlementOutput index) ->
-            validateSettlementOutput body index (unStrictlyPositiveCoin amount)
-          _ -> pure ()
+  validateSubTxExactness pp store body
+    *> case body ^. subTxNetUTxODepositChangeTxBodyL of
+      SubTx.DeclaresNetUTxODepositRelease amount (SubTx.SubTxSettlementOutput index) ->
+        validateSettlementOutput body index (unStrictlyPositiveCoin amount)
+      _ -> pure ()
 
 validateTopTxSettlement ::
   (EraTx era, DijkstraEraTxBody era) =>
