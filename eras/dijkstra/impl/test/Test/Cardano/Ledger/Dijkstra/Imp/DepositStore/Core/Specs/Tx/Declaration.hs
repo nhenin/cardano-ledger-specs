@@ -1,7 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 
--- | Declaration fixtures for one TopTx and its ordered SubTxs. Generated cases
--- cover declaration presence without asserting financial validity.
+-- | Declaration fixtures and isolated validation support for one TopTx and its
+-- ordered SubTxs. Generated cases cover declaration presence without asserting
+-- financial validity; the independent expectation remains separate from the
+-- production validator adapter.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (
   Declarations (..),
   equalLocalAllocationAndRelease,
@@ -10,13 +12,21 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (
   forAllCases,
   declarationToTxBody,
   subTxWithDepositDeclaration,
+  subTxDeclarationImpliesATopTxOne,
+  validateDeclaration,
+  missingTopDeclarationFailure,
 ) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
+import Cardano.Ledger.Dijkstra.Rules (
+  DepositStoreDeclarationFailure (..),
+  validateTopTxNetUTxODepositDeclaration,
+ )
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
+import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Common (
@@ -35,6 +45,7 @@ import Test.Cardano.Ledger.Core.Utils (mkDummySafeHash)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.SubTx as SubTx
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.TopTx as TopTx
 import Test.Cardano.Ledger.Dijkstra.ImpTest (mkTopTxWithSubTxs)
+import Validation (Validation (..))
 
 -- | The declarations carried by one TopTx and its ordered SubTxs. An empty
 -- SubTx list represents a TopTx without SubTxs, not an absent TopTx.
@@ -99,7 +110,7 @@ declarationToTxBody (Declarations topDeclaration subDeclarations) =
   mkTopTxWithSubTxs (zipWith declarationOnlySubTx [0 ..] subDeclarations)
     ^. bodyTxL
     & netUTxODepositChangeTxBodyL
-    .~ topDeclaration
+      .~ topDeclaration
 
 -- | Use a distinct fictitious input to prevent equal declarations from merging in OMap.
 declarationOnlySubTx :: Int -> SubTx.SubTxUTxODepositDeclaration -> Tx SubTx DijkstraEra
@@ -112,6 +123,32 @@ subTxWithDepositDeclaration input declaration =
   mkBasicTx $
     mkBasicTxBody
       & inputsTxBodyL
-      .~ Set.singleton input
+        .~ Set.singleton input
       & subTxNetUTxODepositChangeTxBodyL
-      .~ declaration
+        .~ declaration
+
+-- | Compute the expected result without using the production presence predicate.
+-- Reject exactly when TopTx has no declaration and at least one SubTx declares
+-- an operation, including zero. Success means only that DS-TX-REQUIRED-DECLARATIONS-SUBTX-DECLARATIONS is satisfied.
+subTxDeclarationImpliesATopTxOne ::
+  Declarations ->
+  Validation (NonEmpty DepositStoreDeclarationFailure) ()
+subTxDeclarationImpliesATopTxOne (Declarations TopTx.NoUTxODepositDeclaration subDeclarations)
+  | any SubTx.isExplicitDeclaration subDeclarations = missingTopDeclarationFailure
+  | otherwise = Success ()
+subTxDeclarationImpliesATopTxOne _ = Success ()
+
+-- | Build a body from the declarations fixture, run only the production
+-- SubTx-to-TopTx declaration validator, and return its 'Validation' result for assertions.
+-- The fixture uses distinct fictitious inputs; it is not a funded ledger batch.
+validateDeclaration ::
+  Declarations ->
+  Validation (NonEmpty DepositStoreDeclarationFailure) ()
+validateDeclaration =
+  validateTopTxNetUTxODepositDeclaration . declarationToTxBody
+
+-- | Expected isolated-validator failure when a SubTx declares but TopTx does not.
+-- Ledger submission scenarios assert @MissingTopTxUTxODepositDeclaration@, the
+-- corresponding failure exposed by the UTXO rule.
+missingTopDeclarationFailure :: Validation (NonEmpty DepositStoreDeclarationFailure) ()
+missingTopDeclarationFailure = Failure (MissingTopTxDeclaration :| [])

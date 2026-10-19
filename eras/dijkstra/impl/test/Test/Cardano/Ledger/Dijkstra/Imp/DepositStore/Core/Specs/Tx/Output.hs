@@ -83,18 +83,18 @@ topTxBody :: CreatedOutputs -> TopTx.TopTxUTxODepositDeclaration -> TxBody TopTx
 topTxBody outputs declaration =
   mkBasicTxBody
     & outputsTxBodyL
-    .~ SSeq.fromList (createdOutputs outputs)
+      .~ SSeq.fromList (createdOutputs outputs)
     & netUTxODepositChangeTxBodyL
-    .~ declaration
+      .~ declaration
 
 -- | Construct a SubTx's own outputs and declaration without claiming financial validity.
 subTxBody :: CreatedOutputs -> SubTx.SubTxUTxODepositDeclaration -> TxBody SubTx DijkstraEra
 subTxBody outputs declaration =
   mkBasicTxBody
     & outputsTxBodyL
-    .~ SSeq.fromList (createdOutputs outputs)
+      .~ SSeq.fromList (createdOutputs outputs)
     & subTxNetUTxODepositChangeTxBodyL
-    .~ declaration
+      .~ declaration
 
 -- | Keep TopTx's own outputs distinct from the explicitly declared nested SubTx outputs.
 topTxBodyWithNestedOutputs ::
@@ -102,14 +102,14 @@ topTxBodyWithNestedOutputs ::
 topTxBodyWithNestedOutputs ownOutputs nestedOutputs =
   topTxBody ownOutputs TopTx.NoUTxODepositDeclaration
     & subTransactionsTxBodyL
-    .~ OMap.fromFoldable [mkBasicTx $ subTxBody nestedOutputs SubTx.DeclaresZeroNetUTxODeposit]
+      .~ OMap.fromFoldable [mkBasicTx $ subTxBody nestedOutputs SubTx.DeclaresZeroNetUTxODeposit]
 
 -- | Place a store-backed output only in collateral return, outside ordinary created outputs.
 topTxBodyWithCollateralReturn :: Addr -> TxBody TopTx DijkstraEra
 topTxBodyWithCollateralReturn address =
   mkBasicTxBody
     & collateralReturnTxBodyL
-    .~ SJust (outputAtAddress address StoreBackedOutput)
+      .~ SJust (outputAtAddress address StoreBackedOutput)
 
 -- | Input identifiers alone are not created outputs. Resolution and the rules
 -- governing spent, referenced, or collateral UTxOs remain separate work.
@@ -117,9 +117,9 @@ topTxBodyWithReferenceAndCollateralInputs :: TxIn -> TxBody TopTx DijkstraEra
 topTxBodyWithReferenceAndCollateralInputs input =
   mkBasicTxBody
     & referenceInputsTxBodyL
-    .~ Set.singleton input
+      .~ Set.singleton input
     & collateralInputsTxBodyL
-    .~ Set.singleton input
+      .~ Set.singleton input
 
 -- | Interpret the fixture's ordered output variants at its supplied address.
 createdOutputs :: CreatedOutputs -> [TxOut DijkstraEra]
@@ -132,7 +132,7 @@ outputAtAddress address ImplicitOutput =
 outputAtAddress address StoreBackedOutput =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets mempty
 
--- | Recognize change outputs that do not introduce Store activity.
+-- | Recognize change outputs that do not introduce Store operations.
 isImplicitOutput :: TxOut DijkstraEra -> Bool
 isImplicitOutput (ImplicitDepositTxOut _) = True
 isImplicitOutput (StoreBackedTxOut _) = False

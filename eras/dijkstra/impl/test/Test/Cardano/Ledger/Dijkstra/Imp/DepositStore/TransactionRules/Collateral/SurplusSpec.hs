@@ -24,9 +24,9 @@ import Lens.Micro
 import Test.Cardano.Ledger.Common (Spec, describe, forM_, it, prop)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (preparePhase2InvalidTx)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Spending (
-  SpendingBody (TopTxSpending),
-  SpendingFixture (..),
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
+  ReleaseBody (TopTxReleasing),
+  ReleaseFixture (..),
   buildTxSpendingStoreBackedOutput,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest
@@ -41,10 +41,10 @@ spec :: Spec
 spec = describe "DS-COLLATERAL-SURPLUS - Surplus" $ do
   withImpInit @(LedgerSpec DijkstraEra) $
     it "DS-COLLATERAL-SURPLUS-N01 - credits excess released UTxO capacity deposits to fees rather than the treasury" $ do
-      fixture <- buildTxSpendingStoreBackedOutput TopTxSpending
+      fixture <- buildTxSpendingStoreBackedOutput TopTxReleasing
       address <- freshKeyAddrNoPtr_
       let collateralInput = spendingInput fixture
-          releasedDeposit = spendingDeposit fixture
+          releasedDeposit = sourceDeposit fixture
           collateralCoinFee = Coin 5_000_000
           collateralReturn = mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 5_000_000
       tx <- preparePhase2InvalidTx $

@@ -33,7 +33,7 @@ data ExpectedSubmission
 -- Rows contain the requirement, a declarations fixture,
 -- phase-2 outcome and expected submission result.
 --
--- Build funded transactions with implicit-deposit outputs and no Store activity,
+-- Build funded transactions with implicit-deposit outputs and no Store operations,
 -- preserving the declarations. For phase-2-invalid rows, prepare a failing script
 -- and collateral before submission. Rejection checks also require unchanged state.
 declarationScenarios ::

@@ -66,9 +66,9 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral (validateCollateral
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreDeclarationFailure (..),
   DepositStoreOutputDeclarationFailure (..),
-  validateTopTxCreatedOutputsDeclaration,
+  validateTopTxAllocationDeclarationPresence,
   validateTopTxNetUTxODepositDeclaration,
-  validateTopTxSpendingInputsDeclaration,
+  validateTopTxReleaseDeclarationPresence,
  )
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
@@ -390,7 +390,7 @@ dijkstraUtxoTransition = do
 
   runTestOnSignal $
     first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-      validateTopTxCreatedOutputsDeclaration txBody
+      validateTopTxAllocationDeclarationPresence txBody
 
   runTestOnSignal $
     first (fmap depositStoreDeclarationToUtxoPredFailure) $
@@ -418,10 +418,10 @@ dijkstraUtxoTransition = do
   {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
   runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxos) inputs
 
-  -- Spending presence depends on the original UTxO and applies on both phase-2 paths.
+  -- Release declaration presence uses the original UTxO on both phase-2 paths.
   runTest $
     first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-      validateTopTxSpendingInputsDeclaration originalUtxo txBody
+      validateTopTxReleaseDeclarationPresence originalUtxo txBody
 
   -- Recorded deposits survive SubTx processing until this complete-batch check.
   -- Deposit exactness and prospective Store solvency apply on both paths.

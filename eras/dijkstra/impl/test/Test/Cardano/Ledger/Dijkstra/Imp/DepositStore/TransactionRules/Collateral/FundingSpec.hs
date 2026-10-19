@@ -23,7 +23,7 @@ import Lens.Micro
 import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Collateral as Collateral
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Spending (
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   submitTxAndExpectFailureContaining,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest

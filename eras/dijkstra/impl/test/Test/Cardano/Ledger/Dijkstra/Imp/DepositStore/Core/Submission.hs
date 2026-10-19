@@ -1,10 +1,17 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Prepare and submit specification transactions to the test ledger.
--- Preserve each fixture's declarations and outputs across fixup, and require
--- rejection to leave the ledger state unchanged after fixture funding.
+-- Preserve each fixture's declarations and outputs across fixup. Submission
+-- returns the ledger outcome for the spec to check; legacy combined rejection
+-- helpers additionally compare ledger state before and after submission.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
+  submitTx,
+  isAccepted,
+  isRejectedWith,
+  removeTopTxDeclaration,
   buildTxWithUTxODepositDeclarations,
   preparePhase2InvalidBatch,
   buildTxWithCreatedOutputs,
@@ -15,7 +22,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitPreparedTxAndExpectRejection,
   submitPreparedRejection,
   submitTxAndExpectFailureContaining,
-  checkPreservedCreationFixture,
+  checkPreservedOutputsAndDeclarations,
 ) where
 
 import Cardano.Ledger.Coin (Coin (..))
@@ -23,8 +30,10 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Rules (DijkstraLedgerPredFailure, DijkstraUtxoPredFailure)
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (SLanguage (..), hashPlutusScript)
 import Cardano.Ledger.Shelley.LedgerState (esLStateL, nesEsL)
+import Data.Bifunctor (first)
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.OMap.Strict as OMap
@@ -41,9 +50,50 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (
   topTxBody,
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output as Output
-import Test.Cardano.Ledger.Dijkstra.ImpTest
-import Test.Cardano.Ledger.Imp.Common (shouldBe)
+import Test.Cardano.Ledger.Dijkstra.ImpTest hiding (submitTx)
+import Test.Cardano.Ledger.Imp.Common (
+  expectLeftDeepExpr,
+  expectRightDeepExpr_,
+  shouldBe,
+  shouldContainExpr,
+ )
 import Test.Cardano.Ledger.Plutus.Examples (alwaysFailsWithDatum)
+
+-- | Submit the signed transaction exactly as supplied, without further fixup.
+-- Return the ledger's rejection reasons or accepted transaction for the spec to
+-- check. Submission itself does not require either outcome.
+submitTx ::
+  Tx TopTx DijkstraEra ->
+  ImpTestM
+    DijkstraEra
+    (Either (NonEmpty (DijkstraLedgerPredFailure DijkstraEra)) (Tx TopTx DijkstraEra))
+submitTx tx = first fst <$> withNoFixup (trySubmitTx tx)
+
+-- | Require acceptance of an already submitted transaction. On rejection, report
+-- the ledger's predicate failures; this assertion never submits the transaction.
+isAccepted ::
+  Either (NonEmpty (DijkstraLedgerPredFailure DijkstraEra)) (Tx TopTx DijkstraEra) ->
+  ImpTestM DijkstraEra ()
+isAccepted = expectRightDeepExpr_
+
+-- | Require rejection for the supplied rule failure. Other failures may accompany
+-- it, for example when an absent declaration also breaks ADA conservation.
+-- An accepted transaction or a rejection without this reason fails the assertion.
+isRejectedWith ::
+  InjectRuleFailure "LEDGER" failure DijkstraEra =>
+  failure DijkstraEra ->
+  Either (NonEmpty (DijkstraLedgerPredFailure DijkstraEra)) (Tx TopTx DijkstraEra) ->
+  ImpTestM DijkstraEra ()
+isRejectedWith expected outcome = do
+  failures <- expectLeftDeepExpr outcome
+  toList failures `shouldContainExpr` [injectFailure @"LEDGER" expected]
+
+-- | Remove only TopTx's declaration and re-sign without balancing again.
+-- Inputs, outputs, fees and child declarations remain those of the signed control.
+removeTopTxDeclaration ::
+  Tx TopTx DijkstraEra -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
+removeTopTxDeclaration tx =
+  rederiveAddrTxWits $ tx & bodyTxL . netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
 
 -- | Build a test transaction from a UTxO capacity deposit declarations fixture,
 -- with funded inputs for each SubTx.
@@ -192,7 +242,7 @@ submitTxAndExpectFailureContaining expectedFailure fixed = do
   after <- getsNES $ nesEsL . esLStateL
   after `shouldBe` before
 
--- | Check the submitted shape after fixup, including the absence of Store activity.
+-- | Check the submitted shape after fixup, including the absence of Store operations.
 withPreservedDeclarations ::
   Tx TopTx DijkstraEra -> ImpTestM DijkstraEra a -> ImpTestM DijkstraEra a
 withPreservedDeclarations prepared = withPostFixup $ \submitted -> do
@@ -223,9 +273,9 @@ subTxDepositDeclaration tx = tx ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL
 
 -- | Fixup may append implicit TopTx change, but must retain every supplied output
 -- and each body's own declaration, including its phase-2 outcome.
-checkPreservedCreationFixture ::
+checkPreservedOutputsAndDeclarations ::
   Tx TopTx DijkstraEra -> Tx TopTx DijkstraEra -> ImpTestM DijkstraEra ()
-checkPreservedCreationFixture prepared submitted = do
+checkPreservedOutputsAndDeclarations prepared submitted = do
   let preparedOutputs = toList $ prepared ^. bodyTxL . outputsTxBodyL
       submittedOutputs = toList $ submitted ^. bodyTxL . outputsTxBodyL
       preparedSubs = OMap.elems $ prepared ^. bodyTxL . subTransactionsTxBodyL
