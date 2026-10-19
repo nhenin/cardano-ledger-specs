@@ -11,7 +11,7 @@
 -- Isolated-validator success establishes presence only. Ledger scenarios must
 -- also supply exact declarations, funding and witnesses. The standalone allocation
 -- pair consumes only implicit inputs, so release cannot trigger presence.
-module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.RequiredDeclarations.Operations.AllocationSpec (spec) where
+module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.AllocationSpec (spec) where
 
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
@@ -52,11 +52,11 @@ import Validation (Validation (..))
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION - ∀ body: createdStoreBackedOutputs(body) ≠ ∅ ⇒ hasDeclaration(body)" $ do
+  describe "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION - ∀ body: createdStoreBackedOutputs(body) ≠ ∅ ⇒ hasDeclaration(body)" $ do
     -- Presence alone does not establish ledger acceptance. An explicit operation
     -- may satisfy this predicate while failing amount, funding or settlement rules.
     -- N01, N02 and F01 exercise only this presence predicate for both body levels.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N01 - Every explicit declaration satisfies allocation presence" $ \amount outputIndex ->
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N01 - Every explicit declaration satisfies allocation presence" $ \amount outputIndex ->
       forAll Output.storeBackedOutputCases $ \cases ->
         conjoin
           [ counterexample (show outputs) $ conjoin
@@ -73,7 +73,7 @@ spec =
               ]
           | outputs <- cases
           ]
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N02 - Absence satisfies allocation presence for empty or implicit-only own outputs" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N02 - Absence satisfies allocation presence for empty or implicit-only own outputs" $
       forAll Output.implicitOutputCases $ \cases ->
         conjoin
           [ conjoin
@@ -82,7 +82,7 @@ spec =
               ]
           | outputs <- cases
           ]
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F01 - Missing declaration fails allocation presence at every own-output position" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F01 - Missing declaration fails allocation presence at every own-output position" $
       forAll Output.storeBackedOutputCases $ \cases ->
         conjoin
           [ counterexample (show outputs) $ conjoin
@@ -92,11 +92,11 @@ spec =
           | outputs <- cases
           ]
     allocationPresenceScenarios
-      [ ( "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N03 - accepts a TopTx creating only implicit outputs without a declaration"
+      [ ( "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N03 - accepts a TopTx creating only implicit outputs without a declaration"
         , Output.TxOutputs TopTx.NoUTxODepositDeclaration [Output.ImplicitOutput] []
         , Phase2Valid, Accepted
         )
-      , ( "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N04 - accepts a SubTx creating only implicit outputs without either body's declaration"
+      , ( "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N04 - accepts a SubTx creating only implicit outputs without either body's declaration"
         , Output.TxOutputs TopTx.NoUTxODepositDeclaration [] [(SubTx.NoUTxODepositDeclaration, [Output.ImplicitOutput])]
         , Phase2Valid, Accepted
         )
@@ -111,7 +111,7 @@ spec =
     -- Standalone TopTx, exact allocation declaration.
     -- declaredNetDeposit(topTx) = allocatedDeposits(topTx) ⇒ Accepted.
     -- Funding, fees, witnesses and all other ledger requirements are satisfied.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N05 - subTxs = ∅ ∧ spentStoreBackedOutputs(topTx) = ∅ ∧ createdStoreBackedOutputs(topTx) ≠ ∅ ∧ declaredNetDeposit(topTx) = allocatedDeposits(topTx) ⇒ Accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N05 - subTxs = ∅ ∧ spentStoreBackedOutputs(topTx) = ∅ ∧ createdStoreBackedOutputs(topTx) ≠ ∅ ∧ declaredNetDeposit(topTx) = allocatedDeposits(topTx) ⇒ Accepted" $
       forAllStandaloneAllocationTx TopTx.standaloneTopTxAllocatingDeposits $ \topTxWithoutTopDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -127,7 +127,7 @@ spec =
     -- Remove only the declaration from the valid signed proposal, then re-sign.
     -- Inputs, outputs and fees stay unchanged. Other failures may accompany the
     -- required presence failure; the original signed control must be accepted.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F02 - subTxs = ∅ ∧ spentStoreBackedOutputs(topTx) = ∅ ∧ createdStoreBackedOutputs(topTx) ≠ ∅ ∧ ¬hasDeclaration(topTx) ⇒ RejectedWith(MissingUTxODepositDeclaration)" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F02 - subTxs = ∅ ∧ spentStoreBackedOutputs(topTx) = ∅ ∧ createdStoreBackedOutputs(topTx) ≠ ∅ ∧ ¬hasDeclaration(topTx) ⇒ RejectedWith(MissingUTxODepositDeclaration)" $
       forAllStandaloneAllocationTx TopTx.standaloneTopTxAllocatingDeposits $ \topTxWithoutTopDeclaration -> do
         signedTx <-
           buildAndSignTx
@@ -142,15 +142,15 @@ spec =
         submitTx signedTx >>= isAccepted
 
     allocationPresenceScenarios
-      [ ( "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F03 - rejects a SubTx creating a store-backed output without its own declaration"
+      [ ( "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F03 - rejects a SubTx creating a store-backed output without its own declaration"
         , Output.TxOutputs TopTx.NoUTxODepositDeclaration [] [(SubTx.NoUTxODepositDeclaration, [Output.StoreBackedOutput])]
         , Phase2Valid, RejectedSubTx SubMissingUTxODepositDeclaration
         )
-      , ( "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F04 - rejects a TopTx creating a store-backed output without its own declaration even when phase 2 fails"
+      , ( "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F04 - rejects a TopTx creating a store-backed output without its own declaration even when phase 2 fails"
         , Output.TxOutputs TopTx.NoUTxODepositDeclaration [Output.StoreBackedOutput] []
         , Phase2Invalid, RejectedTopTx MissingUTxODepositDeclaration
         )
-      , ( "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F05 - rejects a SubTx creating a store-backed output without its own declaration even when phase 2 fails"
+      , ( "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F05 - rejects a SubTx creating a store-backed output without its own declaration even when phase 2 fails"
         , Output.TxOutputs TopTx.NoUTxODepositDeclaration [] [(SubTx.NoUTxODepositDeclaration, [Output.StoreBackedOutput])]
         , Phase2Invalid, RejectedSubTx SubMissingUTxODepositDeclaration
         )
@@ -158,7 +158,7 @@ spec =
     -- A translated Conway output has no recorded Store deposit. Consuming it
     -- releases nothing, but the new store-backed outputs still require allocation.
     -- Remove only the declaration, then submit the exact declared control.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F06 - rejects a missing own declaration when spending a translated implicit output to create store-backed outputs" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F06 - rejects a missing own declaration when spending a translated implicit output to create store-backed outputs" $
       forAllPostConwayAllocationTx TopTx.standaloneTopTxAllocatingDeposits $ \topTxWithoutTopDeclaration -> do
         signedTx <-
           buildAndSignTx
@@ -175,7 +175,7 @@ spec =
     -- Only the SubTx creates store-backed outputs; TopTx has no own outputs.
     -- createdStoreBackedOutputs(topTx) = ∅ ⇒ AllocationPresenceSatisfied(topTx).
     -- The child declares zero, so its declaration still requires TopTx's declaration.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N06 - SubTx outputs do not trigger TopTx allocation presence" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N06 - SubTx outputs do not trigger TopTx allocation presence" $
       forAll Output.storeBackedOutputCases $ \cases ->
         conjoin
           [ validateTopTxAllocationDeclarationPresence (Output.topTxBodyWithNestedOutputs (outputs {Output.outputVariants = []}) outputs) === Success ()
@@ -185,19 +185,19 @@ spec =
     -- A store-backed collateral return is not a regular created output.
     -- createdStoreBackedOutputs(topTx) = ∅ ⇒ AllocationPresenceSatisfied(topTx).
     -- This does not validate collateral funding or settlement.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N07 - Collateral return does not trigger allocation presence" $ \address ->
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N07 - Collateral return does not trigger allocation presence" $ \address ->
       validateTopTxAllocationDeclarationPresence (Output.topTxBodyWithCollateralReturn address) === Success ()
 
     -- The same generated identifier populates reference and collateral inputs.
     -- No UTxO lookup occurs: this checks field exclusion by the allocation-presence validator,
     -- not the validity or deposit form of any referenced or collateral output.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N08 - Reference and collateral input identifiers do not trigger allocation presence" $ \input ->
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N08 - Reference and collateral input identifiers do not trigger allocation presence" $ \input ->
       validateTopTxAllocationDeclarationPresence (Output.topTxBodyWithReferenceAndCollateralInputs input) === Success ()
 
     -- Both bodies create store-backed outputs, but only the SubTx declares.
     -- createdStoreBackedOutputs(topTx) ≠ ∅ ∧ ¬hasDeclaration(topTx)
     --   ⇒ AllocationPresenceFails(topTx, MissingBodyUTxODepositDeclaration).
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F07 - A SubTx declaration cannot satisfy TopTx allocation presence" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F07 - A SubTx declaration cannot satisfy TopTx allocation presence" $
       forAll Output.storeBackedOutputCases $ \cases ->
         conjoin
           [ validateTopTxAllocationDeclarationPresence (Output.topTxBodyWithNestedOutputs outputs outputs) === missingOwnDeclaration
@@ -209,7 +209,7 @@ spec =
     --   ⇒ RejectedWith(SubMissingUTxODepositDeclaration).
     -- Parent exactness can also fail; that cannot replace the child's presence failure.
     allocationPresenceScenarios
-      [ ( "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-F08 - TopTx zero cannot satisfy its allocating SubTx's declaration requirement"
+      [ ( "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F08 - TopTx zero cannot satisfy its allocating SubTx's declaration requirement"
         , Output.TxOutputs TopTx.DeclaresZeroNetUTxODeposit [] [(SubTx.NoUTxODepositDeclaration, [Output.StoreBackedOutput])]
         , Phase2Valid, RejectedIncludingSubTx SubMissingUTxODepositDeclaration
         )
@@ -220,7 +220,7 @@ spec =
     -- subTxs = {subTx} ∧ ∀ body ∈ {topTx, subTx}:
     -- createdStoreBackedOutputs(body) ≠ ∅ ∧ spentStoreBackedOutputs(body) = ∅.
     -- Accepted requires exact amounts, sufficient funding, fees and witnesses.
-    prop "DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION-N09 - TopTx and SubTx allocate deposits, each with an exact declaration" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N09 - TopTx and SubTx allocate deposits, each with an exact declaration" $
       forAllTopTxAndSubTxAllocationTx TopTx.topTxAndSubTxAllocatingDeposits $ \topTxWithoutDeclarations ->
         buildAndSignTx
           (TopTx.addDeclaration

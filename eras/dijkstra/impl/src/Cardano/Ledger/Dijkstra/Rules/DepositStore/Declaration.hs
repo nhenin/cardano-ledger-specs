@@ -45,7 +45,7 @@ data DepositStoreOutputDeclarationFailure
   = MissingBodyUTxODepositDeclaration
   deriving (Eq, Show)
 
--- | DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION: require TopTx's declaration for allocations
+-- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION: require TopTx's declaration for allocations
 -- proposed by its own regular store-backed outputs. SubTx outputs and collateral
 -- return are outside this check. Released deposits do not remove this requirement.
 validateTopTxAllocationDeclarationPresence ::
@@ -57,7 +57,7 @@ validateTopTxAllocationDeclarationPresence txBody =
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
--- | DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-ALLOCATION: require SubTx's own declaration for
+-- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION: require SubTx's own declaration for
 -- allocations proposed by its regular store-backed outputs. A TopTx declaration
 -- cannot substitute for it, even if the SubTx's net change is zero.
 validateSubTxAllocationDeclarationPresence ::
@@ -69,7 +69,7 @@ validateSubTxAllocationDeclarationPresence txBody =
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
--- | DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE: require TopTx's declaration for releases
+-- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE: require TopTx's declaration for releases
 -- proposed by its own ordinary inputs, resolved against the original UTxO.
 -- Reference and collateral inputs do not count. No recorded amount is needed.
 -- Missing inputs remain the responsibility of the existing BadInputs check.
@@ -83,7 +83,7 @@ validateTopTxReleaseDeclarationPresence originalUtxo txBody =
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
     (unUTxO $ txInsFilter originalUtxo (txBody ^. inputsTxBodyL))
 
--- | DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE: require SubTx's own declaration for releases
+-- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE: require SubTx's own declaration for releases
 -- proposed by its ordinary inputs, even when its new outputs are all implicit.
 -- Allocations do not remove this requirement. No recorded amount is needed.
 validateSubTxReleaseDeclarationPresence ::
@@ -121,7 +121,7 @@ hasSubTxNetUTxODepositDeclaration ::
 hasSubTxNetUTxODepositDeclaration subTx =
   SubTx.hasUTxODepositDeclaration $ subTx ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL
 
--- | DS-TX-REQUIRED-DECLARATIONS-SUBTX-DECLARATIONS: any SubTx declaration requires a TopTx declaration.
+-- | DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS: any SubTx declaration requires a TopTx declaration.
 -- Explicit zero counts as a declaration, regardless of local or delegated accounting.
 validateTopTxNetUTxODepositDeclaration ::
   (EraTx era, DijkstraEraTxBody era) =>
