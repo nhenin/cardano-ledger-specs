@@ -17,8 +17,8 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.To
   withEveryExactChildDeclarationForm,
   withDelegatedSubTxDeclaration,
   ownNetDeposit,
-  validateAccounting,
-  expectedAccounting,
+  validateNetChange,
+  expectedNetChange,
   addTopDeclaration,
 ) where
 
@@ -208,8 +208,8 @@ ownNetDeposit proposal =
 
 -- | Run only production TopTx exactness against the funded snapshot. Other
 -- ledger rules do not affect this result, including settlement and conservation.
-validateAccounting :: ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
-validateAccounting proposal =
+validateNetChange :: ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateNetChange proposal =
   validateTopTxExactness
     (Standalone.protocolParameters $ ledgerState proposal)
     (utxosDepositStore $ Standalone.utxoState $ ledgerState proposal)
@@ -217,8 +217,8 @@ validateAccounting proposal =
 
 -- | Independently require the declared amount to equal priced allocations minus
 -- consumed recorded deposits. No production accounting predicate is consulted.
-expectedAccounting :: Coin -> ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
-expectedAccounting declared proposal
+expectedNetChange :: Coin -> ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+expectedNetChange declared proposal
   | declared == Context.netDeposit proposal = Success ()
   | otherwise = Failure $ InexactTopTxDepositChange declared (Context.netDeposit proposal) :| []
 
