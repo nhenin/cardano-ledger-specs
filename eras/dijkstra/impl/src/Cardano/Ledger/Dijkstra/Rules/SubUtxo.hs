@@ -42,8 +42,8 @@ import Cardano.Ledger.Dijkstra.Era (
  )
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreOutputDeclarationFailure (..),
-  validateSubTxCreatedOutputsDeclaration,
-  validateSubTxSpendingInputsDeclaration,
+  validateSubTxAllocationDeclarationPresence,
+  validateSubTxReleaseDeclarationPresence,
  )
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
@@ -243,7 +243,7 @@ dijkstraSubUtxoTransition = do
   let txBody = tx ^. bodyTxL
 
   validateTransLabeled depositStoreOutputDeclarationToSubUtxoPredFailure (lblStatic :| []) $
-    validateSubTxCreatedOutputsDeclaration txBody
+    validateSubTxAllocationDeclarationPresence txBody
 
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
@@ -260,9 +260,9 @@ dijkstraSubUtxoTransition = do
   let inputs = txBody ^. inputsTxBodyL
   runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxoState) inputs
 
-  -- Resolve ordinary spending against the original UTxO before choosing execution effects.
+  -- Check proposed releases against the original UTxO before choosing execution effects.
   validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $
-    validateSubTxSpendingInputsDeclaration originalUtxo txBody
+    validateSubTxReleaseDeclarationPresence originalUtxo txBody
 
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 

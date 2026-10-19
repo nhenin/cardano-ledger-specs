@@ -1,10 +1,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Execute each creation-presence scenario against fresh ledger state.
+-- | Execute each allocation-presence scenario against fresh ledger state.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Output (
   ExpectedSubmission (..),
-  outputCreationScenarios,
+  allocationPresenceScenarios,
 ) where
 
 import Cardano.Ledger.Dijkstra (DijkstraEra)
@@ -15,7 +15,7 @@ import Test.Cardano.Ledger.Common (Spec, forM_, it)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output as Fixture
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   buildTxWithCreatedOutputs,
-  checkPreservedCreationFixture,
+  checkPreservedOutputsAndDeclarations,
   preparePhase2InvalidTx,
   submitPreparedRejection,
   submitTxAndExpectFailureContaining,
@@ -37,8 +37,9 @@ data ExpectedSubmission
 -- A rejection fixture may deliberately violate several independent rules. Use
 -- RejectedIncludingSubTx when the named presence failure must be included even if
 -- the parent declaration also fails exactness. Exact outcomes remain exact.
-outputCreationScenarios :: [(String, Fixture.TxOutputs, IsPhase2Valid, ExpectedSubmission)] -> Spec
-outputCreationScenarios scenarios =
+allocationPresenceScenarios ::
+  [(String, Fixture.TxOutputs, IsPhase2Valid, ExpectedSubmission)] -> Spec
+allocationPresenceScenarios scenarios =
   withImpInit @(LedgerSpec DijkstraEra) $
     forM_ scenarios $ \(requirement, outputs, phase2, expected) ->
       it requirement $ do
@@ -46,7 +47,7 @@ outputCreationScenarios scenarios =
         fixed <- case phase2 of
           Phase2Valid -> fixupTx prepared
           Phase2Invalid -> preparePhase2InvalidTx prepared
-        checkPreservedCreationFixture (prepared & isPhase2ValidTxL .~ phase2) fixed
+        checkPreservedOutputsAndDeclarations (prepared & isPhase2ValidTxL .~ phase2) fixed
         case expected of
           Accepted -> withNoFixup $ submitTx_ fixed
           RejectedTopTx failure -> submitPreparedRejection (injectFailure failure) fixed

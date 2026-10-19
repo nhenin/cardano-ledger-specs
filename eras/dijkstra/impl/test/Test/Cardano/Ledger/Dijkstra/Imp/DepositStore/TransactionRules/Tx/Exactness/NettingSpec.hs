@@ -18,8 +18,8 @@ import Cardano.Ledger.Dijkstra.Rules (
 import Cardano.Ledger.Val (Val ((<->)))
 import Test.Cardano.Ledger.Common (Expectation, Spec, describe, forAll, it, prop, shouldBe)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as TopTx
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Spending (
-  fundSpendingScenario,
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
+  fundReleaseScenario,
   submitTxAndExpectFailureContaining,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (fixupTx, rederiveAddrTxWits)
@@ -35,32 +35,32 @@ spec =
     it "DS-TX-EXACTNESS-NETTING-N03 - nets a 3 ADA allocation and a 5 ADA release into a TopTx release of 2 ADA" releaseExceedsAllocation
     it "DS-TX-EXACTNESS-NETTING-N04 - uses TopTx explicit zero when nonzero body contributions cancel exactly" allocationsAndReleasesCancel
     prop "DS-TX-EXACTNESS-NETTING-F01 - rejects a TopTx net allocation one lovelace below the required batch total" $
-      forAll TopTx.withoutSubTxsConsumingDepositsRequiringNetAllocation $ \scenario -> do
-        (ledgerState, topTx) <- fundSpendingScenario scenario
+      forAll TopTx.standaloneTopTxRequiringNetAllocation $ \scenario -> do
+        (ledgerState, topTx) <- fundReleaseScenario scenario
         let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
             declared = required <-> Coin 1
         prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
         invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
         submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
     prop "DS-TX-EXACTNESS-NETTING-F02 - rejects a TopTx net allocation one lovelace above the required batch total" $
-      forAll TopTx.withoutSubTxsConsumingDepositsRequiringNetAllocation $ \scenario -> do
-        (ledgerState, topTx) <- fundSpendingScenario scenario
+      forAll TopTx.standaloneTopTxRequiringNetAllocation $ \scenario -> do
+        (ledgerState, topTx) <- fundReleaseScenario scenario
         let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
             declared = required <> Coin 1
         prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
         invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
         submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
     prop "DS-TX-EXACTNESS-NETTING-F03 - rejects a TopTx net release one lovelace below the required batch release" $
-      forAll TopTx.withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs $ \scenario -> do
-        (ledgerState, topTx) <- fundSpendingScenario scenario
+      forAll TopTx.standaloneTopTxOnlyImplicitOutputs $ \scenario -> do
+        (ledgerState, topTx) <- fundReleaseScenario scenario
         let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
             declared = required <> Coin 1
         prepared <- fixupTx $ TopTx.declareNetDeposit required topTx
         invalid <- rederiveAddrTxWits $ TopTx.declareNetDeposit declared prepared
         submitTxAndExpectFailureContaining (injectFailure $ DepositStoreFailure $ InexactTopTxDepositChange declared required) invalid
     prop "DS-TX-EXACTNESS-NETTING-F04 - rejects a TopTx net release one lovelace above the required batch release" $
-      forAll TopTx.withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs $ \scenario -> do
-        (ledgerState, topTx) <- fundSpendingScenario scenario
+      forAll TopTx.standaloneTopTxOnlyImplicitOutputs $ \scenario -> do
+        (ledgerState, topTx) <- fundReleaseScenario scenario
         let required = TopTx.allocatedDeposits ledgerState topTx <-> TopTx.releasedDeposits ledgerState topTx
             declared = required <-> Coin 1
         prepared <- fixupTx $ TopTx.declareNetDeposit required topTx

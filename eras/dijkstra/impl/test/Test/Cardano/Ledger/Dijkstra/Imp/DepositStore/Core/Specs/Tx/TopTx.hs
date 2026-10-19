@@ -5,20 +5,26 @@
 -- | Generated standalone transaction scenarios and queries over real ledger snapshots.
 -- Scenarios describe amounts and output forms. Submission fixtures establish their
 -- inputs through ordinary ledger transactions before any release is calculated.
+-- Proposed releases take effect only if ordinary ledger execution succeeds.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (
   module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx,
-  SpendingScenario (..),
+  ReleaseScenario (..),
   OutputForms (..),
   LedgerState (..),
-  withoutSubTxsConsumingDeposits,
-  withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs,
-  withoutSubTxsConsumingDepositsRequiringNetAllocation,
+  standaloneTopTxAnyOutputForm,
+  standaloneTopTxOnlyImplicitOutputs,
+  standaloneTopTxWithEqualAllocationsAndReleases,
+  standaloneTopTxRequiringNetAllocation,
   sourceOutputs,
   createdOutputs,
   outputDeposit,
   allocatedDeposits,
   releasedDeposits,
+  createdAllocations,
+  declaration,
+  declaredNetDeposit,
   declareNetDeposit,
+  netDepositDeclaration,
 ) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
@@ -30,10 +36,14 @@ import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosDepositStore)
 import Cardano.Ledger.State (DepositStore (..))
-import Cardano.Ledger.Val (inject)
+import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
+import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Val (Val ((<->)), inject)
+import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, elements, vectorOf)
+import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -49,7 +59,7 @@ data LedgerState = LedgerState
 -- | Application amounts for consumed and unrelated store-backed outputs, followed
 -- by the output forms of the proposed transaction. Input references and witnesses
 -- are supplied only after funding succeeds on the actual ledger.
-data SpendingScenario = SpendingScenario
+data ReleaseScenario = ReleaseScenario
   { consumedApplicationAmounts :: [Coin]
   , unrelatedApplicationAmounts :: [Coin]
   , outputForms :: OutputForms
@@ -60,26 +70,40 @@ data SpendingScenario = SpendingScenario
 data OutputForms = ImplicitOutputs | StoreBackedOutputs | MixedOutputs
   deriving (Eq, Show)
 
--- | Exercise implicit-only, store-backed-only and mixed outputs. Relative input
+-- | Standalone TopTx, any output form. Consumes at least one store-backed output
+-- and creates implicit-only, store-backed-only or mixed outputs. Relative input
 -- and output counts exercise net releases, zero and allocations under fixed pricing.
-withoutSubTxsConsumingDeposits :: Gen SpendingScenario
-withoutSubTxsConsumingDeposits =
+standaloneTopTxAnyOutputForm :: Gen ReleaseScenario
+standaloneTopTxAnyOutputForm =
   elements [ImplicitOutputs, StoreBackedOutputs, MixedOutputs] >>= standaloneTopTx
 
--- | Consume at least one recorded deposit and create one implicit output receiving
--- application ADA plus the released deposit. Ordinary fixup funds fees separately.
-withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs :: Gen SpendingScenario
-withoutSubTxsConsumingDepositsCreatingOnlyImplicitOutputs = standaloneTopTx ImplicitOutputs
+-- | Standalone TopTx, only implicit outputs. Consume at least one store-backed
+-- output and propose one implicit output receiving application ADA plus the full
+-- recorded release. Ordinary fixup funds fees separately.
+standaloneTopTxOnlyImplicitOutputs :: Gen ReleaseScenario
+standaloneTopTxOnlyImplicitOutputs = standaloneTopTx ImplicitOutputs
 
--- | More new store-backed outputs than consumed ones require a net allocation
--- under the fixed policy and equal-width application amounts of these scenarios.
-withoutSubTxsConsumingDepositsRequiringNetAllocation :: Gen SpendingScenario
-withoutSubTxsConsumingDepositsRequiringNetAllocation = do
+-- | Standalone TopTx, equal nonzero allocations and releases. Consume one to five
+-- store-backed outputs and create the same number, optionally alongside an implicit
+-- output. Application amounts share the same CBOR width, so equal counts under the
+-- unchanged price give equal deposits. Submission support checks the actual totals
+-- against recorded source deposits before the spec supplies its declaration.
+standaloneTopTxWithEqualAllocationsAndReleases :: Gen ReleaseScenario
+standaloneTopTxWithEqualAllocationsAndReleases = do
+  scenario <- elements [StoreBackedOutputs, MixedOutputs] >>= standaloneTopTx
+  amounts <- vectorOf (length $ consumedApplicationAmounts scenario) applicationAmount
+  pure $ scenario {createdApplicationAmounts = amounts}
+
+-- | Standalone TopTx requiring a net allocation. Consume at least one store-backed
+-- output and create one more store-backed output than is consumed. The fixed policy
+-- and equal-width application amounts make the new allocation exceed the release.
+standaloneTopTxRequiringNetAllocation :: Gen ReleaseScenario
+standaloneTopTxRequiringNetAllocation = do
   scenario <- standaloneTopTx StoreBackedOutputs
   amounts <- vectorOf (length (consumedApplicationAmounts scenario) + 1) applicationAmount
   pure $ scenario {createdApplicationAmounts = amounts}
 
-standaloneTopTx :: OutputForms -> Gen SpendingScenario
+standaloneTopTx :: OutputForms -> Gen ReleaseScenario
 standaloneTopTx forms = do
   spentCount <- chooseInt (1, 5)
   unspentCount <- chooseInt (1, 3)
@@ -87,14 +111,14 @@ standaloneTopTx forms = do
   consumed <- vectorOf spentCount applicationAmount
   unrelated <- vectorOf unspentCount applicationAmount
   created <- vectorOf createdCount applicationAmount
-  pure $ SpendingScenario consumed unrelated forms created
+  pure $ ReleaseScenario consumed unrelated forms created
 
 applicationAmount :: Gen Coin
 applicationAmount = Coin <$> chooseInteger (10_000_000, 20_000_000)
 
 -- | Funding creates both consumed and unrelated outputs. Their ordering lets the
 -- adapter retain unrelated inputs as a check against releasing the entire Store.
-sourceOutputs :: Addr -> SpendingScenario -> [TxOut DijkstraEra]
+sourceOutputs :: Addr -> ReleaseScenario -> [TxOut DijkstraEra]
 sourceOutputs address scenario =
   map (storeBackedOutput address) $
     consumedApplicationAmounts scenario <> unrelatedApplicationAmounts scenario
@@ -102,7 +126,7 @@ sourceOutputs address scenario =
 -- | Output zero can receive the complete release. Other shapes retain a generous
 -- application balance; normal funding supplies any shortfall without changing the
 -- generated outputs or deposit declaration.
-createdOutputs :: Addr -> SpendingScenario -> Coin -> [TxOut DijkstraEra]
+createdOutputs :: Addr -> ReleaseScenario -> Coin -> [TxOut DijkstraEra]
 createdOutputs address scenario released = case outputForms scenario of
   ImplicitOutputs ->
     [ mkBasicTxOutWithImplicitDeposit address $
@@ -140,14 +164,47 @@ releasedDeposits ledgerState topTx =
       (depositStoreAllocations $ utxosDepositStore $ utxoState ledgerState)
       (topTx ^. bodyTxL . inputsTxBodyL)
 
+-- | Price every created store-backed ordinary output independently of the Store
+-- transition. Each output is keyed by its own body's final transaction identifier;
+-- implicit outputs and collateral returns allocate nothing on the ordinary path.
+createdAllocations :: LedgerState -> Tx TopTx DijkstraEra -> Map.Map TxIn Coin
+createdAllocations ledgerState topTx =
+  createdBodyAllocations (protocolParameters ledgerState) topTx
+    <> foldMap
+      (createdBodyAllocations $ protocolParameters ledgerState)
+      (topTx ^. bodyTxL . subTransactionsTxBodyL)
+
+createdBodyAllocations :: PParams DijkstraEra -> Tx l DijkstraEra -> Map.Map TxIn Coin
+createdBodyAllocations parameters tx =
+  Map.fromList
+    [ (txInAt index tx, outputDeposit parameters output)
+    | (index, output@(StoreBackedTxOut _)) <- zip [0 ..] $ toList $ tx ^. bodyTxL . outputsTxBodyL
+    ]
+
+-- | The declaration supplied by TopTx, without deriving or repairing its amount.
+declaration :: Tx TopTx DijkstraEra -> TopTx.TopTxUTxODepositDeclaration
+declaration topTx = topTx ^. bodyTxL . netUTxODepositChangeTxBodyL
+
+-- | Read the declared signed amount: allocation is positive and release negative.
+-- Absence is 'Nothing'; an explicit zero remains 'Just' zero.
+declaredNetDeposit :: Tx TopTx DijkstraEra -> Maybe Coin
+declaredNetDeposit topTx = case declaration topTx of
+  TopTx.NoUTxODepositDeclaration -> Nothing
+  TopTx.DeclaresZeroNetUTxODeposit -> Just mempty
+  TopTx.DeclaresNetUTxODepositAllocation amount -> Just $ unStrictlyPositiveCoin amount
+  TopTx.DeclaresNetUTxODepositRelease amount _ -> Just $ Coin 0 <-> unStrictlyPositiveCoin amount
+
 -- | Preserve the supplied signed amount: positive allocates, zero declares zero,
 -- and negative releases its magnitude into the first output.
 declareNetDeposit :: Coin -> Tx TopTx DijkstraEra -> Tx TopTx DijkstraEra
-declareNetDeposit (Coin netAmount) topTx =
+declareNetDeposit netAmount topTx =
   topTx & bodyTxL . netUTxODepositChangeTxBodyL .~ netDepositDeclaration netAmount
 
-netDepositDeclaration :: Integer -> TopTx.TopTxUTxODepositDeclaration
-netDepositDeclaration netAmount
+-- | Construct a declaration from a signed net amount: positive allocates, zero
+-- explicitly declares zero, and negative releases its positive magnitude into
+-- TopTx's output zero. The caller supplies the amount; this does not calculate it.
+netDepositDeclaration :: Coin -> TopTx.TopTxUTxODepositDeclaration
+netDepositDeclaration (Coin netAmount)
   | netAmount > 0 = TopTx.DeclaresNetUTxODepositAllocation $ positiveAmount netAmount
   | netAmount < 0 =
       TopTx.DeclaresNetUTxODepositRelease

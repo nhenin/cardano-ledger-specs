@@ -21,9 +21,9 @@ import qualified Data.Set as Set
 import Lens.Micro
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as TopTx
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (preparePhase2InvalidTx)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Spending (
-  SpendingBody (TopTxSpending),
-  SpendingFixture (..),
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
+  ReleaseBody (TopTxReleasing),
+  ReleaseFixture (..),
   buildTxSpendingStoreBackedOutput,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest
@@ -54,10 +54,10 @@ implicitInputWithStoreBackedReturn = do
 storeBackedInputWithImplicitReturn :: ImpTestM DijkstraEra FundingFixture
 storeBackedInputWithImplicitReturn = do
   configureFundingPolicy
-  source <- buildTxSpendingStoreBackedOutput TopTxSpending
+  source <- buildTxSpendingStoreBackedOutput TopTxReleasing
   address <- freshKeyAddrNoPtr_
   let collateralReturn = mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 5_000_000
-  prepareFundingFixture (spendingInput source) (spendingDeposit source) collateralReturn
+  prepareFundingFixture (spendingInput source) (sourceDeposit source) collateralReturn
 
 configureFundingPolicy :: ImpTestM DijkstraEra ()
 configureFundingPolicy =
