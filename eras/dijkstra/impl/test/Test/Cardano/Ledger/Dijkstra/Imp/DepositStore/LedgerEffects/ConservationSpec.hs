@@ -15,4 +15,8 @@ includesStoreInMonetaryConservation :: Expectation
 -- Compare all affected monetary pots before and after ordinary success and accepted
 -- phase-2 failure, including a state with positive Store surplus. Count allocation
 -- records zero times and actual Store ADA once, independently of the ledger total helper.
+-- For collateral, cover mixed input forms and a return needing an additional
+-- deposit, as well as equal deposits, released surplus and an absent return:
+-- inputCoins + releasedDeposits = returnCoins + returnDeposit + collateralFee.
+-- This includes the former DS-COLLATERAL-CONSERVATION-N01/P01 obligations.
 includesStoreInMonetaryConservation = False `shouldBe` True

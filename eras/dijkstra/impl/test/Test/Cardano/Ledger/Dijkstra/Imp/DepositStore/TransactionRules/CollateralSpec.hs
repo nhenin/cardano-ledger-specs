@@ -1,21 +1,15 @@
--- | Collateral validation and settlement responsibilities.
+-- | Store-specific collateral validation. Existing generic coverage is inherited
+-- from UTXO/UTXOW; remaining generic gaps are tracked in the rules document.
+-- Applied effects belong to LedgerEffects.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.CollateralSpec (spec) where
 
 import Test.Cardano.Ledger.Common (Spec, describe)
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.AuthorizationSpec as Authorization
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.ConservationSpec as Conservation
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.AssetsSpec as Assets
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.FundingSpec as Funding
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.ScopeSpec as Scope
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.SettlementSpec as Settlement
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.SurplusSpec as Surplus
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.TotalSpec as Total
 
 spec :: Spec
 spec = describe "Collateral" $ do
-  Scope.spec
-  Authorization.spec
   Funding.spec
-  Surplus.spec
   Total.spec
-  Settlement.spec
-  Conservation.spec
+  Assets.spec
