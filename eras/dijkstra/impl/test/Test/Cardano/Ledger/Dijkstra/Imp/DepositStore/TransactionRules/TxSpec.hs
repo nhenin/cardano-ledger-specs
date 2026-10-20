@@ -4,7 +4,6 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.TxSpec (sp
 import Test.Cardano.Ledger.Common (Spec, describe)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AccountingSpec as Accounting
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ApplicationAssetsSpec as ApplicationAssets
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AttributionSpec as Attribution
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AuthorizationSpec as Authorization
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.DeclarationsSpec as Declarations
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.SettlementSpec as Settlement
@@ -14,7 +13,6 @@ spec :: Spec
 spec = describe "DS-TX - Tx" $ do
   Declarations.spec
   Accounting.spec
-  Attribution.spec
   Authorization.spec
   Settlement.spec
   ApplicationAssets.spec

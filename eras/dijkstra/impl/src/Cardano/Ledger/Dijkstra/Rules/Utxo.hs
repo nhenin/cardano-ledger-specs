@@ -84,7 +84,7 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.Val (Val ((<->)), inject)
+import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
 import Control.Monad (when)
 import Control.Monad.Trans.Reader (asks)
@@ -342,11 +342,7 @@ validateLegacyValueNotConservedUTxO ::
   TxBody TopTx era ->
   Validation (NonEmpty (Mismatch RelEQ (Value era))) ()
 validateLegacyValueNotConservedUTxO pp utxo pState body =
-  let Coin topTxNetDeposit =
-        DepositStore.declaredTopTxNetUTxODeposit (body ^. netUTxODepositChangeTxBodyL)
-          <-> foldMap
-            (DepositStore.locallyAccountedSubTxNetUTxODeposit . (^. bodyTxL . subTxNetUTxODepositChangeTxBodyL))
-            (body ^. subTransactionsTxBodyL)
+  let Coin topTxNetDeposit = DepositStore.attributedTopTxNetUTxODeposit body
       ordinaryBody =
         body
           & subTransactionsTxBodyL .~ mempty

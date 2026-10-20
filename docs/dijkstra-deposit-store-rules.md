@@ -343,23 +343,24 @@ Appendices contain the open design questions and supporting references.
                         <dl>
                           <dd>
                             <a href="#ds-tx-accounting-net-change-toptx-p01">2.1.2.1.2.1 P01 - TopTx declares the exact transaction total</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n01">2.1.2.1.2.2 N01 - TopTx and SubTxs contribute to the total</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n02">2.1.2.1.2.3 N02 - TopTx's own change is derived from its total</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n03">2.1.2.1.2.4 N03 - 5 ADA allocated, 3 ADA released</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n04">2.1.2.1.2.5 N04 - 3 ADA allocated, 5 ADA released</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n05">2.1.2.1.2.6 N05 - Nonzero body changes produce a zero total</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f01">2.1.2.1.2.7 F01 - Standalone TopTx understates its net allocation by one lovelace</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f02">2.1.2.1.2.8 F02 - Standalone TopTx overstates its net allocation by one lovelace</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f03">2.1.2.1.2.9 F03 - Standalone TopTx understates its net release by one lovelace</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f04">2.1.2.1.2.10 F04 - Standalone TopTx overstates its net release by one lovelace</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f05">2.1.2.1.2.11 F05 - Explicit zero cannot replace a nonzero total</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f06">2.1.2.1.2.12 F06 - A nonzero declaration cannot replace a zero total</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f07">2.1.2.1.2.13 F07 - TopTx declares the opposite direction</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n06">2.1.2.1.2.14 N06 - TopTx releases while SubTxs allocate</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n07">2.1.2.1.2.15 N07 - TopTx allocates while SubTxs release</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-n08">2.1.2.1.2.16 N08 - An exact total remains valid when phase 2 fails</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f08">2.1.2.1.2.17 F08 - An inexact total is rejected even when phase 2 fails</a><br>
-                            <a href="#ds-tx-accounting-net-change-toptx-f09">2.1.2.1.2.18 F09 - A delegated change belongs in the total exactly once</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-p02">2.1.2.1.2.2 P02 - Delegation preserves the transaction total</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n01">2.1.2.1.2.3 N01 - TopTx and SubTxs contribute to the total</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n02">2.1.2.1.2.4 N02 - TopTx's own change is derived from its total</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n03">2.1.2.1.2.5 N03 - 5 ADA allocated, 3 ADA released</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n04">2.1.2.1.2.6 N04 - 3 ADA allocated, 5 ADA released</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n05">2.1.2.1.2.7 N05 - Nonzero body changes produce a zero total</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f01">2.1.2.1.2.8 F01 - Standalone TopTx understates its net allocation by one lovelace</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f02">2.1.2.1.2.9 F02 - Standalone TopTx overstates its net allocation by one lovelace</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f03">2.1.2.1.2.10 F03 - Standalone TopTx understates its net release by one lovelace</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f04">2.1.2.1.2.11 F04 - Standalone TopTx overstates its net release by one lovelace</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f05">2.1.2.1.2.12 F05 - Explicit zero cannot replace a nonzero total</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f06">2.1.2.1.2.13 F06 - A nonzero declaration cannot replace a zero total</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f07">2.1.2.1.2.14 F07 - TopTx declares the opposite direction</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n06">2.1.2.1.2.15 N06 - TopTx releases while SubTxs allocate</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n07">2.1.2.1.2.16 N07 - TopTx allocates while SubTxs release</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-n08">2.1.2.1.2.17 N08 - An exact total remains valid when phase 2 fails</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f08">2.1.2.1.2.18 F08 - An inexact total is rejected even when phase 2 fails</a><br>
+                            <a href="#ds-tx-accounting-net-change-toptx-f09">2.1.2.1.2.19 F09 - A delegated change belongs in the total exactly once</a><br>
                           </dd>
                         </dl>
                       </details>
@@ -367,107 +368,33 @@ Appendices contain the open design questions and supporting references.
                   </dl>
                 </details>
                 <details>
-                  <summary><a href="#ds-tx-accounting-balance">2.1.2.2 Balance</a></summary>
+                  <summary><a href="#ds-tx-accounting-attribution">2.1.2.2 Attribution</a></summary>
                   <dl>
                     <dd>
-                      <a href="#ds-tx-accounting-balance-p01">2.1.2.2.1 P01 - The transaction conserves value when phase 2 is valid</a><br>
-                      <a href="#ds-tx-accounting-balance-p02">2.1.2.2.2 P02 - Complete balance determines acceptance</a><br>
-                      <a href="#ds-tx-accounting-balance-n01">2.1.2.2.3 N01 - Fund a net allocation once</a><br>
-                      <a href="#ds-tx-accounting-balance-n02">2.1.2.2.4 N02 - Use a net release once</a><br>
-                      <a href="#ds-tx-accounting-balance-n03">2.1.2.2.5 N03 - One SubTx funds another</a><br>
-                      <a href="#ds-tx-accounting-balance-n04">2.1.2.2.6 N04 - A SubTx funds TopTx fees</a><br>
-                      <a href="#ds-tx-accounting-balance-f01">2.1.2.2.7 F01 - One-lovelace deficit or surplus</a><br>
-                      <a href="#ds-tx-accounting-balance-f02">2.1.2.2.8 F02 - Native-asset quantity or identity mismatch</a><br>
-                      <a href="#ds-tx-accounting-balance-f03">2.1.2.2.9 F03 - An exact delegated allocation lacks funding</a><br>
-                      <a href="#ds-tx-accounting-balance-n05">2.1.2.2.10 N05 - Equal delegated allocations and releases</a><br>
-                      <a href="#ds-tx-accounting-balance-n06">2.1.2.2.11 N06 - Ten input ADA plus two released ADA</a><br>
-                      <a href="#ds-tx-accounting-balance-n07">2.1.2.2.12 N07 - Released ADA contributes to TopTx fees</a><br>
-                      <a href="#ds-tx-accounting-balance-f04">2.1.2.2.13 F04 - Released ADA cannot disappear</a><br>
-                      <a href="#ds-tx-accounting-balance-n08">2.1.2.2.14 N08 - Balanced proposal, failed phase 2</a><br>
-                    </dd>
-                  </dl>
-                </details>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-tx-attribution">2.1.3 Attribution</a></summary>
-            <dl>
-              <dd>
-                <a href="#ds-tx-attribution-p01">2.1.3.1 P01 - observed TopTx and local SubTx attribution matches the independent signed contribution projection</a><br>
-                <a href="#ds-tx-attribution-p02">2.1.3.2 P02 - switching local and delegated accounting changes attribution by the signed contribution and preserves the required batch change</a><br>
-                <a href="#ds-tx-attribution-n01">2.1.3.3 N01 - counts delegated funding once in TopTx accounting</a><br>
-                <a href="#ds-tx-attribution-n02">2.1.3.4 N02 - keeps the same batch net change when a SubTx delegates funding of its net allocation</a><br>
-                <a href="#ds-tx-attribution-n03">2.1.3.5 N03 - allows a SubTx spending its final store-backed inputs and creating no outputs to explicitly delegate the release to TopTx</a><br>
-                <a href="#ds-tx-attribution-n04">2.1.3.6 N04 - observes zero local and delegated amounts with no funding request for SubTx explicit zero</a><br>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-tx-authorization">2.1.4 Authorization</a></summary>
-            <dl>
-              <dd>
-                <a href="#ds-tx-authorization-n01">2.1.4.1 N01 - allows the authorized spender to release UTxO capacity deposits paid by another person</a><br>
-                <a href="#ds-tx-authorization-n02">2.1.4.2 N02 - does not require a separate signature from the original UTxO capacity deposit funder</a><br>
-                <a href="#ds-tx-authorization-f01">2.1.4.3 F01 - rejects spending by the original funder without the current spending authority even when the Store declaration is exact</a><br>
-                <a href="#ds-tx-authorization-n03">2.1.4.4 N03 - gains no release authority merely by referencing a store-backed output</a><br>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-tx-settlement">2.1.5 Settlement</a></summary>
-            <dl>
-              <dd>
-                <details>
-                  <summary><a href="#ds-tx-settlement-participation">2.1.5.1 Participation</a></summary>
-                  <dl>
-                    <dd>
-                      <a href="#ds-tx-settlement-participation-p01">2.1.5.1.1 P01 - TopTx settles its attributed release</a><br>
-                      <a href="#ds-tx-settlement-participation-n01">2.1.5.1.2 N01 - requires NoTopTxSettlement when SubTxs settle the entire net release locally</a><br>
-                      <a href="#ds-tx-settlement-participation-n02">2.1.5.1.3 N02 - requires a TopTx settlement output when the batch declares a net release and TopTx has a positive share</a><br>
-                      <a href="#ds-tx-settlement-participation-n03">2.1.5.1.4 N03 - accepts a net release settled across TopTx and SubTx outputs</a><br>
-                      <a href="#ds-tx-settlement-participation-n04">2.1.5.1.5 N04 - allows TopTx's settlement amount to exceed the batch net release when SubTxs account for net allocations locally</a><br>
-                      <a href="#ds-tx-settlement-participation-f01">2.1.5.1.6 F01 - rejects NoTopTxSettlement when the batch declares a net release and TopTx has a positive share</a><br>
-                      <a href="#ds-tx-settlement-participation-f02">2.1.5.1.7 F02 - rejects a TopTx settlement output when TopTx has no net release to settle</a><br>
-                      <a href="#ds-tx-settlement-participation-n05">2.1.5.1.8 N05 - does not require a TopTx settlement output when the batch declares a net allocation</a><br>
-                      <a href="#ds-tx-settlement-participation-n06">2.1.5.1.9 N06 - does not require a TopTx settlement output for an explicit-zero batch even when TopTx's derived accounting portion is negative</a><br>
-                      <a href="#ds-tx-settlement-participation-n07">2.1.5.1.10 N07 - accepts NoTopTxSettlement when TopTx's attributed contribution is a net allocation</a><br>
-                      <a href="#ds-tx-settlement-participation-n08">2.1.5.1.11 N08 - accepts correct release participation on the phase-2 failure path</a><br>
-                      <a href="#ds-tx-settlement-participation-f03">2.1.5.1.12 F03 - rejects incorrect release participation even when phase 2 fails</a><br>
+                      <a href="#ds-tx-accounting-attribution-p01">2.1.2.2.1 P01 - Local and delegated contributions determine TopTx's share</a><br>
+                      <a href="#ds-tx-accounting-attribution-p02">2.1.2.2.2 P02 - Delegation moves the signed contribution to TopTx</a><br>
+                      <a href="#ds-tx-accounting-attribution-n01">2.1.2.2.3 N01 - Explicit zero adds no delegated contribution</a><br>
                     </dd>
                   </dl>
                 </details>
                 <details>
-                  <summary><a href="#ds-tx-settlement-destination">2.1.5.2 Destination</a></summary>
+                  <summary><a href="#ds-tx-accounting-balance">2.1.2.3 Balance</a></summary>
                   <dl>
                     <dd>
-                      <a href="#ds-tx-settlement-destination-p01">2.1.5.2.1 P01 - Settlement indices belong to their own body</a><br>
-                      <a href="#ds-tx-settlement-destination-f01">2.1.5.2.2 F01 - rejects an index outside the declaring body's output sequence</a><br>
-                      <a href="#ds-tx-settlement-destination-f02">2.1.5.2.3 F02 - does not resolve a SubTx settlement index against TopTx outputs</a><br>
-                      <a href="#ds-tx-settlement-destination-f03">2.1.5.2.4 F03 - does not resolve a settlement index against collateral return</a><br>
-                      <a href="#ds-tx-settlement-destination-f04">2.1.5.2.5 F04 - rejects a local settlement target when a SubTx spends its final store-backed inputs and creates no outputs</a><br>
-                      <a href="#ds-tx-settlement-destination-n01">2.1.5.2.6 N01 - accepts the first and last own regular output as settlement destinations</a><br>
-                      <a href="#ds-tx-settlement-destination-f05">2.1.5.2.7 F05 - does not resolve a TopTx settlement index against nested SubTx outputs</a><br>
-                      <a href="#ds-tx-settlement-destination-f06">2.1.5.2.8 F06 - does not resolve a SubTx settlement index against a sibling SubTx's outputs</a><br>
-                      <a href="#ds-tx-settlement-destination-n02">2.1.5.2.9 N02 - accepts valid ordinary settlement destinations on the phase-2 failure path</a><br>
-                      <a href="#ds-tx-settlement-destination-f07">2.1.5.2.10 F07 - rejects an invalid ordinary settlement index even when phase 2 fails</a><br>
-                    </dd>
-                  </dl>
-                </details>
-                <details>
-                  <summary><a href="#ds-tx-settlement-coverage">2.1.5.3 Coverage</a></summary>
-                  <dl>
-                    <dd>
-                      <a href="#ds-tx-settlement-coverage-p01">2.1.5.3.1 P01 - Settlement outputs cover their release share</a><br>
-                      <a href="#ds-tx-settlement-coverage-f01">2.1.5.3.2 F01 - rejects a settlement output containing less ADA than its settlement amount</a><br>
-                      <a href="#ds-tx-settlement-coverage-n01">2.1.5.3.3 N01 - accepts a settlement output containing exactly its settlement amount</a><br>
-                      <a href="#ds-tx-settlement-coverage-n02">2.1.5.3.4 N02 - accepts a settlement output containing the settlement amount and additional funds</a><br>
-                      <a href="#ds-tx-settlement-coverage-f02">2.1.5.3.5 F02 - rejects a store-backed settlement output with insufficient application ADA even when its external UTxO capacity deposit would cover the difference</a><br>
-                      <a href="#ds-tx-settlement-coverage-n03">2.1.5.3.6 N03 - accepts a store-backed settlement output with application ADA equal to the settlement amount</a><br>
-                      <a href="#ds-tx-settlement-coverage-n04">2.1.5.3.7 N04 - checks TopTx's derived settlement amount rather than the entire batch net release</a><br>
-                      <a href="#ds-tx-settlement-coverage-n05">2.1.5.3.8 N05 - accepts covered ordinary settlement outputs on the phase-2 failure path</a><br>
-                      <a href="#ds-tx-settlement-coverage-f03">2.1.5.3.9 F03 - rejects insufficient ordinary settlement coverage even when phase 2 fails</a><br>
-                      <a href="#ds-tx-settlement-coverage-f04">2.1.5.3.10 F04 - rejects a TopTx output that covers the batch release but not TopTx's larger attributed release</a><br>
+                      <a href="#ds-tx-accounting-balance-p01">2.1.2.3.1 P01 - The transaction conserves value when phase 2 is valid</a><br>
+                      <a href="#ds-tx-accounting-balance-p02">2.1.2.3.2 P02 - Complete balance determines acceptance</a><br>
+                      <a href="#ds-tx-accounting-balance-n01">2.1.2.3.3 N01 - Fund a net allocation once</a><br>
+                      <a href="#ds-tx-accounting-balance-n02">2.1.2.3.4 N02 - Use a net release once</a><br>
+                      <a href="#ds-tx-accounting-balance-n03">2.1.2.3.5 N03 - One SubTx funds another</a><br>
+                      <a href="#ds-tx-accounting-balance-n04">2.1.2.3.6 N04 - A SubTx funds TopTx fees</a><br>
+                      <a href="#ds-tx-accounting-balance-f01">2.1.2.3.7 F01 - One-lovelace deficit or surplus</a><br>
+                      <a href="#ds-tx-accounting-balance-f02">2.1.2.3.8 F02 - Native-asset quantity or identity mismatch</a><br>
+                      <a href="#ds-tx-accounting-balance-f03">2.1.2.3.9 F03 - An exact delegated allocation lacks funding</a><br>
+                      <a href="#ds-tx-accounting-balance-n05">2.1.2.3.10 N05 - Equal delegated allocations and releases</a><br>
+                      <a href="#ds-tx-accounting-balance-n06">2.1.2.3.11 N06 - Ten input ADA plus two released ADA</a><br>
+                      <a href="#ds-tx-accounting-balance-n07">2.1.2.3.12 N07 - Released ADA contributes to TopTx fees</a><br>
+                      <a href="#ds-tx-accounting-balance-f04">2.1.2.3.13 F04 - Released ADA cannot disappear</a><br>
+                      <a href="#ds-tx-accounting-balance-n08">2.1.2.3.14 N08 - Balanced proposal, failed phase 2</a><br>
                     </dd>
                   </dl>
                 </details>
@@ -475,14 +402,84 @@ Appendices contain the open design questions and supporting references.
             </dl>
           </details>
           <details>
-            <summary><a href="#ds-tx-application-assets">2.1.6 Application assets</a></summary>
+            <summary><a href="#ds-tx-authorization">2.1.3 Authorization</a></summary>
             <dl>
               <dd>
-                <a href="#ds-tx-application-assets-n01">2.1.6.1 N01 - accepts a store-backed output containing native assets and zero ADA</a><br>
-                <a href="#ds-tx-application-assets-n02">2.1.6.2 N02 - accepts empty application assets with a datum or reference script</a><br>
-                <a href="#ds-tx-application-assets-n03">2.1.6.3 N03 - accepts a store-backed output containing only an address</a><br>
-                <a href="#ds-tx-application-assets-n04">2.1.6.4 N04 - accepts implicit outputs containing exactly their required minimum coin</a><br>
-                <a href="#ds-tx-application-assets-f01">2.1.6.5 F01 - rejects implicit outputs one lovelace below their required minimum coin</a><br>
+                <a href="#ds-tx-authorization-n01">2.1.3.1 N01 - Bob spends an output funded by Alice</a><br>
+                <a href="#ds-tx-authorization-f01">2.1.3.2 F01 - Alice's signature cannot replace Bob's</a><br>
+              </dd>
+            </dl>
+          </details>
+          <details>
+            <summary><a href="#ds-tx-settlement">2.1.4 Settlement</a></summary>
+            <dl>
+              <dd>
+                <details>
+                  <summary><a href="#ds-tx-settlement-designation">2.1.4.1 Designation</a></summary>
+                  <dl>
+                    <dd>
+                      <a href="#ds-tx-settlement-designation-p01">2.1.4.1.1 P01 - Designation follows TopTx's release share</a><br>
+                      <a href="#ds-tx-settlement-designation-n01">2.1.4.1.2 N01 - SubTxs settle the entire release</a><br>
+                      <a href="#ds-tx-settlement-designation-n02">2.1.4.1.3 N02 - Standalone TopTx settles its release</a><br>
+                      <a href="#ds-tx-settlement-designation-n03">2.1.4.1.4 N03 - TopTx and SubTxs each settle a share</a><br>
+                      <a href="#ds-tx-settlement-designation-n04">2.1.4.1.5 N04 - TopTx's share exceeds the transaction release</a><br>
+                      <a href="#ds-tx-settlement-designation-f01">2.1.4.1.6 F01 - TopTx omits a required output</a><br>
+                      <a href="#ds-tx-settlement-designation-f02">2.1.4.1.7 F02 - TopTx designates an unnecessary output</a><br>
+                      <a href="#ds-tx-settlement-designation-n05">2.1.4.1.8 N05 - Net allocation, even though TopTx releases</a><br>
+                      <a href="#ds-tx-settlement-designation-n06">2.1.4.1.9 N06 - Explicit-zero total, even though TopTx releases</a><br>
+                      <a href="#ds-tx-settlement-designation-n07">2.1.4.1.10 N07 - Net release, while TopTx allocates</a><br>
+                      <a href="#ds-tx-settlement-designation-n08">2.1.4.1.11 N08 - Valid designation when phase 2 fails</a><br>
+                      <a href="#ds-tx-settlement-designation-f03">2.1.4.1.12 F03 - Invalid designation when phase 2 fails</a><br>
+                    </dd>
+                  </dl>
+                </details>
+                <details>
+                  <summary><a href="#ds-tx-settlement-output-index">2.1.4.2 Output index</a></summary>
+                  <dl>
+                    <dd>
+                      <a href="#ds-tx-settlement-output-index-p01">2.1.4.2.1 P01 - The index belongs to the declaring body</a><br>
+                      <a href="#ds-tx-settlement-output-index-f01">2.1.4.2.2 F01 - The first missing own index is rejected</a><br>
+                      <a href="#ds-tx-settlement-output-index-f02">2.1.4.2.3 F02 - A SubTx cannot select TopTx's output</a><br>
+                      <a href="#ds-tx-settlement-output-index-f03">2.1.4.2.4 F03 - Collateral return is outside the ordinary output sequence</a><br>
+                      <a href="#ds-tx-settlement-output-index-f04">2.1.4.2.5 F04 - A SubTx without outputs cannot settle locally</a><br>
+                      <a href="#ds-tx-settlement-output-index-n01">2.1.4.2.6 N01 - The first and last own outputs are valid</a><br>
+                      <a href="#ds-tx-settlement-output-index-f05">2.1.4.2.7 F05 - TopTx cannot select a SubTx's output</a><br>
+                      <a href="#ds-tx-settlement-output-index-f06">2.1.4.2.8 F06 - A SubTx cannot select a sibling's output</a><br>
+                      <a href="#ds-tx-settlement-output-index-n02">2.1.4.2.9 N02 - Valid output indices when phase 2 fails</a><br>
+                      <a href="#ds-tx-settlement-output-index-f07">2.1.4.2.10 F07 - An invalid output index still fails when phase 2 fails</a><br>
+                      <a href="#ds-tx-settlement-output-index-n03">2.1.4.2.11 N03 - A SubTx without outputs delegates its final release</a><br>
+                    </dd>
+                  </dl>
+                </details>
+                <details>
+                  <summary><a href="#ds-tx-settlement-output-coin">2.1.4.3 Output coin</a></summary>
+                  <dl>
+                    <dd>
+                      <a href="#ds-tx-settlement-output-coin-p01">2.1.4.3.1 P01 - Output ADA must cover the required share</a><br>
+                      <a href="#ds-tx-settlement-output-coin-f01">2.1.4.3.2 F01 - Implicit output, one lovelace short</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n01">2.1.4.3.3 N01 - Implicit output, exact amount</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n02">2.1.4.3.4 N02 - Implicit output, extra ADA</a><br>
+                      <a href="#ds-tx-settlement-output-coin-f02">2.1.4.3.5 F02 - An external deposit cannot fill the ADA shortfall</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n03">2.1.4.3.6 N03 - Store-backed output, exact application ADA</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n04">2.1.4.3.7 N04 - TopTx's share is smaller than the transaction release</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n05">2.1.4.3.8 N05 - Exact output ADA when phase 2 fails</a><br>
+                      <a href="#ds-tx-settlement-output-coin-f03">2.1.4.3.9 F03 - One lovelace short when phase 2 fails</a><br>
+                      <a href="#ds-tx-settlement-output-coin-f04">2.1.4.3.10 F04 - The transaction release is smaller than TopTx's share</a><br>
+                    </dd>
+                  </dl>
+                </details>
+              </dd>
+            </dl>
+          </details>
+          <details>
+            <summary><a href="#ds-tx-application-assets">2.1.5 Application assets</a></summary>
+            <dl>
+              <dd>
+                <a href="#ds-tx-application-assets-n01">2.1.5.1 N01 - accepts a store-backed output containing native assets and zero ADA</a><br>
+                <a href="#ds-tx-application-assets-n02">2.1.5.2 N02 - accepts empty application assets with a datum or reference script</a><br>
+                <a href="#ds-tx-application-assets-n03">2.1.5.3 N03 - accepts a store-backed output containing only an address</a><br>
+                <a href="#ds-tx-application-assets-n04">2.1.5.4 N04 - accepts implicit outputs containing exactly their required minimum coin</a><br>
+                <a href="#ds-tx-application-assets-f01">2.1.5.5 F01 - rejects implicit outputs one lovelace below their required minimum coin</a><br>
               </dd>
             </dl>
           </details>
@@ -846,7 +843,7 @@ Never obtain the expected amounts from the declarations being checked.
 
 TopTx's **accounting amount**, `topTxNetUTxODepositChange`, is the declared total
 minus locally accounted SubTx contributions. It includes delegated contributions;
-it is distinct from TopTx's own operations. [Attribution](#ds-tx-attribution) defines it.
+it is distinct from TopTx's own operations. [Attribution](#ds-tx-accounting-attribution) defines it.
 
 Net quantities are signed: positive means net allocation, negative means net release,
 and zero means no net change. **An absent declaration has no declared value**; it is
@@ -854,8 +851,8 @@ not an explicit declaration of zero. `hasDeclaration(body)` distinguishes these 
 and is true for every explicit declaration, including zero.
 
 A **settlement output** is the output designated to contain a release's settlement
-amount. [Attribution](#ds-tx-attribution) determines the accounting responsibility;
-[Settlement](#ds-tx-settlement) determines the destination and required amount.
+amount. [Settlement](#ds-tx-settlement) determines TopTx’s responsibility, the
+destination and required amount.
 The [body-field reference](#transaction-body-fields) maps these concepts to the API.
 
 <a id="ds-pricing" name="ds-pricing"></a>
@@ -951,10 +948,9 @@ Given implicit-deposit outputs alone and mixed with store-backed outputs, assign
 | Responsibility | Question answered |
 | --- | --- |
 | [Declarations](#ds-tx-declarations) | Which forms are valid, and which bodies must declare? |
-| [Accounting](#ds-tx-accounting) | Is the deposit change exact and the transaction funded? |
-| [Attribution](#ds-tx-attribution) | Which body accounts for the contribution? |
+| [Accounting](#ds-tx-accounting) | Is the change exact, correctly attributed and funded? |
 | [Authorization](#ds-tx-authorization) | Who may release the deposit? |
-| [Settlement](#ds-tx-settlement) | Which output must contain the settlement amount? |
+| [Settlement](#ds-tx-settlement) | Is the required output designated, in range and sufficiently funded? |
 | [Application assets](#ds-tx-application-assets) | What value may the output contain? |
 
 These rules validate the submitted ordinary transaction under a fixed pricing policy.
@@ -1201,7 +1197,7 @@ index). Any supplied local index remains within range.
 F14 and F15 generate values throughout their respective invalid ranges, favouring
 $-1$ and $65536$. Shrinking keeps a counterexample in the same invalid range.
 [N05](#ds-tx-declarations-grammar-n05) supplies the valid $0$ and $65535$ controls.
-[Settlement](#ds-tx-settlement-destination) separately checks that the index names
+[Settlement](#ds-tx-settlement-output-index) separately checks that the index names
 an existing output in TopTx.
 
 <a id="ds-tx-grammar-subtx" name="ds-tx-grammar-subtx"></a>
@@ -1323,7 +1319,7 @@ index). Any supplied local index remains within range.
 F10 and F11 generate values throughout their respective invalid ranges, favouring
 $-1$ and $65536$. Shrinking keeps a counterexample in the same invalid range.
 [N06](#ds-tx-declarations-grammar-n06) supplies the valid $0$ and $65535$ controls.
-[Settlement](#ds-tx-settlement-destination) separately checks that the index names
+[Settlement](#ds-tx-settlement-output-index) separately checks that the index names
 an existing output in this SubTx.
 
 <a id="ds-tx-presence" name="ds-tx-presence"></a>
@@ -1473,7 +1469,7 @@ The same cases apply to TopTx and SubTx. In particular:
   TopTx even when its SubTx bodies declare operations.
 - A SubTx that requests funding through `SubTx.RequestsUTxODepositFromTopTx amount`
   has made an explicit declaration and passes this presence check.
-  DS-TX-ACCOUNTING-NET-CHANGE-SUBTX checks the requested amount, DS-TX-ATTRIBUTION assigns
+  DS-TX-ACCOUNTING-NET-CHANGE-SUBTX checks the requested amount, DS-TX-ACCOUNTING-ATTRIBUTION assigns
   its accounting to TopTx, and DS-TX-ACCOUNTING-BALANCE requires the complete batch to fund it.
 - A TopTx whose own spent and created outputs are all implicit-deposit outputs
   and whose field is `TopTx.NoUTxODepositDeclaration`, containing a SubTx with store-backed outputs
@@ -3404,16 +3400,18 @@ The comparison starts immediately before submission, after funding and preparati
 
 #### 2.1.2 Accounting
 
-> **Declare the exact Store transfer; fund the complete transaction.**
+> **State the exact change, assign each contribution, and balance the transaction.**
 
 | Responsibility | Question | Phase-2 scope |
 | --- | --- | --- |
 | [Net change](#ds-tx-accounting-net-change) | Does each declaration state the required deposit change? | Valid or invalid |
+| [Attribution](#ds-tx-accounting-attribution) | Which signed contributions belong to TopTx or SubTx? | Derived on either path |
 | [Balance](#ds-tx-accounting-balance) | Do consumed and produced values balance, counting the Store transfer once? | Valid only |
 
-An exact declaration identifies the Store transfer. The complete transaction must
-also fund that transfer when its ordinary effects apply. Neither requirement
-forces each SubTx to balance independently.
+Exact declarations identify the Store transfer. Attribution assigns its signed
+contributions to bodies; it does not add another transfer. The complete transaction
+must balance when its ordinary effects apply. No step requires each SubTx to balance
+independently.
 
 <a id="ds-tx-exactness" name="ds-tx-exactness"></a>
 <a id="ds-tx-accounting-net-change" name="ds-tx-accounting-net-change"></a>
@@ -3941,7 +3939,7 @@ Keep every SubTx declaration exact. Include TopTx's own change and every SubTx c
 once, including delegated operations. A sum over child declarations uses
 `declaredSubTxs(topTx)`; undeclared children contribute no declared value.
 The predicate $\mathrm{delegated}(\mathit{subTx})$ means a funding request to TopTx or
-a release targeting `DelegateToTopTx`. Delegation affects [Attribution](#ds-tx-attribution),
+a release targeting `DelegateToTopTx`. Delegation affects [Attribution](#ds-tx-accounting-attribution),
 while the transaction total remains unchanged.
 
 | Total allocations | Total releases | TopTx declaration |
@@ -3952,7 +3950,7 @@ while the transaction total remains unchanged.
 
 TopTx has no separate declaration for its own change. Derive it by subtracting **all**
 declared SubTx changes from the declared total, as shown in N02. This differs from
-`topTxNetUTxODepositChange` in Attribution, which retains delegated SubTx changes.
+`topTxNetUTxODepositChange` in [Attribution](#ds-tx-accounting-attribution), which retains delegated SubTx changes.
 
 On ordinary success, the transaction total is applied once; SubTx amounts are already
 included. Accepted phase-2 failure applies no ordinary Store transfer. Requirements
@@ -3963,7 +3961,7 @@ still decide whether the field is mandatory: net zero does not imply absence.
 <a id="ds-tx-accounting-toptx-p01" name="ds-tx-accounting-toptx-p01"></a>
 <a id="ds-tx-accounting-net-change-toptx-p01" name="ds-tx-accounting-net-change-toptx-p01"></a>
 
-**2.1.2.1.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L70) - TopTx declares the exact transaction total**
+**2.1.2.1.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L72) - TopTx declares the exact transaction total**
 
 $$
 \begin{aligned}
@@ -3974,12 +3972,40 @@ $$
 
 Compare the isolated TopTx validator with independently computed deposits; this equivalence does not assert complete ledger acceptance.
 
+<a id="ds-tx-attribution-n02" name="ds-tx-attribution-n02"></a>
+<a id="ds-tx-accounting-net-change-toptx-p02" name="ds-tx-accounting-net-change-toptx-p02"></a>
+
+**2.1.2.1.2.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L90) - Delegation preserves the transaction total**
+
+$$
+\begin{aligned}
+&\text{sameStoreOperations(localTx, delegatedTx)} \\
+&\implies\text{requiredNetDeposit(localTx)}=\text{requiredNetDeposit(delegatedTx)} \\
+&\qquad\land\text{Accepted(localTx)}\land\text{Accepted(delegatedTx)}
+\end{aligned}
+$$
+
+For both an allocating child and a releasing child, build two valid transactions
+with the same originating Store operations: one accounts locally, the other delegates
+to TopTx. The independent expected total comes from priced outputs and recorded input
+deposits. Both transactions declare that total exactly once and are accepted.
+
+| Change in the SubTx declaration | Effect on the transaction total |
+| --- | --- |
+| Local allocation → funding requested from TopTx | None |
+| Local release → release delegated to TopTx | None |
+
+Each version is funded and signed separately, with settlement selectors and output
+coverage appropriate to its accounting mode. Acceptance does not mean those fields
+can remain unchanged. [Attribution P02](#ds-tx-accounting-attribution-p02) checks
+which body assumes the signed contribution.
+
 <a id="ds-tx-exactness-netting-n01" name="ds-tx-exactness-netting-n01"></a>
 <a id="ds-tx-exactness-toptx-n01" name="ds-tx-exactness-toptx-n01"></a>
 <a id="ds-tx-accounting-toptx-n01" name="ds-tx-accounting-toptx-n01"></a>
 <a id="ds-tx-accounting-net-change-toptx-n01" name="ds-tx-accounting-net-change-toptx-n01"></a>
 
-**2.1.2.1.2.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L85) - TopTx and SubTxs contribute to the total**
+**2.1.2.1.2.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L122) - TopTx and SubTxs contribute to the total**
 
 $$
 \begin{aligned}
@@ -3996,7 +4022,7 @@ Cover both zero and nonzero TopTx own changes alongside nonzero child changes. T
 <a id="ds-tx-accounting-toptx-n02" name="ds-tx-accounting-toptx-n02"></a>
 <a id="ds-tx-accounting-net-change-toptx-n02" name="ds-tx-accounting-net-change-toptx-n02"></a>
 
-**2.1.2.1.2.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L98) - TopTx's own change is derived from its total**
+**2.1.2.1.2.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L135) - TopTx's own change is derived from its total**
 
 $$
 \begin{aligned}
@@ -4016,7 +4042,7 @@ Subtract all present child declarations, including delegated operations. Childre
 <a id="ds-tx-accounting-toptx-n03" name="ds-tx-accounting-toptx-n03"></a>
 <a id="ds-tx-accounting-net-change-toptx-n03" name="ds-tx-accounting-net-change-toptx-n03"></a>
 
-**2.1.2.1.2.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L111) - 5 ADA allocated, 3 ADA released**
+**2.1.2.1.2.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L148) - 5 ADA allocated, 3 ADA released**
 
 $$
 \begin{aligned}
@@ -4034,7 +4060,7 @@ Both sums cover TopTx and all SubTxs; the transaction requires a net allocation 
 <a id="ds-tx-accounting-toptx-n04" name="ds-tx-accounting-toptx-n04"></a>
 <a id="ds-tx-accounting-net-change-toptx-n04" name="ds-tx-accounting-net-change-toptx-n04"></a>
 
-**2.1.2.1.2.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L122) - 3 ADA allocated, 5 ADA released**
+**2.1.2.1.2.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L159) - 3 ADA allocated, 5 ADA released**
 
 $$
 \begin{aligned}
@@ -4052,7 +4078,7 @@ Both sums cover TopTx and all SubTxs; the transaction releases 2 ADA net.
 <a id="ds-tx-accounting-toptx-n05" name="ds-tx-accounting-toptx-n05"></a>
 <a id="ds-tx-accounting-net-change-toptx-n05" name="ds-tx-accounting-net-change-toptx-n05"></a>
 
-**2.1.2.1.2.6 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L134) - Nonzero body changes produce a zero total**
+**2.1.2.1.2.7 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L171) - Nonzero body changes produce a zero total**
 
 $$
 \begin{aligned}
@@ -4070,7 +4096,7 @@ Allocating and releasing bodies offset each other. TopTx still supplies an expli
 <a id="ds-tx-accounting-toptx-f01" name="ds-tx-accounting-toptx-f01"></a>
 <a id="ds-tx-accounting-net-change-toptx-f01" name="ds-tx-accounting-net-change-toptx-f01"></a>
 
-**2.1.2.1.2.7 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L144) - Standalone TopTx understates its net allocation by one lovelace**
+**2.1.2.1.2.8 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L181) - Standalone TopTx understates its net allocation by one lovelace**
 
 $$
 \begin{aligned}
@@ -4088,7 +4114,7 @@ Create one more store-backed output than is consumed. Start from a valid control
 <a id="ds-tx-accounting-toptx-f02" name="ds-tx-accounting-toptx-f02"></a>
 <a id="ds-tx-accounting-net-change-toptx-f02" name="ds-tx-accounting-net-change-toptx-f02"></a>
 
-**2.1.2.1.2.8 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L156) - Standalone TopTx overstates its net allocation by one lovelace**
+**2.1.2.1.2.9 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L193) - Standalone TopTx overstates its net allocation by one lovelace**
 
 $$
 \begin{aligned}
@@ -4106,7 +4132,7 @@ Use the same net-allocation generator and increase only the declaration by one l
 <a id="ds-tx-accounting-toptx-f03" name="ds-tx-accounting-toptx-f03"></a>
 <a id="ds-tx-accounting-net-change-toptx-f03" name="ds-tx-accounting-net-change-toptx-f03"></a>
 
-**2.1.2.1.2.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L169) - Standalone TopTx understates its net release by one lovelace**
+**2.1.2.1.2.10 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L206) - Standalone TopTx understates its net release by one lovelace**
 
 $$
 \begin{aligned}
@@ -4125,7 +4151,7 @@ Only implicit outputs are created. Adding one to the negative declaration reduce
 <a id="ds-tx-accounting-toptx-f04" name="ds-tx-accounting-toptx-f04"></a>
 <a id="ds-tx-accounting-net-change-toptx-f04" name="ds-tx-accounting-net-change-toptx-f04"></a>
 
-**2.1.2.1.2.10 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L182) - Standalone TopTx overstates its net release by one lovelace**
+**2.1.2.1.2.11 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L219) - Standalone TopTx overstates its net release by one lovelace**
 
 $$
 \begin{aligned}
@@ -4144,7 +4170,7 @@ Only implicit outputs are created. Subtracting one from the negative declaration
 <a id="ds-tx-accounting-toptx-f05" name="ds-tx-accounting-toptx-f05"></a>
 <a id="ds-tx-accounting-net-change-toptx-f05" name="ds-tx-accounting-net-change-toptx-f05"></a>
 
-**2.1.2.1.2.11 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L194) - Explicit zero cannot replace a nonzero total**
+**2.1.2.1.2.12 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L231) - Explicit zero cannot replace a nonzero total**
 
 $$
 \begin{aligned}
@@ -4161,7 +4187,7 @@ Cover both a required net allocation and a required net release.
 <a id="ds-tx-accounting-toptx-f06" name="ds-tx-accounting-toptx-f06"></a>
 <a id="ds-tx-accounting-net-change-toptx-f06" name="ds-tx-accounting-net-change-toptx-f06"></a>
 
-**2.1.2.1.2.12 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L210) - A nonzero declaration cannot replace a zero total**
+**2.1.2.1.2.13 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L247) - A nonzero declaration cannot replace a zero total**
 
 $$
 \begin{aligned}
@@ -4178,7 +4204,7 @@ Cover both an allocation declaration and a release declaration when the transact
 <a id="ds-tx-accounting-toptx-f07" name="ds-tx-accounting-toptx-f07"></a>
 <a id="ds-tx-accounting-net-change-toptx-f07" name="ds-tx-accounting-net-change-toptx-f07"></a>
 
-**2.1.2.1.2.13 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L225) - TopTx declares the opposite direction**
+**2.1.2.1.2.14 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L262) - TopTx declares the opposite direction**
 
 $$
 \begin{aligned}
@@ -4194,7 +4220,7 @@ A required allocation cannot be declared as a release, or a required release as 
 <a id="ds-tx-accounting-toptx-n06" name="ds-tx-accounting-toptx-n06"></a>
 <a id="ds-tx-accounting-net-change-toptx-n06" name="ds-tx-accounting-net-change-toptx-n06"></a>
 
-**2.1.2.1.2.14 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L244) - TopTx releases while SubTxs allocate**
+**2.1.2.1.2.15 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L281) - TopTx releases while SubTxs allocate**
 
 $$
 \begin{aligned}
@@ -4213,7 +4239,7 @@ The child allocations exactly offset the parent release. TopTx declares the tran
 <a id="ds-tx-accounting-toptx-n07" name="ds-tx-accounting-toptx-n07"></a>
 <a id="ds-tx-accounting-net-change-toptx-n07" name="ds-tx-accounting-net-change-toptx-n07"></a>
 
-**2.1.2.1.2.15 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L254) - TopTx allocates while SubTxs release**
+**2.1.2.1.2.16 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L291) - TopTx allocates while SubTxs release**
 
 $$
 \begin{aligned}
@@ -4232,7 +4258,7 @@ The child releases exactly offset the parent allocation. TopTx declares the tran
 <a id="ds-tx-accounting-toptx-n08" name="ds-tx-accounting-toptx-n08"></a>
 <a id="ds-tx-accounting-net-change-toptx-n08" name="ds-tx-accounting-net-change-toptx-n08"></a>
 
-**2.1.2.1.2.16 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L264) - An exact total remains valid when phase 2 fails**
+**2.1.2.1.2.17 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L301) - An exact total remains valid when phase 2 fails**
 
 $$
 \begin{aligned}
@@ -4250,7 +4276,7 @@ The failing script matches the declared outcome. Net change still uses proposed 
 <a id="ds-tx-accounting-toptx-f08" name="ds-tx-accounting-toptx-f08"></a>
 <a id="ds-tx-accounting-net-change-toptx-f08" name="ds-tx-accounting-net-change-toptx-f08"></a>
 
-**2.1.2.1.2.17 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L276) - An inexact total is rejected even when phase 2 fails**
+**2.1.2.1.2.18 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L313) - An inexact total is rejected even when phase 2 fails**
 
 $$
 \begin{aligned}
@@ -4268,7 +4294,7 @@ A failing script does not waive deposit exactness. The script matches the declar
 <a id="ds-tx-accounting-toptx-f09" name="ds-tx-accounting-toptx-f09"></a>
 <a id="ds-tx-accounting-net-change-toptx-f09" name="ds-tx-accounting-net-change-toptx-f09"></a>
 
-**2.1.2.1.2.18 [F09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L293) - A delegated change belongs in the total exactly once**
+**2.1.2.1.2.19 [F09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L330) - A delegated change belongs in the total exactly once**
 
 $$
 \begin{aligned}
@@ -4284,10 +4310,143 @@ $$
 
 Omitting or adding a second copy of a delegated child change makes the total inexact; delegation changes responsibility, not the counted amount.
 
+<a id="ds-tx-attribution" name="ds-tx-attribution"></a>
+<a id="ds-tx-accounting-attribution" name="ds-tx-accounting-attribution"></a>
+
+##### 2.1.2.2 Attribution
+
+> **Determine which body accounts for each signed contribution.**
+>
+> Local operations remain with SubTx; delegated operations belong to TopTx.
+> This changes responsibility, never the complete transaction's net amount.
+
+| SubTx declaration | Originating change | Accounted in SubTx | Accounted in TopTx |
+| --- | ---: | ---: | ---: |
+| Local allocation | $+\text{amount}$ | $+\text{amount}$ | $0$ |
+| Local release | $-\text{amount}$ | $-\text{amount}$ | $0$ |
+| Allocation requested from TopTx | $+\text{amount}$ | $0$ | $+\text{amount}$ |
+| Release delegated to TopTx | $-\text{amount}$ | $0$ | $-\text{amount}$ |
+| Explicit zero | $0$ | $0$ | $0$ |
+| Absent declaration | No declared operation | $0$ | $0$ |
+
+An absent declaration is not explicit zero; declaration requirements still apply.
+A delegated contribution is already included in the transaction total. It changes
+who accounts for that amount, without adding a second Store transfer.
+
+$$
+\begin{aligned}
+\text{topTxNetUTxODepositChange}
+&=\text{declaredTxTotalNetUTxODepositChange} \\
+&\quad-\sum_{\text{subTx}\in\text{subTxs}}
+  \text{locallyAccountedChange(subTx)}
+\end{aligned}
+$$
+
+This is TopTx's **attributed amount**, including delegated child contributions.
+Its **own change** comes only from its recorded inputs and newly priced outputs.
+For exact declarations, the same responsibility can therefore be derived
+independently as:
+
+$$
+\text{topTxNetUTxODepositChange}
+=\text{ownNetDeposit(topTx)}
++\sum_{\text{subTx}\in\text{delegatingSubTxs}}
+  \text{ownNetDeposit(subTx)}
+$$
+
+Example: TopTx allocates 2 ADA and its SubTx allocates 3 ADA.
+
+| SubTx declaration | TopTx declares | Accounted in SubTx | Accounted in TopTx |
+| --- | --- | ---: | ---: |
+| Local allocation | Allocate 5 ADA | $+3$ ADA | $+2$ ADA |
+| Funding requested from TopTx | Allocate 5 ADA | $0$ ADA | $+5$ ADA |
+
+Local accounting does not require independent SubTx financial balance.
+[Net change](#ds-tx-accounting-net-change) checks exact amounts;
+[Balance](#ds-tx-accounting-balance) checks complete transaction funding.
+
+<a id="ds-tx-attribution-p01" name="ds-tx-attribution-p01"></a>
+<a id="ds-tx-attribution-n01" name="ds-tx-attribution-n01"></a>
+<a id="ds-tx-settlement-participation-p02" name="ds-tx-settlement-participation-p02"></a>
+<a id="ds-tx-accounting-attribution-p01" name="ds-tx-accounting-attribution-p01"></a>
+
+###### 2.1.2.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) - Local and delegated contributions determine TopTx's share
+
+$$
+\begin{aligned}
+\text{attributedTopTxChange}
+  &=\text{ownTopTxChange}+\sum\text{delegatedSubTxChanges} \\
+\text{localSubTxChanges}&=\text{expectedLocalChanges}
+\end{aligned}
+$$
+
+Generate all six declaration forms from the table above. Observe production
+accounting and compare it with independently measured input deposits and output
+allocations. Local allocations contribute positively, local releases negatively;
+requests and delegated releases remain in TopTx's share **exactly once**. Include
+positive, zero and negative transaction totals, and TopTx's own nonzero operations.
+
+This is an isolated accounting property. It establishes the signed responsibilities
+used by settlement; it does not assert that a selector or destination is valid.
+
+<a id="ds-tx-attribution-p02" name="ds-tx-attribution-p02"></a>
+<a id="ds-tx-settlement-participation-p03" name="ds-tx-settlement-participation-p03"></a>
+<a id="ds-tx-accounting-attribution-p02" name="ds-tx-accounting-attribution-p02"></a>
+
+###### 2.1.2.2.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) - Delegation moves the signed contribution to TopTx
+
+Keep the Store operations fixed and change one SubTx declaration from local to
+delegated accounting. Here $\Delta$ means **delegated result minus local result**.
+
+$$
+\begin{aligned}
+\text{local}\longrightarrow\text{delegated}
+\implies\quad
+&\Delta\text{localSubTxChange}=-\text{originatingChange} \\
+&\land\Delta\text{attributedTopTxChange}=\text{originatingChange}
+\end{aligned}
+$$
+
+| Originating SubTx change | Change in SubTx accounting | Change in TopTx accounting |
+| --- | ---: | ---: |
+| Allocation of 3 ADA | $-3$ ADA | $+3$ ADA |
+| Release of 3 ADA | $+3$ ADA | $-3$ ADA |
+
+The [Net change property](#ds-tx-accounting-net-change-toptx-p02) checks that the
+transaction total stays unchanged. This property checks the responsibility shift.
+It does not promise acceptance with unchanged selectors or outputs: moving a release
+may require a different settlement destination or greater coverage.
+
+<a id="ds-tx-grammar-n01" name="ds-tx-grammar-n01"></a>
+<a id="ds-tx-declarations-grammar-n01" name="ds-tx-declarations-grammar-n01"></a>
+<a id="ds-tx-attribution-n04" name="ds-tx-attribution-n04"></a>
+<a id="ds-tx-settlement-participation-n10" name="ds-tx-settlement-participation-n10"></a>
+<a id="ds-tx-accounting-attribution-n01" name="ds-tx-accounting-attribution-n01"></a>
+
+###### 2.1.2.2.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) - Explicit zero adds no delegated contribution
+
+$$
+\begin{aligned}
+&\text{allocatedDeposits(subTx)}=\text{releasedDeposits(subTx)} \\
+&\land\text{declaresExplicitZero(subTx)} \\
+&\implies\text{originatingChange}=\text{localChange}=\text{delegatedChange}=0
+\end{aligned}
+$$
+
+| SubTx operations | Declaration | Contribution to TopTx's share |
+| --- | --- | ---: |
+| No allocation or release | Explicit zero | $0$ |
+| Equal positive allocations and releases | Explicit zero | $0$ |
+
+Observe production accounting for both cases and submit otherwise valid transactions.
+Explicit zero neither requests funding nor delegates a release; TopTx's attributed
+amount remains its own contribution. Equal positive operations still require a
+declaration, as specified under [Zero net change](#ds-tx-declarations-requirements-operations-zero-net-change).
+
 <a id="ds-tx-conservation" name="ds-tx-conservation"></a>
 <a id="ds-tx-accounting-balance" name="ds-tx-accounting-balance"></a>
 
-##### 2.1.2.2 Balance
+##### 2.1.2.3 Balance
 
 > **Require the complete transaction to balance when phase 2 is valid.**
 >
@@ -4393,7 +4552,7 @@ open under DS-TX-SETTLEMENT-REFINEMENT.
 <a id="ds-tx-conservation-p01" name="ds-tx-conservation-p01"></a>
 <a id="ds-tx-accounting-balance-p01" name="ds-tx-accounting-balance-p01"></a>
 
-###### 2.1.2.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L72) - The transaction conserves value when phase 2 is valid
+###### 2.1.2.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L72) - The transaction conserves value when phase 2 is valid
 
 $$
 \begin{aligned}
@@ -4411,7 +4570,7 @@ The equation covers ADA and native assets while the Store term changes only ADA.
 <a id="ds-tx-conservation-p02" name="ds-tx-conservation-p02"></a>
 <a id="ds-tx-accounting-balance-p02" name="ds-tx-accounting-balance-p02"></a>
 
-###### 2.1.2.2.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L96) - Complete balance determines acceptance
+###### 2.1.2.3.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L96) - Complete balance determines acceptance
 
 $$
 \begin{aligned}
@@ -4433,7 +4592,7 @@ accepted despite the SubTxs' individual financial imbalances.
 <a id="ds-tx-conservation-n01" name="ds-tx-conservation-n01"></a>
 <a id="ds-tx-accounting-balance-n01" name="ds-tx-accounting-balance-n01"></a>
 
-###### 2.1.2.2.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L117) - Fund a net allocation once
+###### 2.1.2.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L117) - Fund a net allocation once
 
 $$
 \begin{aligned}
@@ -4459,7 +4618,7 @@ ledger must count the whole declared allocation once, including its child share.
 <a id="ds-tx-conservation-n02" name="ds-tx-conservation-n02"></a>
 <a id="ds-tx-accounting-balance-n02" name="ds-tx-accounting-balance-n02"></a>
 
-###### 2.1.2.2.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L137) - Use a net release once
+###### 2.1.2.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L137) - Use a net release once
 
 $$
 \begin{aligned}
@@ -4484,7 +4643,7 @@ would credit value already present in the declared transaction total.
 <a id="ds-tx-conservation-n03" name="ds-tx-conservation-n03"></a>
 <a id="ds-tx-accounting-balance-n03" name="ds-tx-accounting-balance-n03"></a>
 
-###### 2.1.2.2.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L155) - One SubTx funds another
+###### 2.1.2.3.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L155) - One SubTx funds another
 
 $$
 \begin{aligned}
@@ -4505,7 +4664,7 @@ declarations do not require independently balanced SubTx finances.
 <a id="ds-tx-conservation-n04" name="ds-tx-conservation-n04"></a>
 <a id="ds-tx-accounting-balance-n04" name="ds-tx-accounting-balance-n04"></a>
 
-###### 2.1.2.2.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L168) - A SubTx funds TopTx fees
+###### 2.1.2.3.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L168) - A SubTx funds TopTx fees
 
 $$
 \begin{aligned}
@@ -4525,7 +4684,7 @@ parent fee without changing either body's deposit declaration.
 <a id="ds-tx-conservation-f01" name="ds-tx-conservation-f01"></a>
 <a id="ds-tx-accounting-balance-f01" name="ds-tx-accounting-balance-f01"></a>
 
-###### 2.1.2.2.7 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L181) - One-lovelace deficit or surplus
+###### 2.1.2.3.7 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L181) - One-lovelace deficit or surplus
 
 $$
 \Delta\text{outputCoins(topTx)}\in\{-1,1\}
@@ -4542,7 +4701,7 @@ Exact deposit declarations excuse neither mismatch.
 <a id="ds-tx-conservation-f02" name="ds-tx-conservation-f02"></a>
 <a id="ds-tx-accounting-balance-f02" name="ds-tx-accounting-balance-f02"></a>
 
-###### 2.1.2.2.8 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L199) - Native-asset quantity or identity mismatch
+###### 2.1.2.3.8 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L199) - Native-asset quantity or identity mismatch
 
 $$
 \text{adaBalance}=0\land\text{nativeAssetBalance}\ne0
@@ -4566,7 +4725,7 @@ compensate for a different native-asset identity or quantity.
 <a id="ds-tx-conservation-f03" name="ds-tx-conservation-f03"></a>
 <a id="ds-tx-accounting-balance-f03" name="ds-tx-accounting-balance-f03"></a>
 
-###### 2.1.2.2.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L219) - An exact delegated allocation lacks funding
+###### 2.1.2.3.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L219) - An exact delegated allocation lacks funding
 
 $$
 \begin{aligned}
@@ -4587,7 +4746,7 @@ Delegation assigns responsibility; it does not supply additional ADA.
 <a id="ds-tx-conservation-n05" name="ds-tx-conservation-n05"></a>
 <a id="ds-tx-accounting-balance-n05" name="ds-tx-accounting-balance-n05"></a>
 
-###### 2.1.2.2.10 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L234) - Equal delegated allocations and releases
+###### 2.1.2.3.10 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L234) - Equal delegated allocations and releases
 
 $$
 \begin{aligned}
@@ -4607,7 +4766,7 @@ transfer adds no ADA to either side of the transaction balance.
 <a id="ds-tx-conservation-n06" name="ds-tx-conservation-n06"></a>
 <a id="ds-tx-accounting-balance-n06" name="ds-tx-accounting-balance-n06"></a>
 
-###### 2.1.2.2.11 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L246) - Ten input ADA plus two released ADA
+###### 2.1.2.3.11 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L246) - Ten input ADA plus two released ADA
 
 $$
 \begin{aligned}
@@ -4631,7 +4790,7 @@ does not impose independent SubTx balance on the other cases.
 <a id="ds-tx-conservation-n07" name="ds-tx-conservation-n07"></a>
 <a id="ds-tx-accounting-balance-n07" name="ds-tx-accounting-balance-n07"></a>
 
-###### 2.1.2.2.12 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L255) - Released ADA contributes to TopTx fees
+###### 2.1.2.3.12 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L255) - Released ADA contributes to TopTx fees
 
 $$
 \begin{aligned}
@@ -4653,7 +4812,7 @@ child output and the explicit fee contribution; its declaration remains unchange
 <a id="ds-tx-conservation-f04" name="ds-tx-conservation-f04"></a>
 <a id="ds-tx-accounting-balance-f04" name="ds-tx-accounting-balance-f04"></a>
 
-###### 2.1.2.2.13 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L265) - Released ADA cannot disappear
+###### 2.1.2.3.13 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L265) - Released ADA cannot disappear
 
 $$
 \begin{aligned}
@@ -4676,7 +4835,7 @@ this variant leaves the same $2$ ADA without a destination.
 <a id="ds-tx-conservation-n08" name="ds-tx-conservation-n08"></a>
 <a id="ds-tx-accounting-balance-n08" name="ds-tx-accounting-balance-n08"></a>
 
-###### 2.1.2.2.14 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L280) - Balanced proposal, failed phase 2
+###### 2.1.2.3.14 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L280) - Balanced proposal, failed phase 2
 
 $$
 \text{phase2Invalid}\land\text{transactionBalance}=0
@@ -4692,568 +4851,734 @@ This is an acceptance control: a balanced ordinary proposal may accompany accept
 phase-2 failure. It does not establish that ordinary balance is checked on this
 path. [Execution](#ds-state-execution) determines the applied effects.
 
-<a id="ds-tx-attribution" name="ds-tx-attribution"></a>
-
-#### 2.1.3 Attribution
-
-> **Determine which body accounts for a contribution.**
->
-> Local SubTx operation $\longrightarrow$ SubTx · Delegated SubTx operation $\longrightarrow$ TopTx. The required amount and transaction total remain unchanged.
-
-**Decision:** Agreed.
-
-| SubTx declaration | Contribution attributed locally |
-| --- | --- |
-| Explicit zero | $0$ |
-| Local allocation of $\text{amount}$ | $+\text{amount}$ |
-| Local release of $\text{amount}$ | $-\text{amount}$ |
-| Allocation requested from TopTx | $0$; TopTx accounts for it |
-| Release delegated to TopTx | $0$; TopTx accounts for it |
-| Absent declaration | No operation, contributing $0$ to local accounting; this is not a declared zero |
-
-For an explicit TopTx declaration:
-
-$$
-\begin{aligned}
-\text{topTxNetUTxODepositChange}
-&=\text{declaredTxTotalNetUTxODepositChange} \\
-&\quad-\sum_{\text{contribution}\in\text{subTxLocalNetUTxODepositChanges}}
-\text{contribution}
-\end{aligned}
-$$
-
-TopTx's attributed amount includes delegated contributions. Its **own** contribution
-derived under DS-TX-ACCOUNTING-NET-CHANGE-TOPTX removes all declared SubTx contributions,
-including delegated ones, from the declared batch total. The independently required
-own amount comes from its input records and new outputs. These quantities agree only
-under the corresponding exactness checks and must remain distinct in test oracles.
-
-With a 3 ADA SubTx allocation and a 2 ADA contribution from TopTx's own outputs:
-
-| SubTx accounting | TopTx declares | Accounted in SubTx | Accounted in TopTx |
-| --- | --- | --- | --- |
-| Local | Allocate 5 ADA | 3 ADA | 2 ADA |
-| Delegated | Allocate 5 ADA | 0 ADA | 5 ADA |
-
-For allocation-only transactions this gives:
-
-$$
-\begin{aligned}
-\text{declaredTxTotalNetUTxODepositChange}
-&=\text{ownTopTxNetAllocation} \\
-&\quad+\sum_{\text{allocation}\in\text{localSubTxNetAllocations}}\text{allocation} \\
-&\quad+\sum_{\text{allocation}\in\text{delegatedSubTxNetAllocations}}\text{allocation} \\
-\text{topTxNetUTxODepositChange}
-&=\text{ownTopTxNetAllocation}
-+\sum_{\text{allocation}\in\text{delegatedSubTxNetAllocations}}\text{allocation}
-\end{aligned}
-$$
-
-Attribution can have a different sign from the transaction total: a local SubTx
-allocation of 5 ADA and a delegated release of 3 ADA attribute $+5$ to SubTx and $-3$
-to TopTx, while TopTx declares a net allocation of 2 ADA.
-
-Local accounting does not require independent SubTx financial balance. Delegation
-requests still require exact originating contributions, sufficient batch funding,
-a TopTx declaration and valid settlement where applicable. Those predicates remain
-in Net change, Balance, Requirements and Settlement respectively.
-
-<a id="ds-tx-attribution-p01" name="ds-tx-attribution-p01"></a>
-
-##### 2.1.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AttributionSpec.hs#L18) - observed TopTx and local SubTx attribution matches the independent signed contribution projection
-
-Compare actual production attribution with an independently written declaration-form projection: local allocation/release maps to $+\text{amount}$/$-\text{amount}$, delegation and explicit zero map to zero locally. TopTx retains its own contribution plus delegated contributions. The resulting sum recovers the declared total; do not calculate both sides from the same subtraction and test only that tautology.
-
-<a id="ds-tx-attribution-p02" name="ds-tx-attribution-p02"></a>
-
-##### 2.1.3.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AttributionSpec.hs#L19) - switching local and delegated accounting changes attribution by the signed contribution and preserves the required batch change
-
-For both allocation and release, switch the SubTx accounting mode while keeping the originating Store operations fixed. Check the observed signed attribution shift and unchanged required batch total. This does not promise unchanged ledger acceptance if the new responsibility requires a different settlement selector or coverage.
-
-<a id="ds-tx-attribution-n01" name="ds-tx-attribution-n01"></a>
-
-##### 2.1.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AttributionSpec.hs#L20) - counts delegated funding once in TopTx accounting
-
-A delegated request is already a contribution to the transaction total. Attribute it to TopTx without adding a second Store allocation for the same request.
-
-<a id="ds-tx-attribution-n02" name="ds-tx-attribution-n02"></a>
-
-##### 2.1.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AttributionSpec.hs#L21) - keeps the same batch net change when a SubTx delegates funding of its net allocation
-
-Changing a SubTx allocation from local accounting to a TopTx request leaves the required Store transfer unchanged. Only the attribution changes.
-
-<a id="ds-tx-attribution-n03" name="ds-tx-attribution-n03"></a>
-
-##### 2.1.3.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AttributionSpec.hs#L22) - allows a SubTx spending its final store-backed inputs and creating no outputs to explicitly delegate the release to TopTx
-
-A SubTx can consume its store-backed inputs without creating outputs and explicitly delegate its release. Settlement and batch funding are then handled according to TopTx attribution.
-
-<a id="ds-tx-grammar-n01" name="ds-tx-grammar-n01"></a>
-<a id="ds-tx-declarations-grammar-n01" name="ds-tx-declarations-grammar-n01"></a>
-<a id="ds-tx-attribution-n04" name="ds-tx-attribution-n04"></a>
-
-##### 2.1.3.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AttributionSpec.hs#L23) - observes zero local and delegated amounts with no funding request for SubTx explicit zero
-
-Give a SubTx an explicit-zero declaration and observe the production accounting result: zero local contribution, zero delegated contribution and no funding request. Use an otherwise valid zero-change fixture. Recognizing or round-tripping the zero constructor alone does not establish this attribution behavior; declaration representation belongs to Grammar.
-
 <a id="ds-tx-authorization" name="ds-tx-authorization"></a>
 
-#### 2.1.4 Authorization
+#### 2.1.3 Authorization
 
-> **Determine who may release an output’s allocated deposit.**
+> **Spending authority also authorizes release of the input's recorded deposit.**
 >
-> Release authority follows spending authority, rather than the identity of the original deposit funder.
+> Funding a deposit gives no separate approval right over its later release.
 
 **Decision:** Agreed.
 
-On the ordinary successful spending path, the authority to release an output's allocated
-UTxO capacity deposit follows that output's spending conditions. Satisfy its existing key or
-script authorization; no separate DepositStore release credential or witness is
-required. Funding the original deposit gives the funder no retained refund claim or
-additional approval right.
+| Role | Example | Required in the later spending transaction? |
+| --- | --- | --- |
+| Original deposit funder | Alice pays for a store-backed output controlled by Bob | Alice's signature is not required |
+| Current spending authority | Bob's key controls that output | Bob's spending signature is required |
 
-Released UTxO capacity deposits participate in exact accounting under DS-TX-ACCOUNTING-NET-CHANGE. A body whose
-released UTxO capacity deposits exceed its newly allocated UTxO capacity deposits has a release
-contribution. SubTx declares its own contribution; TopTx declares the net change for the
-complete batch. Batch netting and settlement still follow DS-TX-ACCOUNTING-NET-CHANGE-TOPTX, DS-TX-SETTLEMENT-PARTICIPATION and
-DS-TX-SETTLEMENT; release does not imply an extra gross Store release.
+```text
+Alice funds the store-backed output
+  ├── spending key: Bob
+  └── deposit recorded in the Store
+            ↓
+A later transaction consumes that output
+  ├── Bob's valid signature, no Alice signature → accepted
+  └── Alice's valid signature, no Bob signature → rejected
+```
 
-For example, Alice funds a UTxO capacity deposit of 2 ADA for a store-backed output
-controlled by Bob. If Bob validly spends it without creating replacement store-backed
-outputs, its body must account for a 2 ADA release contribution. Alice's approval is not
-required, and the settlement destination need not be Alice.
+The release still needs exact [Accounting](#ds-tx-accounting) and valid
+[Settlement](#ds-tx-settlement). A declaration or a settlement designation cannot
+replace the input's spending witness. No separate DepositStore credential is added.
 
-A SubTx authorizes delegated release through its explicit `DelegateToTopTx` target.
-TopTx handles settlement under the existing netting rules; the SubTx does not select a
-final TopTx output index. Ordinary spending authorization cannot be replaced by a
-declaration or by referencing an output. Collateral consumption follows its separate
-authorization and settlement rules under DS-COLLATERAL-AUTHORIZATION and
-DS-COLLATERAL-SETTLEMENT.
+**Test conditions:** Alice and Bob have distinct keys. The consumed input is
+key-controlled, its positive recorded deposit was funded by Alice, and accounting,
+settlement and the remaining transaction requirements are valid. Phase 2 succeeds.
+Both tests exercise all three placements in each generated sample:
 
-<a id="ds-tx-authorization-n01" name="ds-tx-authorization-n01"></a>
+| Consuming body | Release handling |
+| --- | --- |
+| Standalone TopTx | TopTx designates its settlement output |
+| SubTx | SubTx designates its own settlement output |
+| SubTx | SubTx delegates the release to TopTx |
 
-##### 2.1.4.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L11) - allows the authorized spender to release UTxO capacity deposits paid by another person
-
-Alice funds an output controlled by Bob; Bob later spends it with exact deposit accounting and valid settlement. Observe release under Bob's spending authority despite Alice having supplied the original funds.
+$\text{spendingSignatures(body)}$ identifies the keys signing the body that consumes
+the input; $\text{transactionSignatures(tx)}$ includes signatures across TopTx and its
+SubTxs. These cases exercise ordinary successful spending. Collateral authority
+belongs to [Collateral authorization](#ds-collateral-authorization).
 
 <a id="ds-tx-authorization-n02" name="ds-tx-authorization-n02"></a>
+<a id="ds-tx-authorization-n01" name="ds-tx-authorization-n01"></a>
 
-##### 2.1.4.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L12) - does not require a separate signature from the original UTxO capacity deposit funder
+##### 2.1.3.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L51) - Bob spends an output funded by Alice
 
-Use the same two-party lifecycle but explicitly inspect the final witness set: Bob's required witness is present and Alice's is absent. Acceptance proves that no separate original-funder approval is required.
+$$
+\begin{aligned}
+&\text{depositFunder(input)}=\text{Alice} \\
+&\land\text{spendingKey(input)}=\text{Bob} \\
+&\land\text{Bob}\in\text{spendingSignatures(body)} \\
+&\land\text{Alice}\notin\text{transactionSignatures(tx)} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+Create and fund the output in an earlier ledger transaction. In the later spending
+transaction, inspect the final witness set: Bob's spending signature is present;
+Alice's is absent. Submit that signed transaction and expect acceptance. This single
+case establishes both Bob's authority and the absence of an original-funder approval
+requirement.
 
 <a id="ds-tx-authorization-f01" name="ds-tx-authorization-f01"></a>
 
-##### 2.1.4.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L13) - rejects spending by the original funder without the current spending authority even when the Store declaration is exact
+##### 2.1.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L73) - Alice's signature cannot replace Bob's
 
-From the otherwise valid two-party control, supply Alice's witness and omit Bob's required spending witness. Assert the existing authorization failure despite exact ordinary deposit declarations and valid settlement.
+$$
+\begin{aligned}
+&\text{depositFunder(input)}=\text{Alice} \\
+&\land\text{spendingKey(input)}=\text{Bob} \\
+&\land\text{Alice}\in\text{spendingSignatures(body)} \\
+&\land\text{Bob}\notin\text{spendingSignatures(body)} \\
+&\implies\text{RejectedWith(missingSpendingWitness(body,Bob))}
+\end{aligned}
+$$
+
+Keep the valid control's inputs, declarations, settlement and amounts unchanged.
+Replace Bob's spending signature with a valid Alice signature for the same spending
+body. Require only the existing missing-key-witness failure for Bob, then submit the
+original control and require acceptance.
+
+| Consuming body | Exact expected failure |
+| --- | --- |
+| TopTx | `MissingVKeyWitnessesUTXOW`, containing only Bob's key hash |
+| SubTx | `SubMissingVKeyWitnessesUTXOW`, containing only Bob's key hash |
+
+Alice's signature is valid cryptographically; it fails to supply the authority
+required by the consumed output. In a SubTx case, re-sign the enclosing TopTx after
+changing the child witnesses so that the parent's signature remains valid.
 
 <a id="ds-tx-authorization-n03" name="ds-tx-authorization-n03"></a>
 
-##### 2.1.4.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L14) - gains no release authority merely by referencing a store-backed output
-
-Referencing Alice/Bob's output gives the referencing body no authority to claim its associated deposit. A reference-only fixture is accepted without that release; an attempted release cannot become authorized by adding the reference. Requirements owns whether a field is needed, and State Allocations owns preservation of the live record.
+**Related rule — reference-only access.** [Release N09](#ds-tx-declarations-requirements-operations-release-n09)
+already checks that referencing live store-backed outputs does not require a release
+declaration. A reference does not consume the output or release its deposit. Declaring
+an amount released from reference inputs would be an inexact [Accounting](#ds-tx-accounting-net-change)
+claim, not a missing spending-witness failure. It is not an additional Authorization
+test.
 
 <a id="ds-tx-settlement" name="ds-tx-settlement"></a>
 
-#### 2.1.5 Settlement
+#### 2.1.4 Settlement
 
 > **Determine which output must contain a release amount.**
 >
-> Participation $\longrightarrow$ destination $\longrightarrow$ coverage. Settlement uses the accounting result without adding another Store transfer.
+> Designation $\longrightarrow$ output index $\longrightarrow$ output coin.
+> Settlement uses the accounting result without adding another Store transfer.
+
+| Check | Question |
+| --- | --- |
+| [Designation](#ds-tx-settlement-designation) | Must TopTx designate a settlement output? |
+| [Output index](#ds-tx-settlement-output-index) | Does the selected index exist in the declaring body's own outputs? |
+| [Output coin](#ds-tx-settlement-output-coin) | Does that output contain at least the required application ADA? |
 
 <a id="ds-tx-settlement-participation" name="ds-tx-settlement-participation"></a>
+<a id="ds-tx-settlement-designation" name="ds-tx-settlement-designation"></a>
 
-##### 2.1.5.1 Participation
+##### 2.1.4.1 Designation
 
-> **Determine whether a net-release transaction needs a TopTx settlement output.**
+> **Determine whether TopTx must designate a settlement output.**
 >
-> TopTx’s accounted release share, rather than the complete transaction’s net release, determines its participation.
+> Use its signed share from [Attribution](#ds-tx-accounting-attribution).
+> Only a net-release declaration carries a TopTx settlement designation.
 
 **Decision:** Agreed.
 
-A net release declares the batch amount and, separately, whether TopTx receives a share:
+**When does TopTx need a settlement output?**
+
+| Notation | Meaning |
+| --- | --- |
+| $\text{totalChange}$ | Signed net deposit change for TopTx and all SubTxs. |
+| $\text{topTxChange}$ | TopTx's attributed change: its own operations plus delegated child changes. |
+| $\text{hasTopTxOutput}$ | The declaration uses `TopTxSettlementOutput index`. |
+| $\text{noTopTxOutput}$ | A release uses `NoTopTxSettlement`, or the declaration has no designation field. |
+
+Only a net-release declaration carries this choice:
 
 ```haskell
 TopTx.DeclaresNetUTxODepositRelease amount settlement
-```
 
-Here `amount` has type `StrictlyPositiveCoin`, and the settlement choices remain:
-
-```haskell
+-- amount :: StrictlyPositiveCoin is the entire transaction's net release.
 data TopTxReleaseSettlement
   = NoTopTxSettlement
   | TopTxSettlementOutput !TxIx
 ```
 
-`NoTopTxSettlement` means that no settlement amount remains to be paid in TopTx's
-outputs after reconciling the contributions. Destinations are already declared by the
-corresponding `SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)`
-operations. This does not mean zero batch net release: the amount is positive. It must
-not leave an outstanding TopTx settlement requirement unfulfilled.
-
-`TopTxSettlementOutput index` names a zero-based index into TopTx's own outputs. It
-permits both TopTx-only settlement and mixed settlement in TopTx and SubTx outputs. The
-selected TopTx output already includes TopTx's share. That share is determined from the
-accounting; it is not automatically the entire amount in
-`TopTx.DeclaresNetUTxODepositRelease`.
-
-The operation's amount always remains the entire batch's net release under DS-TX-ACCOUNTING-NET-CHANGE-TOPTX. It
-is not an additional payment or a second credit to SubTx outputs. Offsetting net
-allocations participate in the net calculation, so the declared amount need not equal
-the gross sum of local SubTx releases.
-
-Derive the TopTx amounts from the signed total and the SubTx declarations:
-
 $$
-\begin{aligned}
-\text{txTotalNetRelease}
-&=\max(0,-\text{declaredTxTotalNetUTxODepositChange}) \\
-\text{topTxNetUTxODepositChange}
-&=\text{declaredTxTotalNetUTxODepositChange} \\
-&\quad-\sum_{\text{contribution}\in\text{subTxLocalNetUTxODepositChanges}}
-\text{contribution} \\
-\text{topTxNetRelease}&=\max(0,-\text{topTxNetUTxODepositChange})
-\end{aligned}
+\text{totalChange}<0
+\implies
+(\text{hasTopTxOutput}\iff\text{topTxChange}<0)
 $$
 
-Each SubTx contributes the following signed amount to
-`subTxLocalNetUTxODepositChanges`:
-
-| SubTx declaration | Local net UTxO capacity deposit change |
-| --- | --- |
-| `SubTx.DeclaresZeroNetUTxODeposit` | $0$; no delegation |
-| `SubTx.DeclaresNetUTxODepositAllocation amount` | $+\text{amount}$ |
-| `SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)` | $-\text{amount}$ |
-| `SubTx.RequestsUTxODepositFromTopTx amount` | $0$; TopTx handles the net allocation |
-| `SubTx.DeclaresNetUTxODepositRelease amount DelegateToTopTx` | $0$; TopTx handles the net release |
-| `SubTx.NoUTxODepositDeclaration` | $0$; declaration requirements still apply |
-
-Delegated contributions are already included in `declaredTxTotalNetUTxODepositChange`. Do
-not subtract them as local contributions: they remain TopTx's responsibility. These
-amounts are derived; no additional TopTx amount field is required. Unlike TopTx's own
-UTxO capacity deposit contribution derived in DS-TX-ACCOUNTING-NET-CHANGE-TOPTX, `topTxNetUTxODepositChange` includes
-delegated operations.
-
-For a net-release transaction ($\text{declaredTxTotalNetUTxODepositChange}<0$), require:
-
-| Derived TopTx amount | Required settlement |
-| --- | --- |
-| $\text{topTxNetRelease}=0$ | `NoTopTxSettlement` |
-| $\text{topTxNetRelease}>0$ | `TopTxSettlementOutput index`, with the selected output containing at least $\text{topTxNetRelease}$ |
-
-`txTotalNetRelease` is the net ADA amount transferred from the Store for the entire
-transaction. `topTxNetRelease` is the amount to settle in TopTx's selected output. Net
-allocations accounted for locally by SubTx bodies can make the latter larger than the former.
-For example, a local SubTx net allocation of 3 ADA and TopTx's own release contribution
-of 5 ADA give:
-
-$$
-\begin{aligned}
-\text{declaredTxTotalNetUTxODepositChange}&=-2 \\
-\text{txTotalNetRelease}&=2 \\
-\text{topTxNetUTxODepositChange}&=-2-3=-5 \\
-\text{topTxNetRelease}&=5
-\end{aligned}
-$$
-
-TopTx declares `TopTx.DeclaresNetUTxODepositRelease 2 (TopTxSettlementOutput index)`.
-The selected output must contain at least 5 ADA even though the net Store release
-is 2 ADA. The remaining value must be funded within the balanced batch; local
-accounting does not establish which body supplied those coins. Conversely, a
-local SubTx net release of 5 ADA and a TopTx net allocation contribution of 3 ADA give
-$\text{topTxNetUTxODepositChange}=3$ and $\text{topTxNetRelease}=0$; the declaration is
-`TopTx.DeclaresNetUTxODepositRelease 2 NoTopTxSettlement`.
-
-This settlement requirement applies to the `TopTx.DeclaresNetUTxODepositRelease` branch.
-A net allocation or explicit zero still follows DS-TX-ACCOUNTING-NET-CHANGE-TOPTX and does not introduce a TopTx
-settlement output merely because its derived accounting portion is negative.
-
-For example, with no offsetting net allocations:
-
-| Local SubTx net releases | TopTx share | TopTx declaration |
+| Transaction change | TopTx attributed change | Required declaration form |
 | --- | --- | --- |
-| 3 ADA | 0 | `TopTx.DeclaresNetUTxODepositRelease 3 NoTopTxSettlement` |
-| 0 | 2 ADA | `TopTx.DeclaresNetUTxODepositRelease 2 (TopTxSettlementOutput index)` |
-| 3 ADA | 2 ADA | `TopTx.DeclaresNetUTxODepositRelease 5 (TopTxSettlementOutput index)` |
+| Net release | Negative: TopTx has a release share | Release with `TopTxSettlementOutput index` |
+| Net release | Zero or positive: TopTx has no release share | Release with `NoTopTxSettlement` |
+| Net allocation | Any sign | Allocation; no designation field |
+| Zero | Any sign | Explicit zero; no designation field |
 
-These amounts are in ADA for readability. Each SubTx retains its own declared amount and
-destination. In the mixed example, 5 ADA leaves the store in total: 3 ADA is settled in
-SubTx outputs and 2 ADA in the selected TopTx output.
+`NoTopTxSettlement` does **not** mean zero transaction release: the SubTxs may settle
+it locally. The declared release amount remains the whole transaction's net change.
+TopTx's designated output is checked against its attributed share instead.
+
+These exact net-release examples use ADA:
+
+| Local SubTx change | TopTx attributed change | Transaction release | TopTx designation |
+| ---: | ---: | ---: | --- |
+| $-5$ | $0$ | 5 | None |
+| $-3$ | $-2$ | 5 | Required; share is 2 |
+| $+3$ | $-5$ | 2 | Required; share is 5 |
+| $-5$ | $+3$ | 2 | None |
+
+[Output index](#ds-tx-settlement-output-index) resolves the designated output within
+TopTx's own outputs; [Output coin](#ds-tx-settlement-output-coin) checks its ADA.
+Neither changes the transaction's net Store transfer.
+
+**Test conditions:** Amounts are exact, designated indices resolve, outputs contain
+sufficient ADA and the transaction is otherwise valid. Phase-2 cases contain a real
+failing script and valid collateral. These conditions isolate designation itself.
 
 <a id="ds-tx-settlement-participation-p01" name="ds-tx-settlement-participation-p01"></a>
+<a id="ds-tx-settlement-designation-p01" name="ds-tx-settlement-designation-p01"></a>
 
-###### 2.1.5.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L17) - TopTx settles its attributed release
+###### 2.1.4.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L47) - Designation follows TopTx's release share
 
 $$
-\text{PassesParticipation}
-\iff(\text{usesNoTopTxSettlement}\iff\text{topTxNetRelease}=0)
+\text{totalChange}<0
+\implies(\text{designationValid}\iff(\text{hasTopTxOutput}\iff\text{topTxChange}<0))
 $$
 
-For exact net-release declarations, compare the isolated participation validator with the required selector derived independently from signed local contributions. $\text{topTxNetRelease}=0$ includes zero and positive attributed TopTx changes. A positive release share requires a selected TopTx output; destination and coverage are separate checks.
+For each generated net-release proposal, check both designation choices and both local and delegated child releases. Compare the isolated validator with an expectation derived from recorded input deposits and priced outputs, independently of production attribution.
 
 <a id="ds-tx-settlement-participation-n01" name="ds-tx-settlement-participation-n01"></a>
+<a id="ds-tx-settlement-designation-n01" name="ds-tx-settlement-designation-n01"></a>
 
-###### 2.1.5.1.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L18) - requires NoTopTxSettlement when SubTxs settle the entire net release locally
+###### 2.1.4.1.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L69) - SubTxs settle the entire release
 
-SubTx bodies settle the entire release locally, leaving no release share attributed to TopTx. The declaration therefore uses NoTopTxSettlement.
+$$
+\text{totalChange}<0\land\text{topTxChange}=0\land\text{noTopTxOutput}
+\implies\text{Accepted}
+$$
+
+Every SubTx settles its release locally. TopTx has no remaining release share, so its exact total declaration uses `NoTopTxSettlement`.
 
 <a id="ds-tx-settlement-participation-n02" name="ds-tx-settlement-participation-n02"></a>
+<a id="ds-tx-settlement-designation-n02" name="ds-tx-settlement-designation-n02"></a>
 
-###### 2.1.5.1.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L19) - requires a TopTx settlement output when the batch declares a net release and TopTx has a positive share
+###### 2.1.4.1.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L82) - Standalone TopTx settles its release
 
-The net-release transaction leaves a positive TopTx share. TopTx must identify the output that covers it.
+$$
+\text{totalChange}<0\land\text{topTxChange}<0\land\text{hasTopTxOutput}
+\implies\text{Accepted}
+$$
+
+A standalone TopTx releases deposits and designates one of its outputs. With no SubTx contribution, its attributed share is the complete transaction release.
 
 <a id="ds-tx-settlement-participation-n03" name="ds-tx-settlement-participation-n03"></a>
+<a id="ds-tx-settlement-designation-n03" name="ds-tx-settlement-designation-n03"></a>
 
-###### 2.1.5.1.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L20) - accepts a net release settled across TopTx and SubTx outputs
+###### 2.1.4.1.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L93) - TopTx and SubTxs each settle a share
 
-One transaction can settle part of its release in SubTx outputs and the remainder in TopTx. Each destination must cover its own share.
+$$
+\begin{aligned}
+&\text{topTxChange}<0 \\
+&\land(\forall\,\text{subTx}\in\text{subTxs}:\text{localChange(subTx)}<0) \\
+&\land\text{allRequiredOutputsDesignated} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+Generate releases in TopTx and several SubTxs. Each child designates its own output; TopTx designates an output for its remaining share. The total declaration includes all releases once.
 
 <a id="ds-tx-settlement-participation-n04" name="ds-tx-settlement-participation-n04"></a>
+<a id="ds-tx-settlement-designation-n04" name="ds-tx-settlement-designation-n04"></a>
 
-###### 2.1.5.1.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L21) - allows TopTx's settlement amount to exceed the batch net release when SubTxs account for net allocations locally
+###### 2.1.4.1.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L106) - TopTx's share exceeds the transaction release
 
-A local SubTx allocation of 3 ADA can combine with TopTx’s 5 ADA release contribution. The Store releases only 2 ADA net, while the TopTx output must cover its derived 5 ADA share.
+$$
+\begin{aligned}
+&\text{totalChange}<0\land\text{localSubTxChange}>0 \\
+&\implies\text{requiredTopTxOutputADA}>-\text{totalChange} \\
+&\qquad\land\text{Accepted}
+\end{aligned}
+$$
+
+A local child allocation reduces the transaction release without reducing TopTx’s own release share. For example, $+3$ ADA in SubTx and $-5$ ADA in TopTx produce a release of 2 ADA. TopTx still designates a sufficiently funded output for its 5 ADA share.
 
 <a id="ds-tx-settlement-participation-f01" name="ds-tx-settlement-participation-f01"></a>
+<a id="ds-tx-settlement-designation-f01" name="ds-tx-settlement-designation-f01"></a>
 
-###### 2.1.5.1.6 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L22) - rejects NoTopTxSettlement when the batch declares a net release and TopTx has a positive share
+###### 2.1.4.1.6 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L120) - TopTx omits a required output
 
-A positive derived TopTx share remains after local SubTx accounting. NoTopTxSettlement would leave that share without its required destination.
+$$
+\begin{aligned}
+&\text{totalChange}<0\land\text{topTxChange}<0\land\text{noTopTxOutput} \\
+&\implies\text{RejectedWith(MissingTopTxSettlement)}
+\end{aligned}
+$$
+
+Keep the total exact and the transaction funded, but use `NoTopTxSettlement` despite TopTx having a positive release share. Require the missing-designation failure.
 
 <a id="ds-tx-settlement-participation-f02" name="ds-tx-settlement-participation-f02"></a>
+<a id="ds-tx-settlement-designation-f02" name="ds-tx-settlement-designation-f02"></a>
 
-###### 2.1.5.1.7 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L23) - rejects a TopTx settlement output when TopTx has no net release to settle
+###### 2.1.4.1.7 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L131) - TopTx designates an unnecessary output
 
-TopTx has no release share in this net-release transaction. Its declaration must use NoTopTxSettlement rather than designate an unnecessary output.
+$$
+\begin{aligned}
+&\text{totalChange}<0\land\text{topTxChange}=0\land\text{hasTopTxOutput} \\
+&\implies\text{RejectedWith(UnexpectedTopTxSettlement)}
+\end{aligned}
+$$
+
+All releases are settled locally by SubTxs. An additional TopTx designation is rejected, even though its index and output coin would otherwise be valid.
 
 <a id="ds-tx-settlement-participation-n05" name="ds-tx-settlement-participation-n05"></a>
+<a id="ds-tx-settlement-designation-n05" name="ds-tx-settlement-designation-n05"></a>
 
-###### 2.1.5.1.8 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L24) - does not require a TopTx settlement output when the batch declares a net allocation
+###### 2.1.4.1.8 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L144) - Net allocation, even though TopTx releases
 
-The transaction declares a net allocation, so its TopTx declaration has no release-settlement output. A delegated release can be absorbed by other allocations without a separate Store payment.
+$$
+\text{totalChange}>0\land\text{topTxChange}<0\land\text{noTopTxOutput}
+\implies\text{Accepted}
+$$
+
+Local SubTx allocations exceed TopTx’s release. The complete transaction declares an allocation, whose grammar has no settlement designation. A negative TopTx share does not introduce one.
 
 <a id="ds-tx-settlement-participation-n06" name="ds-tx-settlement-participation-n06"></a>
+<a id="ds-tx-settlement-designation-n06" name="ds-tx-settlement-designation-n06"></a>
 
-###### 2.1.5.1.9 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L25) - does not require a TopTx settlement output for an explicit-zero batch even when TopTx's derived accounting portion is negative
+###### 2.1.4.1.9 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L157) - Explicit-zero total, even though TopTx releases
 
-The transaction declares explicit zero. Even if the signed portion attributed to TopTx is negative, the net-release-only settlement selector is not introduced into this declaration form.
+$$
+\text{totalChange}=0\land\text{topTxChange}<0\land\text{noTopTxOutput}
+\implies\text{Accepted}
+$$
+
+Local SubTx allocations exactly offset TopTx’s release. TopTx declares explicit zero; that declaration has no designation field.
 
 <a id="ds-tx-settlement-participation-n07" name="ds-tx-settlement-participation-n07"></a>
+<a id="ds-tx-settlement-designation-n07" name="ds-tx-settlement-designation-n07"></a>
 
-###### 2.1.5.1.10 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L26) - accepts NoTopTxSettlement when TopTx's attributed contribution is a net allocation
+###### 2.1.4.1.10 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L170) - Net release, while TopTx allocates
 
-A local SubTx release of 5 ADA offsets TopTx's own allocation of 3 ADA: the batch declares a release of 2 ADA, TopTx attribution is $+3$ ADA, and $\text{topTxNetRelease}=0$. Accept NoTopTxSettlement; do not require attributed TopTx change itself to equal zero.
+$$
+\text{totalChange}<0\land\text{topTxChange}>0\land\text{noTopTxOutput}
+\implies\text{Accepted}
+$$
+
+Local SubTx releases exceed TopTx’s allocation. The complete transaction releases deposits, but TopTx has no release share. Accept `NoTopTxSettlement`; zero and positive attributed changes both permit it.
 
 <a id="ds-tx-settlement-participation-n08" name="ds-tx-settlement-participation-n08"></a>
+<a id="ds-tx-settlement-designation-n08" name="ds-tx-settlement-designation-n08"></a>
 
-###### 2.1.5.1.11 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L27) - accepts correct release participation on the phase-2 failure path
+###### 2.1.4.1.11 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L183) - Valid designation when phase 2 fails
 
-Use both permitted participation branches with exact ordinary declarations and actual phase-2 failure. Their selectors are validated even though ordinary settlement outputs are not applied.
+$$
+\text{phase2Invalid}\land\text{totalChange}<0\land\text{designationValid}
+\implies\text{Accepted}
+$$
+
+Use both valid choices with an actual failing script: designate a TopTx output when it has a release share, and use `NoTopTxSettlement` when the SubTxs settle the complete release locally. The ordinary designation is validated before collateral-only execution.
 
 <a id="ds-tx-settlement-participation-f03" name="ds-tx-settlement-participation-f03"></a>
+<a id="ds-tx-settlement-designation-f03" name="ds-tx-settlement-designation-f03"></a>
 
-###### 2.1.5.1.12 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/ParticipationSpec.hs#L28) - rejects incorrect release participation even when phase 2 fails
+###### 2.1.4.1.12 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L199) - Invalid designation when phase 2 fails
 
-From N08 controls, omit a required TopTx selector or supply one when no TopTx release is attributed. Assert participation failure on the phase-2 failure path.
+$$
+\text{phase2Invalid}\land\text{totalChange}<0\land\neg\text{designationValid}
+\implies\text{Rejected}
+$$
+
+From the valid phase-2-invalid controls, omit a required TopTx designation or supply one when TopTx has no release share. Require `MissingTopTxSettlement` or `UnexpectedTopTxSettlement`, respectively.
 
 <a id="ds-tx-settlement-destination" name="ds-tx-settlement-destination"></a>
+<a id="ds-tx-settlement-output-index" name="ds-tx-settlement-output-index"></a>
 
-##### 2.1.5.2 Destination
+##### 2.1.4.2 Output index
 
-> **Resolve the settlement index within the owning body’s regular outputs.**
+> **Resolve the index in the declaring body's own regular outputs.**
 >
-> Valid index $\ne$ sufficient ADA. Coverage checks the selected output’s amount.
+> Another body's output or collateral return cannot satisfy that index.
 
 **Decision:** Agreed.
 
-A settlement index selects an existing regular output in the body that owns the
-index. For `SubTxSettlementOutput`, resolve it in that SubTx; for
-`TopTxSettlementOutput`, resolve it in TopTx.
+| Declaration | Sequence used to resolve its index |
+| --- | --- |
+| `TopTxSettlementOutput index` | TopTx's own regular outputs |
+| `SubTxSettlementOutput index` | That SubTx's own regular outputs |
+| `DelegateToTopTx` | No local SubTx index; TopTx handles settlement |
 
 $$
-0 \le \mathit{outputIndex} < |\mathrm{ownOutputs}(\mathit{body})|
+0\le\text{index}<|\text{ownOutputs(body)}|
 $$
 
-An input, another body's output and collateral return are outside this sequence.
-A SubTx with no outputs has no valid local settlement index. It can explicitly
-delegate its release, subject to the remaining requirements.
+```text
+TopTx outputs     [0, 1, 2]
+SubTx A outputs   [0, 1]
+SubTx B outputs   [0, 1, 2]
 
-The selected output must separately satisfy DS-TX-SETTLEMENT-COVERAGE. Successful
-index resolution does not establish sufficient ADA or financial balance.
+SubTx A selects 2 → rejected
+  TopTx's output 2 and SubTx B's output 2 do not belong to A.
+```
+
+Collateral return has its own role and does not extend the regular output sequence.
+A SubTx with no outputs has no valid local index. It can explicitly delegate its
+release to TopTx instead.
+
+**Test conditions:** Declarations and designations are correct, selected existing
+outputs have enough ADA, and transactions are funded. Negative cases change the
+index while preserving those conditions. The primitive index range belongs to
+[Grammar](#ds-tx-declarations-grammar); these tests check whether the indexed output
+exists. [Output coin](#ds-tx-settlement-output-coin) checks the separate ADA bound.
 
 <a id="ds-tx-settlement-destination-p01" name="ds-tx-settlement-destination-p01"></a>
+<a id="ds-tx-settlement-output-index-p01" name="ds-tx-settlement-output-index-p01"></a>
 
-###### 2.1.5.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L17) - Settlement indices belong to their own body
+###### 2.1.4.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L59) - The index belongs to the declaring body
 
 $$
 \begin{aligned}
-\text{PassesDestination}\iff\forall\,\text{selectedDestination}:\quad\\
-0\le\text{selectedIndex}<\text{length(own regular outputs)}
+&\text{outputCoins}\ge\text{requiredRelease} \\
+&\implies(\text{indexValid(body,index)}\iff0\le\text{index}<|\text{ownOutputs(body)}|)
 \end{aligned}
 $$
 
-With otherwise valid participation, compare isolated index validation against $0\le\text{index}<\text{length(own regular outputs)}$ for both body levels. Include valid boundaries and invalid indices; being in range in another sequence is insufficient. Generate selected-output observations independently of production index resolution.
+Generate ordinary output sequences, including an empty sequence. For TopTx and SubTx separately, compare the isolated validator with the sequence-length predicate at the first, last and out-of-range positions. Existing outputs have sufficient ADA, so only index membership can fail.
 
 <a id="ds-tx-settlement-destination-f01" name="ds-tx-settlement-destination-f01"></a>
+<a id="ds-tx-settlement-output-index-f01" name="ds-tx-settlement-output-index-f01"></a>
 
-###### 2.1.5.2.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L18) - rejects an index outside the declaring body's output sequence
+###### 2.1.4.2.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L76) - The first missing own index is rejected
 
-Use a settlement index beyond the owning body’s output sequence. The ledger must reject rather than ignore the destination or choose a replacement.
+$$
+\text{index}=|\text{ownOutputs(body)}|
+\implies\text{RejectedWith(InvalidSettlementOutput)}
+$$
+
+Starting from a valid proposal, select the index immediately after the final output. Test TopTx and each SubTx separately, require the exact index failure, then accept the unchanged control.
 
 <a id="ds-tx-settlement-destination-f02" name="ds-tx-settlement-destination-f02"></a>
+<a id="ds-tx-settlement-output-index-f02" name="ds-tx-settlement-output-index-f02"></a>
 
-###### 2.1.5.2.3 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L19) - does not resolve a SubTx settlement index against TopTx outputs
+###### 2.1.4.2.3 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L99) - A SubTx cannot select TopTx's output
 
-A SubTx index is interpreted locally. An output with the same index in TopTx cannot satisfy that local target.
+$$
+\begin{aligned}
+&|\text{ownOutputs(subTx)}|\le\text{index}<|\text{ownOutputs(topTx)}| \\
+&\implies\text{RejectedWith(InvalidSettlementOutput(subTx))}
+\end{aligned}
+$$
+
+Give TopTx one more output than its SubTx. The child selects the index that exists only in TopTx. The ledger rejects the child’s target; the parent’s larger sequence cannot satisfy it.
 
 <a id="ds-tx-settlement-destination-f03" name="ds-tx-settlement-destination-f03"></a>
+<a id="ds-tx-settlement-output-index-f03" name="ds-tx-settlement-output-index-f03"></a>
 
-###### 2.1.5.2.4 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L20) - does not resolve a settlement index against collateral return
+###### 2.1.4.2.4 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L120) - Collateral return is outside the ordinary output sequence
 
-Collateral return is not an ordinary output in the settlement index space. Its value cannot repair an invalid ordinary target.
+$$
+\begin{aligned}
+&\text{collateralReturn}\ne\varnothing \\
+&\land\text{index}=|\text{ownOutputs(topTx)}| \\
+&\implies\text{RejectedWith(InvalidSettlementOutput(topTx))}
+\end{aligned}
+$$
+
+Use a genuinely phase-2-invalid transaction with collateral return. Select the index immediately after TopTx’s regular outputs, where collateral return receives its output reference. Reject that ordinary settlement target, then accept the control with a valid regular-output index.
 
 <a id="ds-tx-settlement-destination-f04" name="ds-tx-settlement-destination-f04"></a>
+<a id="ds-tx-settlement-output-index-f04" name="ds-tx-settlement-output-index-f04"></a>
 
-###### 2.1.5.2.5 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L21) - rejects a local settlement target when a SubTx spends its final store-backed inputs and creates no outputs
+###### 2.1.4.2.5 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L141) - A SubTx without outputs cannot settle locally
 
-A local index cannot identify an output in an empty sequence. The transaction must reject this target rather than resolve it against another body’s outputs.
+$$
+\begin{aligned}
+&\text{ownOutputs(subTx)}=\varnothing \\
+&\land\text{releasedDeposits(subTx)}>0\land\text{localIndex}=0 \\
+&\implies\text{RejectedWith(InvalidSettlementOutput(subTx))}
+\end{aligned}
+$$
+
+Start with a valid delegated final release. Replace delegation with local output zero, and remove TopTx’s now-unnecessary designation. The child has no output zero: reject precisely that index. The delegated control remains accepted.
 
 <a id="ds-tx-settlement-destination-n01" name="ds-tx-settlement-destination-n01"></a>
+<a id="ds-tx-settlement-output-index-n01" name="ds-tx-settlement-output-index-n01"></a>
 
-###### 2.1.5.2.6 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L22) - accepts the first and last own regular output as settlement destinations
+###### 2.1.4.2.6 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L160) - The first and last own outputs are valid
 
-For TopTx and SubTx separately, select index zero and the final valid index in an otherwise valid fixture. Resolve the selected output from its owning body; other output sequences do not affect validity.
+$$
+\begin{aligned}
+&|\text{ownOutputs(body)}|>0 \\
+&\land\text{index}\in\{0,|\text{ownOutputs(body)}|-1\} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+At both body levels, designate the first output and then the last output. Each choice uses fresh funded inputs and sufficient output coin.
 
 <a id="ds-tx-settlement-destination-f05" name="ds-tx-settlement-destination-f05"></a>
+<a id="ds-tx-settlement-output-index-f05" name="ds-tx-settlement-output-index-f05"></a>
 
-###### 2.1.5.2.7 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L23) - does not resolve a TopTx settlement index against nested SubTx outputs
+###### 2.1.4.2.7 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L174) - TopTx cannot select a SubTx's output
 
-Choose an index outside TopTx's own outputs but inside a nested or concatenated output sequence. Reject it even when a SubTx output could cover the settlement amount.
+$$
+\begin{aligned}
+&|\text{ownOutputs(topTx)}|\le\text{index}<|\text{ownOutputs(subTx)}| \\
+&\implies\text{RejectedWith(InvalidSettlementOutput(topTx))}
+\end{aligned}
+$$
+
+Give a nested SubTx one more output than TopTx. The index exists in the child but not in TopTx, so a TopTx designation using it is rejected.
 
 <a id="ds-tx-settlement-destination-f06" name="ds-tx-settlement-destination-f06"></a>
+<a id="ds-tx-settlement-output-index-f06" name="ds-tx-settlement-output-index-f06"></a>
 
-###### 2.1.5.2.8 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L24) - does not resolve a SubTx settlement index against a sibling SubTx's outputs
+###### 2.1.4.2.8 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L193) - A SubTx cannot select a sibling's output
 
-Choose an index outside the declaring SubTx's own outputs but valid in a sibling. Sibling outputs cannot satisfy the declaring body's destination requirement.
+$$
+\begin{aligned}
+&|\text{ownOutputs(subTx)}|\le\text{index}<|\text{ownOutputs(sibling)}| \\
+&\implies\text{RejectedWith(InvalidSettlementOutput(subTx))}
+\end{aligned}
+$$
+
+Give the sibling one more output than the declaring SubTx. Both children release deposits, but each owns a separate output sequence. The declaring child cannot borrow the sibling’s longer sequence.
 
 <a id="ds-tx-settlement-destination-n02" name="ds-tx-settlement-destination-n02"></a>
+<a id="ds-tx-settlement-output-index-n02" name="ds-tx-settlement-output-index-n02"></a>
 
-###### 2.1.5.2.9 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L25) - accepts valid ordinary settlement destinations on the phase-2 failure path
+###### 2.1.4.2.9 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L214) - Valid output indices when phase 2 fails
 
-Use correct own-output indices at both body levels in an otherwise valid transaction with actual phase-2 failure. Ordinary destination validation succeeds before collateral-only execution.
+$$
+\begin{aligned}
+&\text{phase2Invalid} \\
+&\land(\forall\,\text{body}:0\le\text{selectedIndex(body)}<|\text{ownOutputs(body)}|) \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+Use a real failing script and designate the final own regular output at both body levels. The ordinary indices are validated even though the collateral outcome does not create those ordinary outputs.
 
 <a id="ds-tx-settlement-destination-f07" name="ds-tx-settlement-destination-f07"></a>
+<a id="ds-tx-settlement-output-index-f07" name="ds-tx-settlement-output-index-f07"></a>
 
-###### 2.1.5.2.10 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DestinationSpec.hs#L26) - rejects an invalid ordinary settlement index even when phase 2 fails
+###### 2.1.4.2.10 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L228) - An invalid output index still fails when phase 2 fails
 
-Replace a valid N02 index with the first out-of-bounds index and assert the destination failure. Unapplied ordinary outputs do not excuse an invalid selector.
+$$
+\begin{aligned}
+&\text{phase2Invalid}\land\text{selectedIndex(body)}=|\text{ownOutputs(body)}| \\
+&\implies\text{RejectedWith(InvalidSettlementOutput)}
+\end{aligned}
+$$
+
+From a valid phase-2-invalid control, replace one index with the first out-of-range index. Exercise TopTx and each SubTx separately while keeping collateral valid. The invalid outcome flag does not waive ordinary index validation.
+
+<a id="ds-tx-attribution-n03" name="ds-tx-attribution-n03"></a>
+<a id="ds-tx-settlement-participation-n09" name="ds-tx-settlement-participation-n09"></a>
+<a id="ds-tx-settlement-output-index-n03" name="ds-tx-settlement-output-index-n03"></a>
+
+###### 2.1.4.2.11 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L252) - A SubTx without outputs delegates its final release
+
+$$
+\begin{aligned}
+&\text{ownOutputs(subTx)}=\varnothing \\
+&\land\text{releasedDeposits(subTx)}>0 \\
+&\land\text{delegatesReleaseToTopTx(subTx)} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+The SubTx spends its final store-backed inputs and creates no replacement output. Its exact release declaration uses `DelegateToTopTx`; there is no local index to resolve. TopTx declares the exact total and designates a sufficiently funded output of its own. The signed transaction is accepted, and its SubTx output sequence is checked to remain empty.
 
 <a id="ds-tx-settlement-coverage" name="ds-tx-settlement-coverage"></a>
+<a id="ds-tx-settlement-output-coin" name="ds-tx-settlement-output-coin"></a>
 
-##### 2.1.5.3 Coverage
+##### 2.1.4.3 Output coin
 
-> **Require the selected output to contain its settlement amount.**
+> **Check the ADA already present in the selected output.**
 >
-> Available output ADA $\ge$ settlement amount. External deposits do not count toward this bound.
+> $\text{applicationADA(selectedOutput)}\ge\text{requiredSettlement(body)}$.
+> External deposits do not count toward this bound.
 
 **Decision:** Agreed.
 
-Each designated output must contain at least its allocated settlement amount:
+Assume the required designation is present and its index resolves to an existing
+output. This rule then compares two amounts:
 
-$$
-\mathrm{applicationADA}(\mathit{settlementOutput})
-\ge \mathrm{settlementAmount}(\mathit{body})
-$$
+| Amount | TopTx | SubTx settling locally |
+| --- | --- | --- |
+| Required settlement | $\max(0,-\text{attributedTopTxChange})$ | The SubTx's declared release |
+| Available coin | Application ADA in the selected TopTx output | Application ADA in the selected SubTx output |
 
-Here `applicationADA` reads the full output ADA for an implicit output, and only
-application ADA for a store-backed output, excluding its external deposit.
+For an implicit output, application ADA is its full coin value. For a store-backed
+output, the external deposit remains separate from application ADA.
 
-For a local SubTx release, use its declared amount. For TopTx, use the derived
-`topTxNetRelease`, which can differ from the complete transaction's net release.
-For a 5 ADA release settled as 3 ADA in SubTx and 2 ADA in TopTx, the selected TopTx
-output needs at least 2 ADA: both 2 ADA and 4 ADA satisfy coverage; 1 ADA does not.
+Example: TopTx's required share is 2 ADA.
 
-The output may contain additional funds. A store-backed output's external deposit
-cannot satisfy this bound: only its application ADA is available in the output.
-The output already contains the settlement amount; applying the transaction must
-not credit it a second time under DS-STATE-EXECUTION.
+| Selected output | Application ADA | External deposit | Result |
+| --- | ---: | ---: | --- |
+| Implicit | 2 ADA | — | Accepted |
+| Implicit | 4 ADA | — | Accepted |
+| Store-backed | 2 ADA | 1 ADA | Accepted |
+| Store-backed | 1 ADA | 1 ADA | Rejected |
 
-Coverage is a lower bound, not an independent SubTx balance requirement. Fee exports
-remain permitted under DS-TX-ACCOUNTING-BALANCE. The stronger local-settlement guarantee
-remains a separate open question under DS-TX-SETTLEMENT-REFINEMENT.
+The last row still lacks one application ADA. The external deposit cannot fill the
+shortfall. TopTx's required share may be smaller or larger than the transaction's
+net Store release; compare against the **share**, not the transaction total.
+
+This is a lower bound on the final output coin. It does not identify where those
+coins came from, require independent SubTx balance or prevent SubTx fee exports.
+The stronger local-settlement guarantee remains open in [A.3](#ds-tx-settlement-refinement).
+
+**Test conditions:** Declarations, designations and indices are valid. Ledger cases
+preserve complete transaction balance, including rejection cases; a shortfall in
+the selected output is moved to another output. Both body levels are exercised.
+Phase-2 cases use a real failing script and valid collateral. One unit in a boundary
+comparison means one lovelace.
 
 <a id="ds-tx-settlement-coverage-p01" name="ds-tx-settlement-coverage-p01"></a>
+<a id="ds-tx-settlement-output-coin-p01" name="ds-tx-settlement-output-coin-p01"></a>
 
-###### 2.1.5.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L18) - Settlement outputs cover their release share
+###### 2.1.4.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L43) - Output ADA must cover the required share
+
+$$
+\text{passesOutputCoinValidation}
+\iff\text{applicationADA(selectedOutput)}\ge\text{requiredSettlement(body)}
+$$
+
+Compare the isolated output-coin validator with the independent lower-bound predicate. Generate exact amounts, surplus and shortfall for TopTx and SubTx, using both implicit and store-backed outputs. This equivalence concerns output coin only.
+
+<a id="ds-tx-settlement-coverage-f01" name="ds-tx-settlement-coverage-f01"></a>
+<a id="ds-tx-settlement-output-coin-f01" name="ds-tx-settlement-output-coin-f01"></a>
+
+###### 2.1.4.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) - Implicit output, one lovelace short
 
 $$
 \begin{aligned}
-\text{PassesCoverage}\iff\forall\,\text{selectedOutput}:\quad\\
-\text{applicationADA(selectedOutput)}\ge\text{settlementAmount(selectedOutput)}
+&\text{implicit(selectedOutput)} \\
+&\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
+&\implies\text{RejectedWith(InsufficientSettlementOutput)}
 \end{aligned}
 $$
 
-With valid participation and indices, compare the isolated coverage validator against independently derived settlement amounts and selected application ADA. Generate equality, surplus and shortfall for both body levels and output variants. Preserve batch conservation in ledger shortfall cases by accounting for the removed ADA elsewhere.
-
-<a id="ds-tx-settlement-coverage-f01" name="ds-tx-settlement-coverage-f01"></a>
-
-###### 2.1.5.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L19) - rejects a settlement output containing less ADA than its settlement amount
-
-The selected output exists but contains less ADA than its allocated settlement amount. Valid index resolution alone is insufficient.
+The index exists and all declarations are exact. Move one lovelace from the designated implicit output to another output, then require the output-coin failure.
 
 <a id="ds-tx-settlement-coverage-n01" name="ds-tx-settlement-coverage-n01"></a>
+<a id="ds-tx-settlement-output-coin-n01" name="ds-tx-settlement-output-coin-n01"></a>
 
-###### 2.1.5.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L20) - accepts a settlement output containing exactly its settlement amount
+###### 2.1.4.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) - Implicit output, exact amount
 
-The selected output contains exactly its settlement share. Equality satisfies the coverage lower bound.
+$$
+\text{implicit(selectedOutput)}
+\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
+\implies\text{Accepted}
+$$
+
+Exact equality is sufficient. Test the boundary for TopTx and for a SubTx settling locally.
 
 <a id="ds-tx-settlement-coverage-n02" name="ds-tx-settlement-coverage-n02"></a>
+<a id="ds-tx-settlement-output-coin-n02" name="ds-tx-settlement-output-coin-n02"></a>
 
-###### 2.1.5.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L21) - accepts a settlement output containing the settlement amount and additional funds
+###### 2.1.4.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) - Implicit output, extra ADA
 
-The selected output contains its settlement amount plus other funds. The rule is a lower bound and does not require equality.
+$$
+\text{implicit(selectedOutput)}
+\land\text{applicationADA(selectedOutput)}>\text{requiredSettlement(body)}
+\implies\text{Accepted}
+$$
+
+The selected implicit output may contain additional ADA. Its coin value need not equal the required share.
 
 <a id="ds-tx-settlement-coverage-f02" name="ds-tx-settlement-coverage-f02"></a>
+<a id="ds-tx-settlement-output-coin-f02" name="ds-tx-settlement-output-coin-f02"></a>
 
-###### 2.1.5.3.5 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L22) - rejects a store-backed settlement output with insufficient application ADA even when its external UTxO capacity deposit would cover the difference
+###### 2.1.4.3.5 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L117) - An external deposit cannot fill the ADA shortfall
 
-The selected store-backed output’s application ADA is too small. Its externally held capacity deposit is unavailable to cover that settlement shortfall.
+$$
+\begin{aligned}
+&\text{storeBacked(selectedOutput)} \\
+&\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
+&\land\text{applicationADA(selectedOutput)}+\text{externalDeposit(selectedOutput)}
+  \ge\text{requiredSettlement(body)} \\
+&\implies\text{RejectedWith(InsufficientSettlementOutput)}
+\end{aligned}
+$$
+
+Select a store-backed output whose application ADA is one lovelace short. Even though adding its external deposit would exceed the required amount, the ledger rejects the application-ADA shortfall.
 
 <a id="ds-tx-settlement-coverage-n03" name="ds-tx-settlement-coverage-n03"></a>
+<a id="ds-tx-settlement-output-coin-n03" name="ds-tx-settlement-output-coin-n03"></a>
 
-###### 2.1.5.3.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L23) - accepts a store-backed settlement output with application ADA equal to the settlement amount
+###### 2.1.4.3.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) - Store-backed output, exact application ADA
 
-A store-backed output’s application ADA equals its settlement amount. Its separately allocated capacity deposit neither increases nor reduces this coverage.
+$$
+\text{storeBacked(selectedOutput)}
+\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
+\implies\text{Accepted}
+$$
+
+Allocate the external deposit independently and place exactly the required settlement amount in the output’s application ADA. The separate deposit does not increase or reduce the bound.
 
 <a id="ds-tx-settlement-coverage-n04" name="ds-tx-settlement-coverage-n04"></a>
+<a id="ds-tx-settlement-output-coin-n04" name="ds-tx-settlement-output-coin-n04"></a>
 
-###### 2.1.5.3.7 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L24) - checks TopTx's derived settlement amount rather than the entire batch net release
+###### 2.1.4.3.7 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L161) - TopTx's share is smaller than the transaction release
 
-Cover both directions: batch release 5 ADA with TopTx share 2 ADA accepts a 2 ADA TopTx output; batch release 2 ADA with TopTx share 5 ADA requires a 5 ADA TopTx output. F04 supplies the negative counterpart for confusing the smaller batch amount with the larger share.
+$$
+\begin{aligned}
+&0<\text{topTxSettlement}<\text{transactionRelease} \\
+&\land\text{applicationADA(selectedTopTxOutput)}=\text{topTxSettlement} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+For example, the transaction releases 5 ADA: a SubTx settles 3 ADA locally and TopTx settles 2 ADA. A selected TopTx output containing 2 ADA is sufficient; it need not contain all 5 ADA.
 
 <a id="ds-tx-settlement-coverage-n05" name="ds-tx-settlement-coverage-n05"></a>
+<a id="ds-tx-settlement-output-coin-n05" name="ds-tx-settlement-output-coin-n05"></a>
 
-###### 2.1.5.3.8 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L25) - accepts covered ordinary settlement outputs on the phase-2 failure path
+###### 2.1.4.3.8 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L177) - Exact output ADA when phase 2 fails
 
-With exact declarations and valid selectors, provide the required application ADA in selected outputs at both body levels. An actual phase-2 failure selects collateral effects after this ordinary check passes.
+$$
+\text{phase2Invalid}
+\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
+\implies\text{Accepted}
+$$
+
+Use a real failing script with exactly the required coin in the designated ordinary output. Its proposed output-coin check passes before the collateral outcome, although ordinary outputs are not applied.
 
 <a id="ds-tx-settlement-coverage-f03" name="ds-tx-settlement-coverage-f03"></a>
+<a id="ds-tx-settlement-output-coin-f03" name="ds-tx-settlement-output-coin-f03"></a>
 
-###### 2.1.5.3.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L26) - rejects insufficient ordinary settlement coverage even when phase 2 fails
+###### 2.1.4.3.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L197) - One lovelace short when phase 2 fails
 
-Reduce a selected ordinary output below its independently required settlement amount in an N05 fixture, accounting for the removed ADA elsewhere to preserve conservation. Assert coverage failure despite phase-2 invalidity.
+$$
+\begin{aligned}
+&\text{phase2Invalid} \\
+&\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
+&\implies\text{RejectedWith(InsufficientSettlementOutput)}
+\end{aligned}
+$$
+
+From the valid phase-2-invalid controls, move one lovelace out of the selected output. The declared invalid script outcome does not excuse insufficient ordinary output coin.
 
 <a id="ds-tx-settlement-coverage-f04" name="ds-tx-settlement-coverage-f04"></a>
+<a id="ds-tx-settlement-output-coin-f04" name="ds-tx-settlement-output-coin-f04"></a>
 
-###### 2.1.5.3.10 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/CoverageSpec.hs#L27) - rejects a TopTx output that covers the batch release but not TopTx's larger attributed release
+###### 2.1.4.3.10 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L219) - The transaction release is smaller than TopTx's share
 
-Use the local $+3$ ADA SubTx allocation and $-5$ ADA TopTx contribution: batch release is 2 ADA, but TopTx coverage requires 5 ADA. An output containing 2 ADA fails even though it covers the entire batch net release; keep conservation valid with the remaining ADA elsewhere.
+$$
+\begin{aligned}
+&\text{transactionRelease}<\text{topTxSettlement} \\
+&\land\text{applicationADA(selectedTopTxOutput)}=\text{transactionRelease} \\
+&\implies\text{RejectedWith(InsufficientSettlementOutput)}
+\end{aligned}
+$$
+
+A SubTx allocation of 3 ADA and a TopTx release of 5 ADA produce a transaction release of 2 ADA. A TopTx output containing only 2 ADA fails: its required share is 5 ADA. Put the other 3 ADA elsewhere so the rejection isolates the selected output’s shortfall.
 
 <a id="ds-tx-application-assets" name="ds-tx-application-assets"></a>
 
-#### 2.1.6 Application assets
+#### 2.1.5 Application assets
 
 > **Separate an output’s spendable value from its external storage deposit.**
 >
@@ -5281,31 +5606,31 @@ externally held UTxO capacity deposits do not count as its application coins.
 
 <a id="ds-tx-application-assets-n01" name="ds-tx-application-assets-n01"></a>
 
-##### 2.1.6.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L17) - accepts a store-backed output containing native assets and zero ADA
+##### 2.1.5.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L17) - accepts a store-backed output containing native assets and zero ADA
 
 The output carries native assets but no application ADA. Its storage is paid through an exact external deposit, so an implicit minimum-ADA condition must not be imposed on its application value.
 
 <a id="ds-tx-application-assets-n02" name="ds-tx-application-assets-n02"></a>
 
-##### 2.1.6.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L18) - accepts empty application assets with a datum or reference script
+##### 2.1.5.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L18) - accepts empty application assets with a datum or reference script
 
 Exercise datum-only and reference-script-only outputs as separate fixture cases, each with empty application assets. Their full accepted encodings determine their exact external deposits; output admissibility remains separate from pricing.
 
 <a id="ds-tx-application-assets-n03" name="ds-tx-application-assets-n03"></a>
 
-##### 2.1.6.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L19) - accepts a store-backed output containing only an address
+##### 2.1.5.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L19) - accepts a store-backed output containing only an address
 
 Even an address-only output occupies priced storage. Empty application assets are permitted when its deposit and the remaining transaction requirements are satisfied.
 
 <a id="ds-tx-application-assets-n04" name="ds-tx-application-assets-n04"></a>
 
-##### 2.1.6.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L20) - accepts implicit outputs containing exactly their required minimum coin
+##### 2.1.5.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L20) - accepts implicit outputs containing exactly their required minimum coin
 
 For TopTx and SubTx separately, use an implicit output with exactly the minimum ADA required by its accepted size. Acceptance is the control for F01's one-lovelace shortfall; the store-backed exemption must not weaken implicit-output validation.
 
 <a id="ds-tx-application-assets-f01" name="ds-tx-application-assets-f01"></a>
 
-##### 2.1.6.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L21) - rejects implicit outputs one lovelace below their required minimum coin
+##### 2.1.5.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L21) - rejects implicit outputs one lovelace below their required minimum coin
 
 At both body levels, reduce the exact-minimum implicit output of N04 by one lovelace and place that lovelace in another valid implicit output to preserve batch conservation. Assert the existing minimum-coin failure; the store-backed exemption must not reach implicit outputs.
 
@@ -6555,8 +6880,8 @@ projection or translation change is selected here.
 >
 > $\text{Settlement output ADA} \ge \text{release amount}$ does not establish the origin of its coins. SubTx fee contributions must remain possible.
 
-**Decision:** Destination checks and existing SubTx imbalance are agreed; the stronger
-settlement guarantee remains open.
+**Decision:** Output-index and output-coin checks are agreed, as is existing SubTx
+imbalance. The stronger settlement guarantee remains open.
 
 The agreed example is a SubTx consuming 10 ADA of application assets and releasing 2 ADA
 of UTxO capacity deposits, with a local release targeting its only output, an implicit
@@ -6677,15 +7002,15 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | Previous rule | Current responsibilities |
 | --- | --- |
 | `DS-TX-001` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](#ds-tx-declarations-requirements-operations-release), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](#ds-tx-declarations-requirements-operations-allocation), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](#ds-tx-declarations-requirements-operations-zero-net-change), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](#ds-tx-declarations-requirements-operations) |
-| `DS-TX-002` | [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](#ds-tx-accounting-net-change-toptx), [DS-TX-ATTRIBUTION](#ds-tx-attribution), [DS-TX-SETTLEMENT-PARTICIPATION](#ds-tx-settlement-participation) |
+| `DS-TX-002` | [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](#ds-tx-accounting-net-change-toptx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-SETTLEMENT-DESIGNATION](#ds-tx-settlement-designation) |
 | `DS-TX-003` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](#ds-tx-accounting-net-change-toptx) |
 | `DS-TX-004` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
-| `DS-TX-005` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ATTRIBUTION](#ds-tx-attribution), [DS-TX-SETTLEMENT-DESTINATION](#ds-tx-settlement-destination) |
-| `DS-TX-006` | [DS-TX-SETTLEMENT-PARTICIPATION](#ds-tx-settlement-participation) |
-| `DS-TX-007` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance), [DS-TX-SETTLEMENT-DESTINATION](#ds-tx-settlement-destination), [DS-TX-SETTLEMENT-COVERAGE](#ds-tx-settlement-coverage), [DS-STATE-EXECUTION](#ds-state-execution) |
+| `DS-TX-005` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index) |
+| `DS-TX-006` | [DS-TX-SETTLEMENT-DESIGNATION](#ds-tx-settlement-designation) |
+| `DS-TX-007` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index), [DS-TX-SETTLEMENT-OUTPUT-COIN](#ds-tx-settlement-output-coin), [DS-STATE-EXECUTION](#ds-state-execution) |
 | `DS-TX-008` | [DS-TX-DECLARATIONS-GRAMMAR](#ds-tx-declarations-grammar), [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx) |
 | `DS-TX-009` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](#ds-tx-declarations-requirements-subtx-declarations) |
-| `DS-TX-010` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ATTRIBUTION](#ds-tx-attribution), [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
+| `DS-TX-010` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
 | `DS-TX-011` | [DS-TX-AUTHORIZATION](#ds-tx-authorization) |
 | `DS-TX-012` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-APPLICATION-ASSETS](#ds-tx-application-assets) |
 | `DS-COLL-001` | [DS-COLLATERAL-SCOPE](#ds-collateral-scope), [DS-COLLATERAL-AUTHORIZATION](#ds-collateral-authorization), [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-CONSERVATION](#ds-collateral-conservation) |
@@ -6700,9 +7025,39 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-PLUTUS-001` | [DS-PLUTUS-COMPATIBILITY](#ds-plutus-compatibility) |
 | `DS-STAKE-001` | [DS-STATE-CONSERVATION](#ds-state-conservation), [DS-STAKE](#ds-stake), [DS-VOTING](#ds-voting) |
 
-Accounting now groups two responsibilities: Net change validates the declared
-amounts; Balance checks ordinary financial conservation. Every case suffix is
-preserved, and the previous anchors remain valid:
+The former Attribution cases are now owned by the rule they establish. Shared
+claims are checked once; every previous case anchor still resolves:
+
+| Previous Attribution case | Current case |
+| --- | --- |
+| `P01`, `N01` | [Accounting Attribution P01](#ds-tx-accounting-attribution-p01): signed responsibility, including delegated funding exactly once |
+| `P02` | [Accounting Attribution P02](#ds-tx-accounting-attribution-p02): signed responsibility shift; [Net change TopTx P02](#ds-tx-accounting-net-change-toptx-p02): unchanged total |
+| `N02` | [Net change TopTx P02](#ds-tx-accounting-net-change-toptx-p02): allocation and release delegation preserve the total |
+| `N03` | [Settlement Output index N03](#ds-tx-settlement-output-index-n03): delegate a final release without SubTx outputs |
+| `N04` | [Accounting Attribution N01](#ds-tx-accounting-attribution-n01): explicit zero contributes no delegated amount |
+
+Authorization now has one accepted control and its witness-only rejection:
+
+| Previous Authorization case | Current responsibility |
+| --- | --- |
+| `N01`, `N02` | [Authorization N01](#ds-tx-authorization-n01): Bob signs; original funder Alice does not |
+| `F01` | [Authorization F01](#ds-tx-authorization-f01): Alice cannot replace Bob's required witness |
+| `N03` | [Release N09](#ds-tx-declarations-requirements-operations-release-n09): existing reference-only declaration case; an attempted release amount is an Accounting concern |
+
+Settlement now names each check directly:
+
+| Previous group | Current group |
+| --- | --- |
+| `DS-TX-SETTLEMENT-PARTICIPATION` | [Designation](#ds-tx-settlement-designation), retaining P01, N01–N08 and F01–F03 |
+| `DS-TX-SETTLEMENT-DESTINATION` | [Output index](#ds-tx-settlement-output-index), retaining every suffix |
+| `DS-TX-SETTLEMENT-COVERAGE` | [Output coin](#ds-tx-settlement-output-coin), retaining every suffix |
+
+The intermediate Participation P02/P03/N10 cases now belong to Accounting Attribution
+P01/P02/N01. Participation N09 is Output index N03. Their former anchors remain valid.
+
+Accounting groups three responsibilities: Net change validates declared amounts;
+Attribution assigns signed contributions; Balance checks ordinary financial
+conservation. The following earlier migrations preserve every case suffix and anchor:
 
 | Previous tag | Current tag |
 | --- | --- |
@@ -6727,7 +7082,7 @@ Netting N02–N07 become N03–N08. P/F suffixes and both former N01 identities 
 numbers under the new scopes. All former anchors remain valid.
 
 The accounting observation formerly registered as `DS-TX-GRAMMAR-N01` now lives at
-[DS-TX-ATTRIBUTION-N04](#ds-tx-attribution-n04). Its old anchor redirects to that case;
+[DS-TX-ACCOUNTING-ATTRIBUTION-N01](#ds-tx-accounting-attribution-n01). Its old anchor redirects to that case;
 the primitive boundary check formerly registered as `DS-TX-GRAMMAR-N02` now belongs
 to ledger-core's `StrictlyPositiveCoinSpec`. Grammar nominal identifiers therefore
 begin at N03; neither retired identity is reassigned.
@@ -6744,7 +7099,7 @@ indices above 65535. Similarly, the former combined TopTx settlement check keeps
 [F04](#ds-tx-declarations-grammar-f04) for invalid structure; [F14](#ds-tx-declarations-grammar-f14) covers
 negative indices and [F15](#ds-tx-declarations-grammar-f15) covers indices above 65535.
 These checks concern decoding; output existence remains under
-[DS-TX-SETTLEMENT-DESTINATION](#ds-tx-settlement-destination).
+[DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index).
 
 The previously individually tagged declaration-dependency cases map as follows:
 
@@ -6942,7 +7297,7 @@ the appropriate body level:
 | TopTx net allocation | `TopTx.DeclaresNetUTxODepositAllocation amount` |
 | TopTx net release and settlement | `TopTx.DeclaresNetUTxODepositRelease amount settlement` |
 | TopTx explicit zero | `TopTx.DeclaresZeroNetUTxODeposit` |
-| TopTx settlement participation | `NoTopTxSettlement` or `TopTxSettlementOutput index` |
+| TopTx settlement designation | `NoTopTxSettlement` or `TopTxSettlementOutput index` |
 | SubTx contribution declaration | `SubTx.SubTxUTxODepositDeclaration` |
 | No SubTx declaration | `SubTx.NoUTxODepositDeclaration` |
 | SubTx net allocation, accounted locally | `SubTx.DeclaresNetUTxODepositAllocation amount` |

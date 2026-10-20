@@ -13,10 +13,12 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.To
   withTopTxReleaseOffsetBySubTxAllocations,
   withTopTxAllocationOffsetBySubTxReleases,
   withDelegatedChange,
+  allocationAndReleaseDelegation,
   withExactLocalSubTxDeclarations,
   withEveryExactChildDeclarationForm,
   withDelegatedSubTxDeclaration,
   ownNetDeposit,
+  requiredNetChange,
   validateNetChange,
   expectedNetChange,
   addTopDeclaration,
@@ -27,6 +29,7 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Rules (
   DepositStoreAccountingFailure (..),
+  requiredTxTotalNetUTxODeposit,
   validateTopTxExactness,
  )
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
@@ -133,6 +136,17 @@ withDelegatedChange = do
     (bodyOperations 2 1)
     [if allocation then bodyOperations magnitude 0 else bodyOperations 0 magnitude]
 
+-- | Both directions of delegation in every generated sample. The parent has
+-- its own one-ADA allocation; one scenario's child allocates, the other's releases.
+-- Vary the child magnitude and application funding while retaining the same
+-- operation plan when comparing local and delegated declarations.
+allocationAndReleaseDelegation :: Gen (AccountingScenario, AccountingScenario)
+allocationAndReleaseDelegation = do
+  magnitude <- chooseInt (1, 3)
+  allocation <- scenario (bodyOperations 2 1) [bodyOperations magnitude 0]
+  release <- scenario (bodyOperations 2 1) [bodyOperations 0 magnitude]
+  pure (allocation, release)
+
 -- | Give every child its independently calculated own declaration, locally
 -- accounted. This establishes the child-exactness precondition of TopTx tests;
 -- it leaves the parent declaration absent for the calling specification.
@@ -205,6 +219,16 @@ ownNetDeposit :: ReleaseTx -> Coin
 ownNetDeposit proposal =
   Standalone.allocatedDeposits (ledgerState proposal) (unsignedTx proposal)
     <-> Standalone.releasedDeposits (ledgerState proposal) (unsignedTx proposal)
+
+-- | Observe the production required transaction total for the supplied proposal.
+-- Tests compare this with independently priced outputs and recorded input deposits;
+-- the declaration's local/delegated form must not change the required amount.
+requiredNetChange :: ReleaseTx -> Coin
+requiredNetChange proposal =
+  requiredTxTotalNetUTxODeposit
+    (Standalone.protocolParameters $ ledgerState proposal)
+    (utxosDepositStore $ Standalone.utxoState $ ledgerState proposal)
+    (unsignedTx proposal ^. bodyTxL)
 
 -- | Run only production TopTx exactness against the funded snapshot. Other
 -- ledger rules do not affect this result, including settlement and conservation.

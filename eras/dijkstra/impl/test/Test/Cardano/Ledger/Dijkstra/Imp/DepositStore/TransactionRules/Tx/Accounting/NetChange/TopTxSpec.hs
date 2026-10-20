@@ -27,6 +27,7 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraUtxoPredFailure (..),
  )
 import Cardano.Ledger.Val (Val ((<->)))
+import Control.Monad (forM)
 import Data.Maybe (catMaybes)
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
@@ -34,6 +35,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositive
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Fixture
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.TopTx as Scenario
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations (..))
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx as SubTx
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as TopTx
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release as Context
@@ -49,7 +51,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   submitTxAndExpectFailureContaining,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (fixupTx, rederiveAddrTxWits)
-import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
+import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
 
 -- | Keep each mathematical requirement beside its named example.
 {- FOURMOLU_DISABLE -}
@@ -78,6 +80,41 @@ spec =
               LT -> TopTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate amount) (TopTx.TopTxSettlementOutput $ TxIx 0)
               EQ -> TopTx.DeclaresZeroNetUTxODeposit) proposal)
             `shouldBe` Scenario.expectedNetChange declared proposal
+
+    -- Delegation preserves the transaction total for both allocation and release.
+    -- Each mode uses the same generated operation plan on freshly funded inputs,
+    -- so accepting the local transaction cannot consume the delegated case's inputs.
+    -- Compare production totals with independent output prices and recorded deposits.
+    -- Settlement selectors and application funding follow the chosen responsibility;
+    -- acceptance is not promised with those financial details left unchanged.
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-TOPTX-P02 - sameStoreOperations(localTx, delegatedTx) ⇒ requiredNetDeposit(localTx) = requiredNetDeposit(delegatedTx) ∧ accepted(localTx) ∧ accepted(delegatedTx)" $
+      forAll Scenario.allocationAndReleaseDelegation $ \(allocation, release) ->
+        forM_ [allocation, release] $ \scenario -> do
+          requiredChanges <- forM [False, True] $ \delegated -> do
+            proposal <- fundAccountingScenario scenario
+            let required = Context.netDeposit proposal
+                declaredProposal = Context.addDeclaration
+                  (Declarations
+                    (case required of
+                      Coin amount | amount > 0 -> TopTx.DeclaresNetUTxODepositAllocation $ positiveAmount amount
+                      Coin amount | amount < 0 -> TopTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate amount)
+                        (if delegated then TopTx.TopTxSettlementOutput $ TxIx 0 else TopTx.NoTopTxSettlement)
+                      _ -> TopTx.DeclaresZeroNetUTxODeposit)
+                    [ case allocated <-> released of
+                       Coin amount | amount > 0 ->
+                         if delegated then SubTx.RequestsUTxODepositFromTopTx $ positiveAmount amount
+                         else SubTx.DeclaresNetUTxODepositAllocation $ positiveAmount amount
+                       Coin amount -> SubTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate amount)
+                         (if delegated then SubTx.DelegateToTopTx else SubTx.SubTxSettlementOutput $ TxIx 0)
+                    | (allocated, released) <- zip (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
+                    ]) proposal
+                observed = Scenario.requiredNetChange declaredProposal
+            observed `shouldBe` required
+            buildAndSignTx declaredProposal >>= submitTx >>= isAccepted
+            pure observed
+          case requiredChanges of
+            [localTotal, delegatedTotal] -> localTotal `shouldBe` delegatedTotal
+            _ -> expectationFailure "Expected both local and delegated transaction totals"
 
     -- TopTx and SubTxs contribute to the total.
     -- Cover both zero and nonzero TopTx own changes alongside nonzero child changes.

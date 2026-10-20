@@ -20,10 +20,13 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   declaredTopTxNetUTxODeposit,
   declaredSubTxNetUTxODeposit,
   locallyAccountedSubTxNetUTxODeposit,
+  attributedTopTxNetUTxODeposit,
   validateDepositStoreInputs,
   validateDepositStoreSolvency,
   validateTopTxExactness,
   validateSubTxExactness,
+  validateTopTxSettlement,
+  validateSettlementOutput,
   validateOrdinaryDepositStore,
   applyOrdinaryDepositStore,
   applyDepositAllocations,
@@ -168,6 +171,18 @@ locallyAccountedSubTxNetUTxODeposit = \case
   SubTx.DeclaresNetUTxODepositRelease _ SubTx.DelegateToTopTx -> mempty
   declaration -> declaredSubTxNetUTxODeposit declaration
 
+-- | TopTx owns the declared total after removing locally accounted child shares.
+-- Requested allocations and delegated releases therefore remain with TopTx. This
+-- signed amount is shared by settlement selection and legacy self-balance; exactness
+-- separately establishes that the total and every originating contribution are valid.
+attributedTopTxNetUTxODeposit ::
+  (EraTx era, DijkstraEraTxBody era) => TxBody TopTx era -> Coin
+attributedTopTxNetUTxODeposit body =
+  declaredTopTxNetUTxODeposit (body ^. netUTxODepositChangeTxBodyL)
+    <-> foldMap
+      (locallyAccountedSubTxNetUTxODeposit . (^. bodyTxL . subTxNetUTxODepositChangeTxBodyL))
+      (body ^. subTransactionsTxBodyL)
+
 -- | Validate the metadata of resolved inputs. Unknown inputs remain the
 -- existing BadInputs rule's responsibility. Zero records are possible under a
 -- zero byte price; negative records never describe a valid obligation.
@@ -265,18 +280,15 @@ validateSubTxAccounting pp store body =
         validateSettlementOutput body index (unStrictlyPositiveCoin amount)
       _ -> pure ()
 
+-- | For a net-release total, designate an output exactly when TopTx's attributed
+-- share is a release. Other total declaration forms carry no settlement selector.
 validateTopTxSettlement ::
   (EraTx era, DijkstraEraTxBody era) =>
   TxBody TopTx era -> Validation (NonEmpty DepositStoreAccountingFailure) ()
 validateTopTxSettlement body =
   case body ^. netUTxODepositChangeTxBodyL of
     TopTx.DeclaresNetUTxODepositRelease _ settlement ->
-      let attributedChange =
-            declaredTopTxNetUTxODeposit (body ^. netUTxODepositChangeTxBodyL)
-              <-> foldMap
-                (locallyAccountedSubTxNetUTxODeposit . (^. bodyTxL . subTxNetUTxODepositChangeTxBodyL))
-                (body ^. subTransactionsTxBodyL)
-          requiredRelease = max mempty (mempty <-> attributedChange)
+      let requiredRelease = max mempty (mempty <-> attributedTopTxNetUTxODeposit body)
        in case settlement of
             TopTx.NoTopTxSettlement -> failureUnless (requiredRelease == mempty) (MissingTopTxSettlement requiredRelease)
             TopTx.TopTxSettlementOutput index ->
@@ -284,6 +296,8 @@ validateTopTxSettlement body =
                 *> validateSettlementOutput body index requiredRelease
     _ -> pure ()
 
+-- | Resolve the index within this body's regular outputs and check application ADA.
+-- The output's external Store deposit does not count toward this lower bound.
 validateSettlementOutput ::
   EraTxBody era =>
   TxBody l era -> TxIx -> Coin -> Validation (NonEmpty DepositStoreAccountingFailure) ()
