@@ -303,6 +303,7 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.SubTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.TopTx
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Authorization
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.MinimumCoin
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release
@@ -345,7 +346,7 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.TopTxSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChangeSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AccountingSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ApplicationAssetsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.MinimumCoinSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AuthorizationSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.DeclarationsSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.SubTxSpec

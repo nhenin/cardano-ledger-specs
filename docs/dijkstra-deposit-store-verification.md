@@ -58,10 +58,10 @@ source links follow the current modules. Previous documentation anchors still re
 ## Current implementation status
 
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
-registers **253 business examples: 178 implemented checks and 75 deliberate `False`
+registers **253 business examples: 183 implemented checks and 70 deliberate `False`
 placeholders**. All implemented checks pass. They comprise 80 Declarations
 (21 Grammar and 59 Requirements), 58 Accounting (41 NetChange, three Attribution and
-14 Balance), two Authorization, 33 Settlement and five Collateral examples. All 14 Balance properties submit real transactions
+14 Balance), two Authorization, 33 Settlement, five Minimum coin and five Collateral examples. All 14 Balance properties submit real transactions
 and pass 100 generated scenarios each. The 19 October zero-net-change suite
 contains 14 generated ledger properties: standalone TopTx, one or several SubTxs,
 active and inactive children, both body levels, and phase-2 failure. Each active
@@ -120,7 +120,7 @@ have been replaced by real ledger submissions.
 | [DS-TX-SETTLEMENT-DESIGNATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | All 12 generated properties pass. Exact net releases require a TopTx output precisely when its attributed change is negative. Allocation and explicit-zero totals have no designation field. Both correct and incorrect designation branches are exercised with genuine phase-2 failure. |
 | [DS-TX-SETTLEMENT-OUTPUT-INDEX](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | All 11 generated properties pass. Indices resolve only within the declaring body’s regular outputs, including first/last boundaries, empty child outputs, foreign parent/child/sibling sequences and collateral return. Ledger rejections require exactly the intended failure and then accept the unchanged control. |
 | [DS-TX-SETTLEMENT-OUTPUT-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. Application ADA must cover the required share; external Store deposits cannot satisfy this bound. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. Stronger refund-provenance guarantees remain open in A.3. |
-| [DS-TX-APPLICATION-ASSETS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs) | Store-backed outputs bypass implicit minimum-coin checks; the retained output-content examples remain placeholders. Exact deposit enforcement is tracked separately. |
+| [DS-TX-MINIMUM-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | All five generated properties pass. Each sample covers both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Implicit outputs retain the independently priced minimum; one lovelace below produces exactly the owner’s minimum-coin failure, then the unchanged control is accepted. |
 | [DS-COLLATERAL-SCOPE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs) | Collateral trigger examples remain placeholders. |
 | [DS-COLLATERAL-AUTHORIZATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AuthorizationSpec.hs) | Preservation of collateral key-control checks remains a placeholder. |
 | [DS-COLLATERAL-FUNDING](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | N04, F02, F03 and F05 submit real collateral transactions: additional return deposit funding, insufficient remaining coins, excluded released surplus, and a one-lovelace shortfall below a rounded-up minimum. Other examples remain placeholders. |
@@ -143,6 +143,55 @@ projection, and the unresolved stronger settlement guarantee remain deferred. An
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Minimum coin implemented on 20 October 2026
+
+**5 / 5 properties pass**, with 100 generated samples each. `MinimumCoinSpec`
+replaces `ApplicationAssetsSpec`; the five case suffixes stay unchanged under
+`DS-TX-MINIMUM-COIN`. Previous documentation anchors remain aliases.
+
+| Case | Contract | Generated samples | Time |
+| --- | --- | --- | --- |
+| [DS-TX-MINIMUM-COIN-N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L47) | Native assets without ADA | Pass · 100 | 804 ms |
+| [DS-TX-MINIMUM-COIN-N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L61) | Datum-only and reference-script-only outputs without assets | Pass · 100 | 1063 ms |
+| [DS-TX-MINIMUM-COIN-N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) | Address-only Store output | Pass · 100 | 548 ms |
+| [DS-TX-MINIMUM-COIN-N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) | Implicit output at its exact minimum | Pass · 100 | 506 ms |
+| [DS-TX-MINIMUM-COIN-F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L98) | Implicit output one lovelace below its minimum | Pass · 100 | 645 ms |
+
+Every sample covers **TopTx and SubTx × ordinary success and actual phase-2 failure**:
+400 scenarios per property. N02 separately covers datum-only and reference-script-only
+outputs in each sample: 800 scenarios. Total: **2,400 scenarios**. Prices, datum sizes,
+application funding and native-asset quantities vary. Tokens are minted in an earlier
+accepted transaction; every Store-backed output has an independently priced, fully
+funded allocation explicitly declared in the spec.
+
+For implicit outputs, solve `coin = coinsPerUTxOByte × (160 + encodedSize(output))`
+using the final coin's encoded width. F01 moves one lovelace to a separate output,
+re-signs without fixup and verifies that the required minimum, fee and encoded size
+are unchanged. It requires exactly `BabbageOutputTooSmallUTxO` for TopTx or
+`SubBabbageOutputTooSmallUTxO` for SubTx, including the submitted output and its minimum.
+The original exact-minimum transaction is accepted afterward.
+
+On the invalid phase-2 path, a genuinely failing V4 script and valid disjoint collateral
+establish the real outcome. Ordinary outputs are validated but not created. Ordinary
+success controls use key-controlled inputs; they do not claim successful script coverage.
+
+**Focused run:** 5 examples, 0 failures; **3.5701 s wall / 5.3672 s CPU**.
+
+**Full DepositStore run:** 253 examples; **183 passing**, **70 deliberate placeholders
+failing**; **29.3928 s wall / 41.7483 s CPU**. The failure-ID set is exactly
+the preceding 75 placeholders minus the five Application assets placeholders.
+All **178 Tx examples** now pass; the remaining placeholders belong to Collateral
+and Ledger effects. No unexpected failure occurred. Seed: `739231514`.
+
+Build and formatting pass. Existing production output rules already enforce this
+contract; no production rule changed. Rules, TOC, mathematical notation, source links
+and semantic tags are aligned; ctags are regenerated.
+
+Local evidence: `/private/tmp/ds-minimum-coin-build.log`,
+`/private/tmp/ds-minimum-coin-targeted.log`,
+`/private/tmp/ds-minimum-coin-regression.log`, and
+`/private/tmp/ds-minimum-coin-regression-audit.json`.
 
 ## Authorization implemented on 20 October 2026
 

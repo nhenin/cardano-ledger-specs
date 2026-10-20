@@ -3,9 +3,9 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.TxSpec (sp
 
 import Test.Cardano.Ledger.Common (Spec, describe)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AccountingSpec as Accounting
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.ApplicationAssetsSpec as ApplicationAssets
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AuthorizationSpec as Authorization
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.DeclarationsSpec as Declarations
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.MinimumCoinSpec as MinimumCoin
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.SettlementSpec as Settlement
 
 -- | Register the requirements in domain order.
@@ -15,4 +15,4 @@ spec = describe "DS-TX - Tx" $ do
   Accounting.spec
   Authorization.spec
   Settlement.spec
-  ApplicationAssets.spec
+  MinimumCoin.spec
