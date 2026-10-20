@@ -11,6 +11,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitTx,
   isAccepted,
   isRejectedWith,
+  isRejectedOnlyWith,
   removeTopTxDeclaration,
   buildTxWithUTxODepositDeclarations,
   preparePhase2InvalidBatch,
@@ -87,6 +88,17 @@ isRejectedWith ::
 isRejectedWith expected outcome = do
   failures <- expectLeftDeepExpr outcome
   toList failures `shouldContainExpr` [injectFailure @"LEDGER" expected]
+
+-- | Require this single failure, with no additional predicate failures. Use for
+-- scenarios that deliberately violate one rule while preserving all other rules.
+isRejectedOnlyWith ::
+  InjectRuleFailure "LEDGER" failure DijkstraEra =>
+  failure DijkstraEra ->
+  Either (NonEmpty (DijkstraLedgerPredFailure DijkstraEra)) (Tx TopTx DijkstraEra) ->
+  ImpTestM DijkstraEra ()
+isRejectedOnlyWith expected outcome = do
+  failures <- expectLeftDeepExpr outcome
+  failures `shouldBe` (injectFailure @"LEDGER" expected :| [])
 
 -- | Remove only TopTx's declaration and re-sign without balancing again.
 -- Inputs, outputs, fees and child declarations remain those of the signed control.
