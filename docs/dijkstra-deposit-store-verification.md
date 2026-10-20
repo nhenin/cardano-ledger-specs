@@ -58,10 +58,14 @@ source links follow the current modules. Previous documentation anchors still re
 ## Current implementation status
 
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
-registers **253 business examples: 183 implemented checks and 70 deliberate `False`
-placeholders**. All implemented checks pass. They comprise 80 Declarations
-(21 Grammar and 59 Requirements), 58 Accounting (41 NetChange, three Attribution and
-14 Balance), two Authorization, 33 Settlement, five Minimum coin and five Collateral examples. All 14 Balance properties submit real transactions
+registers **221 business examples: 186 implemented checks and 35 unimplemented
+LedgerEffects placeholders**. All implemented checks pass. They comprise 80
+Declarations (21 Grammar and 59 Requirements), 58 Accounting (41 NetChange, three
+Attribution and 14 Balance), two Authorization, 33 Settlement, five Minimum coin,
+seven Collateral and one Ledger-effects Fees property. The eight collateral-related
+properties replace the previous 31 entries; none remains a placeholder.
+
+All 14 Balance properties submit real transactions
 and pass 100 generated scenarios each. The 19 October zero-net-change suite
 contains 14 generated ledger properties: standalone TopTx, one or several SubTxs,
 active and inactive children, both body levels, and phase-2 failure. Each active
@@ -121,16 +125,14 @@ have been replaced by real ledger submissions.
 | [DS-TX-SETTLEMENT-OUTPUT-INDEX](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | All 11 generated properties pass. Indices resolve only within the declaring body’s regular outputs, including first/last boundaries, empty child outputs, foreign parent/child/sibling sequences and collateral return. Ledger rejections require exactly the intended failure and then accept the unchanged control. |
 | [DS-TX-SETTLEMENT-OUTPUT-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. Application ADA must cover the required share; external Store deposits cannot satisfy this bound. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. Stronger refund-provenance guarantees remain open in A.3. |
 | [DS-TX-MINIMUM-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | All five generated properties pass. Each sample covers both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Implicit outputs retain the independently priced minimum; one lovelace below produces exactly the owner’s minimum-coin failure, then the unchanged control is accepted. |
-| [DS-COLLATERAL-SCOPE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs) | Collateral trigger examples remain placeholders. |
-| [DS-COLLATERAL-AUTHORIZATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AuthorizationSpec.hs) | Preservation of collateral key-control checks remains a placeholder. |
-| [DS-COLLATERAL-FUNDING](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | N04, F02, F03 and F05 submit real collateral transactions: additional return deposit funding, insufficient remaining coins, excluded released surplus, and a one-lovelace shortfall below a rounded-up minimum. Other examples remain placeholders. |
-| [DS-COLLATERAL-SURPLUS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SurplusSpec.hs) | N01 submits a real phase-2-invalid transaction and checks released surplus reaches fees, treasury is unchanged, and ordinary effects do not execute. P01/P02 remain placeholders. |
-| [DS-COLLATERAL-TOTAL](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Supplied total-collateral exactness examples remain placeholders. |
-| [DS-COLLATERAL-SETTLEMENT](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SettlementSpec.hs) | Derived collateral Store settlement examples remain placeholders. |
-| [DS-COLLATERAL-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ConservationSpec.hs) | Collateral ADA and native-asset conservation examples remain placeholders. |
+| [Inherited collateral rules](dijkstra-deposit-store-rules.md#ds-collateral-existing-rules) | Existing UTXO/UTXOW checks are linked individually. Five generic scope requirements and two authorization requirements remain explicit coverage gaps or incomplete Store-backed extensions; they are no longer counted as DepositStore executable placeholders. |
+| [DS-COLLATERAL-FUNDING](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | All three generated contracts pass: accept sufficient application-coin funding, reject deficits despite released Store surplus, and derive collateral funding independently of ordinary declarations. Each sample covers nine input/return configurations on both real script outcomes. F01 also rejects zero application coins without a return, despite ample released deposits. P02 is an isolated calculation, not ledger acceptance. |
+| [DS-COLLATERAL-TOTAL](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Both generated contracts pass: an absent or exact input-minus-return total accepts; either one-lovelace mismatch rejects with exactly IncorrectTotalCollateralField. Store funding, surplus and absent-return cases run with both script outcomes. |
+| [DS-COLLATERAL-ASSETS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Both generated contracts pass: preserve the exact native-asset map across implicit and Store-backed output forms; reject missing, extra, changed or unreturned assets. Funded Store returns also accept tokens with zero application ADA. Rejected variants retain sufficient deposit and fee funding. |
 | [DS-STATE-EXECUTION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs) | Ordinary, accepted phase-2-failure and rejection effects remain placeholders. |
 | [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs) | Production state records allocations by live output reference. The dedicated allocation examples remain placeholders. Earlier Release runs observed creation, removal and preservation; the current Release assertions cover submission outcomes only. |
 | [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs) | Ordinary and collateral execution update the Store balance. Collateral tests observe selected effects; dedicated balance examples remain placeholders. The current Release assertions cover submission outcomes only. |
+| [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | P01 passes across all 18 funding configurations. Actual script success leaves collateral Store records untouched; failure applies the expected fee credit, Store balance, allocation-map and UTxO changes. Treasury and unrelated records remain unchanged. Ordinary inputs and outputs are implicit; general state lifecycle coverage remains separate. |
 | [DS-STATE-SOLVENCY](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs) | Production validation checks prospective solvency on both ordinary and collateral paths. Dedicated solvency and epoch examples remain placeholders. |
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | The Store balance is included once in the ledger ADA total. The dedicated conservation property remains a placeholder. |
 | [DS-STATE-INITIALIZATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs) | Conway translation initializes the Store empty. Dedicated initialization and pot-preservation examples remain placeholders. |
@@ -143,6 +145,102 @@ projection, and the unresolved stronger settlement guarantee remain deferred. An
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Store-specific collateral implemented on 20 October 2026
+
+**Eight generated contracts pass, 100 samples per contract.** The mathematical
+contract is visible in each test; the rules document uses matching formulas and
+compact case tables. Existing inherited collateral tests remain unchanged and
+are linked with their outstanding fixture extensions.
+
+| Responsibility | Implemented contracts | Generated coverage |
+| --- | ---: | --- |
+| Funding | 3 | Allocate, reuse, release a surplus, mixed inputs, no return, zero-ADA Store return, exact fee boundaries and independence from ordinary declarations. |
+| Optional total | 2 | Absent/exact total accepted; both one-lovelace mismatch directions rejected. |
+| Native assets | 2 | Exact map, zero-ADA Store return, missing/extra/changed tokens and omitted return. |
+| Fee effects | 1 | Both execution outcomes; exact fees, treasury, Store balance, allocation records and UTxO effects. |
+
+Each funding sample covers **nine configurations × two real script outcomes**.
+Native-asset samples cover five input/return combinations × two outcomes. Prices,
+payload sizes, application coins and token quantities vary. A changed-price source
+confirms that released deposits come from retained records, while new returns use
+the current price; this does not implement epoch/governance repricing policy.
+Funding F01 adds an unfunded no-return proposal with zero application coins and
+ample recorded deposits, requiring exactly the existing funding failure.
+
+The full regression retains **178 passing Tx examples** and the eight implemented
+collateral-related contracts. The **35 remaining failures exactly match existing
+LedgerEffects placeholders**; there is no unexpected failure. Input-role overlap,
+positive unallocated Store surplus, initialization, recovery and the general state
+lifecycle remain separate unfinished contracts. No inherited test or production
+rule changed in this implementation.
+
+The earlier “roughly 35 seconds” referred to **full-suite execution duration**.
+Timing is execution evidence, not a test count or per-test delay.
+
+**Full regression:** 221 examples, 186 pass, 35 known placeholders fail;
+52.2257 s wall / 77.8274 s CPU. Each of the eight implemented contracts passes
+100 generated samples. Seed: `739231514`.
+
+After adding the no-return rejection branch, the affected Funding F01 property
+was rerun: 100 samples pass, zero failures; 3.6963 s wall / 5.6486 s CPU.
+Other executable contracts were unchanged. Compilation and formatting pass;
+ctags are regenerated. The link audit preserves all 782 earlier explicit anchors
+and verifies all eight current case links.
+
+Local evidence:
+`/private/tmp/ds-collateral-implementation-build.log`,
+`/private/tmp/ds-collateral-implementation-regression.log`,
+`/private/tmp/ds-collateral-implementation-regression-audit.json`,
+`/private/tmp/ds-collateral-implementation-funding-final.log`,
+`/private/tmp/ds-collateral-implementation-doc-audit.json` and
+`/private/tmp/ds-collateral-implementation-tags.log`.
+
+## Initial collateral scope alignment on 20 October 2026
+
+The following records the earlier reorganization, before the eight contracts above
+were implemented. Its counts and evidence describe that historical checkpoint.
+
+This is a **coverage reorganization**, not new rule implementation. Existing
+`TxOut` forms already express implicit and Store-backed collateral; no new
+collateral declaration or production rule is introduced.
+
+| Responsibility | Current owner | Coverage |
+| --- | --- | --- |
+| Existing collateral rules | [Inherited tests and gaps](dijkstra-deposit-store-rules.md#ds-collateral-existing-rules) | Direct source links distinguish inherited implementation tests from missing generic cases and Store-backed fixture extensions. |
+| Deposit funding | [FundingSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | 19 examples: four implemented, 15 placeholders. Includes derivation from inputs/return and the no-redeemer Store control. |
+| Optional total | [TotalSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Six placeholders covering the existing input-minus-return equality in the presence of Store allocations/releases. |
+| Native assets | [AssetsSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Three placeholders for the asset projection over Store-backed outputs. |
+| Fee effects | [FeesSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | One existing implemented scenario, two placeholders moved from Surplus. |
+| ADA conservation | [ConservationSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Existing state contract includes the former mixed-collateral shortfall scenario and the collateral conservation equation. Still unimplemented. |
+
+The registered count changes from **253 to 244**, with **183 implemented checks
+unchanged** and **70 → 61 placeholders**. Seven generic requirements move to the
+explicit documentation backlog; two collateral conservation placeholders merge
+into the existing state conservation contract. **None of these nine removed
+placeholders represents a newly passing test.** All five previously implemented
+collateral checks remain: four in Funding, one moved to Fees.
+
+Inherited tests are registered through Dijkstra → Conway → Babbage → Alonzo.
+Their old fixtures primarily use implicit outputs. This inventory establishes
+where coverage lives; it does not establish Store-backed compatibility or a fresh
+passing result for the inherited suites. See the linked coverage table for the
+remaining extensions.
+
+**Regression:** 244 examples; **183 pass**, **61 deliberate placeholders fail**.
+The failure-ID set exactly matches the preceding run after the documented moves
+and consolidations; **no unexpected failures**. All 178 Tx examples and all five
+previously implemented collateral scenarios pass. **32.5161 s wall / 45.6595 s CPU**;
+seed `739231514`. Formatting and compilation pass; ctags are regenerated.
+
+Local evidence: `/private/tmp/ds-collateral-scope-build.log`,
+`/private/tmp/ds-collateral-scope-regression.log`,
+`/private/tmp/ds-collateral-scope-regression-audit.json` and
+`/private/tmp/ds-collateral-scope-tags.log`.
+
+All 31 affected case links match the executable order and source IDs. All 782
+previous explicit rule anchors are preserved; internal targets and linked files
+resolve. Link audit: `/private/tmp/ds-collateral-scope-doc-audit.json`.
 
 ## Minimum coin implemented on 20 October 2026
 

@@ -490,92 +490,32 @@ Appendices contain the open design questions and supporting references.
       <summary><a href="#ds-collateral">2.2 Collateral</a></summary>
       <dl>
         <dd>
+          <a href="#ds-collateral-existing-rules">Existing collateral rules</a><br>
           <details>
-            <summary><a href="#ds-collateral-scope">2.2.1 Scope</a></summary>
+            <summary><a href="#ds-collateral-funding">2.2.1 Funding</a></summary>
             <dl>
               <dd>
-                <a href="#ds-collateral-scope-f01">2.2.1.1 F01 - rejects TopTx redeemers without collateral</a><br>
-                <a href="#ds-collateral-scope-f02">2.2.1.2 F02 - rejects SubTx redeemers without collateral even when TopTx has none</a><br>
-                <a href="#ds-collateral-scope-f03">2.2.1.3 F03 - rejects redeemers in both TopTx and SubTxs without collateral</a><br>
-                <a href="#ds-collateral-scope-n01">2.2.1.4 N01 - does not require collateral merely because a transaction uses the DepositStore</a><br>
-                <a href="#ds-collateral-scope-n02">2.2.1.5 N02 - does not apply redeemer-gated funding or supplied-total checks when no body has redeemers</a><br>
-                <a href="#ds-collateral-scope-f04">2.2.1.6 F04 - rejects independently invalid collateral inputs or returns without redeemers</a><br>
+                <a href="#ds-collateral-funding-n01">2.2.1.1 N01 - Funded collateral</a><br>
+                <a href="#ds-collateral-funding-f01">2.2.1.2 F01 - Underfunded collateral</a><br>
+                <a href="#ds-collateral-funding-p02">2.2.1.3 P02 - Independent ordinary declarations</a><br>
               </dd>
             </dl>
           </details>
           <details>
-            <summary><a href="#ds-collateral-authorization">2.2.2 Authorization</a></summary>
+            <summary><a href="#ds-collateral-total">2.2.2 Total</a></summary>
             <dl>
               <dd>
-                <a href="#ds-collateral-authorization-f01">2.2.2.1 F01 - rejects a script-controlled collateral input when collateral validation applies</a><br>
-                <a href="#ds-collateral-authorization-f02">2.2.2.2 F02 - rejects a key-controlled collateral input whose required payment-key witness is missing</a><br>
+                <a href="#ds-collateral-total-n01">2.2.2.1 N01 - Absent or exact total</a><br>
+                <a href="#ds-collateral-total-f01">2.2.2.2 F01 - Incorrect total</a><br>
               </dd>
             </dl>
           </details>
           <details>
-            <summary><a href="#ds-collateral-funding">2.2.3 Funding</a></summary>
+            <summary><a href="#ds-collateral-assets">2.2.3 Assets</a></summary>
             <dl>
               <dd>
-                <a href="#ds-collateral-funding-f01">2.2.3.1 F01 - rejects insufficient collateral funding when redeemers trigger validation even if all scripts succeed</a><br>
-                <a href="#ds-collateral-funding-n01">2.2.3.2 N01 - accepts a batch whose scripts succeed when its required collateral is fully funded and all other rules hold</a><br>
-                <a href="#ds-collateral-funding-n02">2.2.3.3 N02 - accepts funded collateral with implicit or store-backed inputs and returns</a><br>
-                <a href="#ds-collateral-funding-n03">2.2.3.4 N03 - reuses released UTxO capacity deposits when the collateral return requires the same amount</a><br>
-                <a href="#ds-collateral-funding-n04">2.2.3.5 N04 - funds additional return UTxO capacity deposits from collateral coins</a><br>
-                <a href="#ds-collateral-funding-f02">2.2.3.6 F02 - rejects collateral coins below the minimum fee after funding the return and additional UTxO capacity deposits</a><br>
-                <a href="#ds-collateral-funding-p01">2.2.3.7 P01 - Collateral coins cover the minimum</a><br>
-                <a href="#ds-collateral-funding-f03">2.2.3.8 F03 - rejects collateral whose minimum fee depends on released UTxO capacity deposit surplus</a><br>
-                <a href="#ds-collateral-funding-f04">2.2.3.9 F04 - rejects a collateral return whose funding depends on released UTxO capacity deposit surplus</a><br>
-                <a href="#ds-collateral-funding-f05">2.2.3.10 F05 - rejects collateral funding one lovelace below a rounded-up minimum fee</a><br>
-                <a href="#ds-collateral-funding-n05">2.2.3.11 N05 - counts implicit collateral inputs' full ADA as coins and zero released Store deposits when mixed with store-backed inputs</a><br>
-                <a href="#ds-collateral-funding-n06">2.2.3.12 N06 - requires zero Store deposit for an implicit collateral return even with store-backed collateral inputs</a><br>
-                <a href="#ds-collateral-funding-n07">2.2.3.13 N07 - accepts a store-backed collateral return with zero application ADA when its deposit and the minimum fee are funded</a><br>
-                <a href="#ds-collateral-funding-f06">2.2.3.14 F06 - rejects underfunded collateral when the optional total is absent</a><br>
-                <a href="#ds-collateral-funding-n08">2.2.3.15 N08 - accepts collateral funding exactly at a rounded-up minimum fee</a><br>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-collateral-surplus">2.2.4 Surplus</a></summary>
-            <dl>
-              <dd>
-                <a href="#ds-collateral-surplus-n01">2.2.4.1 N01 - credits excess released UTxO capacity deposits to fees rather than the treasury</a><br>
-                <a href="#ds-collateral-surplus-p01">2.2.4.2 P01 - Released surplus reaches fees</a><br>
-                <a href="#ds-collateral-surplus-p02">2.2.4.3 P02 - Treasury remains unchanged</a><br>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-collateral-total">2.2.5 Total</a></summary>
-            <dl>
-              <dd>
-                <a href="#ds-collateral-total-n01">2.2.5.1 N01 - accepts a declared total equal to collateral input coins minus return coins</a><br>
-                <a href="#ds-collateral-total-f01">2.2.5.2 F01 - rejects a declared total differing by one lovelace when collateral validation applies</a><br>
-                <a href="#ds-collateral-total-f02">2.2.5.3 F02 - rejects an incorrect supplied total when redeemers trigger collateral validation even if all scripts succeed</a><br>
-                <a href="#ds-collateral-total-n02">2.2.5.4 N02 - includes coins funding additional UTxO capacity deposits in the declared total</a><br>
-                <a href="#ds-collateral-total-n03">2.2.5.5 N03 - excludes UTxO capacity deposits released from the Store from the declared total</a><br>
-                <a href="#ds-collateral-total-n04">2.2.5.6 N04 - accepts an absent optional total when collateral validation applies and all collateral rules hold</a><br>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-collateral-settlement">2.2.6 Settlement</a></summary>
-            <dl>
-              <dd>
-                <a href="#ds-collateral-settlement-n01">2.2.6.1 N01 - derives Store changes from collateral inputs and return without a separate declaration</a><br>
-                <a href="#ds-collateral-settlement-p01">2.2.6.2 P01 - derived collateral Store change is independent of ordinary Store declarations</a><br>
-                <a href="#ds-collateral-settlement-n02">2.2.6.3 N02 - derives the released Store amount from multiple ADA-only collateral inputs with no return</a><br>
-              </dd>
-            </dl>
-          </details>
-          <details>
-            <summary><a href="#ds-collateral-conservation">2.2.7 Conservation</a></summary>
-            <dl>
-              <dd>
-                <a href="#ds-collateral-conservation-n01">2.2.7.1 N01 - conserves ADA for mixed collateral inputs when return storage needs an additional deposit</a><br>
-                <a href="#ds-collateral-conservation-p01">2.2.7.2 P01 - Collateral settlement conserves ADA</a><br>
-                <a href="#ds-collateral-conservation-f01">2.2.7.3 F01 - rejects missing, added or changed native assets in the collateral return</a><br>
-                <a href="#ds-collateral-conservation-n02">2.2.7.4 N02 - accepts native-asset collateral when its return preserves every asset and quantity</a><br>
-                <a href="#ds-collateral-conservation-f02">2.2.7.5 F02 - rejects token-bearing collateral when no return is specified</a><br>
+                <a href="#ds-collateral-assets-n01">2.2.3.1 N01 - Exact asset map</a><br>
+                <a href="#ds-collateral-assets-f01">2.2.3.2 F01 - Missing or altered assets</a><br>
               </dd>
             </dl>
           </details>
@@ -634,41 +574,49 @@ Appendices contain the open design questions and supporting references.
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-solvency">3.4 Solvency</a></summary>
+      <summary><a href="#ds-state-fees">3.4 Fees</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-solvency-p01">3.4.1 P01 - Keep every accepted state solvent</a><br>
-          <a href="#ds-state-solvency-n01">3.4.2 N01 - classifies proposed states at exact backing and one lovelace above as solvent</a><br>
-          <a href="#ds-state-solvency-f01">3.4.3 F01 - classifies a proposed state one lovelace below its independently calculated obligations as insolvent</a><br>
-          <a href="#ds-state-solvency-n02">3.4.4 N02 - observes Store backing in the completed batch result with local and delegated contributions</a><br>
-          <a href="#ds-state-solvency-n03">3.4.5 N03 - Preserve solvency across epochs</a><br>
+          <a href="#ds-state-fees-p01">3.4.1 P01 - Apply the selected fee path</a><br>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-conservation">3.5 Conservation</a></summary>
+      <summary><a href="#ds-state-solvency">3.5 Solvency</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-conservation-n01">3.5.1 N01 - still counts Store ADA in total monetary conservation</a><br>
+          <a href="#ds-state-solvency-p01">3.5.1 P01 - Keep every accepted state solvent</a><br>
+          <a href="#ds-state-solvency-n01">3.5.2 N01 - classifies proposed states at exact backing and one lovelace above as solvent</a><br>
+          <a href="#ds-state-solvency-f01">3.5.3 F01 - classifies a proposed state one lovelace below its independently calculated obligations as insolvent</a><br>
+          <a href="#ds-state-solvency-n02">3.5.4 N02 - observes Store backing in the completed batch result with local and delegated contributions</a><br>
+          <a href="#ds-state-solvency-n03">3.5.5 N03 - Preserve solvency across epochs</a><br>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-initialization">3.6 Initialization</a></summary>
+      <summary><a href="#ds-state-conservation">3.6 Conservation</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-initialization-n01">3.6.1 N01 - preserves existing output references, addresses, values, datums and reference scripts and keeps those outputs implicit</a><br>
-          <a href="#ds-state-initialization-n02">3.6.2 N02 - initializes Store balance and UTxO capacity deposit obligations to zero</a><br>
-          <a href="#ds-state-initialization-n03">3.6.3 N03 - does not transfer funds from another ledger pot during initialization</a><br>
+          <a href="#ds-state-conservation-n01">3.6.1 N01 - still counts Store ADA in total monetary conservation</a><br>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-recovery">3.7 Recovery</a></summary>
+      <summary><a href="#ds-state-initialization">3.7 Initialization</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-recovery-n01">3.7.1 N01 - preserves the complete ledger state through serialization and restoration, including outputs, allocated records and Store surplus</a><br>
-          <a href="#ds-state-recovery-n02">3.7.2 N02 - restores the complete prior ledger state on rollback after ordinary success or accepted phase-2 failure</a><br>
+          <a href="#ds-state-initialization-n01">3.7.1 N01 - preserves existing output references, addresses, values, datums and reference scripts and keeps those outputs implicit</a><br>
+          <a href="#ds-state-initialization-n02">3.7.2 N02 - initializes Store balance and UTxO capacity deposit obligations to zero</a><br>
+          <a href="#ds-state-initialization-n03">3.7.3 N03 - does not transfer funds from another ledger pot during initialization</a><br>
+        </dd>
+      </dl>
+    </details>
+    <details>
+      <summary><a href="#ds-state-recovery">3.8 Recovery</a></summary>
+      <dl>
+        <dd>
+          <a href="#ds-state-recovery-n01">3.8.1 N01 - preserves the complete ledger state through serialization and restoration, including outputs, allocated records and Store surplus</a><br>
+          <a href="#ds-state-recovery-n02">3.8.2 N02 - restores the complete prior ledger state on rollback after ordinary success or accepted phase-2 failure</a><br>
         </dd>
       </dl>
     </details>
@@ -4499,7 +4447,7 @@ value: an all-absent transaction has no Store term, rather than an explicit zero
 [Net change](#ds-tx-accounting-net-change) separately establishes that declarations
 match the required deposit changes on both phase-2 outcomes. The balance equation
 here applies only when phase 2 is valid. On phase-2 failure, the ordinary proposal
-remains unapplied; [Collateral conservation](#ds-collateral-conservation) governs
+remains unapplied; [Ledger conservation](#ds-state-conservation) governs
 the applied settlement, and [Execution](#ds-state-execution) selects the effects.
 
 **Fixture scope.** Inputs are actually funded. The proposals contain ordinary
@@ -4894,7 +4842,7 @@ Both tests exercise all three placements in each generated sample:
 $\text{spendingSignatures(body)}$ identifies the keys signing the body that consumes
 the input; $\text{transactionSignatures(tx)}$ includes signatures across TopTx and its
 SubTxs. These cases exercise ordinary successful spending. Collateral authority
-belongs to [Collateral authorization](#ds-collateral-authorization).
+belongs to the [shared collateral authorization rules](#ds-collateral-existing-rules).
 
 <a id="ds-tx-authorization-n02" name="ds-tx-authorization-n02"></a>
 <a id="ds-tx-authorization-n01" name="ds-tx-authorization-n01"></a>
@@ -5707,463 +5655,241 @@ confirming that the one-lovelace shortfall caused the rejection.
 
 ### 2.2 Collateral
 
-> **Validate collateral terms and derive the phase-2 failure settlement.**
+> **Use the existing collateral fields; account for the deposits held outside outputs.**
 >
-> Validation may be required even when scripts succeed. State Execution determines whether collateral effects apply.
+> `TxOut era` already expresses implicit and store-backed inputs and returns. No separate collateral Store declaration is needed.
 
-Both `ImplicitDepositTxOut` and `StoreBackedTxOut` are supported for collateral inputs and the collateral return. Representation, mixed input sets and absent returns are fixture axes across the responsibilities below. No separate collateral DepositStore declaration is introduced.
+TopTx supplies the shared set of collateral inputs, at most one collateral return,
+and an optional total. Inputs remain `TxIn` references: the ledger resolves each
+output and its recorded deposit. SubTxs use this same collateral arrangement.
 
-| Responsibility | Question answered |
+| Store responsibility | Question answered |
 | --- | --- |
-| [Scope](#ds-collateral-scope) | When is collateral required? |
-| [Authorization](#ds-collateral-authorization) | Are the inputs authorized for collateral use? |
-| [Funding](#ds-collateral-funding) | Can collateral cover the return, deposit and minimum fee? |
-| [Surplus](#ds-collateral-surplus) | Where do excess released deposits go? |
-| [Total](#ds-collateral-total) | Is the optional declared total correct? |
-| [Settlement](#ds-collateral-settlement) | What Store change follows from the inputs and return? |
-| [Conservation](#ds-collateral-conservation) | Is all consumed value accounted for? |
+| [Funding](#ds-collateral-funding) | Do input coins cover the return, additional deposit and minimum fee? |
+| [Total](#ds-collateral-total) | Does the optional total exclude released deposits and include coin-funded deposits? |
+| [Assets](#ds-collateral-assets) | Are native assets preserved across both output representations? |
 
+Applied allocation records and balances belong to [Ledger effects](#ds-state).
+[Fees](#ds-state-fees) owns released-deposit surplus;
+[Conservation](#ds-state-conservation) checks the resulting monetary total.
+
+<a id="ds-collateral-existing-rules" name="ds-collateral-existing-rules"></a>
 <a id="ds-collateral-scope" name="ds-collateral-scope"></a>
-
-#### 2.2.1 Scope
-
-> **Determine when collateral validation is required.**
->
-> Redeemers in TopTx or any SubTx trigger the requirement. Store operations alone do not.
-
-**Decision:** Agreed. Redeemer presence activates the existing batch collateral requirement, independently of whether the scripts would succeed.
-
-Require collateral and run the existing batch collateral validation whenever TopTx or any SubTx contains redeemers. The deposit funding, minimum collateral fee and supplied-total checks in `DS-COLLATERAL-FUNDING` and `DS-COLLATERAL-TOTAL` use this same scope. So do the existing key-locked eligibility and native-asset collateral checks. Store-backed outputs or ordinary DepositStore declarations alone do not activate the requirement.
-
-Required payment-key witnesses, input resolution, return-output validity and the collateral-input count retain their existing independent checks. With no redeemers anywhere, do not run the gated funding or supplied-total comparison merely because collateral fields are supplied; still enforce those independent requirements. `DS-COLLATERAL-AUTHORIZATION` owns missing-witness rejection.
-
-Validation scope and applied effects are different responsibilities. A batch whose scripts would succeed can still be rejected for invalid collateral. Ordinary success applies ordinary spending and Store operations without applying collateral-path effects; an accepted phase-2 failure applies collateral consumption and its specified return instead. `DS-STATE-EXECUTION` owns that selection and the requirement that rejection leave the accepted ledger state unchanged. The cases below remain deliberate executable placeholders, not evidence that these requirements have been implemented.
-
-<a id="ds-collateral-scope-f01" name="ds-collateral-scope-f01"></a>
-
-##### 2.2.1.1 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs#L13) - rejects TopTx redeemers without collateral
-
-Given real, correctly witnessed phase-2 scripts with redeemers only in TopTx and no collateral inputs, expect `NoCollateralInputs`. The requirement follows the redeemer's presence, not whether the script would ultimately succeed. Use a funded-collateral control and isolate the intended failure from missing scripts, bad redeemer indices or witness failures. An insufficient-collateral failure may also accompany empty collateral; this case does not require an exclusive singleton failure list.
-
-<a id="ds-collateral-scope-f02" name="ds-collateral-scope-f02"></a>
-
-##### 2.2.1.2 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs#L14) - rejects SubTx redeemers without collateral even when TopTx has none
-
-Given a correctly indexed redeemer only in a SubTx, omit collateral from the containing batch. Expect `NoCollateralInputs`, with otherwise valid scripts, witnesses and ordinary declarations and a funded-collateral acceptance control. Examining TopTx alone would miss the active requirement. Exercise both possible script outcomes; the trigger does not depend on the phase-2 result.
-
-<a id="ds-collateral-scope-f03" name="ds-collateral-scope-f03"></a>
-
-##### 2.2.1.3 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs#L15) - rejects redeemers in both TopTx and SubTxs without collateral
-
-Given real scripts with redeemers in TopTx and in one or more SubTxs, omit collateral while satisfying unrelated rules. Expect `NoCollateralInputs`; the presence of both locations cannot bypass the shared collateral requirement. This completes the location truth table and catches an incorrect exclusive-or trigger.
-
-<a id="ds-collateral-scope-n01" name="ds-collateral-scope-n01"></a>
-
-##### 2.2.1.4 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs#L16) - does not require collateral merely because a transaction uses the DepositStore
-
-Given otherwise valid ordinary Store operations with no redeemers anywhere in the batch, omit collateral. Its absence must not cause collateral rejection merely because outputs are store-backed or a body declares a Store operation.
-
-<a id="ds-collateral-scope-n02" name="ds-collateral-scope-n02"></a>
-
-##### 2.2.1.5 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs#L17) - does not apply redeemer-gated funding or supplied-total checks when no body has redeemers
-
-With no redeemers in TopTx or any SubTx, supply resolved collateral and a valid return while satisfying all independently applicable rules. Separately make the potential collateral coin fee too small, make the optional total unequal to input coins minus return coins, and combine those two conditions. Expect ordinary acceptance because these comparisons are redeemer-gated. The collateral fields do not activate their own trigger, and State Execution owns their unapplied effects on success.
-
-<a id="ds-collateral-scope-f04" name="ds-collateral-scope-f04"></a>
-
-##### 2.2.1.6 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ScopeSpec.hs#L18) - rejects independently invalid collateral inputs or returns without redeemers
-
-With no redeemers anywhere, separately supply an unresolved collateral input, an implicit collateral return below its existing minimum, or more collateral inputs than the permitted count. Keep the ordinary transaction and all other collateral conditions valid and include a valid control for each row. Expect the respective existing input-resolution, output-minimum or collateral-count rejection. Skipping the redeemer-gated checks does not bypass these independently required checks; missing payment-key witnesses are covered by Authorization F02.
-
+<a id="221-scope" name="221-scope"></a>
 <a id="ds-collateral-authorization" name="ds-collateral-authorization"></a>
+<a id="222-authorization" name="222-authorization"></a>
 
-#### 2.2.2 Authorization
+**Existing collateral rules**
 
-> **Preserve key-locked eligibility and required payment-key witnesses for collateral inputs.**
->
-> Both output variants need the same authority; funding or a Store declaration cannot replace it.
+The [Dijkstra Imp suite](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp.hs#L38)
+inherits the [Conway](../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Imp.hs#L55),
+[Babbage](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp.hs#L36)
+and [Alonzo](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp.hs#L31)
+suites. These are shared tests executed with Dijkstra, not tests to duplicate under
+DepositStore. Their collateral fixtures use implicit outputs; Store-backed
+integration remains a separate coverage obligation.
 
-**Decision:** Agreed. Collateral inputs retain the existing eligibility and witness requirements when their output representation changes. When collateral validation is active, the input must be key-locked; a valid script witness does not make a script-controlled input eligible. Separately, a key-controlled collateral input needs its required payment-key witness even when no redeemer activates collateral validation. Deposit funding and ordinary DepositStore declarations replace neither requirement.
+| Contract | Existing executable reference | Scope of that evidence |
+| --- | --- | --- |
+| Every collateral input resolves to an unspent output | Alonzo UTXO: [unknown input](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L47), [already spent](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L57) | Rejects bad references in Dijkstra too. |
+| Collateral covers the fee percentage, even if scripts succeed | Alonzo UTXO: [insufficient collateral](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L92) | Existing percentage and ceiling rule; no external deposits. |
+| Each collateral payment key supplies its witness | Alonzo UTXOW: [missing collateral witness](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxowSpec/Invalid.hs#L205) | Missing witness for an implicit input. |
+| A supplied total equals input coins minus return coins | Babbage UTXOS: [incorrect collateral total](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155) | Mismatch rejected with successful scripts; implicit return. |
+| Phase-2 failure can return collateral without a supplied total | Babbage UTXOW: [use a collateral output](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxowSpec/Invalid.hs#L125) | Accepted failure-path implicit return; omission is incidental coverage. |
+| Return-output validity is checked without redeemers | Dijkstra UTXO: [pointer address in collateral return](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp/UtxoSpec.hs#L54) | Rejects an invalid address; does not cover the minimum-coin or input-count boundaries. |
 
-Exercise implicit and store-backed collateral as fixture variants under the same existing authorization rules. Every rejection has a corresponding fully signed, key-controlled acceptance control. Keep ordinary input witnesses valid and use a separate collateral input, so a missing witness is attributable to collateral. `DS-COLLATERAL-CONSERVATION` separately owns native-asset conservation, while `DS-COLLATERAL-SCOPE` preserves the established validation trigger and independently applied checks.
+These links establish test ownership and registration, not a new passing run.
+`disableInConformanceIt` retains the implementation check while disabling its
+[conformance comparison](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/ImpTest.hs#L847).
+Recorded executions remain in the [verification record](dijkstra-deposit-store-verification.md).
 
-<a id="ds-collateral-authorization-f01" name="ds-collateral-authorization-f01"></a>
+The shared trigger is (`subTxRedeemers` is the union of all children’s redeemers):
 
-##### 2.2.2.1 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AuthorizationSpec.hs#L13) - rejects a script-controlled collateral input when collateral validation applies
+$$
+\left(\mathit{topTxRedeemers}\ne\varnothing\ \lor\ \mathit{subTxRedeemers}\ne\varnothing\right)
+\implies \mathit{collateralInputs}\ne\varnothing
+$$
 
-With redeemers activating collateral validation, supply otherwise funded collateral at a script-controlled address, using both output representations. Use the same script for an ordinary script purpose so its supplied witness is required and not extraneous. Expect `ScriptsNotPaidUTxO` even when that script would succeed. A correct capacity-deposit calculation or ordinary Store declaration cannot make that input eligible. Use a key-controlled, correctly witnessed input as the acceptance control and exercise both phase-2 outcomes.
+It activates funding, supplied-total, key-locked eligibility and native-asset
+checks. Input resolution, payment-key witnesses, return-output validity and the
+input-count limit remain independently required. Script success does not waive
+validation; [Execution](#ds-state-execution) determines which effects apply.
 
-<a id="ds-collateral-authorization-f02" name="ds-collateral-authorization-f02"></a>
+**Shared regressions still to add or extend**
 
-##### 2.2.2.2 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AuthorizationSpec.hs#L14) - rejects a key-controlled collateral input whose required payment-key witness is missing
+The contracts below remain required regressions in the shared collateral suites.
+The inherited references above do not establish these missing cases.
+Each regression keeps unrelated inputs, declarations, script purposes and witnesses
+valid, and includes an accepted control.
 
-Use a separate, key-controlled collateral input whose payment key is not needed by any ordinary input, with otherwise valid funding and output requirements. Omit only that required payment-key witness and expect `MissingVKeyWitnessesUTXOW`. Exercise implicit and store-backed collateral, both phase-2 outcomes when redeemers are present, and an ordinary transaction with no redeemers. Restoring the correct witness must produce an accepted control. The redeemer trigger does not waive the independently required witness.
+| Contract | Missing regression |
+| --- | --- |
+| <a id="ds-collateral-scope-f01" name="ds-collateral-scope-f01"></a><a id="2211-f01---rejects-toptx-redeemers-without-collateral" name="2211-f01---rejects-toptx-redeemers-without-collateral"></a>TopTx alone has redeemers $\implies$ collateral is required. | A real, correctly witnessed TopTx script without collateral must produce `NoCollateralInputs`; include a funded control and both script outcomes. Empty collateral may also produce a funding failure. |
+| <a id="ds-collateral-scope-f02" name="ds-collateral-scope-f02"></a><a id="2212-f02---rejects-subtx-redeemers-without-collateral-even-when-toptx-has-none" name="2212-f02---rejects-subtx-redeemers-without-collateral-even-when-toptx-has-none"></a>Only a SubTx has redeemers $\implies$ shared collateral is required. | Use a correctly indexed child redeemer with no parent redeemers; require `NoCollateralInputs`, with a funded control and both script outcomes. |
+| <a id="ds-collateral-scope-f03" name="ds-collateral-scope-f03"></a><a id="2213-f03---rejects-redeemers-in-both-toptx-and-subtxs-without-collateral" name="2213-f03---rejects-redeemers-in-both-toptx-and-subtxs-without-collateral"></a>Both levels have redeemers $\implies$ shared collateral is required. | The combined case must also produce `NoCollateralInputs`; having both locations cannot cancel the trigger. |
+| <a id="ds-collateral-scope-n02" name="ds-collateral-scope-n02"></a><a id="2215-n02---does-not-apply-redeemer-gated-funding-or-supplied-total-checks-when-no-body-has-redeemers" name="2215-n02---does-not-apply-redeemer-gated-funding-or-supplied-total-checks-when-no-body-has-redeemers"></a>No body has redeemers $\implies$ skip gated funding and supplied-total comparisons. | Supply resolved inputs and a valid return; independently underfund the potential fee, mismatch the total, then combine both. Other rules still hold; ordinary acceptance is expected. |
+| <a id="ds-collateral-scope-f04" name="ds-collateral-scope-f04"></a><a id="2216-f04---rejects-independently-invalid-collateral-inputs-or-returns-without-redeemers" name="2216-f04---rejects-independently-invalid-collateral-inputs-or-returns-without-redeemers"></a>No redeemers does not waive independent input, return or count checks. | Unknown-input coverage exists above. Add an implicit return one lovelace below minimum and too many collateral inputs, each with a valid control. |
+| <a id="ds-collateral-authorization-f01" name="ds-collateral-authorization-f01"></a><a id="2221-f01---rejects-a-script-controlled-collateral-input-when-collateral-validation-applies" name="2221-f01---rejects-a-script-controlled-collateral-input-when-collateral-validation-applies"></a>Active collateral validation $\implies$ inputs are key-locked. | Reject script-controlled collateral with `ScriptsNotPaidUTxO` for both output forms and script outcomes, even with a valid script witness. Use that script for an ordinary purpose too, so its witness is not extraneous. The control uses a signed key-controlled input. |
+| <a id="ds-collateral-authorization-f02" name="ds-collateral-authorization-f02"></a><a id="2222-f02---rejects-a-key-controlled-collateral-input-whose-required-payment-key-witness-is-missing" name="2222-f02---rejects-a-key-controlled-collateral-input-whose-required-payment-key-witness-is-missing"></a>Every collateral payment key must witness the transaction. | Extend the existing witness case to Store-backed inputs, both script outcomes and the no-redeemer path. Remove only a collateral key witness that no ordinary input needs; restoring it must accept. |
+
+<a id="ds-collateral-scope-n01" name="ds-collateral-scope-n01"></a><a id="2214-n01---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore" name="2214-n01---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore"></a><a id="ds-collateral-funding-n09" name="ds-collateral-funding-n09"></a><a id="22116-n09---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore" name="22116-n09---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore"></a><a id="ds-collateral-store-activity-control" name="ds-collateral-store-activity-control"></a>
+
+The successful path of [Minimum coin N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75)
+already accepts an address-only Store-backed output with its allocation declared.
+It is the existing control for Store activity without redeemers. **Remaining
+extension:** explicitly assert empty redeemers and empty collateral inputs in that
+prepared transaction; acceptance alone does not prove both fields are absent.
+Store-backed fixture extensions should reuse the shared rule cases. The existing Babbage
+[return fixup](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/ImpTest.hs#L95)
+currently rejects `StoreBackedTxOut`, so inherited implicit fixtures do not supply
+that extension automatically.
 
 <a id="ds-collateral-funding" name="ds-collateral-funding"></a>
+<a id="223-funding" name="223-funding"></a>
+<a id="ds-collateral-settlement" name="ds-collateral-settlement"></a>
+<a id="226-settlement" name="226-settlement"></a>
 
-#### 2.2.3 Funding
+#### 2.2.1 Funding
 
-> **Require collateral coins to cover the return, additional deposit and minimum fee.**
+> **Input coins fund the return, any deposit shortfall and the minimum fee.**
 >
-> Released deposits cover the return’s deposit first. Their surplus cannot fund the minimum fee or enlarge the return.
+> Released deposits cover the return’s deposit first. Their surplus cannot pay the minimum fee or enlarge the return.
 
-**Decision:** Agreed for a fixed pricing policy. Collateral coins must cover the specified return, any additional UTxO capacity deposit and the minimum collateral fee. Released capacity deposits first cover the return's deposit; their excess cannot fund the minimum fee or increase the signed return.
-
-Use these quantities, derived from resolved collateral inputs and the specified return:
+The [shared redeemer trigger](#ds-collateral-existing-rules) activates these checks,
+including when scripts succeed. Acceptance and rejection cases keep unrelated
+collateral and ordinary rules valid. P02 isolates the collateral calculation.
 
 | Quantity | Meaning |
 | --- | --- |
-| `collateralInputCoins` | Sum of collateral output coins: the full ADA of each implicit input and only application ADA of each store-backed input. |
-| `collateralReturnCoins` | Return output coins, or zero if no return is specified. |
-| `releasedUTxODeposits` | Sum of allocated capacity deposits released by consumed store-backed inputs. Each implicit input contributes zero. |
-| `collateralReturnUTxODeposit` | Capacity deposit for a store-backed return under `DS-PRICING`; zero for an absent or implicit return. |
-
-An implicit minimum is already included in that output's coins; it must not also be counted as a released Store deposit. A fixed policy does not imply equal input and return deposits: their chargeable sizes can differ.
+| $\mathit{inputCoins}$ | Full ADA of implicit collateral inputs plus application ADA of Store-backed inputs. |
+| $\mathit{returnCoins}$ | ADA in the specified collateral return; zero when absent. |
+| $\mathit{releasedDeposits}$ | Recorded deposits belonging to Store-backed collateral inputs; implicit inputs contribute zero. |
+| $\mathit{returnDeposit}$ | Deposit priced from the submitted Store-backed return; zero for an absent or implicit return. |
 
 $$
 \begin{aligned}
-\mathrm{additionalUTxODeposit}
-&=\max\left(0,\mathrm{collateralReturnUTxODeposit}-\mathrm{releasedUTxODeposits}\right) \\
-\mathrm{collateralCoinFee}
-&=\mathrm{collateralInputCoins}-\mathrm{collateralReturnCoins}-\mathrm{additionalUTxODeposit} \\
-\mathrm{minimumCollateralFee}
-&=\left\lceil\frac{\mathrm{txFee}\cdot\mathrm{collateralPercentage}}{100}\right\rceil \\
-\mathrm{collateralCoinFee}&\geq\mathrm{minimumCollateralFee}
+\mathit{additionalDeposit}&=\max(0,\mathit{returnDeposit}-\mathit{releasedDeposits})\\
+\mathit{coinFee}&=\mathit{inputCoins}-\mathit{returnCoins}-\mathit{additionalDeposit}\\
+\mathit{minimumFee}&=\left\lceil\frac{\mathit{txFee}\cdot\mathit{collateralPercentage}}{100}\right\rceil
 \end{aligned}
 $$
 
-All amounts in the following examples are ADA, with a minimum collateral fee of 1 ADA. The fee-credit column includes the released surplus defined in `DS-COLLATERAL-SURPLUS`; a sufficient fee credit does not establish sufficient coin funding.
-
-| Input coins | Return coins | Released deposit | Return deposit | Additional deposit | Released surplus | Fee credit | Funding result |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 5 | 3 | 2 | 1 | 0 | 1 | 3 | Funded |
-| 5 | 3 | 1 | 2 | 1 | 0 | 1 | Funded |
-| 5 | 4 | 1 | 2 | 1 | 0 | 0 | Reject |
-| 5 | 5 | 2 | 1 | 0 | 1 | 1 | Reject: coin fee below minimum |
-
-The signed transaction must already contain enough funding. The ledger cannot reduce the specified return or select extra inputs to repair a shortfall. Funded collateral still has to satisfy every other applicable rule, including native-asset conservation and the existing implicit minimum when the return uses that variant. A store-backed return may contain zero application ADA when its external deposit and the minimum fee are funded; that deposit is not application value.
-
-These checks apply whenever `DS-COLLATERAL-SCOPE` activates collateral validation, even if scripts would succeed or the optional total is absent. On ordinary success the amounts describe the collateral terms that were validated, not transfers that were applied. Accepted failure-path fixtures use a real failing script and the matching phase-2-invalid marker.
-
-Output variants, mixed inputs and absent returns are fixture axes within these requirements, not separate validation rules. Funding owns required amounts and the resulting acceptance or rejection; State owns applied Store balances and allocation records. Repricing after parameter changes remains deferred.
-
-<a id="ds-collateral-funding-f01" name="ds-collateral-funding-f01"></a>
-
-##### 2.2.3.1 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L42) - rejects insufficient collateral funding when redeemers trigger validation even if all scripts succeed
-
-Given redeemers whose scripts would all succeed, make the collateral coins insufficient for the return, additional deposit and minimum fee. Expect collateral validation to reject the batch before script success could excuse that deficit.
-
-<a id="ds-collateral-funding-n01" name="ds-collateral-funding-n01"></a>
-
-##### 2.2.3.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L43) - accepts a batch whose scripts succeed when its required collateral is fully funded and all other rules hold
-
-Given successful scripts and collateral that covers the signed return, any additional deposit and the minimum fee, expect acceptance when all other rules hold. `DS-STATE-EXECUTION` separately requires the accepted ordinary path to leave collateral-path effects unapplied.
-
-<a id="ds-collateral-funding-n02" name="ds-collateral-funding-n02"></a>
-
-##### 2.2.3.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L44) - accepts funded collateral with implicit or store-backed inputs and returns
-
-Construct otherwise valid funded collateral using pure implicit, pure store-backed and mixed input sets, paired with an implicit return, a store-backed return or no return. Expect acceptance for each applicable combination and both script outcomes. No-return acceptance fixtures are ADA-only; token-bearing acceptance is specified under `DS-COLLATERAL-CONSERVATION-N02`. Retain each variant's output and witness checks rather than treating representation as an eligibility restriction.
-
-<a id="ds-collateral-funding-n03" name="ds-collateral-funding-n03"></a>
-
-##### 2.2.3.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L45) - reuses released UTxO capacity deposits when the collateral return requires the same amount
-
-Given a return whose required capacity deposit equals the deposits released by consumed collateral, expect no additional coin-funded deposit and no released-deposit surplus. Reusing that released amount must leave the collateral coins available for the return coins and independently required fee.
-
-<a id="ds-collateral-funding-n04" name="ds-collateral-funding-n04"></a>
-
-##### 2.2.3.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L47) - funds additional return UTxO capacity deposits from collateral coins
-
-Use the second funded row of the funding table, where the return requires more capacity deposit than the inputs release. Expect collateral coins to cover exactly that positive difference, leaving the required minimum coin fee after the signed return is funded.
-
-<a id="ds-collateral-funding-f02" name="ds-collateral-funding-f02"></a>
-
-##### 2.2.3.6 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L67) - rejects collateral coins below the minimum fee after funding the return and additional UTxO capacity deposits
-
-Use the third row of the funding table: paying the return and additional deposit leaves no coin fee. Expect rejection even though those two obligations are covered; the ledger cannot repair the deficit by changing the return or choosing another input.
-
-<a id="ds-collateral-funding-p01" name="ds-collateral-funding-p01"></a>
-
-##### 2.2.3.7 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L73) - Collateral coins cover the minimum
-
 $$
-\begin{aligned}
-&\text{Accepted}\land\text{redeemers}\ne\varnothing\\
-&\implies\text{collateralCoinFee}\ge
-\lceil\text{txFee}\cdot\text{collateralPercentage}/100\rceil
-\end{aligned}
+\mathit{coinFee}\ge\mathit{minimumFee}
+\quad\Longleftrightarrow\quad\text{Funding accepted}
 $$
 
-For every accepted batch with redeemers in any body, independently subtract the specified return coins and positive deposit shortfall from the input coins. The remainder must meet the ceiling of the transaction fee times the collateral percentage; adding released-deposit surplus must not alter that comparison. Cover both successful scripts and accepted phase-2 failure, with acceptance coverage in each outcome. On success inspect the validated collateral terms, without asserting that collateral effects were applied. Batches without redeemers are outside this implication.
+The ledger derives these amounts from collateral inputs and return; no collateral
+Store declaration is supplied. The same terms determine
+$\mathit{storeChange}=\mathit{returnDeposit}-\mathit{releasedDeposits}$.
+[Ledger effects](#ds-state) checks application of that change.
 
-<a id="ds-collateral-funding-f03" name="ds-collateral-funding-f03"></a>
+**Example — 1 ADA minimum fee**
 
-##### 2.2.3.8 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L75) - rejects collateral whose minimum fee depends on released UTxO capacity deposit surplus
+| Input coins | Return coins | Released deposit | Return deposit | Additional deposit | Coin fee | Funding |
+| ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| 5 | 3 | 1 | 2 | 1 | 1 | Accept |
+| 5 | 4 | 1 | 2 | 1 | 0 | Reject |
+| 5 | 5 | 2 | 1 | 0 | 0 | Reject, despite 1 ADA released surplus |
 
-In the fourth funding-table row, the released surplus would credit 1 ADA to fees while the collateral coin fee is zero. ADA still balances as $5+2=5+1+1$, but the 1 ADA minimum must be funded by coins, so expect rejection.
+The last row conserves ADA once surplus reaches fees, but still fails the
+independently funded minimum. [Fees](#ds-state-fees) owns that surplus destination.
 
-<a id="ds-collateral-funding-f04" name="ds-collateral-funding-f04"></a>
+**Generated cases**
 
-##### 2.2.3.9 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L84) - rejects a collateral return whose funding depends on released UTxO capacity deposit surplus
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold" name="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold"></a><a id="ds-collateral-funding-n01" name="ds-collateral-funding-n01"></a><a id="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed" name="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed"></a><a id="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="ds-collateral-funding-n02" name="ds-collateral-funding-n02"></a><a id="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="ds-collateral-funding-n03" name="ds-collateral-funding-n03"></a><a id="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="ds-collateral-funding-n04" name="ds-collateral-funding-n04"></a><a id="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="2237-p01---collateral-coins-cover-the-minimum" name="2237-p01---collateral-coins-cover-the-minimum"></a><a id="ds-collateral-funding-p01" name="ds-collateral-funding-p01"></a><a id="2217-p01---collateral-coins-cover-the-minimum" name="2217-p01---collateral-coins-cover-the-minimum"></a><a id="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="ds-collateral-funding-n05" name="ds-collateral-funding-n05"></a><a id="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="ds-collateral-funding-n06" name="ds-collateral-funding-n06"></a><a id="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="ds-collateral-funding-n07" name="ds-collateral-funding-n07"></a><a id="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee" name="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-n08" name="ds-collateral-funding-n08"></a><a id="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit" name="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit"></a><a id="ds-collateral-settlement-n01" name="ds-collateral-settlement-n01"></a><a id="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration" name="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-funding-n10" name="ds-collateral-funding-n10"></a><a id="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration" name="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-settlement-n02" name="ds-collateral-settlement-n02"></a><a id="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return" name="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return"></a><a id="ds-collateral-funding-n11" name="ds-collateral-funding-n11"></a><a id="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return" name="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L46)** | **Funded collateral.** Cover the return, any positive deposit shortfall and the rounded-up minimum; include exact equality. | Accept with successful scripts or an accepted phase-2 failure. |
+| <a id="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed" name="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-funding-f01" name="ds-collateral-funding-f01"></a><a id="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed" name="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed"></a><a id="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="ds-collateral-funding-f02" name="ds-collateral-funding-f02"></a><a id="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f03" name="ds-collateral-funding-f03"></a><a id="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f04" name="ds-collateral-funding-f04"></a><a id="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-f05" name="ds-collateral-funding-f05"></a><a id="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent" name="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent"></a><a id="ds-collateral-funding-f06" name="ds-collateral-funding-f06"></a><a id="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent" name="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L68)** | **Underfunded collateral.** Set the coin fee below the minimum, including one lovelace below the ceiling, an absent total, an oversized return and no-return Store inputs carrying zero application ADA. | Reject only with `InsufficientCollateral`; funded controls accept. |
+| <a id="ds-collateral-settlement-p01" name="ds-collateral-settlement-p01"></a><a id="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations" name="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations"></a><a id="ds-collateral-funding-p02" name="ds-collateral-funding-p02"></a><a id="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding" name="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding"></a>**3.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L118)** | **Independent ordinary declarations.** Keep collateral inputs, return, fee and prices fixed; vary ordinary declaration forms in the isolated calculation. | The released deposits, return deposit and additional funding stay unchanged. |
 
-Given released-deposit surplus, enlarge the signed return so it is affordable only if that surplus is treated as return funding. For example, 5 ADA of input coins, 6 ADA of return coins, 3 ADA of released deposits and a 1 ADA return deposit could balance with a 1 ADA aggregate fee, but the independently computed coin fee is negative. Omit the optional total in this fixture so its nonnegative field cannot introduce a second mismatch. Expect funding rejection: released surplus cannot supply return coins. Use a smaller, fully funded signed return as the acceptance control.
+P02 observes only the collateral calculation; its arbitrary ordinary declarations
+are not submitted as ledger transactions.
 
-<a id="ds-collateral-funding-f05" name="ds-collateral-funding-f05"></a>
+The generated coverage distinguishes:
 
-##### 2.2.3.10 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L86) - rejects collateral funding one lovelace below a rounded-up minimum fee
+| Axis | Conditions exercised |
+| --- | --- |
+| Output representation | Implicit and Store-backed inputs and returns, mixed input sets, absent return. Count implicit ADA once and release only recorded Store deposits. |
+| Deposit relationship | Return deposit greater than, equal to or less than released deposits; no extra funding for equality, no Store deposit for an implicit return. |
+| Recorded amount | Fund a Store-backed source at twice the current byte price, then lower the parameter before constructing the collateral proposal. Release the recorded amount; price the return at the current parameter. |
+| Fee boundary | Exact rounded-up minimum, a funded margin and one lovelace below; a fractional-lovelace product distinguishes ceiling from floor. |
+| Surplus | Cannot fund the minimum or a larger signed return; unrelated Store surplus is not available. |
+| Zero application ADA | A Store-backed return may contain zero ADA when its external deposit and fee are funded. |
+| Absent fields | An absent total does not waive funding. With no return, accept funded ADA-only mixed inputs; reject all-Store inputs with zero application ADA even when their recorded deposits exceed the minimum fee. Test both an absent total and an exact zero total. |
+| Script outcome | Successful scripts and genuine phase-2 failure use the same funding requirement. |
 
-Choose a ledger-valid transaction fee and collateral percentage whose product is not divisible by 100; an odd lovelace fee at 150 percent gives a fractional result. Begin with a coin fee exactly equal to its independently calculated ceiling, then reduce collateral input coins by one lovelace while holding the specified return, required deposits and transaction fee fixed. Keep the optional total absent or correctly updated. Expect funding rejection for the resulting floor amount, with no rounding tolerance or repair of the transaction. `DS-COLLATERAL-FUNDING-N08` owns acceptance at the same ceiling boundary.
-
-<a id="ds-collateral-funding-n05" name="ds-collateral-funding-n05"></a>
-
-##### 2.2.3.11 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L95) - counts implicit collateral inputs' full ADA as coins and zero released Store deposits when mixed with store-backed inputs
-
-Given a mixture of implicit and store-backed collateral inputs, count an implicit input's entire ADA in `collateralInputCoins` and none in `releasedUTxODeposits`. Expect funding to use only the allocated deposits of the store-backed inputs, preventing an implicit minimum from becoming a second source of funds.
-
-<a id="ds-collateral-funding-n06" name="ds-collateral-funding-n06"></a>
-
-##### 2.2.3.12 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L96) - requires zero Store deposit for an implicit collateral return even with store-backed collateral inputs
-
-Given store-backed collateral inputs and an implicit return, expect the return's required Store deposit to be zero while counting its full ADA as return coins. This is an observation of the funding requirement, not an assertion about applied allocation records. The return must still satisfy its existing implicit minimum, and any released deposits follow `DS-COLLATERAL-SURPLUS`; State Allocations owns the absence of a return Store record.
-
-<a id="ds-collateral-funding-n07" name="ds-collateral-funding-n07"></a>
-
-##### 2.2.3.13 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L97) - accepts a store-backed collateral return with zero application ADA when its deposit and the minimum fee are funded
-
-Given a store-backed return with zero application ADA, provide enough collateral to fund its full size-based deposit and the minimum collateral fee. Expect acceptance when the other rules hold: the deposit remains external to application value, and zero application ADA does not waive its storage cost.
-
-<a id="ds-collateral-funding-f06" name="ds-collateral-funding-f06"></a>
-
-##### 2.2.3.14 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L98) - rejects underfunded collateral when the optional total is absent
-
-Given active collateral validation and an absent optional total, provide underfunded collateral. Expect rejection from the funding rule after the total is derived from inputs and return; omitting a declaration cannot supply the missing coins.
-
-<a id="ds-collateral-funding-n08" name="ds-collateral-funding-n08"></a>
-
-##### 2.2.3.15 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L99) - accepts collateral funding exactly at a rounded-up minimum fee
-
-Use the same ledger-valid fee and percentage as F05, whose product divided by 100 has a fractional lovelace. After funding the specified return and any additional capacity deposit, leave exactly the independently calculated ceiling as the coin fee. Expect acceptance with all other rules satisfied, for successful scripts and an accepted phase-2 failure. No extra lovelace beyond that ceiling is required. Together with F05 this distinguishes the exact ceiling from both floor rounding and an overly strict lower bound.
-
-<a id="ds-collateral-surplus" name="ds-collateral-surplus"></a>
-
-#### 2.2.4 Surplus
-
-> **Send excess released collateral deposits to fees on an accepted phase-2 failure.**
->
-> Released excess $\longrightarrow$ fee pot. Unrelated surplus already held in the Store remains untouched.
-
-**Decision:** Agreed for a fixed pricing policy. After released collateral capacity deposits cover the return's required deposit, all excess goes to the fee pot on an accepted phase-2 failure. It does not directly credit the treasury, fund a larger collateral return or reduce the independently funded minimum in `DS-COLLATERAL-FUNDING`.
-
-$$
-\begin{aligned}
-\mathrm{releasedUTxODepositFee}
-&=\max\left(0,\mathrm{releasedUTxODeposits}-\mathrm{collateralReturnUTxODeposit}\right) \\
-\mathrm{collateralFee}
-&=\mathrm{collateralCoinFee}+\mathrm{releasedUTxODepositFee} \\
-\mathrm{feesAfter}
-&=\mathrm{feesBefore}+\mathrm{collateralFee} \\
-\mathrm{treasuryAfter}&=\mathrm{treasuryBefore}
-\end{aligned}
-$$
-
-Only excess released by the consumed collateral inputs is transferred. An unrelated surplus already held in the Store is untouched; `DS-STATE-BALANCE` owns the applied Store balance and preserved solvency margin. No collateral transfer occurs on ordinary success, as specified by `DS-STATE-EXECUTION`.
-
-<a id="ds-collateral-surplus-n01" name="ds-collateral-surplus-n01"></a>
-
-##### 2.2.4.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SurplusSpec.hs#L43) - credits excess released UTxO capacity deposits to fees rather than the treasury
-
-Use the first funded row of the funding table, where released capacity deposits exceed the return's requirement. On an accepted phase-2 failure, expect the entire excess to join the coin fee in the fee pot, with no direct treasury credit.
-
-<a id="ds-collateral-surplus-p01" name="ds-collateral-surplus-p01"></a>
-
-##### 2.2.4.2 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SurplusSpec.hs#L78) - Released surplus reaches fees
-
-$$
-\begin{aligned}
-&\text{Accepted phase-2 failure}\\
-&\implies\text{feesAfter}=\text{feesBefore}+\text{collateralCoinFee}+\text{releasedUTxODepositFee}
-\end{aligned}
-$$
-
-For every accepted phase-2 failure, calculate the coin fee and positive released-deposit surplus independently from the collateral fixture. Compare their sum with the actual fee-pot increase, so omitted surplus or an unrelated Store surplus cannot be hidden by a model-only identity.
-
-<a id="ds-collateral-surplus-p02" name="ds-collateral-surplus-p02"></a>
-
-##### 2.2.4.3 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SurplusSpec.hs#L79) - Treasury remains unchanged
-
-$$
-\text{Accepted phase-2 failure}\implies\text{treasuryAfter}=\text{treasuryBefore}
-$$
-
-Capture the treasury immediately before applying an accepted phase-2 failure. Expect exactly the same treasury afterward, even when collateral releases excess capacity deposits; their direct destination is the fee pot.
+The inherited implicit-only tests provide the baseline. Each generated scenario
+includes Store activity so that the external-deposit adjustment is exercised.
+The changed-price fixture checks recorded-amount release only; it does not define
+a governance, epoch-processing or historical-repricing policy.
 
 <a id="ds-collateral-total" name="ds-collateral-total"></a>
+<a id="225-total" name="225-total"></a>
 
-#### 2.2.5 Total
+#### 2.2.2 Total
 
-> **Check the optional declared total against the coins taken from collateral.**
+> **The optional total describes coins taken from collateral.**
 >
-> Declared total $=$ input coins $-$ return coins. Released Store deposits are excluded; additional deposits funded from input coins are included.
+> It includes coins funding an additional deposit and excludes deposits released from the Store.
 
-**Decision:** Agreed. The existing optional `dtbrTotalCollateral` declares coins taken from collateral inputs after subtracting the specified return. It includes additional deposits funded from those coins and excludes capacity deposits released from the Store; it is not a declaration of the eventual fee credit.
+The inherited [incorrect-total test](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155)
+owns the generic comparison. These generated cases exercise it with Store
+allocations or releases, keeping funding and other rules valid:
 
-Within the validation scope of `DS-COLLATERAL-SCOPE`, enforce:
+$$
+\mathit{expectedTotal}=\mathit{inputCoins}-\mathit{returnCoins}
+$$
 
 $$
 \begin{aligned}
-\mathrm{computedTotalCollateral}
-&=\mathrm{collateralInputCoins}-\mathrm{collateralReturnCoins} \\
-\mathrm{dtbrTotalCollateral}=\mathrm{SJust}(\mathrm{amount})
-&\Longrightarrow\mathrm{amount}=\mathrm{computedTotalCollateral} \\
-\mathrm{collateralCoinFee}
-&=\mathrm{computedTotalCollateral}-\mathrm{additionalUTxODeposit} \\
-\mathrm{collateralFee}
-&=\mathrm{collateralCoinFee}+\mathrm{releasedUTxODepositFee}
+&\mathit{declaredTotal}\in\{\mathsf{Absent},\mathsf{Present}(\mathit{expectedTotal})\}\\
+&\Longleftrightarrow\text{Total accepted}
 \end{aligned}
 $$
 
-For example, input coins of 5 ADA and a return of 2 ADA require a declared total of 3 ADA. A 1 ADA deposit shortfall leaves 2 ADA for the collateral coin fee; if there is released-deposit surplus instead, that surplus increases the fee credit separately under `DS-COLLATERAL-SURPLUS`.
+For 5 ADA of input coins and a 2 ADA return, the total is 3 ADA. Funding a 1 ADA
+additional deposit leaves 2 ADA for the coin fee. Released-deposit surplus can
+increase the eventual fee credit without changing this declared total.
 
-Reject every supplied amount that differs from the computed total, including when scripts would succeed. If the field is absent, derive the total from the inputs and return and omit only the supplied-value comparison. `DS-COLLATERAL-TOTAL-N04` owns valid omission. Absence does not bypass deposit funding or the minimum fee: `DS-COLLATERAL-FUNDING-F06` owns that rejection, and other applicable collateral validation requirements remain in force. Acceptance fixtures cover both script outcomes while satisfying all other collateral and ordinary validation requirements.
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="2251-n01---accepts-a-declared-total-equal-to-collateral-input-coins-minus-return-coins" name="2251-n01---accepts-a-declared-total-equal-to-collateral-input-coins-minus-return-coins"></a><a id="ds-collateral-total-n01" name="ds-collateral-total-n01"></a><a id="2221-n01---accepts-input-coins-minus-return-coins-as-the-total-with-store-allocations-or-releases" name="2221-n01---accepts-input-coins-minus-return-coins-as-the-total-with-store-allocations-or-releases"></a><a id="2254-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total" name="2254-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total"></a><a id="ds-collateral-total-n02" name="ds-collateral-total-n02"></a><a id="2224-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total" name="2224-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total"></a><a id="2255-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total" name="2255-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total"></a><a id="ds-collateral-total-n03" name="ds-collateral-total-n03"></a><a id="2225-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total" name="2225-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total"></a><a id="2256-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold" name="2256-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold"></a><a id="ds-collateral-total-n04" name="ds-collateral-total-n04"></a><a id="2226-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold" name="2226-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L31)** | **Absent or exact total.** Omit the field or supply input coins minus return coins, with additional deposit funding, released surplus or no return. | Accept for either script outcome; absence skips only the comparison. |
+| <a id="2252-f01---rejects-a-declared-total-differing-by-one-lovelace-when-collateral-validation-applies" name="2252-f01---rejects-a-declared-total-differing-by-one-lovelace-when-collateral-validation-applies"></a><a id="ds-collateral-total-f01" name="ds-collateral-total-f01"></a><a id="2222-f01---rejects-a-total-differing-by-one-lovelace-with-store-allocations-or-releases" name="2222-f01---rejects-a-total-differing-by-one-lovelace-with-store-allocations-or-releases"></a><a id="2253-f02---rejects-an-incorrect-supplied-total-when-redeemers-trigger-collateral-validation-even-if-all-scripts-succeed" name="2253-f02---rejects-an-incorrect-supplied-total-when-redeemers-trigger-collateral-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-total-f02" name="ds-collateral-total-f02"></a><a id="2223-f02---rejects-an-incorrect-total-with-store-allocations-or-releases-even-when-all-scripts-succeed" name="2223-f02---rejects-an-incorrect-total-with-store-allocations-or-releases-even-when-all-scripts-succeed"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L43)** | **Incorrect total.** Supply a total one lovelace above or below the expected value while keeping Store funding correct. | Reject only with `IncorrectTotalCollateralField`, even when scripts succeed; the exact-total control accepts. |
 
-<a id="ds-collateral-total-n01" name="ds-collateral-total-n01"></a>
+Absence is distinct from a supplied zero: zero is valid only when it equals the expected total. [Funding F01](#ds-collateral-funding-f01) independently rejects a funding deficit when the field is absent.
 
-##### 2.2.5.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L13) - accepts a declared total equal to collateral input coins minus return coins
+<a id="ds-collateral-assets" name="ds-collateral-assets"></a>
 
-Given input coins and a specified return, supply exactly their difference as the optional total and satisfy all other collateral rules. Expect no total-mismatch rejection; the 5 ADA input and 2 ADA return example requires 3 ADA regardless of the separate deposit adjustment.
+#### 2.2.3 Assets
 
-<a id="ds-collateral-total-f01" name="ds-collateral-total-f01"></a>
-
-##### 2.2.5.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L14) - rejects a declared total differing by one lovelace when collateral validation applies
-
-With collateral validation active and funding otherwise correct, supply a total one lovelace away from the input-minus-return amount. Expect rejection for either direction of error; adequate collateral funding does not make an inexact declaration acceptable.
-
-<a id="ds-collateral-total-f02" name="ds-collateral-total-f02"></a>
-
-##### 2.2.5.3 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L15) - rejects an incorrect supplied total when redeemers trigger collateral validation even if all scripts succeed
-
-Given redeemers whose scripts would succeed and otherwise valid collateral, supply an incorrect total. Expect rejection under the same equality used on the failure path, because script outcome does not change the validation scope.
-
-<a id="ds-collateral-total-n02" name="ds-collateral-total-n02"></a>
-
-##### 2.2.5.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L16) - includes coins funding additional UTxO capacity deposits in the declared total
-
-In the 5 ADA input and 2 ADA return example, require an additional capacity deposit of 1 ADA. Expect a declared total of 3 ADA while only 2 ADA remains as the coin fee, demonstrating that the coins allocated to the Store remain part of the total.
-
-<a id="ds-collateral-total-n03" name="ds-collateral-total-n03"></a>
-
-##### 2.2.5.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L17) - excludes UTxO capacity deposits released from the Store from the declared total
-
-Given excess capacity deposits released from the Store, hold collateral input and return coins fixed. Expect the declared total to remain their difference even though the surplus increases the eventual fee credit; the externally held deposit was never part of the input coins.
-
-<a id="ds-collateral-total-n04" name="ds-collateral-total-n04"></a>
-
-##### 2.2.5.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L18) - accepts an absent optional total when collateral validation applies and all collateral rules hold
-
-With redeemers activating validation, omit the optional total and supply otherwise valid collateral. Expect acceptance with successful scripts and with a real accepted phase-2 failure. Include a funded store-backed return with additional deposit funding, a released-deposit surplus, and a valid no-return case; implicit returns retain their existing minimum. Derive input coins minus return coins internally without requiring the sender to supply it. Funding F06 separately proves that omission cannot waive funding.
-
-<a id="ds-collateral-settlement" name="ds-collateral-settlement"></a>
-
-#### 2.2.6 Settlement
-
-> **Derive the collateral Store change from consumed inputs and the specified return.**
+> **Return every collateral native asset with its exact quantity.**
 >
-> Required return deposit $-$ released input deposits $=$ Store change. No separate collateral declaration is needed.
+> The Store holds ADA; deposit funding cannot compensate for a missing application token.
 
-**Decision:** Agreed. The ledger derives collateral Store settlement from resolved collateral inputs and the specified return, using the allocated and required deposit amounts in `DS-COLLATERAL-FUNDING`:
-
-$$
-\mathrm{collateralStoreChange}
-=\mathrm{collateralReturnUTxODeposit}-\mathrm{releasedUTxODeposits}
-$$
-
-A positive change increases the Store balance; a negative change decreases it. There is no separate collateral DepositStore operation field. The optional total retains its input-minus-return meaning under `DS-COLLATERAL-TOTAL` and does not declare this Store change.
-
-Holding collateral inputs, return, fee and pricing policy fixed, ordinary TopTx and SubTx Store declarations cannot change the derived collateral settlement. Full-ledger comparisons must vary independently valid ordinary transactions: declarations still undergo their own validation, even when their effects will not be applied. Adjust accompanying ordinary inputs, outputs and declarations consistently without changing the fixed collateral terms.
-
-Ordinary release destinations and output creation cannot be applied unchanged to a phase-2 failure: settlement uses only the collateral effects selected by `DS-STATE-EXECUTION`. Success applies ordinary effects; an accepted phase-2 failure applies collateral effects; rejection applies neither and preserves the accepted ledger state atomically.
-
-`DS-STATE-BALANCE` checks the resulting Store balance against the derived change. `DS-STATE-ALLOCATIONS` checks consumed collateral records, the return's record when store-backed, preserved unrelated records and the matching change in outstanding deposit obligations. These state assertions are separate from deriving the settlement amount.
-
-<a id="ds-collateral-settlement-n01" name="ds-collateral-settlement-n01"></a>
-
-##### 2.2.6.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SettlementSpec.hs#L14) - derives Store changes from collateral inputs and return without a separate declaration
-
-Given resolved collateral inputs and a specified return, provide no separate collateral Store operation declaration. Expect the derived change to equal the return's required deposit minus the allocated deposits released by those inputs; the existing optional total does not replace or encode this derivation.
-
-<a id="ds-collateral-settlement-p01" name="ds-collateral-settlement-p01"></a>
-
-##### 2.2.6.2 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SettlementSpec.hs#L15) - derived collateral Store change is independent of ordinary Store declarations
-
-Generate paired cases with collateral inputs, return, fee and pricing policy fixed while varying ordinary TopTx and SubTx Store declarations. Expect the derived Store change to remain identical. For full-ledger observations, make each ordinary variant independently valid and fund any associated ordinary output changes consistently; an invalid ordinary declaration may reject the transaction and is not a counterexample to this derivation property. Inspect the derived amount here. State Execution separately checks that unapplied ordinary operations cannot fund or redirect the selected collateral effects.
-
-<a id="ds-collateral-settlement-n02" name="ds-collateral-settlement-n02"></a>
-
-##### 2.2.6.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/SettlementSpec.hs#L16) - derives the released Store amount from multiple ADA-only collateral inputs with no return
-
-Given several ADA-only collateral inputs and no return output, use an otherwise valid, funded fixture containing implicit and store-backed inputs. The required return deposit is zero, so expect the derived Store change to equal the negative sum of allocated deposits from only the store-backed inputs. Implicit input coins do not create a Store release. Funding owns the independent minimum, Surplus owns the actual fee credit, and State owns applied record removal and balance changes. Token-bearing inputs without a return are rejected under `DS-COLLATERAL-CONSERVATION-F02`.
-
-<a id="ds-collateral-conservation" name="ds-collateral-conservation"></a>
-
-#### 2.2.7 Conservation
-
-> **Account for all value consumed by collateral settlement.**
->
-> $\text{Input coins}+\text{released deposits}=\text{return coins}+\text{return deposit}+\text{fees}$. Native assets must also be conserved.
-
-**Decision:** Agreed. An accepted collateral settlement must conserve ADA across collateral outputs, the Store and the fee pot:
+When the [redeemer trigger](#ds-collateral-existing-rules) is active:
 
 $$
-\begin{aligned}
-&\mathrm{collateralInputCoins}+\mathrm{releasedUTxODeposits} \\
-&\qquad=\mathrm{collateralReturnCoins}+\mathrm{collateralReturnUTxODeposit}+\mathrm{collateralFee}
-\end{aligned}
+\mathit{nativeAssets}(\mathit{collateralInputs})
+=\mathit{nativeAssets}(\mathit{collateralReturn})
+\quad\Longleftrightarrow\quad\text{Assets accepted}
 $$
 
-The ADA variables include only effects actually applied after an accepted phase-2 failure. Store-held capacity deposits must not be counted again as output coins. Use independently obtained fixture inputs and observed applied effects; a formula evaluated entirely inside the reference model does not establish conservation.
+An absent return contributes the empty asset map. These cases exercise
+[`validateCollateralAssets`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Collateral.hs)
+with a Store-backed input or return, including mixed inputs and both return forms.
+Funding, output validity, witnesses and optional totals remain correct. Exercise
+successful scripts and genuine phase-2 failure. The current generator mints one
+policy and one token name, with a variable quantity repeated across the selected
+inputs. Mixed-policy or distinct-token input maps remain an extension.
 
-Native-asset collateral validation has a different observation scope: whenever the redeemer trigger is active, every asset and quantity in the collateral inputs must appear exactly in the return, regardless of the eventual script outcome. Both output variants permit token-bearing collateral when this equality holds. With no return, every collateral input must be ADA-only. Correct ADA funding cannot excuse missing, added or changed native assets; conversely, the presence of native assets alone must not cause rejection.
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-collateral-conservation-n02" name="ds-collateral-conservation-n02"></a><a id="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity" name="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity"></a><a id="ds-collateral-assets-n01" name="ds-collateral-assets-n01"></a><a id="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L35)** | **Exact asset map.** Return every input policy, asset name and quantity; include a funded Store-backed return with zero application ADA. | Accept for both output forms and script outcomes. |
+| <a id="ds-collateral-conservation-f01" name="ds-collateral-conservation-f01"></a><a id="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return" name="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return"></a><a id="ds-collateral-assets-f01" name="ds-collateral-assets-f01"></a><a id="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed"></a><a id="ds-collateral-conservation-f02" name="ds-collateral-conservation-f02"></a><a id="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified" name="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified"></a><a id="ds-collateral-assets-f02" name="ds-collateral-assets-f02"></a><a id="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified" name="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L48)** | **Missing or altered assets.** Remove an asset, add an absent asset, alter a quantity, or omit the return for token-bearing collateral. | Reject only with `CollateralContainsNonADA`; the unchanged asset-map control accepts. |
 
-Conservation does not determine fee destination, prove adequate minimum funding or validate a supplied total. Those obligations remain in `DS-COLLATERAL-SURPLUS`, `DS-COLLATERAL-FUNDING` and `DS-COLLATERAL-TOTAL`. `DS-STATE-CONSERVATION` owns conservation across the whole ledger, while `DS-STATE-EXECUTION` excludes unapplied ordinary effects and preserves rejected state.
-
-<a id="ds-collateral-conservation-n01" name="ds-collateral-conservation-n01"></a>
-
-##### 2.2.7.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ConservationSpec.hs#L13) - conserves ADA for mixed collateral inputs when return storage needs an additional deposit
-
-Use the deposit-shortfall funding example with mixed collateral inputs: 2 ADA in an implicit input plus 3 ADA of application coins in a store-backed input with a 1 ADA recorded deposit, and a store-backed return containing 3 ADA with a 2 ADA required deposit. With a 1 ADA minimum, require acceptance of the real phase-2 failure. Compare independently known input amounts with the applied return, return deposit and fee increase: $5+1=3+2+1$. This concrete regression catches counting implicit minimum ADA as an external deposit or counting the store-backed deposit twice; P01 supplies the broader generated coverage.
-
-<a id="ds-collateral-conservation-p01" name="ds-collateral-conservation-p01"></a>
-
-##### 2.2.7.2 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ConservationSpec.hs#L14) - Collateral settlement conserves ADA
-
-$$
-\begin{aligned}
-&\text{Accepted phase-2 failure}\\
-&\implies\text{collateralInputCoins}+\text{releasedUTxODeposits}\\
-&\qquad=\text{collateralReturnCoins}+\text{collateralReturnUTxODeposit}+\text{collateralFee}
-\end{aligned}
-$$
-
-Across accepted phase-2 failures, obtain expected input coins and allocated deposits independently from the fixture, then compare them with the actually applied return, deposit and fee effects. Equality must hold for surplus, equal deposits, shortfall, mixed input variants and absent returns; the fourth funding-table row shows why this equality alone cannot justify acceptance.
-
-<a id="ds-collateral-conservation-f01" name="ds-collateral-conservation-f01"></a>
-
-##### 2.2.7.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ConservationSpec.hs#L15) - rejects missing, added or changed native assets in the collateral return
-
-Begin with the balanced token-bearing acceptance control from N02, then separately remove an asset, add an asset absent from all inputs, or change an existing quantity. Keep return-output validity, deposit pricing, coin funding, optional total and witnesses correct after each mutation so the asset mismatch is the intended failure. Expect `CollateralContainsNonADA` for both output variants and for successful scripts as well as a real failing phase-2 script. A sufficient ADA fee or released deposit cannot compensate for any native-asset imbalance.
-
-<a id="ds-collateral-conservation-n02" name="ds-collateral-conservation-n02"></a>
-
-##### 2.2.7.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ConservationSpec.hs#L16) - accepts native-asset collateral when its return preserves every asset and quantity
-
-Use multiple collateral inputs carrying native assets and return their exact aggregate asset map, including every policy, asset name and quantity. Keep ADA funding, authority and the optional total valid. Expect acceptance for implicit and store-backed inputs and returns, including mixed inputs and a funded store-backed return with zero application ADA. Exercise successful scripts and accepted phase-2 failure. The former checks validation without applying the return; the latter permits observing that all collateral assets were actually returned. This is the valid control for F01 and rules out an implementation that rejects all token-bearing collateral.
-
-<a id="ds-collateral-conservation-f02" name="ds-collateral-conservation-f02"></a>
-
-##### 2.2.7.5 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/ConservationSpec.hs#L17) - rejects token-bearing collateral when no return is specified
-
-Use otherwise authorized and sufficiently funded collateral containing at least one native asset, but omit the return entirely. Expect `CollateralContainsNonADA` under active collateral validation, for both script outcomes and both input representations. No ordinary output or unapplied ordinary mint or burn can supply the missing collateral return. Replacing the fixture with ADA-only collateral gives the valid no-return control owned by Settlement N02; returning all assets gives N02's token-bearing control.
+[Funding N01](#ds-collateral-funding-n01) supplies the ADA-only no-return acceptance
+control. Ordinary outputs and unapplied minting cannot supply missing collateral assets.
 
 <a id="section-1-3" name="section-1-3"></a>
 <a id="ds-state" name="ds-state"></a>
@@ -6179,6 +5905,7 @@ Use otherwise authorized and sufficiently funded collateral containing at least 
 | [Execution](#ds-state-execution) | Which effects apply? |
 | [Allocations](#ds-state-allocations) | Which deposit belongs to each live output? |
 | [Balance](#ds-state-balance) | How much actual ADA enters or leaves the Store? |
+| [Fees](#ds-state-fees) | Where does released collateral-deposit surplus go? |
 | [Solvency](#ds-state-solvency) | Does Store ADA cover the outstanding deposits? |
 | [Conservation](#ds-state-conservation) | Is total ledger ADA preserved? |
 | [Initialization](#ds-state-initialization) | What state does the upgrade establish? |
@@ -6202,7 +5929,7 @@ Apply only the effects selected by the transaction's ledger outcome. An accepted
 | Accepted phase-2 failure | Unapplied | Applied |
 | Rejection | Unapplied | Unapplied |
 
-Collateral validation can still be required before ordinary success; this table determines which effects are applied, not when collateral must be supplied. `DS-COLLATERAL-SCOPE` defines that requirement and `DS-COLLATERAL-SETTLEMENT` derives its Store adjustment.
+Collateral validation can still be required before ordinary success; this table determines which effects are applied, not when collateral must be supplied. The [shared collateral rules](#ds-collateral-existing-rules) define that requirement; [Funding](#ds-collateral-funding) derives the deposit adjustment.
 
 For an ordinary successful batch, include the regular effects of TopTx and every SubTx:
 
@@ -6548,9 +6275,56 @@ Given a solvent initial state with a positive Store surplus, exercise allocation
 
 Submit an otherwise valid, implicit-only ordinary transaction with every declaration absent. The actual Store balance and live allocation records must remain unchanged. Zero transfer is an observed effect here; it does not turn an absent field into an explicit declaration of zero.
 
+<a id="ds-collateral-surplus" name="ds-collateral-surplus"></a>
+<a id="224-surplus" name="224-surplus"></a>
+<a id="ds-state-fees" name="ds-state-fees"></a>
+<a id="38-fees" name="38-fees"></a>
+
+### 3.4 Fees
+
+> **Credit only the fee selected by the actual execution path.**
+>
+> Accepted phase-2 failure adds released-deposit surplus to the coin fee. Ordinary success leaves collateral effects unapplied.
+
+Using the collateral quantities defined under [Funding](#ds-collateral-funding):
+
+$$
+\mathit{releasedSurplus}=\max(0,\mathit{releasedDeposits}-\mathit{returnDeposit})
+$$
+
+| Accepted outcome | Fee-pot increase | Collateral Store effect |
+| --- | --- | --- |
+| Ordinary success | $\mathit{txFee}$ | Unapplied |
+| Phase-2 failure | $\mathit{coinFee}+\mathit{releasedSurplus}$ | Remove consumed records; add the Store-backed return’s record when present. |
+
+$$
+\mathit{treasuryAfter}=\mathit{treasuryBefore}
+$$
+
+On accepted phase-2 failure:
+
+$$
+\mathit{storeBalanceAfter}
+=\mathit{storeBalanceBefore}+\mathit{returnDeposit}-\mathit{releasedDeposits}
+$$
+
+Only deposits attached to consumed collateral contribute. These fixtures keep
+ordinary inputs and outputs implicit, so the Store is unchanged on ordinary
+success. They include an unrelated allocation whose record must remain intact.
+Preservation of a positive unallocated Store surplus remains the separate
+[Balance N02](#ds-state-balance-n02) contract; it is not generated here. Global
+state contracts remain under [Allocations](#ds-state-allocations),
+[Balance](#ds-state-balance) and [Conservation](#ds-state-conservation).
+
+| Case | Scenario | Expected result |
+| --- | --- | --- |
+| <a id="ds-collateral-surplus-n01" name="ds-collateral-surplus-n01"></a><a id="2241-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="2241-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="ds-state-fees-n01" name="ds-state-fees-n01"></a><a id="381-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="381-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="341-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="341-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="ds-collateral-surplus-p01" name="ds-collateral-surplus-p01"></a><a id="2242-p01---released-surplus-reaches-fees" name="2242-p01---released-surplus-reaches-fees"></a><a id="ds-state-fees-p01" name="ds-state-fees-p01"></a><a id="382-p01---released-surplus-reaches-fees" name="382-p01---released-surplus-reaches-fees"></a><a id="342-p01---released-surplus-reaches-fees" name="342-p01---released-surplus-reaches-fees"></a><a id="ds-collateral-surplus-p02" name="ds-collateral-surplus-p02"></a><a id="2243-p02---treasury-remains-unchanged" name="2243-p02---treasury-remains-unchanged"></a><a id="ds-state-fees-p02" name="ds-state-fees-p02"></a><a id="383-p02---treasury-remains-unchanged" name="383-p02---treasury-remains-unchanged"></a><a id="343-p02---treasury-remains-unchanged" name="343-p02---treasury-remains-unchanged"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L34)** | **Apply the selected fee path.** Generate funded collateral with a deposit shortfall, equal deposits or released surplus; exercise successful scripts and genuine phase-2 failure. | Observe the fee increase, unchanged treasury and collateral Store effects above; preserve unrelated records and unapplied effects. |
+
 <a id="ds-state-solvency" name="ds-state-solvency"></a>
 
-### 3.4 Solvency
+<a id="34-solvency" name="34-solvency"></a>
+
+### 3.5 Solvency
 
 > **Keep enough Store ADA to cover every live allocated deposit.**
 >
@@ -6592,7 +6366,9 @@ From a solvent initial state, every exact accepted ordinary or collateral transi
 
 <a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a>
 
-#### 3.4.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L12) - Keep every accepted state solvent
+<a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a>
+
+#### 3.5.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L12) - Keep every accepted state solvent
 
 $$
 \begin{aligned}
@@ -6607,25 +6383,33 @@ Given a solvent initial state and fixed pricing, follow accepted lifecycle state
 
 <a id="ds-state-solvency-n01" name="ds-state-solvency-n01"></a>
 
-#### 3.4.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L13) - classifies proposed states at exact backing and one lovelace above as solvent
+<a id="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent" name="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent"></a>
+
+#### 3.5.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L13) - classifies proposed states at exact backing and one lovelace above as solvent
 
 Construct proposed-state oracle controls with independently calculated $\text{obligations}$ and balances $\text{obligations}$ and $\text{obligations} + 1\text{ lovelace}$. Require the invariant to classify both as solvent; also cover the empty Store. These controls establish the boundary of the independent expectation and do not themselves establish ledger acceptance.
 
 <a id="ds-state-solvency-f01" name="ds-state-solvency-f01"></a>
 
-#### 3.4.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L14) - classifies a proposed state one lovelace below its independently calculated obligations as insolvent
+<a id="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent" name="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent"></a>
+
+#### 3.5.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L14) - classifies a proposed state one lovelace below its independently calculated obligations as insolvent
 
 Construct a proposed result with $\text{obligations} > 0$, independently calculated from its model live allocations, and a Store balance of $\text{obligations} - 1\text{ lovelace}$. Require the proposed-state invariant to be false, with N01 providing adjacent true controls. This is the independent oracle boundary, not an assertion that an otherwise valid transaction reaches the result or that the ledger exposes a separate solvency failure.
 
 <a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a>
 
-#### 3.4.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L15) - observes Store backing in the completed batch result with local and delegated contributions
+<a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
+
+#### 3.5.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L15) - observes Store backing in the completed batch result with local and delegated contributions
 
 Given an accepted batch with local and delegated contributions, compare the completed Store balance with independently retained live obligations. Include mixed allocations and releases and SubTxs that need not balance independently. Assert the backing relation in the resulting state; batch financial acceptance is checked under `DS-TX-ACCOUNTING-BALANCE`.
 
 <a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a>
 
-#### 3.4.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L16) - Preserve solvency across epochs
+<a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>
+
+#### 3.5.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L16) - Preserve solvency across epochs
 
 $$
 \begin{aligned}
@@ -6640,7 +6424,9 @@ Given a solvent initial state and unchanged pricing, advance through epoch proce
 
 <a id="ds-state-conservation" name="ds-state-conservation"></a>
 
-### 3.5 Conservation
+<a id="35-conservation" name="35-conservation"></a>
+
+### 3.6 Conservation
 
 > **Preserve total ADA across outputs and ledger pots after applying a transaction.**
 >
@@ -6652,17 +6438,56 @@ Moving ADA between output values and the Store preserves the total ADA across le
 
 For this purpose an implicit output contributes its full output ADA, and a store-backed output contributes its application ADA. Store ADA remains monetary ADA even though it contributes no stake or voting power under `DS-STAKE` and `DS-VOTING`.
 
-This is an assertion about the applied ledger state across all relevant pots. `DS-TX-ACCOUNTING-BALANCE` separately checks the complete ordinary batch's consumed and produced values, while `DS-COLLATERAL-CONSERVATION` checks the collateral settlement equation. Satisfying an equation before application does not by itself prove that the state update preserves total ADA.
+This is an assertion about the applied ledger state across all relevant pots. `DS-TX-ACCOUNTING-BALANCE` separately checks the complete ordinary batch's consumed and produced values, while this section checks both applied paths, including collateral settlement. Satisfying an equation before application does not by itself prove that the state update preserves total ADA.
 
+<a id="ds-collateral-conservation" name="ds-collateral-conservation"></a>
+<a id="227-conservation" name="227-conservation"></a>
+<a id="ds-collateral-conservation-n01" name="ds-collateral-conservation-n01"></a>
+<a id="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit" name="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit"></a>
+<a id="ds-collateral-conservation-p01" name="ds-collateral-conservation-p01"></a>
+<a id="2272-p01---collateral-settlement-conserves-ada" name="2272-p01---collateral-settlement-conserves-ada"></a>
 <a id="ds-state-conservation-n01" name="ds-state-conservation-n01"></a>
 
-#### 3.5.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L11) - still counts Store ADA in total monetary conservation
+<a id="351-n01---still-counts-store-ada-in-total-monetary-conservation" name="351-n01---still-counts-store-ada-in-total-monetary-conservation"></a>
+
+#### 3.6.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L11) - still counts Store ADA in total monetary conservation
 
 Compare all affected monetary pots before and after ordinary success and accepted phase-2 failure, including Store states with positive surplus. Independently sum output ADA and the relevant ledger pots, observing fees and other applied charges or refunds. Include actual Store ADA exactly once and live allocation records zero times. Do not obtain the expected total by calling the ledger's total helper or omit Store ADA because it has no stake or voting weight.
 
+
+For an accepted phase-2 failure, independently compare the collateral inputs with
+the return, recorded deposit and observed fee increase:
+
+$$
+\begin{aligned}
+&\mathit{collateralInputCoins}+\mathit{releasedUTxODeposits}\\
+&\qquad=\mathit{collateralReturnCoins}+\mathit{collateralReturnUTxODeposit}+\mathit{collateralFee}
+\end{aligned}
+$$
+
+| Mixed-input example | ADA |
+| --- | ---: |
+| Implicit input | 2 |
+| Store-backed input: application ADA / recorded deposit | 3 / 1 |
+| Store-backed return: application ADA / required deposit | 3 / 2 |
+| Fee increase | 1 |
+
+$$
+\underbrace{5}_{\text{input coins}}+\underbrace{1}_{\text{released deposit}}
+=\underbrace{3}_{\text{return coins}}+\underbrace{2}_{\text{return deposit}}+\underbrace{1}_{\text{fees}}
+$$
+
+With a 1 ADA minimum fee, this is a funded phase-2 failure. It catches treating an
+implicit minimum as an external deposit or counting a recorded deposit twice.
+Generated coverage must also include surplus, equal deposits, additional funding
+and absent returns. Conservation alone does not imply sufficient funding: the
+last row of the [funding table](#ds-collateral-funding) balances but must reject.
+
 <a id="ds-state-initialization" name="ds-state-initialization"></a>
 
-### 3.6 Initialization
+<a id="36-initialization" name="36-initialization"></a>
+
+### 3.7 Initialization
 
 > **Establish the Store’s initial state at the Conway-to-Dijkstra upgrade.**
 >
@@ -6688,25 +6513,33 @@ Collateral return creation remains governed by the collateral failure-path rules
 
 <a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a>
 
-#### 3.6.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L11) - preserves existing output references, addresses, values, datums and reference scripts and keeps those outputs implicit
+<a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a>
+
+#### 3.7.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L11) - preserves existing output references, addresses, values, datums and reference scripts and keeps those outputs implicit
 
 Given a valid Conway UTxO, translate it to Dijkstra with the same references and semantic addresses, ADA, native assets, datums and reference scripts, keeping every output implicit. Include present and absent optional payloads and equal-valued outputs at distinct references. The upgrade must neither rewrite ownership or spending conditions nor extract implicit deposits.
 
 <a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a>
 
-#### 3.6.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L12) - initializes Store balance and UTxO capacity deposit obligations to zero
+<a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a>
+
+#### 3.7.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L12) - initializes Store balance and UTxO capacity deposit obligations to zero
 
 Given the Conway-to-Dijkstra upgrade, expect zero Store balance, zero outstanding obligations and an empty allocation-record domain. Existing outputs require no external allocation because they remain implicit.
 
 <a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a>
 
-#### 3.6.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L13) - does not transfer funds from another ledger pot during initialization
+<a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>
+
+#### 3.7.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L13) - does not transfer funds from another ledger pot during initialization
 
 Given the upgrade, compare existing monetary pots before and after Store initialization. No transfer from those pots is needed to create an empty Store.
 
 <a id="ds-state-recovery" name="ds-state-recovery"></a>
 
-### 3.7 Recovery
+<a id="37-recovery" name="37-recovery"></a>
+
+### 3.8 Recovery
 
 > **Preserve accepted state through serialization, restoration and rollback.**
 >
@@ -6722,13 +6555,17 @@ This preservation requirement is already agreed at fixed prices. It does not cho
 
 <a id="ds-state-recovery-n01" name="ds-state-recovery-n01"></a>
 
-#### 3.7.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs#L11) - preserves the complete ledger state through serialization and restoration, including outputs, allocated records and Store surplus
+<a id="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus" name="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus"></a>
+
+#### 3.8.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs#L11) - preserves the complete ledger state through serialization and restoration, including outputs, allocated records and Store surplus
 
 Serialize and restore a complete state containing mixed output variants, distinct retained allocations and nonzero Store surplus. Compare the restored semantic ledger state with the original, including outputs, records, actual balance, other pots and derived distributions. Then spend a restored output whose accepted CBOR size differs from its later reserialization and observe release of the retained amount. Preserving record values alone is insufficient if the Store balance or output payload changed.
 
 <a id="ds-state-recovery-n02" name="ds-state-recovery-n02"></a>
 
-#### 3.7.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs#L12) - restores the complete prior ledger state on rollback after ordinary success or accepted phase-2 failure
+<a id="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure" name="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure"></a>
+
+#### 3.8.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs#L12) - restores the complete prior ledger state on rollback after ordinary success or accepted phase-2 failure
 
 For ordinary success and accepted phase-2 failure separately, record the complete prior ledger state, apply the transition and roll it back. Require exact semantic restoration, including outputs, records, Store balance, other pots and derived distributions. Replay the transition and compare its accepted result with the original result to detect lost allocation information.
 
@@ -7023,6 +6860,21 @@ Semantic tags follow the invariant’s module path. `N`, `F` and `P` identify no
 
 The old identifiers remain listed here for historical references. Several old rules mixed responsibilities, so their cases can now have different semantic prefixes.
 
+Collateral cases now use eight generated contracts. Earlier case anchors remain
+aliases at the contract that owns their scenario:
+
+| Earlier collateral cases | Current owner |
+| --- | --- |
+| Funding nominal cases and P01; Settlement N01/N02 | [Funding N01](#ds-collateral-funding-n01) |
+| Funding rejection cases | [Funding F01](#ds-collateral-funding-f01) |
+| Settlement P01; Funding P02 | [Funding P02](#ds-collateral-funding-p02) |
+| Scope N01; Funding N09 | [Existing Store activity control and explicit assertion gap](#ds-collateral-store-activity-control) |
+| Other Scope cases; Authorization | [Shared collateral regressions](#ds-collateral-existing-rules) |
+| Total nominal / rejection cases | [Total N01](#ds-collateral-total-n01) / [F01](#ds-collateral-total-f01) |
+| Native-asset nominal / rejection cases from Conservation or Assets | [Assets N01](#ds-collateral-assets-n01) / [F01](#ds-collateral-assets-f01) |
+| Surplus; earlier Fees cases | [Fees P01](#ds-state-fees-p01) |
+| Collateral Conservation N01/P01 | [State Conservation N01](#ds-state-conservation-n01) |
+
 Declarations groups syntax and contextual obligations under one domain:
 
 | Previous prefix | Current prefix |
@@ -7083,10 +6935,10 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-TX-011` | [DS-TX-AUTHORIZATION](#ds-tx-authorization) |
 | `DS-TX-012` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-MINIMUM-COIN](#ds-tx-minimum-coin) |
 | `DS-TX-APPLICATION-ASSETS` | [DS-TX-MINIMUM-COIN](#ds-tx-minimum-coin); case suffixes are unchanged. |
-| `DS-COLL-001` | [DS-COLLATERAL-SCOPE](#ds-collateral-scope), [DS-COLLATERAL-AUTHORIZATION](#ds-collateral-authorization), [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-CONSERVATION](#ds-collateral-conservation) |
-| `DS-COLL-002` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-SURPLUS](#ds-collateral-surplus), [DS-COLLATERAL-SETTLEMENT](#ds-collateral-settlement), [DS-COLLATERAL-CONSERVATION](#ds-collateral-conservation) |
+| `DS-COLL-001` | [Shared collateral rules](#ds-collateral-existing-rules), [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-ASSETS](#ds-collateral-assets) |
+| `DS-COLL-002` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-STATE-FEES](#ds-state-fees), [DS-STATE-CONSERVATION](#ds-state-conservation) |
 | `DS-COLL-003` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-TOTAL](#ds-collateral-total) |
-| `DS-COLL-004` | [DS-COLLATERAL-SETTLEMENT](#ds-collateral-settlement), [DS-STATE-EXECUTION](#ds-state-execution), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance) |
+| `DS-COLL-004` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-STATE-EXECUTION](#ds-state-execution), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance) |
 | `DS-STORE-001` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance), [DS-STATE-SOLVENCY](#ds-state-solvency) |
 | `DS-STORE-002` | [DS-PRICING-HISTORY](#ds-pricing-history) |
 | `DS-STORE-003` | [DS-PRICING](#ds-pricing), [DS-STATE-ALLOCATIONS](#ds-state-allocations) |
@@ -7230,6 +7082,14 @@ composes [`NetChangeSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkst
 and [`BalanceSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs).
 Net change checks each SubTx's own amount and TopTx's complete transaction total.
 Balance checks the complete transaction's financial conservation when phase 2 is valid.
+
+[`CollateralSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/CollateralSpec.hs)
+composes `FundingSpec`, `TotalSpec` and `AssetsSpec`. Existing input resolution,
+witnesses, fee percentages and total-field checks are linked in
+[Existing collateral rules](#ds-collateral-existing-rules).
+[`FeesSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs)
+owns applied released-deposit surplus; `ConservationSpec` checks total ledger ADA
+including the collateral path.
 
 `Core.Specs` provides the domain vocabulary and fixtures shared by the executable
 specifications. Domain-named modules keep related generators, builders and
@@ -7411,7 +7271,7 @@ output sequence. The cached size does not affect the check. A TopTx's own output
 include its SubTx outputs. Spent outputs are obtained by resolving the body's own
 spending inputs against the applicable UTxO. Reference inputs do not consume outputs or
 release UTxO capacity deposits. Collateral inputs and collateral return have separate rules
-under DS-COLLATERAL-SCOPE and DS-COLLATERAL-FUNDING.
+under the [shared collateral rules](#ds-collateral-existing-rules) and [Funding](#ds-collateral-funding).
 
 <a id="declaration-encoding" name="declaration-encoding"></a>
 

@@ -1,133 +1,137 @@
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Collateral coins fund the specified return, additional capacity deposit and minimum fee.
+-- | Collateral application coins fund the return, any deposit shortfall and the
+-- existing minimum fee. Released deposits first cover the return's deposit;
+-- their surplus cannot replace those application coins.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.FundingSpec (spec) where
 
 import Cardano.Ledger.Coin (Coin (..), toDeltaCoin)
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.Rules (DijkstraUtxoPredFailure (InsufficientCollateral))
-import Cardano.Ledger.Shelley.LedgerState (
-  esLStateL,
-  lsUTxOStateL,
-  nesEsL,
-  utxosDepositStore,
-  utxosFees,
-  utxosUtxo,
+import Cardano.Ledger.Dijkstra.Rules (
+  CollateralDepositSettlement (..),
+  DijkstraUtxoPredFailure (InsufficientCollateral),
+  collateralDepositSettlement,
  )
-import Cardano.Ledger.State (DepositStore (..), UTxO (..))
-import Cardano.Ledger.Val (Val ((<->)))
-import qualified Data.Map.Strict as Map
-import Data.Maybe.Strict (strictMaybeToMaybe)
+import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore, utxosUtxo)
+import Cardano.Ledger.Val ((<->))
+import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro
-import Test.Cardano.Ledger.Common (Expectation, Spec, describe, it, prop)
-import Test.Cardano.Ledger.Core.Utils (txInAt)
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Collateral as Collateral
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
-  submitTxAndExpectFailureContaining,
+import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (
+  Fixture (..),
+  OutputForm (..),
  )
-import Test.Cardano.Ledger.Dijkstra.ImpTest
-import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe, shouldSatisfy, withImpInit)
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (declarationToTxBody)
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
+  isAccepted,
+  isRejectedOnlyWith,
+  submitTx,
+ )
+import Test.Cardano.Ledger.Dijkstra.ImpTest (rederiveAddrTxWits, simulateThenRestore)
+import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
 
--- | N04, F02, F03 and F05 exercise real ledger funding; the other cases remain
--- deliberate executable backlog.
--- Keep each requirement and its named check on one line.
--- Both output variants are fixture coverage across these funding cases and the
--- authorization, settlement and conservation checks; they are not a separate rule.
--- Funding validation covers both script outcomes whenever any body has redeemers.
--- Observe required amounts and acceptance here; State owns applied Store records.
+-- | Every sample includes both real script outcomes and every deposit relationship.
+-- The return's final serialized bytes determine its deposit, including at zero ADA.
+-- Other collateral and ordinary requirements hold throughout these funded fixtures.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "DS-COLLATERAL-FUNDING - Funding" $ do
-  it "DS-COLLATERAL-FUNDING-F01 - rejects insufficient collateral funding when redeemers trigger validation even if all scripts succeed" successfulScriptsDoNotBypassCollateralFunding
-  it "DS-COLLATERAL-FUNDING-N01 - accepts a batch whose scripts succeed when its required collateral is fully funded and all other rules hold" successfulScriptsAcceptValidCollateral
-  it "DS-COLLATERAL-FUNDING-N02 - accepts funded collateral with implicit or store-backed inputs and returns" supportsBothOutputVariants
-  it "DS-COLLATERAL-FUNDING-N03 - reuses released UTxO capacity deposits when the collateral return requires the same amount" reusesReleasedDeposits
-  withImpInit @(LedgerSpec DijkstraEra) $
-    it "DS-COLLATERAL-FUNDING-N04 - funds additional return UTxO capacity deposits from collateral coins" $ do
-      fixture <- Collateral.implicitInputWithStoreBackedReturn
-      tx <- Collateral.withCoinFee (Collateral.minimumFee fixture) fixture
-      collateralReturn <- expectJust $ strictMaybeToMaybe $ tx ^. bodyTxL . collateralReturnTxBodyL
-      before <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
-      let storeBefore = utxosDepositStore before
-          newDeposit = Collateral.returnDeposit fixture
-          returnInput = txInAt (length $ tx ^. bodyTxL . outputsTxBodyL) tx
-      Collateral.releasedDeposit fixture `shouldBe` Coin 0
-      newDeposit `shouldSatisfy` (> Coin 0)
-      Collateral.inputCoins fixture `shouldBe` (collateralReturn ^. coinTxOutL) <> newDeposit <> Collateral.minimumFee fixture
-      withNoFixup $ submitTx_ tx
-      after <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
-      let storeAfter = utxosDepositStore after
-      utxosFees after `shouldBe` utxosFees before <> Collateral.minimumFee fixture
-      depositStoreBalance storeAfter `shouldBe` depositStoreBalance storeBefore <> newDeposit
-      depositStoreAllocations storeAfter `shouldBe` Map.insert returnInput newDeposit (depositStoreAllocations storeBefore)
-      Map.lookup (Collateral.input fixture) (unUTxO $ utxosUtxo after) `shouldBe` Nothing
-      Map.lookup returnInput (unUTxO $ utxosUtxo after) `shouldBe` Just collateralReturn
-  withImpInit @(LedgerSpec DijkstraEra) $
-    it "DS-COLLATERAL-FUNDING-F02 - rejects collateral coins below the minimum fee after funding the return and additional UTxO capacity deposits" $ do
-      fixture <- Collateral.implicitInputWithStoreBackedReturn
-      tx <- Collateral.withCoinFee (Coin 0) fixture
-      Collateral.returnDeposit fixture `shouldSatisfy` (> Coin 0)
-      submitTxAndExpectFailureContaining
-        (injectFailure $ InsufficientCollateral @DijkstraEra (toDeltaCoin $ Coin 0) (Collateral.minimumFee fixture)) tx
-  prop "DS-COLLATERAL-FUNDING-P01 - accepted batch with redeemers ⇒ collateralCoinFee ≥ ceil(txFee * collateralPercentage / 100)" fundsMinimumFeeIndependently
-  withImpInit @(LedgerSpec DijkstraEra) $
-    it "DS-COLLATERAL-FUNDING-F03 - rejects collateral whose minimum fee depends on released UTxO capacity deposit surplus" $ do
-      fixture <- Collateral.storeBackedInputWithImplicitReturn
-      let coinFee = Collateral.minimumFee fixture <-> Coin 1
-          releasedSurplus = Collateral.releasedDeposit fixture
-      tx <- Collateral.withCoinFee coinFee fixture
-      Collateral.returnDeposit fixture `shouldBe` Coin 0
-      coinFee <> releasedSurplus `shouldSatisfy` (>= Collateral.minimumFee fixture)
-      submitTxAndExpectFailureContaining
-        (injectFailure $ InsufficientCollateral @DijkstraEra (toDeltaCoin coinFee) (Collateral.minimumFee fixture)) tx
-  it "DS-COLLATERAL-FUNDING-F04 - rejects a collateral return whose funding depends on released UTxO capacity deposit surplus" surplusCannotFundLargerReturn
-  withImpInit @(LedgerSpec DijkstraEra) $
-    it "DS-COLLATERAL-FUNDING-F05 - rejects collateral funding one lovelace below a rounded-up minimum fee" $ do
-      fixture <- Collateral.implicitInputWithStoreBackedReturn
-      let coinFee = Collateral.minimumFee fixture <-> Coin 1
-          Coin txFee = Collateral.tx fixture ^. bodyTxL . feeTxBodyL
-          collateralPercentage = toInteger $ Collateral.protocolParameters fixture ^. ppCollateralPercentageL
-      (txFee * collateralPercentage) `mod` 100 `shouldBe` 50
-      tx <- Collateral.withCoinFee coinFee fixture
-      submitTxAndExpectFailureContaining
-        (injectFailure $ InsufficientCollateral @DijkstraEra (toDeltaCoin coinFee) (Collateral.minimumFee fixture)) tx
-  it "DS-COLLATERAL-FUNDING-N05 - counts implicit collateral inputs' full ADA as coins and zero released Store deposits when mixed with store-backed inputs" mixedInputsCountImplicitCoinsWithoutStoreRelease
-  it "DS-COLLATERAL-FUNDING-N06 - requires zero Store deposit for an implicit collateral return even with store-backed collateral inputs" implicitReturnRequiresNoStoreDeposit
-  it "DS-COLLATERAL-FUNDING-N07 - accepts a store-backed collateral return with zero application ADA when its deposit and the minimum fee are funded" zeroApplicationAdaReturnIsAccepted
-  it "DS-COLLATERAL-FUNDING-F06 - rejects underfunded collateral when the optional total is absent" checksFundingWithoutDeclaredTotal
-  it "DS-COLLATERAL-FUNDING-N08 - accepts collateral funding exactly at a rounded-up minimum fee" acceptsRoundedUpMinimumFee
+spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shortfall before the minimum fee" $ do
+  -- The Store needs more funding, reuses the same amount, or releases a surplus.
+  -- Check the rounded minimum and one lovelace above; an absent return allocates
+  -- nothing. A Store-backed return can contain zero application ADA.
+  prop "DS-COLLATERAL-FUNDING-N01 - inputCoins - returnCoins - max(0, returnDeposit - releasedDeposits) ≥ minimumFee ⇒ accepted" $
+    forAll Collateral.fundingScenarios $ \scenarios ->
+      forM_ scenarios $ \scenario -> do
+        fixture@Fixture{signedTx, minimumFee} <- Collateral.buildAndSign scenario
+        case signedTx ^. bodyTxL . collateralReturnTxBodyL of
+          SNothing -> submitTx signedTx >>= isAccepted
+          SJust _ -> do
+            forM_ [minimumFee, minimumFee <> Coin 1] $ \coinFee ->
+              simulateThenRestore $ do
+                funded <- Collateral.withCoinFee coinFee fixture
+                let returnCoins = foldMap (^. coinTxOutL) $ Collateral.signedTx funded ^. bodyTxL . collateralReturnTxBodyL
+                    additionalDeposit = max (Coin 0) (returnDeposit funded <-> releasedDeposits funded)
+                inputCoins funded <-> returnCoins <-> additionalDeposit `shouldBe` coinFee
+                submitTx (Collateral.signedTx funded) >>= isAccepted
+            case Collateral.returnForm scenario of
+              Just StoreBacked -> do
+                zeroAdaReturn <- Collateral.withReturnCoins (Coin 0) fixture
+                submitTx (Collateral.signedTx zeroAdaReturn) >>= isAccepted
+              _ -> pure ()
+
+  -- A released surplus cannot pay the minimum fee or enlarge the signed return.
+  -- Reject exactly the funding error; accept the corresponding funded controls.
+  prop "DS-COLLATERAL-FUNDING-F01 - inputCoins - returnCoins - max(0, returnDeposit - releasedDeposits) < minimumFee ⇒ rejectedWith(InsufficientCollateral)" $
+    forAll Collateral.fundingScenarios $ \scenarios ->
+      forM_ scenarios $ \scenario -> do
+        fixture@Fixture{signedTx, inputCoins, releasedDeposits, minimumFee, protocolParameters} <- Collateral.buildAndSign scenario
+        case signedTx ^. bodyTxL . collateralReturnTxBodyL of
+          SNothing -> do
+            -- Without a return, releasing ample Store ADA still cannot fund the
+            -- minimum fee when the collateral outputs carry no application coins.
+            if all (== StoreBacked) (Collateral.inputForms scenario)
+              then simulateThenRestore $ do
+                underfunded <- Collateral.buildAndSign $
+                  scenario
+                    { Collateral.inputCoinsPerOutput = Coin 0
+                    , Collateral.sourceBytePrice = 10 * Collateral.bytePrice scenario
+                    }
+                Collateral.releasedDeposits underfunded `shouldSatisfy` (>= Collateral.minimumFee underfunded)
+                forM_ [SNothing, SJust (Coin 0)] $ \declaredTotal -> do
+                  rejected <- rederiveAddrTxWits $
+                    Collateral.signedTx underfunded & bodyTxL . totalCollateralTxBodyL .~ declaredTotal
+                  submitTx rejected >>= isRejectedOnlyWith
+                    (InsufficientCollateral @DijkstraEra (toDeltaCoin $ Coin 0) (Collateral.minimumFee underfunded))
+              else pure ()
+            submitTx signedTx >>= isAccepted
+          SJust returned -> do
+            underfunded <- Collateral.withCoinFee (minimumFee <-> Coin 1) fixture
+            forM_ [SNothing, Collateral.signedTx underfunded ^. bodyTxL . totalCollateralTxBodyL] $ \declaredTotal -> do
+              rejected <- rederiveAddrTxWits $
+                Collateral.signedTx underfunded & bodyTxL . totalCollateralTxBodyL .~ declaredTotal
+              submitTx rejected >>= isRejectedOnlyWith
+                (InsufficientCollateral @DijkstraEra (toDeltaCoin $ minimumFee <-> Coin 1) minimumFee)
+            let releasedSurplus = max (Coin 0) (releasedDeposits <-> returnDeposit underfunded)
+            if releasedSurplus > Coin 0
+              then do
+                (minimumFee <-> Coin 1) <> releasedSurplus `shouldSatisfy` (>= minimumFee)
+                let largerReturn = returned & coinTxOutL .~ (inputCoins <> Coin 1)
+                    additionalDeposit = max (Coin 0) (Pricing.outputDeposit protocolParameters largerReturn <-> releasedDeposits)
+                    availableCoinFee = Coin (-1) <-> additionalDeposit
+                rejected <- rederiveAddrTxWits $
+                  signedTx
+                    & bodyTxL . collateralReturnTxBodyL .~ SJust largerReturn
+                    & bodyTxL . totalCollateralTxBodyL .~ SNothing
+                submitTx rejected >>= isRejectedOnlyWith
+                  (InsufficientCollateral @DijkstraEra (toDeltaCoin availableCoinFee) minimumFee)
+              else pure ()
+            funded <- Collateral.withCoinFee minimumFee fixture
+            submitTx (Collateral.signedTx funded) >>= isAccepted
+
+  -- Isolate the collateral calculation: arbitrary ordinary declarations need not
+  -- describe a valid ordinary transaction. No ledger acceptance is claimed here.
+  -- Only recorded collateral inputs and the priced collateral return participate.
+  prop "DS-COLLATERAL-FUNDING-P02 - fixed collateral inputs, return, fee and prices ⇒ ordinary declarations do not change collateral deposit funding" $
+    forAll ((,) <$> Collateral.fundingScenarios <*> Collateral.ordinaryDeclarationCases) $ \(scenarios, declarations) ->
+      forM_ scenarios $ \scenario -> do
+        Fixture{signedTx, previousUTxOState, inputCoins, releasedDeposits, returnDeposit, protocolParameters} <- Collateral.buildAndSign scenario
+        let originalBody = signedTx ^. bodyTxL
+            returnCoins = foldMap (^. coinTxOutL) $ originalBody ^. collateralReturnTxBodyL
+            additionalDeposit = max (Coin 0) (returnDeposit <-> releasedDeposits)
+        forM_ declarations $ \ordinaryDeclarations -> do
+          let body = declarationToTxBody ordinaryDeclarations
+                & collateralInputsTxBodyL .~ (originalBody ^. collateralInputsTxBodyL)
+                & collateralReturnTxBodyL .~ (originalBody ^. collateralReturnTxBodyL)
+                & feeTxBodyL .~ (originalBody ^. feeTxBodyL)
+                & totalCollateralTxBodyL .~ (originalBody ^. totalCollateralTxBodyL)
+              settlement = collateralDepositSettlement protocolParameters
+                (utxosUtxo previousUTxOState) (utxosDepositStore previousUTxOState) body
+          collateralReleasedDeposits settlement `shouldBe` releasedDeposits
+          collateralReturnDeposit settlement `shouldBe` returnDeposit
+          collateralAdditionalDeposit settlement `shouldBe` additionalDeposit
+          collateralCoinFee settlement `shouldBe` inputCoins <-> returnCoins <-> additionalDeposit
 {- FOURMOLU_ENABLE -}
-
-successfulScriptsDoNotBypassCollateralFunding :: Expectation
-successfulScriptsDoNotBypassCollateralFunding = False `shouldBe` True
-
-successfulScriptsAcceptValidCollateral :: Expectation
-successfulScriptsAcceptValidCollateral = False `shouldBe` True
-
-supportsBothOutputVariants :: Expectation
-supportsBothOutputVariants = False `shouldBe` True
-
-reusesReleasedDeposits :: Expectation
-reusesReleasedDeposits = False `shouldBe` True
-
-fundsMinimumFeeIndependently :: Bool
-fundsMinimumFeeIndependently = False
-
-surplusCannotFundLargerReturn :: Expectation
-surplusCannotFundLargerReturn = False `shouldBe` True
-
-mixedInputsCountImplicitCoinsWithoutStoreRelease :: Expectation
-mixedInputsCountImplicitCoinsWithoutStoreRelease = False `shouldBe` True
-
-implicitReturnRequiresNoStoreDeposit :: Expectation
-implicitReturnRequiresNoStoreDeposit = False `shouldBe` True
-
-zeroApplicationAdaReturnIsAccepted :: Expectation
-zeroApplicationAdaReturnIsAccepted = False `shouldBe` True
-
-checksFundingWithoutDeclaredTotal :: Expectation
-checksFundingWithoutDeclaredTotal = False `shouldBe` True
-
-acceptsRoundedUpMinimumFee :: Expectation
-acceptsRoundedUpMinimumFee = False `shouldBe` True
