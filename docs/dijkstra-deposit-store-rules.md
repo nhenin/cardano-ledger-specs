@@ -472,14 +472,14 @@ Appendices contain the open design questions and supporting references.
             </dl>
           </details>
           <details>
-            <summary><a href="#ds-tx-application-assets">2.1.5 Application assets</a></summary>
+            <summary><a href="#ds-tx-minimum-coin">2.1.5 Minimum coin</a></summary>
             <dl>
               <dd>
-                <a href="#ds-tx-application-assets-n01">2.1.5.1 N01 - accepts a store-backed output containing native assets and zero ADA</a><br>
-                <a href="#ds-tx-application-assets-n02">2.1.5.2 N02 - accepts empty application assets with a datum or reference script</a><br>
-                <a href="#ds-tx-application-assets-n03">2.1.5.3 N03 - accepts a store-backed output containing only an address</a><br>
-                <a href="#ds-tx-application-assets-n04">2.1.5.4 N04 - accepts implicit outputs containing exactly their required minimum coin</a><br>
-                <a href="#ds-tx-application-assets-f01">2.1.5.5 F01 - rejects implicit outputs one lovelace below their required minimum coin</a><br>
+                <a href="#ds-tx-minimum-coin-n01">2.1.5.1 N01 - Native assets without ADA</a><br>
+                <a href="#ds-tx-minimum-coin-n02">2.1.5.2 N02 - Datum or reference script without assets</a><br>
+                <a href="#ds-tx-minimum-coin-n03">2.1.5.3 N03 - Address-only output</a><br>
+                <a href="#ds-tx-minimum-coin-n04">2.1.5.4 N04 - Exact minimum for an implicit output</a><br>
+                <a href="#ds-tx-minimum-coin-f01">2.1.5.5 F01 - Implicit output one lovelace short</a><br>
               </dd>
             </dl>
           </details>
@@ -951,7 +951,7 @@ Given implicit-deposit outputs alone and mixed with store-backed outputs, assign
 | [Accounting](#ds-tx-accounting) | Is the change exact, correctly attributed and funded? |
 | [Authorization](#ds-tx-authorization) | Who may release the deposit? |
 | [Settlement](#ds-tx-settlement) | Is the required output designated, in range and sufficiently funded? |
-| [Application assets](#ds-tx-application-assets) | What value may the output contain? |
+| [Minimum coin](#ds-tx-minimum-coin) | Must the output retain ADA to cover its storage? |
 
 These rules validate the submitted ordinary transaction under a fixed pricing policy.
 Declaration, amount, output and settlement checks also apply when phase 2 fails: they
@@ -5577,62 +5577,131 @@ $$
 A SubTx allocation of 3 ADA and a TopTx release of 5 ADA produce a transaction release of 2 ADA. A TopTx output containing only 2 ADA fails: its required share is 5 ADA. Put the other 3 ADA elsewhere so the rejection isolates the selected output’s shortfall.
 
 <a id="ds-tx-application-assets" name="ds-tx-application-assets"></a>
+<a id="ds-tx-minimum-coin" name="ds-tx-minimum-coin"></a>
 
-#### 2.1.5 Application assets
+#### 2.1.5 Minimum coin
 
-> **Separate an output’s spendable value from its external storage deposit.**
->
-> A store-backed output may contain zero application ADA; it still requires its full deposit.
+> **A Store-backed output pays for storage externally; an implicit output retains its minimum ADA.**
 
-**Decision:** Agreed.
+| Output form | Storage cost | Application ADA |
+| --- | --- | --- |
+| Store-backed | Fully funded external deposit, with an exact declaration | May be zero |
+| Implicit | Existing minimum coin retained in the output | At least the required minimum |
 
-A store-backed output may contain zero application ADA, including any of these cases:
+For an implicit output, the existing byte-based minimum is:
 
-- Native assets with no ADA.
-- No application assets, with a datum or reference script.
-- No application assets, datum or reference script, retaining its address.
+$$
+\text{minimumCoin(output)}
+=\text{coinsPerUTxOByte}\times\bigl(160+\text{acceptedSize(output)}\bigr)
+$$
 
-Each output still requires the full allocated UTxO capacity deposit calculated under
-DS-PRICING. Empty application assets do not make an output free to store: its address,
-encoding and fixed overhead still enter the size-based formula. Creating it remains
-subject to the explicit declaration and exact accounting requirements of DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS and
-DS-TX-ACCOUNTING-NET-CHANGE-SUBTX.
+`acceptedSize(output)` is the encoded size of the submitted output, including its coin.
+The Store-backed exemption changes where storage is paid; it does not waive the
+[allocation declaration](#ds-tx-declarations-requirements-operations-allocation),
+[exact deposit accounting](#ds-tx-accounting-net-change-subtx), or other output constraints.
 
-This permission does not relax other output validation, including nonnegative asset
-amounts, size limits or address validity. Implicit-deposit outputs retain their existing
-minimum-coin requirements. A store-backed collateral return may also have zero
-application value, provided the collateral funding and settlement rules hold; the
-externally held UTxO capacity deposits do not count as its application coins.
+**Common premises:** valid addresses, nonnegative assets, exact declarations and fully
+funded transactions. Each generated sample exercises both TopTx and SubTx outputs,
+with successful phase 2 and with a real failing script. On the latter path,
+**Accepted** means that the ledger accepts the collateral outcome; ordinary outputs
+are checked but not created.
 
 <a id="ds-tx-application-assets-n01" name="ds-tx-application-assets-n01"></a>
+<a id="ds-tx-minimum-coin-n01" name="ds-tx-minimum-coin-n01"></a>
 
-##### 2.1.5.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L17) - accepts a store-backed output containing native assets and zero ADA
+##### 2.1.5.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L47) - Native assets without ADA
 
-The output carries native assets but no application ADA. Its storage is paid through an exact external deposit, so an implicit minimum-ADA condition must not be imposed on its application value.
+$$
+\begin{aligned}
+&\text{storeBacked(output)} \\
+&\land\text{nativeAssets(output)}\neq\varnothing
+\land\text{applicationADA(output)}=0 \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+The output carries tokens and zero lovelace. Its full deposit is funded externally,
+so it needs no application ADA to pay for storage.
 
 <a id="ds-tx-application-assets-n02" name="ds-tx-application-assets-n02"></a>
+<a id="ds-tx-minimum-coin-n02" name="ds-tx-minimum-coin-n02"></a>
 
-##### 2.1.5.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L18) - accepts empty application assets with a datum or reference script
+##### 2.1.5.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L61) - Datum or reference script without assets
 
-Exercise datum-only and reference-script-only outputs as separate fixture cases, each with empty application assets. Their full accepted encodings determine their exact external deposits; output admissibility remains separate from pricing.
+$$
+\begin{aligned}
+&\text{storeBacked(output)}\land\text{applicationAssets(output)}=\varnothing \\
+&\land\text{payload(output)}\in\{\text{datumOnly},\text{referenceScriptOnly}\} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+Exercise both payload forms in every sample. Neither output carries ADA or tokens;
+the datum or script bytes still contribute to its fully funded external deposit.
 
 <a id="ds-tx-application-assets-n03" name="ds-tx-application-assets-n03"></a>
+<a id="ds-tx-minimum-coin-n03" name="ds-tx-minimum-coin-n03"></a>
 
-##### 2.1.5.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L19) - accepts a store-backed output containing only an address
+##### 2.1.5.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) - Address-only output
 
-Even an address-only output occupies priced storage. Empty application assets are permitted when its deposit and the remaining transaction requirements are satisfied.
+$$
+\text{storeBacked(output)}\land\text{addressOnly(output)}
+\implies\text{Accepted}
+$$
+
+Here, address-only means:
+
+$$
+\begin{aligned}
+\text{addressOnly(output)}\iff{}&\text{applicationAssets(output)}=\varnothing \\
+&\land\neg\text{hasDatum(output)}\land\neg\text{hasReferenceScript(output)}
+\end{aligned}
+$$
+
+The output retains its address and required encoding fields. It still occupies
+storage and requires its full deposit; mandatory fields are not removed.
 
 <a id="ds-tx-application-assets-n04" name="ds-tx-application-assets-n04"></a>
+<a id="ds-tx-minimum-coin-n04" name="ds-tx-minimum-coin-n04"></a>
 
-##### 2.1.5.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L20) - accepts implicit outputs containing exactly their required minimum coin
+##### 2.1.5.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) - Exact minimum for an implicit output
 
-For TopTx and SubTx separately, use an implicit output with exactly the minimum ADA required by its accepted size. Acceptance is the control for F01's one-lovelace shortfall; the store-backed exemption must not weaken implicit-output validation.
+$$
+\begin{aligned}
+&\text{implicit(output)} \\
+&\land\text{outputADA(output)}=\text{minimumCoin(output)} \\
+&\implies\text{Accepted}
+\end{aligned}
+$$
+
+The existing minimum is inclusive. Price the final encoded output independently,
+then submit it with exactly that amount. This is the accepted control for F01.
 
 <a id="ds-tx-application-assets-f01" name="ds-tx-application-assets-f01"></a>
+<a id="ds-tx-minimum-coin-f01" name="ds-tx-minimum-coin-f01"></a>
 
-##### 2.1.5.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/ApplicationAssetsSpec.hs#L21) - rejects implicit outputs one lovelace below their required minimum coin
+##### 2.1.5.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L98) - Implicit output one lovelace short
 
-At both body levels, reduce the exact-minimum implicit output of N04 by one lovelace and place that lovelace in another valid implicit output to preserve batch conservation. Assert the existing minimum-coin failure; the store-backed exemption must not reach implicit outputs.
+$$
+\begin{aligned}
+&\text{implicit(output)} \\
+&\land\text{outputADA(output)}=\text{minimumCoin(output)}-1 \\
+&\implies\text{Rejected}
+\end{aligned}
+$$
+
+Move one lovelace from the exact-minimum output into another valid output, preserving
+financial balance and the coin's encoded width. Check the shortfall against the
+submitted output's encoded size. The ledger must reject only the owner body's
+existing minimum-coin failure, identifying that output and its required amount:
+
+| Output owner | Expected failure |
+| --- | --- |
+| TopTx | `BabbageOutputTooSmallUTxO` |
+| SubTx | `SubBabbageOutputTooSmallUTxO` |
+
+Submit the original exact-minimum transaction afterward and require acceptance,
+confirming that the one-lovelace shortfall caused the rejection.
 
 <a id="ds-collateral" name="ds-collateral"></a>
 
@@ -7012,7 +7081,8 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-TX-009` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](#ds-tx-declarations-requirements-subtx-declarations) |
 | `DS-TX-010` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
 | `DS-TX-011` | [DS-TX-AUTHORIZATION](#ds-tx-authorization) |
-| `DS-TX-012` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-APPLICATION-ASSETS](#ds-tx-application-assets) |
+| `DS-TX-012` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-MINIMUM-COIN](#ds-tx-minimum-coin) |
+| `DS-TX-APPLICATION-ASSETS` | [DS-TX-MINIMUM-COIN](#ds-tx-minimum-coin); case suffixes are unchanged. |
 | `DS-COLL-001` | [DS-COLLATERAL-SCOPE](#ds-collateral-scope), [DS-COLLATERAL-AUTHORIZATION](#ds-collateral-authorization), [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-CONSERVATION](#ds-collateral-conservation) |
 | `DS-COLL-002` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-SURPLUS](#ds-collateral-surplus), [DS-COLLATERAL-SETTLEMENT](#ds-collateral-settlement), [DS-COLLATERAL-CONSERVATION](#ds-collateral-conservation) |
 | `DS-COLL-003` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-TOTAL](#ds-collateral-total) |
