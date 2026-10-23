@@ -321,6 +321,30 @@ instance HasSimpleRep DataHash32
 
 instance HasSpec DataHash32
 
+-- The legacy specifications stop at Conway, where every output has an implicit
+-- deposit. Keep their existing field representation under the outer wrapper.
+instance
+  ( AtMostEra "Conway" era
+  , HasSimpleRep (ImplicitDepositTxOut era)
+  , Typeable (SimpleRep (ImplicitDepositTxOut era))
+  ) =>
+  HasSimpleRep (TxOut era)
+  where
+  type TheSop (TxOut era) = TheSop (ImplicitDepositTxOut era)
+  type SimpleRep (TxOut era) = SimpleRep (ImplicitDepositTxOut era)
+  toSimpleRep (ImplicitDepositTxOut implicitOutput) = toSimpleRep implicitOutput
+  toSimpleRep (StoreBackedTxOut _) = error "toSimpleRep: unexpected store-backed output in legacy specifications"
+  fromSimpleRep = ImplicitDepositTxOut . fromSimpleRep
+
+instance
+  ( EraTxOut era
+  , AtMostEra "Conway" era
+  , GenericallyInstantiated (TxOut era)
+  , HasSimpleRep (ImplicitDepositTxOut era)
+  , HasSpec (SimpleRep (ImplicitDepositTxOut era))
+  ) =>
+  HasSpec (TxOut era)
+
 type ShelleyTxOutTypes era =
   '[ Addr
    , Value era
@@ -1534,6 +1558,10 @@ instance
   , HasSpec (CertState era)
   ) =>
   HasSpec (LedgerState era)
+
+instance HasSimpleRep DepositStore
+
+instance HasSpec DepositStore
 
 instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
 

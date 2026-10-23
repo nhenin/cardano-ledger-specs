@@ -1,7 +1,72 @@
 # Revision history for `cardano-ledger-dijkstra`
 
+## 0.5.0.0
+
+* Implement recorded UTxO capacity deposits in ledger state. Ordinary transactions allocate newly priced output deposits, release recorded input deposits and update the Store once for the complete batch.
+* Validate exact TopTx batch totals, each SubTx contribution, release settlement destinations and Store solvency in `Rules.DepositStore.Accounting`. Add `DepositStoreFailure` to UTXO at CBOR tag `26`, including signed amount diagnostics.
+* Include the declared batch net allocation or release exactly once in ADA conservation, preserving independent SubTx financial imbalance and local/delegated attribution.
+* Derive collateral deposit settlement from consumed allocations and the return output. Fund any additional return deposit before the coin minimum; credit released deposit surplus to fees. Ordinary Store effects remain unapplied on phase-2 failure.
+* Initialize the Store empty on Conway translation and include it in Dijkstra ledger snapshots.
+
+* Require each TopTx and SubTx creating or spending store-backed outputs to carry its own UTxO capacity deposit declaration. Resolve each body's ordinary spending inputs against the original UTxO on both phase-2 outcomes. Use `MissingUTxODepositDeclaration` in UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` in SUBUTXO at tag `11`.
+
+* Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxODeposit.TopTx` and `UTxODeposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
+
+* Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.
+* Isolate declaration validation in `Rules.DepositStore.Declaration`, reexported through `Cardano.Ledger.Dijkstra.Rules`. The validator returns `DepositStoreDeclarationFailure`, which UTXO maps to its predicate failure.
+* Use UTxO capacity deposit terminology throughout the API: `NetUTxODepositChange`, `SubTxNetUTxODepositChange`, allocation/release constructors and release-settlement names. Rename the JSON body field to `netUTxODepositChange` and the corresponding operation/settlement kinds. This naming change preserves CBOR numeric keys, tags and encoded bytes.
+* Add `SubTxNoUTxODepositChange` for an explicit zero SubTx contribution, encoded as CBOR `[3]` and JSON `{"kind":"noChange"}`. Require `StrictlyPositiveCoin` for SubTx net allocations, funding requests and net releases; reject zero operation amounts while preserving their CBOR tags.
+* Replace the TopTx release output index with `TopTxReleaseSettlement`: `NoTopTxSettlement` or `TopTxSettlementOutput TxIx`, supporting settlement in SubTx outputs as well as mixed TopTx/SubTx settlement. The release amount remains the batch net total. CBOR releases now contain a tagged settlement instead of a bare index; JSON uses a `settlement` object instead of `outputIndex`.
+* Add `NoUTxODepositChange` for an explicitly declared zero batch net change; require `StrictlyPositiveCoin` for top-level net allocations and net releases. Encode no change as CBOR `[2]` and JSON `{"kind":"noChange"}`; reject zero allocation and release amounts.
+* Add an optional `NetUTxODepositChange` to top-level transaction bodies, with a net allocation or a net release referencing a top-level output by index; encode it at CBOR key `28` and describe it in the CDDL schema.
+* Add an optional `SubTxNetUTxODepositChange` to sub-transaction bodies at CBOR key `28`: net allocations can request funding from the top-level transaction; net releases declare their amount and either a local output index or an explicit request to delegate accounting to the top-level transaction.
+* Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
+
+* Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
+* Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
+* Add `getDijkstraSupplementalDataHashes` and use it for `getSupplementalDataHashes`, so that,
+  outside legacy mode, a top-level transaction can supply datums for the outputs and reference
+  inputs of its sub-transactions
+* Add `kesMaxKeyAgeEpochs` to compute how many epochs a registered Leios voting key (CIP-0164) stays valid from the KES parameters
+* Change `seatInitialLeiosCommittee` to accept a `TransitionConfig` and also seat the Leios voting committee (CIP-0164) in the set and go snapshots
+* Add `Embed (SNAP era) (TICKF era)` instance, so that `TICKF` runs the Dijkstra `SNAP` rule
+* Change `eraMaxLanguage` to `PlutusV4`
+
+### `testlib`
+
+* Add `DijkstraEraForecast` superclass to `DijkstraEraImp`
+
 ## 0.4.0.0
 
+* Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
+* Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
+* Introduce `DijkstraPoolPredFailure` as the predicate failure type for the Dijkstra era's
+  `POOL` rule, replacing `ShelleyPoolPredFailure`:
+  - `EraRuleFailure "POOL" DijkstraEra` is now `DijkstraPoolPredFailure DijkstraEra`
+  - Add `BLSKeyInvalidProofOfPossession` constructor to `DijkstraPoolPredFailure`
+  - Verify BLS proof of possession when (re-)registering a pool with a BLS key set
+* Add `refInputsCostPerMultiAssetPolicy` and `refInputsCostPerDatumByte` protocol parameters:
+  - Add `dppRefInputsCostPerMultiAssetPolicy` and `dppRefInputsCostPerDatumByte` fields to `DijkstraPParams`
+  - Add `udppRefInputsCostPerMultiAssetPolicy` and `udppRefInputsCostPerDatumByte` fields to `UpgradeDijkstraPParams`
+  - Add `hkdRefInputsCostPerMultiAssetPolicyL` and `hkdRefInputsCostPerDatumByteL` to `DijkstraEraPParams`
+  - Add `ppRefInputsCostPerMultiAssetPolicyL`, `ppRefInputsCostPerDatumByteL`, `ppuRefInputsCostPerMultiAssetPolicyL` and `ppuRefInputsCostPerDatumByteL`
+* Add the Peras protocol parameters:
+  - `perasMinCandidateBlockAge`
+  - `perasCertBoost`
+  - `perasTargetCommitteeSize`
+  - `perasBootstrapRound`
+  - `perasHealingFactor`
+  - `perasQuorumThresholdSafetyMargin`
+* Add `HeaderProtVerTooLow` constructor to `DijkstraBbodyPredFailure`
+* Change `BBODY` signal to `LeiosBbodySignal`
+* Remove `DijkstraBbodySignal` in favor of new `LeiosBbodySignal`
+* Remove `DijkstraEraBlockHeader` in favor of new `LeiosEraBlockHeader` type class.
+* Make sure `validatePerasCert` always returns `False`, thus effectively disabling unimplemented
+  `Peras` specific certificate in the block body.
+* Add `DijkstraEraTx` type class with `hashTx` function.
+* Add `ConwayEraPParams` as a superclass `DijkstraEraPParams`.
+* Evaluate Plutus scripts and propagate script collection errors across the full transaction batch.
+* Include subtransaction execution units in transaction and block limits and minimum script fees.
 * Remove `WithdrawalsExceedAccountBalance` constructor from `DijkstraUtxoPredFailure`
 * Add `WithdrawalAccountsMissingFromOriginal` constructor to `EntitiesPredFailure`
 * Rename `EntitiesPredFailure` constructors:
@@ -87,6 +152,11 @@
 
 ### `cddl`
 
+* Add a field for `plutus_v4_script`s in `transaction_witness_set`
+* Add `refInputsCostPerMultiAssetPolicy` and `refInputsCostPerDatumByte` entries (tags 55-56) in `protocol_param_update`
+* Add Peras protocol parameter entries (tags 49-54) in `protocol_param_update`
+* Rename the `eb_announcement` rule to `eb_references_announcement`
+* Add `header_version_info` rule and use it in `header_body` in place of `protocol_version`
 * Key `account_balance_intervals` and `starting_account_balance_intervals` by `reward_account` instead of `credential`
 * Replace the `transaction` and `transaction_mempool` rules with `block_transaction` and `mempool_transaction`
 * Remove the `invalid_transactions` rule and drop the field from `block_body`
@@ -96,6 +166,24 @@
 
 ### `testlib`
 
+* Fix `Arbitrary` instance for `DijkstraPoolPredFailure` to preserve the CBOR round-trip
+  invariant of `StakePoolRetirementWrongEpochPOOL`
+* Add `Test.Cardano.Ledger.Dijkstra.Imp.SubLedgerSpec`
+* Add `declareTreasurySubTx`
+* Add `InjectRuleFailure "LEDGER" DijkstraSubLedgerPredFailure era` as a superclass of `DijkstraEraImp`
+* Add `Test.Cardano.Ledger.Dijkstra.Imp.BbodySpec`
+* Add `DijkstraEraBlockBody era` and `InjectRuleFailure "BBODY" DijkstraBbodyPredFailure era` superclasses to `DijkstraEraImp`
+* Add `switchTxToPhase2InvalidLegacyMode`
+* Add `Test.Cardano.Ledger.Dijkstra.Imp.MempoolSpec`
+* Add `submitFailingMempoolTx` and `expectMempoolRejection`
+* Add `ToExpr` instance for `ApplyTxError DijkstraEra`
+* Add `Test.Cardano.Ledger.Dijkstra.Imp.SubGovSpec`
+* Add `voteSubTx`
+* Add `InjectRuleFailure "LEDGER" DijkstraGovPredFailure era` and
+  `InjectRuleFailure "LEDGER" DijkstraSubGovPredFailure era` as superclasses of `DijkstraEraImp`
+* Add `Test.Cardano.Ledger.Dijkstra.Imp.SubUtxoSpec`
+* Add `submitFailingSubTx`
+* Preserve explicitly supplied redeemers when fixing up subtransactions.
 * Add `InjectRuleFailure "LEDGER" DijkstraSubUtxowPredFailure era` as a superclass of `DijkstraEraImp`
 * Add `mkTopTxWithSubTxs`, `traverseSubTxs` and `withPostFixupSubTxs`
 * Add `Test.Cardano.Ledger.Dijkstra.Imp.SubUtxowSpec`

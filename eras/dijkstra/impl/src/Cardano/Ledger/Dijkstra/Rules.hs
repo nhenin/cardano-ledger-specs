@@ -6,6 +6,8 @@
 
 module Cardano.Ledger.Dijkstra.Rules (
   module Cardano.Ledger.Dijkstra.Rules.Bbody,
+  module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting,
+  module Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration,
   module Cardano.Ledger.Dijkstra.Rules.Entities,
   module Cardano.Ledger.Dijkstra.Rules.Gov,
   module Cardano.Ledger.Dijkstra.Rules.GovCert,
@@ -20,6 +22,7 @@ module Cardano.Ledger.Dijkstra.Rules (
   module Cardano.Ledger.Dijkstra.Rules.SubGov,
   module Cardano.Ledger.Dijkstra.Rules.SubLedger,
   module Cardano.Ledger.Dijkstra.Rules.SubLedgers,
+  module Cardano.Ledger.Dijkstra.Rules.Pool,
   module Cardano.Ledger.Dijkstra.Rules.SubPool,
   module Cardano.Ledger.Dijkstra.Rules.SubUtxo,
   module Cardano.Ledger.Dijkstra.Rules.SubUtxow,
@@ -35,6 +38,8 @@ import Cardano.Ledger.Dijkstra.Rules.Bbody
 import Cardano.Ledger.Dijkstra.Rules.Cert ()
 import Cardano.Ledger.Dijkstra.Rules.Certs ()
 import Cardano.Ledger.Dijkstra.Rules.Deleg ()
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration
 import Cardano.Ledger.Dijkstra.Rules.Entities
 import Cardano.Ledger.Dijkstra.Rules.Epoch ()
 import Cardano.Ledger.Dijkstra.Rules.Gov
@@ -42,7 +47,7 @@ import Cardano.Ledger.Dijkstra.Rules.GovCert
 import Cardano.Ledger.Dijkstra.Rules.Ledger
 import Cardano.Ledger.Dijkstra.Rules.Ledgers ()
 import Cardano.Ledger.Dijkstra.Rules.Mempool
-import Cardano.Ledger.Dijkstra.Rules.Pool ()
+import Cardano.Ledger.Dijkstra.Rules.Pool
 import Cardano.Ledger.Dijkstra.Rules.Snap (maxKeyAgeEpochs)
 import Cardano.Ledger.Dijkstra.Rules.SubCert
 import Cardano.Ledger.Dijkstra.Rules.SubCerts

@@ -442,8 +442,9 @@ utxoStateSpec ::
   Specification (UTxOState era)
 utxoStateSpec pp univ certstate =
   constrained $ \ [var|utxoState|] ->
-    match utxoState $ \ [var|utxo|] [var|deposits|] [var|fees|] [var|gov|] [var|distr|] [var|donation|] ->
-      [ assert $ donation ==. lit (Coin 0)
+    match utxoState $ \ [var|utxo|] [var|deposits|] [var|fees|] [var|gov|] [var|distr|] [var|donation|] [var|depositStore|] ->
+      [ assert $ depositStore ==. lit (DepositStore (Coin 0) mempty)
+      , assert $ donation ==. lit (Coin 0)
       , reify
           certstate
           (sumObligation . obligationCertState)
@@ -506,20 +507,19 @@ ledgerStateSpec pp univ ctx epoch =
 snapShotSpec :: Specification SnapShot
 snapShotSpec =
   constrained $ \ [var|snap|] ->
-    match snap $ \ [var|activeStake|] [var|totalActiveStake|] [var|pools|] [var|committee|] ->
+    match snap $ \ [var|activeStake|] [var|totalActiveStake|] [var|pools|] ->
       [ assert $ activeStake ==. lit (ActiveStake VMap.empty)
       , assert $ totalActiveStake ==. lit (knownNonZeroCoin @1)
       , assert $ pools ==. lit VMap.empty
-      , assert $ committee ==. lit emptyLeiosCommittee
       ]
 
--- | The set/go snapshots wrap an empty base snapshot; their derived fields
--- (pool distribution, committee) are left unconstrained.
 setSnapShotSpec :: Specification SetSnapShot
 setSnapShotSpec =
   constrained $ \ [var|set|] ->
-    match set $ \ [var|snap|] _pooldistr _committee ->
-      satisfies snap snapShotSpec
+    match set $ \ [var|snap|] [var|pooldistr|] _committee ->
+      [ satisfies snap snapShotSpec
+      , reify snap calculatePoolDistr $ \ [var|pd|] -> pooldistr ==. pd
+      ]
 
 goSnapShotSpec :: Specification GoSnapShot
 goSnapShotSpec =
@@ -531,12 +531,13 @@ snapShotsSpec ::
   Era era => Term SnapShot -> Specification (SnapShots era)
 snapShotsSpec marksnap =
   constrained $ \ [var|snap|] ->
-    match snap $ \ [var|mark|] [var|pooldistr|] [var|set|] [var|_go|] _fee ->
-      [ match mark $ \ [var|marksnap'|] _epochNo _size ->
-          assert $ marksnap' ==. marksnap
+    match snap $ \ [var|mark|] [var|set|] [var|_go|] _fee ->
+      [ match mark $ \ [var|marksnap'|] [var|pooldistr|] _epochNo _size _maxKeyAge _committee ->
+          [ assert $ marksnap' ==. marksnap
+          , reify marksnap calculatePoolDistr $ \ [var|pd|] -> pooldistr ==. pd
+          ]
       , satisfies set setSnapShotSpec
       , satisfies _go goSnapShotSpec
-      , reify marksnap calculatePoolDistr $ \ [var|pd|] -> pooldistr ==. pd
       ]
 
 -- | The Mark SnapShot (at the epochboundary) is a pure function of the LedgerState
@@ -576,9 +577,6 @@ epochStateSpec pp univ certctx epoch =
       , match nonmyopic $ \ [var|x|] [var|c|] -> [assert $ x ==. lit mempty, assert $ c ==. lit (Coin 0)]
       ]
 
-getPoolDistr :: forall era. EpochState era -> PoolDistr
-getPoolDistr es = ssStakeMarkPoolDistr (esSnapshots es)
-
 -- | Used for Eras where StashedAVVMAddresses era ~ () (Allegra,Mary,Alonzo,Babbage,Conway)
 -- The 'newEpochStateSpec' method (of (EraSpecLedger era) class) in the instances for (Allegra,Mary,Alonzo,Babbage,Conway)
 newEpochStateSpec ::
@@ -595,10 +593,9 @@ newEpochStateSpec pp univ certctx =
     ( \ [var|newEpochState|] ->
         match
           (newEpochState :: Term (NewEpochState era))
-          ( \ [var|eno|] [var|blocksPrev|] [var|blocksCurr|] [var|epochstate|] _mpulser [var|pooldistr|] [var|stashAvvm|] ->
+          ( \ [var|eno|] [var|blocksPrev|] [var|blocksCurr|] [var|epochstate|] _mpulser [var|stashAvvm|] ->
               [ satisfies epochstate (epochStateSpec @era pp univ certctx eno)
               , satisfies stashAvvm (constrained (\ [var|x|] -> x ==. lit ()))
-              , reify epochstate getPoolDistr $ \ [var|pd|] -> pooldistr ==. pd
               , match blocksPrev (genHint 3)
               , match blocksCurr (genHint 3)
               ]

@@ -14,6 +14,7 @@ module Cardano.Ledger.Dijkstra.UTxO (
   dijkstraConsumed,
   getDijkstraScriptsNeeded,
   getDijkstraScriptsProvided,
+  getDijkstraSupplementalDataHashes,
   scriptsProvidedDijkstraStAnnTx,
   batchNonDistinctRefScriptsSize,
   localProducedValue,
@@ -32,7 +33,7 @@ import Cardano.Ledger.Babbage.UTxO (
   getBabbageSupplementalDataHashes,
  )
 import Cardano.Ledger.BaseTypes (inject)
-import Cardano.Ledger.Coin (Coin)
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway.TxBody (conwayProposalsDeposits)
 import Cardano.Ledger.Conway.UTxO (
   getConwayMinFeeTxUtxo,
@@ -43,6 +44,7 @@ import Cardano.Ledger.Conway.UTxO (
 import Cardano.Ledger.Credential (Credential, credScriptHash)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (declaredTopTxNetUTxODeposit)
 import Cardano.Ledger.Dijkstra.Scripts (DijkstraEraScript (..))
 import Cardano.Ledger.Dijkstra.State
 import Cardano.Ledger.Dijkstra.Tx (DijkstraStAnnTx (..))
@@ -91,7 +93,9 @@ getConsumedDijkstraValue pp lookupStakingDeposit utxo txBody =
   withBothTxLevels
     txBody
     ( \topTxBody ->
-        txBodyConsumedValue topTxBody <> subTransactionsConsumedValue topTxBody
+        txBodyConsumedValue topTxBody
+          <> subTransactionsConsumedValue topTxBody
+          <> inject (declaredDepositRelease topTxBody)
     )
     txBodyConsumedValue
   where
@@ -117,6 +121,7 @@ dijkstraProducedValue pp isRegPoolId topTxBody =
     <> foldMap' (localProducedValue pp . (^. bodyTxL)) subTxs
     <> inject (topTxBody ^. feeTxBodyL)
     <> inject (getTotalDepositsTxCerts pp isRegPoolId batchTxCerts)
+    <> inject (declaredDepositAllocation topTxBody)
   where
     -- add all values that are produced by both top and sub-transactions
     -- Certs are excluded, since they need to be processed separately
@@ -125,6 +130,19 @@ dijkstraProducedValue pp isRegPoolId topTxBody =
       foldMap' (^. bodyTxL . certsTxBodyL) subTxs
         <> (topTxBody ^. certsTxBodyL)
     subTxs = topTxBody ^. subTransactionsTxBodyL
+
+-- | A batch releases Store ADA once, through TopTx's total declaration.
+-- Exactness is validated independently against the recorded input deposits.
+declaredDepositRelease :: DijkstraEraTxBody era => TxBody TopTx era -> Coin
+declaredDepositRelease txBody =
+  case declaredTopTxNetUTxODeposit (txBody ^. netUTxODepositChangeTxBodyL) of
+    Coin amount -> Coin $ max 0 (negate amount)
+
+-- | The batch's net allocation is produced into the Store, not into a TxOut.
+declaredDepositAllocation :: DijkstraEraTxBody era => TxBody TopTx era -> Coin
+declaredDepositAllocation txBody =
+  case declaredTopTxNetUTxODeposit (txBody ^. netUTxODepositChangeTxBodyL) of
+    Coin amount -> Coin $ max 0 amount
 
 -- | Produced value that is local to a single transaction body, that is, the part
 -- that can be summed independently for each body in a batch.
@@ -138,7 +156,7 @@ localProducedValue ::
   TxBody l era ->
   MaryValue
 localProducedValue pp txBody =
-  sumAllValue (txBody ^. outputsTxBodyL)
+  unAssets (sumAllAssets (txBody ^. outputsTxBodyL))
     <> inject (txBody ^. treasuryDonationTxBodyL)
     <> inject (conwayProposalsDeposits pp txBody)
     <> burnedMultiAssets txBody
@@ -197,7 +215,7 @@ getDijkstraScriptsNeeded utxo txb =
           \(AsIxItem idx cred) -> (\sh -> (GuardingPurpose (AsIxItem idx sh), sh)) <$> credScriptHash cred
 
 instance AlonzoEraUTxO DijkstraEra where
-  getSupplementalDataHashes = getBabbageSupplementalDataHashes
+  getSupplementalDataHashes = getDijkstraSupplementalDataHashes
 
   getSpendingDatum = getBabbageSpendingDatum
 
@@ -208,6 +226,25 @@ instance AlonzoEraUTxO DijkstraEra where
   plutusScriptsWithContextStAnnTx = plutusScriptsWithContextDijkstraStAnnTx
 
   plutusLanguagesUsedStAnnTx = plutusLanguagesUsedDijkstraStAnnTx
+
+getDijkstraSupplementalDataHashes ::
+  ( EraTx era
+  , DijkstraEraTxBody era
+  , STxLevel l era ~ STxBothLevels l era
+  ) =>
+  UTxO era ->
+  TxBody l era ->
+  Set DataHash
+getDijkstraSupplementalDataHashes utxo txBody =
+  withBothTxLevels
+    txBody
+    ( \topTxBody ->
+        getBabbageSupplementalDataHashes utxo topTxBody
+          <> foldMap'
+            (getBabbageSupplementalDataHashes utxo . view bodyTxL)
+            (topTxBody ^. subTransactionsTxBodyL)
+    )
+    (getBabbageSupplementalDataHashes utxo)
 
 scriptsProvidedDijkstraStAnnTx ::
   ( EraTxLevel era

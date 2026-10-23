@@ -1,0 +1,62 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
+
+-- | Execute declaration scenarios against the test ledger, keeping transaction
+-- preparation and submission mechanics outside the domain specification.
+module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Declaration (
+  ExpectedSubmission (..),
+  declarationScenarios,
+) where
+
+import Cardano.Ledger.Dijkstra (DijkstraEra)
+import Cardano.Ledger.Dijkstra.Core (IsPhase2Valid (..))
+import Cardano.Ledger.Dijkstra.Rules (DijkstraUtxoPredFailure)
+import Test.Cardano.Ledger.Common (Spec, forM_, it)
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration as Fixture
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
+  buildTxWithUTxODepositDeclarations,
+  preparePhase2InvalidBatch,
+  submitPreparedTxAndExpectAcceptance,
+  submitPreparedTxAndExpectRejection,
+  submitTxAndExpectRejection,
+  submitTxAndExpectSuccess,
+ )
+import Test.Cardano.Ledger.Dijkstra.ImpTest (LedgerSpec)
+import Test.Cardano.Ledger.Imp.Common (withImpInit)
+
+-- | The expected ledger submission result, stated independently in each row.
+data ExpectedSubmission
+  = Accepted
+  | Rejected (DijkstraUtxoPredFailure DijkstraEra)
+
+-- | Register each row as a separate named test with fresh ledger state.
+-- Rows contain the requirement, a declarations fixture,
+-- phase-2 outcome and expected submission result.
+--
+-- Build funded transactions with implicit-deposit outputs and no Store operations,
+-- preserving the declarations. For phase-2-invalid rows, prepare a failing script
+-- and collateral before submission. Rejection checks also require unchanged state.
+declarationScenarios ::
+  [ ( String
+    , Fixture.Declarations
+    , IsPhase2Valid
+    , ExpectedSubmission
+    )
+  ] ->
+  Spec
+declarationScenarios scenarios =
+  withImpInit @(LedgerSpec DijkstraEra) $
+    forM_ scenarios $ \(requirement, declarations, phase2, expected) ->
+      it requirement $ case (phase2, expected) of
+        (Phase2Valid, Accepted) ->
+          buildTxWithUTxODepositDeclarations declarations >>= submitTxAndExpectSuccess
+        (Phase2Valid, Rejected failure) ->
+          buildTxWithUTxODepositDeclarations declarations >>= submitTxAndExpectRejection failure
+        (Phase2Invalid, Accepted) ->
+          buildTxWithUTxODepositDeclarations declarations
+            >>= preparePhase2InvalidBatch
+            >>= submitPreparedTxAndExpectAcceptance
+        (Phase2Invalid, Rejected failure) ->
+          buildTxWithUTxODepositDeclarations declarations
+            >>= preparePhase2InvalidBatch
+            >>= submitPreparedTxAndExpectRejection failure

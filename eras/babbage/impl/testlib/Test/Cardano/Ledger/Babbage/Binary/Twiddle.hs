@@ -26,6 +26,9 @@ instance Twiddle a => Twiddle (Sized a)
 instance (EraScript era, Val (Value era)) => Twiddle (BabbageTxOut era) where
   twiddle v = twiddle v . toTerm v
 
+instance Twiddle (TxOut BabbageEra) where
+  twiddle v (ImplicitDepositTxOut implicitOutput) = twiddle v implicitOutput
+
 instance Twiddle (TxBody TopTx BabbageEra) where
   twiddle v txBody = do
     inputs' <- twiddle v $ btbInputs txBody

@@ -2,6 +2,12 @@
 
 module Cardano.Ledger.Dijkstra.Core (
   DijkstraEraTxBody (..),
+  NetUTxODepositChange (..),
+  TopTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  SubTxNetUTxODepositChange (..),
+  SubTxUTxODepositDeclaration,
+  SubTxReleaseTarget (..),
   DijkstraBlockBody (..),
   module Cardano.Ledger.Conway.Core,
   DirectDeposits (..),
@@ -12,4 +18,12 @@ import Cardano.Ledger.Address (DirectDeposits (..))
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Dijkstra.BlockBody (DijkstraBlockBody (..))
 import Cardano.Ledger.Dijkstra.Scripts (pattern GuardingPurpose)
-import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DijkstraEraTxBody (..),
+  NetUTxODepositChange (..),
+  SubTxNetUTxODepositChange (..),
+  SubTxReleaseTarget (..),
+  SubTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  TopTxUTxODepositDeclaration,
+ )

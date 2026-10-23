@@ -78,8 +78,8 @@ initUTxO :: UTxO MaryEra
 initUTxO =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial bootstrapTxId 0, mkCoinTxOut Cast.aliceAddr aliceInitCoin)
-      , (mkTxInPartial bootstrapTxId 1, mkCoinTxOut Cast.bobAddr bobInitCoin)
+      [ (mkTxInPartial bootstrapTxId 0, ImplicitDepositTxOut $ mkCoinTxOut Cast.aliceAddr aliceInitCoin)
+      , (mkTxInPartial bootstrapTxId 1, ImplicitDepositTxOut $ mkCoinTxOut Cast.bobAddr bobInitCoin)
       ]
 
 pp :: PParams MaryEra
@@ -164,7 +164,7 @@ txbodySimpleEx1 :: TxBody TopTx MaryEra
 txbodySimpleEx1 =
   makeMaryTxBody
     [mkTxInPartial bootstrapTxId 0]
-    [mkBasicTxOut Cast.aliceAddr tokensSimpleEx1]
+    [mkBasicTxOutWithImplicitDeposit Cast.aliceAddr tokensSimpleEx1]
     unboundedInterval
     mintSimpleEx1
 
@@ -180,8 +180,14 @@ expectedUTxOSimpleEx1 :: UTxO MaryEra
 expectedUTxOSimpleEx1 =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodySimpleEx1) 0, mkBasicTxOut Cast.aliceAddr tokensSimpleEx1)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx1) 0
+        , mkBasicTxOutWithImplicitDeposit Cast.aliceAddr tokensSimpleEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 ----------------------------
@@ -211,8 +217,8 @@ txbodySimpleEx2 :: TxBody TopTx MaryEra
 txbodySimpleEx2 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodySimpleEx1) 0]
-    [ mkBasicTxOut Cast.aliceAddr aliceTokensSimpleEx2
-    , mkBasicTxOut Cast.bobAddr bobTokensSimpleEx2
+    [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceTokensSimpleEx2
+    , mkBasicTxOutWithImplicitDeposit Cast.bobAddr bobTokensSimpleEx2
     ]
     unboundedInterval
     mempty
@@ -228,9 +234,18 @@ expectedUTxOSimpleEx2 :: UTxO MaryEra
 expectedUTxOSimpleEx2 =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodySimpleEx2) 0, mkBasicTxOut Cast.aliceAddr aliceTokensSimpleEx2)
-      , (mkTxInPartial (txIdTxBody txbodySimpleEx2) 1, mkBasicTxOut Cast.bobAddr bobTokensSimpleEx2)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx2) 0
+        , mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceTokensSimpleEx2
+        )
+      ,
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx2) 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr bobTokensSimpleEx2
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 ------------------------------------------------------------
@@ -287,7 +302,7 @@ txbodyTimeEx1 :: StrictMaybe SlotNo -> StrictMaybe SlotNo -> TxBody TopTx MaryEr
 txbodyTimeEx1 s e =
   makeMaryTxBody
     [mkTxInPartial bootstrapTxId 0]
-    [mkBasicTxOut Cast.aliceAddr tokensTimeEx1]
+    [mkBasicTxOutWithImplicitDeposit Cast.aliceAddr tokensTimeEx1]
     (ValidityInterval s e)
     mintTimeEx1
 
@@ -321,8 +336,14 @@ expectedUTxOTimeEx1 :: UTxO MaryEra
 expectedUTxOTimeEx1 =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodyTimeEx1Valid) 0, mkBasicTxOut Cast.aliceAddr tokensTimeEx1)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodyTimeEx1Valid) 0
+        , mkBasicTxOutWithImplicitDeposit Cast.aliceAddr tokensTimeEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 ----------------------------------------
@@ -346,8 +367,8 @@ txbodyTimeEx2 :: TxBody TopTx MaryEra
 txbodyTimeEx2 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodyTimeEx1Valid) 0]
-    [ mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
-    , mkBasicTxOut Cast.bobAddr bobTokensTimeEx2
+    [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
+    , mkBasicTxOutWithImplicitDeposit Cast.bobAddr bobTokensTimeEx2
     ]
     unboundedInterval
     mempty
@@ -365,10 +386,16 @@ expectedUTxOTimeEx2 =
     Map.fromList
       [
         ( mkTxInPartial (txIdTxBody txbodyTimeEx2) 0
-        , mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
+        , mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
         )
-      , (mkTxInPartial (txIdTxBody txbodyTimeEx2) 1, mkBasicTxOut Cast.bobAddr bobTokensTimeEx2)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      ,
+        ( mkTxInPartial (txIdTxBody txbodyTimeEx2) 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr bobTokensTimeEx2
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 --------------------------------------------------------------
@@ -407,7 +434,7 @@ txbodySingWitEx1 :: TxBody TopTx MaryEra
 txbodySingWitEx1 =
   makeMaryTxBody
     [mkTxInPartial bootstrapTxId 1]
-    [mkBasicTxOut Cast.bobAddr tokensSingWitEx1]
+    [mkBasicTxOutWithImplicitDeposit Cast.bobAddr tokensSingWitEx1]
     unboundedInterval
     mintSingWitEx1
 
@@ -423,8 +450,14 @@ expectedUTxOSingWitEx1 :: UTxO MaryEra
 expectedUTxOSingWitEx1 =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodySingWitEx1) 0, mkBasicTxOut Cast.bobAddr tokensSingWitEx1)
-      , (mkTxInPartial bootstrapTxId 0, mkBasicTxOut Cast.aliceAddr (Val.inject aliceInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodySingWitEx1) 0
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr tokensSingWitEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 0
+        , mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceInitCoin)
+        )
       ]
 
 txSingWitEx1Invalid :: Tx TopTx MaryEra
@@ -461,7 +494,7 @@ txbodyNegEx1 :: TxBody TopTx MaryEra
 txbodyNegEx1 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodySimpleEx2) 0]
-    [mkBasicTxOut Cast.aliceAddr aliceTokensNegEx1]
+    [mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceTokensNegEx1]
     unboundedInterval
     mintNegEx1
 
@@ -480,9 +513,18 @@ expectedUTxONegEx1 :: UTxO MaryEra
 expectedUTxONegEx1 =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodyNegEx1) 0, mkBasicTxOut Cast.aliceAddr aliceTokensNegEx1)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
-      , (mkTxInPartial (txIdTxBody txbodySimpleEx2) 1, mkBasicTxOut Cast.bobAddr bobTokensSimpleEx2)
+      [
+        ( mkTxInPartial (txIdTxBody txbodyNegEx1) 0
+        , mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceTokensNegEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
+        )
+      ,
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx2) 1
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr bobTokensSimpleEx2
+        )
       ]
 
 --
@@ -505,7 +547,7 @@ txbodyNegEx2 :: TxBody TopTx MaryEra
 txbodyNegEx2 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodySimpleEx2) 0]
-    [mkBasicTxOut Cast.aliceAddr aliceTokensNegEx2]
+    [mkBasicTxOutWithImplicitDeposit Cast.aliceAddr aliceTokensNegEx2]
     unboundedInterval
     mintNegEx2
 
@@ -530,7 +572,7 @@ smallValue =
 
 smallOut :: TxOut MaryEra
 smallOut =
-  mkBasicTxOut Cast.aliceAddr $
+  mkBasicTxOutWithImplicitDeposit Cast.aliceAddr $
     MaryValue mempty smallValue
       <+> Val.inject (aliceInitCoin <-> (feeEx <+> minUtxoBigEx))
 
@@ -545,7 +587,9 @@ bigValue =
       (Map.fromList $ map (\x -> (AssetName . fromString $ show x, 1)) [1 .. numAssets])
 
 bigOut :: TxOut MaryEra
-bigOut = mkBasicTxOut Cast.aliceAddr $ MaryValue mempty bigValue <+> Val.inject minUtxoBigEx
+bigOut =
+  mkBasicTxOutWithImplicitDeposit Cast.aliceAddr $
+    MaryValue mempty bigValue <+> Val.inject minUtxoBigEx
 
 txbodyWithBigValue :: TxBody TopTx MaryEra
 txbodyWithBigValue =

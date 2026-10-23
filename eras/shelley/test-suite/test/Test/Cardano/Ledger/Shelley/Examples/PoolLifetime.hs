@@ -31,10 +31,8 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Block (Block (blockHeader))
 import Cardano.Ledger.Coin (
   Coin (..),
-  CompactForm (CompactCoin),
   DeltaCoin (..),
   addDeltaCoin,
-  knownNonZeroCoin,
   toDeltaCoin,
  )
 import Cardano.Ledger.Compactible
@@ -74,7 +72,6 @@ import Cardano.Protocol.TPraos.OCert (KESPeriod (..))
 import Data.Default (def)
 import Data.Group (invert)
 import qualified Data.Map.Strict as Map
-import Data.Maybe.Strict (StrictMaybe (SNothing))
 import Data.Ratio ((%))
 import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
@@ -138,8 +135,8 @@ initUTxO :: UTxO ShelleyEra
 initUTxO =
   genesisCoins
     genesisId
-    [ mkBasicTxOut Cast.aliceAddr (Val.inject aliceInitCoin)
-    , mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin)
+    [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceInitCoin)
+    , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
     ]
 
 initStPoolLifetime :: ChainState ShelleyEra
@@ -169,7 +166,8 @@ txbodyEx1 :: TxBody TopTx ShelleyEra
 txbodyEx1 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinEx1)]
+    & outputsTxBodyL
+      .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinEx1)]
     & certsTxBodyL
       .~ StrictSeq.fromList
         ( [ RegTxCert Cast.aliceSHK
@@ -273,8 +271,8 @@ txbodyEx2 =
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx1) minBound]
     & outputsTxBodyL
       .~ StrictSeq.fromList
-        [ mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinEx2Base)
-        , mkBasicTxOut Cast.alicePtrAddr (Val.inject aliceCoinEx2Ptr)
+        [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinEx2Base)
+        , mkBasicTxOutWithImplicitDeposit Cast.alicePtrAddr (Val.inject aliceCoinEx2Ptr)
         ]
     & certsTxBodyL
       .~ StrictSeq.fromList
@@ -415,7 +413,8 @@ txbodyEx4 :: TxBody TopTx ShelleyEra
 txbodyEx4 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx2) minBound]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinEx4Base)]
+    & outputsTxBodyL
+      .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinEx4Base)]
     & certsTxBodyL
       .~ StrictSeq.fromList
         [DelegStakeTxCert Cast.carlSHK (aikColdKeyHash Cast.alicePoolKeys)]
@@ -521,26 +520,11 @@ snapEx5 =
 poolParamsEx5 :: [StakePoolParams era]
 poolParamsEx5 = [Cast.aliceStakePoolParams]
 
-pdEx5 :: PoolDistr
-pdEx5 =
-  PoolDistr
-    ( Map.singleton
-        (aikColdKeyHash Cast.alicePoolKeys)
-        ( IndividualPoolStake
-            1
-            (CompactCoin 1)
-            Cast.aliceVRFKeyHash
-            SNothing
-        )
-    )
-    (knownNonZeroCoin @1)
-
 expectedStEx5 :: ChainState ShelleyEra
 expectedStEx5 =
   C.newEpoch blockEx5
     . C.newSnapshot snapEx5 feeTx4
     . C.applyRewardUpdate rewardUpdateEx4
-    . C.setPoolDistr pdEx5
     . C.setOCertCounter coreNodeHK 1
     $ expectedStEx4
   where
@@ -810,7 +794,8 @@ txbodyEx10 :: TxBody TopTx ShelleyEra
 txbodyEx10 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [mkTxInPartial genesisId 1]
-    & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut Cast.bobAddr (Val.inject bobAda10))
+    & outputsTxBodyL
+      .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobAda10))
     & certsTxBodyL .~ StrictSeq.fromList [UnRegTxCert Cast.bobSHK]
     & withdrawalsTxBodyL
       .~ Withdrawals (Map.singleton (AccountAddress Testnet (AccountId Cast.bobSHK)) bobRAcnt8)
@@ -875,7 +860,9 @@ txbodyEx11 :: TxBody TopTx ShelleyEra
 txbodyEx11 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx4) minBound]
-    & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut Cast.alicePtrAddr (Val.inject aliceCoinEx11Ptr))
+    & outputsTxBodyL
+      .~ StrictSeq.singleton
+        (mkBasicTxOutWithImplicitDeposit Cast.alicePtrAddr (Val.inject aliceCoinEx11Ptr))
     & certsTxBodyL
       .~ StrictSeq.fromList [RetirePoolTxCert (aikColdKeyHash Cast.alicePoolKeys) aliceRetireEpoch]
     & feeTxBodyL .~ feeTx11

@@ -45,7 +45,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  sizedValue,
+  Sized (..),
  )
 import Cardano.Ledger.Binary.Coders (
   Decode (..),
@@ -55,12 +55,21 @@ import Cardano.Ledger.Binary.Coders (
   (!>),
   (<!),
  )
-import Cardano.Ledger.Coin (Coin, DeltaCoin)
+import Cardano.Ledger.Coin (Coin (..), DeltaCoin)
 import Cardano.Ledger.Conway.Core
 import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, UTXO)
+import qualified Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting as DepositStore
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral (validateCollateralFunding)
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  DepositStoreDeclarationFailure (..),
+  DepositStoreOutputDeclarationFailure (..),
+  validateTopTxAllocationDeclarationPresence,
+  validateTopTxNetUTxODepositDeclaration,
+  validateTopTxReleaseDeclarationPresence,
+ )
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (
@@ -68,12 +77,14 @@ import Cardano.Ledger.Dijkstra.UTxO (
   dijkstraConsumed,
   plutusLegacyModeStAnnTxG,
  )
+import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (OrdExUnits)
 import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
 import Control.Monad (when)
 import Control.Monad.Trans.Reader (asks)
@@ -89,6 +100,7 @@ import Control.State.Transition.Extended (
   validate,
  )
 import Data.Bifunctor
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
 import qualified Data.Map.Strict as Map
@@ -96,7 +108,7 @@ import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
 import Lens.Micro
-import Validation (failureUnless)
+import Validation (Validation, failureUnless)
 
 data UtxoEnv era = UtxoEnv
   { ueSlot :: SlotNo
@@ -168,6 +180,11 @@ data DijkstraUtxoPredFailure era
   | -- | Legacy-mode top-level transaction does not self-balance
     ValueNotConservedInLegacyMode
       (Mismatch RelEQ (Value era))
+  | -- | A SubTx declares a net UTxO capacity deposit change but TopTx does not.
+    MissingTopTxUTxODepositDeclaration
+  | -- | This body creates or spends a store-backed output without its own UTxO deposit declaration.
+    MissingUTxODepositDeclaration
+  | DepositStoreFailure !DepositStore.DepositStoreAccountingFailure
   deriving (Generic)
 
 type instance EraRuleFailure "UTXO" DijkstraEra = DijkstraUtxoPredFailure DijkstraEra
@@ -242,6 +259,16 @@ instance
   ) =>
   NFData (DijkstraUtxoPredFailure era)
 
+depositStoreDeclarationToUtxoPredFailure ::
+  DepositStoreDeclarationFailure -> DijkstraUtxoPredFailure era
+depositStoreDeclarationToUtxoPredFailure = \case
+  MissingTopTxDeclaration -> MissingTopTxUTxODepositDeclaration
+
+depositStoreOutputDeclarationToUtxoPredFailure ::
+  DepositStoreOutputDeclarationFailure -> DijkstraUtxoPredFailure era
+depositStoreOutputDeclarationToUtxoPredFailure MissingBodyUTxODepositDeclaration =
+  MissingUTxODepositDeclaration
+
 validateNoPtrInCollateralReturn ::
   ( BabbageEraTxBody era
   , InjectRuleFailure rule DijkstraUtxoPredFailure era
@@ -266,16 +293,23 @@ validateBatchCollateral ::
   PParams era ->
   Tx TopTx era ->
   UTxO era ->
+  DepositStore ->
   Test (EraRuleFailure rule era)
-validateBatchCollateral pp tx (UTxO utxo) =
-  -- TODO OPTIMIZATION: Rewrite in a way that doesn't require this check when rules are executed without validation
-  when (hasAnyRedeemers tx) $
-    Babbage.validateTotalCollateral pp (tx ^. bodyTxL) utxoCollateral
-  where
-    utxoCollateral = Map.restrictKeys utxo (tx ^. bodyTxL . collateralInputsTxBodyL)
-    hasAnyRedeemers t =
-      hasRedeemers t || any hasRedeemers (t ^. bodyTxL . subTransactionsTxBodyL)
-    hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
+validateBatchCollateral pp tx (UTxO utxo) store =
+  when (hasBatchRedeemers tx) $
+    validateCollateralFunding
+      pp
+      (tx ^. bodyTxL)
+      (Map.restrictKeys utxo $ tx ^. bodyTxL . collateralInputsTxBodyL)
+      store
+
+-- | A SubTx's redeemers trigger collateral validation for the complete batch.
+hasBatchRedeemers :: (AlonzoEraTx era, DijkstraEraTxBody era) => Tx TopTx era -> Bool
+hasBatchRedeemers tx =
+  hasRedeemers tx || any hasRedeemers (tx ^. bodyTxL . subTransactionsTxBodyL)
+
+hasRedeemers :: AlonzoEraTx era => Tx l era -> Bool
+hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
 
 -- | Ensure that value consumed and produced matches up exactly,  aggregated across the entire batch
 -- (top-level transaction and all its sub-transactions).
@@ -297,6 +331,25 @@ validateValueNotConservedUTxO pp utxo pState txBody =
   where
     consumedValue = dijkstraConsumed pp utxo txBody
     producedValue = produced pp pState txBody
+
+-- | Legacy self-balance uses TopTx's attributed share, excluding locally
+-- accounted SubTx contributions while retaining explicitly delegated amounts.
+validateLegacyValueNotConservedUTxO ::
+  (EraUTxO era, DijkstraEraTxBody era) =>
+  PParams era ->
+  UTxO era ->
+  PState era ->
+  TxBody TopTx era ->
+  Validation (NonEmpty (Mismatch RelEQ (Value era))) ()
+validateLegacyValueNotConservedUTxO pp utxo pState body =
+  let Coin topTxNetDeposit = DepositStore.attributedTopTxNetUTxODeposit body
+      ordinaryBody =
+        body
+          & subTransactionsTxBodyL .~ mempty
+          & netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
+      consumedValue = dijkstraConsumed pp utxo ordinaryBody <> inject (Coin $ max 0 $ negate topTxNetDeposit)
+      producedValue = produced pp pState ordinaryBody <> inject (Coin $ max 0 topTxNetDeposit)
+   in failureUnless (consumedValue == producedValue) $ Mismatch consumedValue producedValue
 
 dijkstraUtxoTransition ::
   forall era.
@@ -331,6 +384,14 @@ dijkstraUtxoTransition = do
 
   let txBody = tx ^. bodyTxL
 
+  runTestOnSignal $
+    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
+      validateTopTxAllocationDeclarationPresence txBody
+
+  runTestOnSignal $
+    first (fmap depositStoreDeclarationToUtxoPredFailure) $
+      validateTopTxNetUTxODepositDeclaration txBody
+
   {- inInterval (SlotOf Γ) (ValidIntervalOf txTop) -}
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
@@ -342,8 +403,10 @@ dijkstraUtxoTransition = do
   {- SpendInputs ≠ ∅ -}
   runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txBody
 
-  let allInputs = txBody ^. allInputsTxBodyF
-      inputs = txBody ^. inputsTxBodyL
+  let
+    -- allInputs finds all inputs in a transaction, including sub-transactions
+    allInputs = txBody ^. allInputsTxBodyF
+    inputs = txBody ^. inputsTxBodyL
 
   {- SpendInputsOf txTop ∪ RefInputsOf txTop ∪ CollInputsOf txTop ⊆ dom(utxo₀) -}
   runTest $ Shelley.validateBadInputsUTxO originalUtxo allInputs
@@ -351,38 +414,67 @@ dijkstraUtxoTransition = do
   {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
   runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxos) inputs
 
+  -- Release declaration presence uses the original UTxO on both phase-2 paths.
+  runTest $
+    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
+      validateTopTxReleaseDeclarationPresence originalUtxo txBody
+
+  -- Recorded deposits survive SubTx processing until this complete-batch check.
+  -- Deposit exactness and prospective Store solvency apply on both paths.
+  runTest $
+    first (fmap DepositStoreFailure) $
+      DepositStore.validateOrdinaryDepositStore pp originalUtxo (utxosDepositStore utxos) txBody
+
   {- minfee pp txTop utxo₀ ≤ txfee txb -}
   runTest $ Shelley.validateFeeTooSmallUTxO pp tx originalUtxo
 
   {- (RedeemersOf txTop ≠ ∅ ⊎ Any (λ txSub → RedeemersOf txSub ≠ ∅) subtxs) → collateralCheck -}
-  validate $ validateBatchCollateral pp tx originalUtxo
-
-  {- consumed pp utxo₀ txb = produced pp certState txb -}
-  runTest $
-    first (fmap Shelley.ValueNotConservedUTxO) $
-      validateValueNotConservedUTxO
-        pp
-        originalUtxo
-        originalPState
-        txBody
-
-  {- legacyMode ≡ true → consumedLegacy ≡ producedLegacy -}
-  -- The `PState` has to be the one with all the sub-transactions already applied,
-  -- because if a sub-transaction registered a pool, then the top-transaction
-  -- must not add to the `produced` value if it registers the same pool,
-  -- since it will count as a re-registration.
-  when (stAnnTx ^. plutusLegacyModeStAnnTxG) $
+  validate $ validateBatchCollateral pp tx originalUtxo (utxosDepositStore utxos)
+  when (hasBatchRedeemers tx) $
     runTest $
-      first (fmap ValueNotConservedInLegacyMode) $
+      first (fmap DepositStoreFailure) $
+        DepositStore.validateDepositStoreInputs
+          originalUtxo
+          (utxosDepositStore utxos)
+          (txBody ^. collateralInputsTxBodyL)
+          *> DepositStore.validateDepositStoreSolvency
+            ( DepositStore.collateralStore $
+                DepositStore.collateralDepositSettlement pp originalUtxo (utxosDepositStore utxos) txBody
+            )
+
+  -- If the transaction is phase2-invalid, the `produced` value in legacy mode will
+  -- wrongly include a deposit for a pool that a sub-transaction already registered,
+  -- because the Phase2Invalid flag prevents `postSubsPState` from being updated.
+  -- It is safe to skip the value conservation check here, because we know
+  -- that none of the modifications to the ledger state will happen
+  -- that affect conservation of value when a transaction is phase-2 invalid.
+  -- For consistency, we're skipping the check in both normal and legacy mode.
+  when (tx ^. isPhase2ValidTxL == Phase2Valid) $ do
+    {- consumed pp utxo₀ txb = produced pp certState txb -}
+    runTest $
+      first (fmap Shelley.ValueNotConservedUTxO) $
         validateValueNotConservedUTxO
           pp
           originalUtxo
-          postSubsPState
-          (txBody & subTransactionsTxBodyL .~ mempty)
+          originalPState
+          txBody
 
-  {- ∀ txout ∈ allOuts txb, getValue txout ≥ inject (serSize txout * coinsPerUTxOByte pp) -}
+    {- legacyMode ≡ true → consumedLegacy ≡ producedLegacy -}
+    when (stAnnTx ^. plutusLegacyModeStAnnTxG) $
+      runTest $
+        first (fmap ValueNotConservedInLegacyMode) $
+          validateLegacyValueNotConservedUTxO
+            pp
+            originalUtxo
+            postSubsPState
+            txBody
+
+  -- Apply the byte-based minimum only to implicit-deposit outputs, preserving their cached size.
   let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
-  runTest $ Babbage.validateOutputTooSmallUTxO pp allSizedOutputs
+  runTest $
+    Babbage.validateImplicitDeposits
+      pp
+      [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
 
   let allOutputs = fmap sizedValue allSizedOutputs
   {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}
@@ -412,11 +504,18 @@ dijkstraUtxoTransition = do
   runTest $ Alonzo.validateTooManyCollateralInputs pp txBody
 
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  Babbage.updateUTxOState
-    pp
-    originalCertState
-    tx
-    (Conway.updateTreasuryDonation tx utxos)
+  updated <- Babbage.updateUTxOState pp originalCertState tx (Conway.updateTreasuryDonation tx utxos)
+  pure $ case tx ^. isPhase2ValidTxL of
+    Phase2Valid ->
+      updated
+        { utxosDepositStore = DepositStore.applyOrdinaryDepositStore pp (utxosDepositStore utxos) txBody
+        }
+    Phase2Invalid ->
+      let settlement = DepositStore.collateralDepositSettlement pp originalUtxo (utxosDepositStore utxos) txBody
+       in updated
+            { utxosDepositStore = DepositStore.collateralStore settlement
+            , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
+            }
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -512,6 +611,9 @@ instance
       BabbageNonDisjointRefInputs x -> Sum BabbageNonDisjointRefInputs 21 !> To x
       PtrPresentInCollateralReturn x -> Sum PtrPresentInCollateralReturn 22 !> To x
       ValueNotConservedInLegacyMode mm -> Sum ValueNotConservedInLegacyMode 23 !> To mm
+      MissingTopTxUTxODepositDeclaration -> Sum MissingTopTxUTxODepositDeclaration 24
+      MissingUTxODepositDeclaration -> Sum MissingUTxODepositDeclaration 25
+      DepositStoreFailure failure -> Sum DepositStoreFailure 26 !> To failure
 
 instance
   ( Era era
@@ -546,6 +648,9 @@ instance
     21 -> SumD BabbageNonDisjointRefInputs <! From
     22 -> SumD PtrPresentInCollateralReturn <! From
     23 -> SumD ValueNotConservedInLegacyMode <! From
+    24 -> SumD MissingTopTxUTxODepositDeclaration
+    25 -> SumD MissingUTxODepositDeclaration
+    26 -> SumD DepositStoreFailure <! From
     n -> Invalid n
 
 -- =====================================================

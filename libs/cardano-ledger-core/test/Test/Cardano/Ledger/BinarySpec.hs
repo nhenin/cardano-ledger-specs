@@ -5,11 +5,13 @@ module Test.Cardano.Ledger.BinarySpec (spec) where
 
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary
+import Cardano.Ledger.Block (BlockHeaderVersionInfo)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible
 import Cardano.Ledger.DRep (DRep (..), DRepState (..))
 import Cardano.Ledger.Hashes (EraIndependentData, SafeHash, ScriptHash)
 import Cardano.Ledger.Keys
+import Cardano.Ledger.State (DepositStore)
 import Cardano.Ledger.TxIn
 import qualified PlutusLedgerApi.V1 as PV1
 import Test.Cardano.Ledger.Binary (decoderEquivalenceSpec)
@@ -22,12 +24,14 @@ spec :: Spec
 spec = do
   describe "RoundTrip" $ do
     roundTripCborSpec @Coin
+    roundTripCborSpec @DepositStore
     roundTripCborSpec @(CompactForm Coin)
     prop "Encode CompactCoin - Decode Coin" $
       roundTripExpectation @Coin (mkTrip (encCBOR . compactCoinOrError) decCBOR)
     prop "Encode Coin - Decode CompactCoin" $
       roundTripExpectation @Coin (mkTrip encCBOR (fromCompact <$> decCBOR))
     roundTripCborSpec @ProtVer
+    roundTripCborSpec @BlockHeaderVersionInfo
     roundTripCborSpec @Nonce
     roundTripCborSpec @Url
     roundTripCborSpec @DnsName

@@ -7,6 +7,7 @@ import Cardano.Ledger.Alonzo (AlonzoEra)
 import Cardano.Ledger.Alonzo.Core
 import Cardano.Ledger.Alonzo.Plutus.Context (
   EraPlutusTxInfo (..),
+  LedgerLevelTxInfo (..),
   PlutusTxInfoResult (..),
  )
 import Cardano.Ledger.BaseTypes
@@ -31,7 +32,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       shelleyTxIn <- sendCoinTo shelleyAddr mempty
       utxo <- getUTxO
       let
-        byronTxOut = mkBasicTxOut byronAddr . inject $ Coin 1
+        byronTxOut = mkBasicTxOutWithImplicitDeposit byronAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
         tx =
           mkBasicTx @AlonzoEra mkBasicTxBody
@@ -41,7 +42,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton byronTxOut
-        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx
+        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
       void $ expectRight $ unPlutusTxInfoResult $ toPlutusTxInfo SPlutusV1 lti
     it "toPlutusTxInfo does not fail when Byron scripts are present in TxIns" $ do
       pv <- getProtVer
@@ -51,7 +52,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       byronTxIn <- sendCoinTo byronAddr mempty
       utxo <- getUTxO
       let
-        shelleyTxOut = mkBasicTxOut shelleyAddr . inject $ Coin 1
+        shelleyTxOut = mkBasicTxOutWithImplicitDeposit shelleyAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
         tx =
           mkBasicTx @AlonzoEra mkBasicTxBody
@@ -61,5 +62,5 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton shelleyTxOut
-        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx
+        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
       void $ expectRight $ unPlutusTxInfoResult $ toPlutusTxInfo SPlutusV1 lti

@@ -31,7 +31,6 @@ import qualified Cardano.Ledger.Allegra.Rules as Allegra
 import Cardano.Ledger.Alonzo (AlonzoScript)
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
-import Cardano.Ledger.Babbage (BabbageTxOut)
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.BaseTypes (
   Mismatch (..),
@@ -69,6 +68,7 @@ import Cardano.Ledger.Dijkstra.Rules.Entities (
  )
 import Cardano.Ledger.Dijkstra.Rules.Gov (DijkstraGovPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.GovCert (DijkstraGovCertPredFailure)
+import Cardano.Ledger.Dijkstra.Rules.Pool (DijkstraPoolPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.SubEntities (SubEntitiesPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.SubLedger
 import Cardano.Ledger.Dijkstra.Rules.SubLedgers
@@ -177,6 +177,9 @@ instance InjectRuleFailure "LEDGER" Conway.ConwayDelegPredFailure DijkstraEra wh
   injectFailure = DijkstraEntitiesFailure . injectFailure
 
 instance InjectRuleFailure "LEDGER" Shelley.ShelleyPoolPredFailure DijkstraEra where
+  injectFailure = DijkstraEntitiesFailure . injectFailure
+
+instance InjectRuleFailure "LEDGER" DijkstraPoolPredFailure DijkstraEra where
   injectFailure = DijkstraEntitiesFailure . injectFailure
 
 instance InjectRuleFailure "LEDGER" DijkstraGovCertPredFailure DijkstraEra where
@@ -490,7 +493,6 @@ instance
   , State (EraRule "UTXO" era) ~ UTxOState era
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
   , Script era ~ AlonzoScript era
-  , TxOut era ~ BabbageTxOut era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , PredicateFailure (EraRule "UTXOW" era) ~ DijkstraUtxowPredFailure era

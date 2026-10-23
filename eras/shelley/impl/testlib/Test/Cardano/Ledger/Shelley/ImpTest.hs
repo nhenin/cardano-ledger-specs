@@ -63,6 +63,7 @@ module Test.Cardano.Ledger.Shelley.ImpTest (
   getByronKeyPair,
   freshSafeHash,
   freshKeyHashVRF,
+  freshBlsKey,
   submitTx,
   submitTx_,
   submitTxAnn,
@@ -72,6 +73,8 @@ module Test.Cardano.Ledger.Shelley.ImpTest (
   submitFailingSubsetTx,
   submitFailingSubsetTxM,
   trySubmitTx,
+  trySubmitMempoolTx,
+  tryReapplyMempoolTx,
   submitBlock_,
   submitBlock,
   submitFailingBlock,
@@ -80,6 +83,9 @@ module Test.Cardano.Ledger.Shelley.ImpTest (
   withTxsInBlock,
   withTxsInFailingBlock,
   withTxsInFailingBlockM,
+  modifyBlockBody,
+  withTxsInModifiedFailingBlockM,
+  withTxsInModifiedFailingSubsetBlockM,
   withTxsInBlockEither,
   withIssuerAndTxsInBlock_,
   withIssuerAndTxsInBlock,
@@ -89,6 +95,7 @@ module Test.Cardano.Ledger.Shelley.ImpTest (
   getProtVer,
   getsNES,
   getUTxO,
+  getCurSlotNo,
   impAddNativeScript,
   impAnn,
   impAnnDoc,
@@ -105,6 +112,8 @@ module Test.Cardano.Ledger.Shelley.ImpTest (
   expectStakeCredNotRegistered,
   expectDelegatedToPool,
   getAccountAddressFor,
+  freshUnregisteredAccount,
+  freshStakePool,
   freshPoolParams,
   registerPool,
   registerPoolWithAccountAddress,
@@ -200,7 +209,12 @@ import qualified Cardano.Chain.UTxO as Byron (empty)
 import Cardano.Ledger.Address (BootstrapAddress (..), bootstrapKeyHash)
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (DecCBOR, EncCBOR)
-import Cardano.Ledger.Block (Block (..))
+import Cardano.Ledger.Block (
+  Block (..),
+  BlockHeaderVersionInfo (..),
+  blockBodyHashBlockHeaderL,
+  blockBodySizeBlockHeaderL,
+ )
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Credential (Credential (..), Ptr, StakeReference (..), credToText)
@@ -214,7 +228,17 @@ import Cardano.Ledger.Keys (
  )
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.API.ByronTranslation (translateToShelleyLedgerStateFromUtxo)
-import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
+import Cardano.Ledger.Shelley.API.Forecast (EraForecast)
+import Cardano.Ledger.Shelley.API.Mempool (
+  ApplyTx (..),
+  MempoolEnv,
+  MempoolState,
+  ValidatedTx,
+  applyTxWithFullValidation,
+  mkMempoolEnv,
+  mkMempoolState,
+  reapplyValidatedTx,
+ )
 import Cardano.Ledger.Shelley.API.Validation (
   ApplyBlock,
   BlockTransitionError (..),
@@ -247,6 +271,7 @@ import Cardano.Ledger.Shelley.Rules (
   AccountAlreadyRegistered,
   BbodyEnv (..),
   LedgerEnv (..),
+  ShelleyBbodyPredFailure,
   ShelleyBbodyState (..),
   ShelleyDelegPredFailure,
   ShelleyPoolPredFailure,
@@ -510,6 +535,11 @@ class
   , Environment (EraRule "NEWEPOCH" era) ~ ()
   , State (EraRule "NEWEPOCH" era) ~ NewEpochState era
   , Signal (EraRule "NEWEPOCH" era) ~ EpochNo
+  , EraForecast era
+  , Eq (Event (EraRule "TICKF" era))
+  , ToExpr (Event (EraRule "TICKF" era))
+  , NFData (Event (EraRule "TICKF" era))
+  , Typeable (Event (EraRule "TICKF" era))
   , EraRuleFailure "BBODY" era ~ PredicateFailure (EraRule "BBODY" era)
   , EraRuleFailure "LEDGER" era ~ PredicateFailure (EraRule "LEDGER" era)
   , InjectRuleFailure "LEDGER" AccountAlreadyRegistered era
@@ -518,6 +548,9 @@ class
   , InjectRuleFailure "LEDGER" ShelleyUtxoPredFailure era
   , InjectRuleFailure "LEDGER" ShelleyPoolPredFailure era
   , InjectRuleFailure "BBODY" ShelleyPoolPredFailure era
+  , InjectRuleFailure "BBODY" ShelleyBbodyPredFailure era
+  , InjectRuleFailure "BBODY" ShelleyUtxoPredFailure era
+  , Ord (PredicateFailure (EraRule "BBODY" era))
   , ApplyBlock TestBlockHeader era
   ) =>
   ShelleyEraImp era
@@ -679,7 +712,7 @@ defaultInitImpTestState nes = do
     rootAddr :: Addr
     rootAddr = mkAddr rootKeyHash StakeRefNull
     rootTxOut :: TxOut era
-    rootTxOut = mkBasicTxOut rootAddr $ inject rootCoin
+    rootTxOut = mkBasicTxOutWithImplicitDeposit rootAddr $ inject rootCoin
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
@@ -1188,19 +1221,19 @@ impNativeScriptKeyPairs tx = do
 fixupTxOuts :: (ShelleyEraImp era, HasCallStack) => Tx l era -> ImpTestM era (Tx l era)
 fixupTxOuts tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  let
-    txOuts = tx ^. bodyTxL . outputsTxBodyL
-  fixedUpTxOuts <- forM txOuts $ \txOut -> do
-    if txOut ^. coinTxOutL == zero
-      then do
-        amount <- arbitrary
-        let txOut' = ensureMinCoinTxOut pp (txOut & coinTxOutL .~ amount)
-        logDoc $
-          "Fixed up the amount in the TxOut to " <> ansiExpr (txOut' ^. coinTxOutL)
-        pure txOut'
-      else do
-        pure txOut
-  pure $ tx & bodyTxL . outputsTxBodyL .~ fixedUpTxOuts
+  outputs <- forM (tx ^. bodyTxL . outputsTxBodyL) $ \case
+    ImplicitDepositTxOut output
+      | coin (output ^. valueTxOutL) == zero -> do
+          amount <- arbitrary
+          let fundedOutput =
+                ensureMinCoinTxOut pp $
+                  output & valueTxOutL %~ modifyCoin (const amount)
+          logDoc $
+            "Fixed up the amount in the TxOut to "
+              <> ansiExpr (coin (fundedOutput ^. valueTxOutL))
+          pure $ ImplicitDepositTxOut fundedOutput
+    output -> pure output
+  pure $ tx & bodyTxL . outputsTxBodyL .~ outputs
 
 fixupFees ::
   forall era.
@@ -1234,7 +1267,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   changeBeforeFee <- ensureNonNegativeCoin $ coin consumedValue <-> coin producedValue
   logToExpr changeBeforeFee
   let
-    changeBeforeFeeTxOut = mkBasicTxOut addr (inject changeBeforeFee)
+    changeBeforeFeeTxOut = mkBasicTxOutWithImplicitDeposit addr (inject changeBeforeFee)
     txNoWits = tx & bodyTxL . outputsTxBodyL %~ (:|> changeBeforeFeeTxOut)
     outsBeforeFee = tx ^. bodyTxL . outputsTxBodyL
     suppliedFee = txOriginal ^. bodyTxL . feeTxBodyL
@@ -1250,7 +1283,8 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
     -- If the remainder is sufficently big we add it to outputs, otherwise we add the
     -- extraneous coin to the fee and discard the remainder TxOut
     txWithFee
-      | change >= getMinCoinTxOut pp changeTxOut =
+      | ImplicitDepositTxOut implicitChangeTxOut <- changeTxOut
+      , change >= getMinCoinTxOut pp implicitChangeTxOut =
           txNoWits
             & bodyTxL . outputsTxBodyL .~ (outsBeforeFee :|> changeTxOut)
             & bodyTxL . feeTxBodyL .~ fee
@@ -1441,6 +1475,37 @@ submitFailingSubsetTxM tx mkExpectedFailures = do
     significantSet
     expectedSet
 
+-- | Submit a transaction through `applyTxWithFullValidation`, instead
+-- of running the LEDGER rule directly.
+trySubmitMempoolTx ::
+  (HasCallStack, ShelleyEraImp era) =>
+  Tx TopTx era ->
+  ImpTestM era (Either (ApplyTxError era) (MempoolState era, ValidatedTx era))
+trySubmitMempoolTx tx = do
+  txFixed <- asks iteFixup >>= ($ tx)
+  logToExpr txFixed
+  withMempoolContext $ \globals mempoolEnv mempoolState ->
+    applyTxWithFullValidation globals mempoolEnv mempoolState txFixed
+
+-- | Reapply a transaction that the mempool has already validated.
+tryReapplyMempoolTx ::
+  ShelleyEraImp era =>
+  ValidatedTx era ->
+  ImpTestM era (Either (ApplyTxError era) (MempoolState era))
+tryReapplyMempoolTx validatedTx =
+  withMempoolContext $ \globals mempoolEnv mempoolState ->
+    reapplyValidatedTx globals mempoolEnv mempoolState validatedTx
+
+withMempoolContext ::
+  ShelleyEraImp era =>
+  (Globals -> MempoolEnv era -> MempoolState era -> a) ->
+  ImpTestM era a
+withMempoolContext f = do
+  globals <- use impGlobalsL
+  nes <- use impNESL
+  slotNo <- use impCurSlotNoG
+  pure $ f globals (mkMempoolEnv nes slotNo) (mkMempoolState nes)
+
 -- * Submitting blocks
 
 -- | Submit a list of transactions as a block that's expected to succeed.
@@ -1513,7 +1578,8 @@ withIssuerAndTxsInBlock ::
   KeyHash BlockIssuer ->
   ImpTestM era () ->
   ImpTestM era (Block TestBlockHeader era)
-withIssuerAndTxsInBlock blockIssuer = expectRightDeepExpr <=< withTxsInBlockEither (Just blockIssuer)
+withIssuerAndTxsInBlock blockIssuer =
+  expectRightDeepExpr <=< withTxsInBlockEither id (Just blockIssuer)
 
 -- | Gather all the txs submitted by @act@ and resubmit them as a block that's expected to succeed.
 withTxsInBlock ::
@@ -1522,7 +1588,7 @@ withTxsInBlock ::
   ) =>
   ImpTestM era () ->
   ImpTestM era (Block TestBlockHeader era)
-withTxsInBlock = expectRightDeepExpr <=< withTxsInBlockEither Nothing
+withTxsInBlock = expectRightDeepExpr <=< withTxsInBlockEither id Nothing
 
 -- | Gather all the txs submitted by @act@ and resubmit them as a block
 -- that's expected to fail with the given predicate failures.
@@ -1544,17 +1610,70 @@ withTxsInFailingBlockM ::
   ImpTestM era () ->
   (Block TestBlockHeader era -> ImpTestM era (NonEmpty (PredicateFailure (EraRule "BBODY" era)))) ->
   ImpTestM era ()
-withTxsInFailingBlockM act mkExpectedFailures = do
-  (predFailures, block) <- expectLeftDeepExpr <=< withTxsInBlockEither Nothing $ act
+withTxsInFailingBlockM = withTxsInModifiedFailingBlockM id
+
+-- | Apply the supplied modification to the block body and update the block header, so that the
+-- claimed body size and body hash match the modified body.
+modifyBlockBody ::
+  EraBlockBody era =>
+  ProtVer ->
+  (BlockBody era -> BlockBody era) ->
+  Block TestBlockHeader era ->
+  Block TestBlockHeader era
+modifyBlockBody protVer modifyBody block =
+  block {blockBody = modifiedBlockBody}
+    & blockBodySizeBlockHeaderL .~ fromIntegral (blockBodySize protVer modifiedBlockBody)
+    & blockBodyHashBlockHeaderL .~ hashBlockBody modifiedBlockBody
+  where
+    modifiedBlockBody = modifyBody $ blockBody block
+
+-- | Gather all the txs submitted by @act@, modify the block created from them with the supplied
+-- function and resubmit it as a block that's expected to fail. Expected predicate failures are
+-- computed from the modified block.
+withTxsInModifiedFailingBlockM ::
+  ( HasCallStack
+  , ShelleyEraImp era
+  ) =>
+  (Block TestBlockHeader era -> Block TestBlockHeader era) ->
+  ImpTestM era () ->
+  (Block TestBlockHeader era -> ImpTestM era (NonEmpty (PredicateFailure (EraRule "BBODY" era)))) ->
+  ImpTestM era ()
+withTxsInModifiedFailingBlockM modifyBlock act mkExpectedFailures = do
+  (predFailures, block) <- expectLeftDeepExpr <=< withTxsInBlockEither modifyBlock Nothing $ act
   expectedFailures <- mkExpectedFailures block
   predFailures `shouldBeExpr` expectedFailures
 
--- | Given an action that submits transactions, try to resubmit the transactions as a block.
--- Return the block that was created using the transactions and any predicate
--- failures that are produced.
+-- | Gather all the txs submitted by @act@, modify the block created from them with the supplied
+-- function and resubmit it as a block that's expected to fail with at least the predicate failures
+-- computed from the modified block.
+withTxsInModifiedFailingSubsetBlockM ::
+  ( HasCallStack
+  , ShelleyEraImp era
+  ) =>
+  (Block TestBlockHeader era -> Block TestBlockHeader era) ->
+  ImpTestM era () ->
+  (Block TestBlockHeader era -> ImpTestM era (NonEmpty (PredicateFailure (EraRule "BBODY" era)))) ->
+  ImpTestM era ()
+withTxsInModifiedFailingSubsetBlockM modifyBlock act mkExpectedFailures = do
+  (predFailures, block) <- expectLeftDeepExpr <=< withTxsInBlockEither modifyBlock Nothing $ act
+  expectedFailures <- mkExpectedFailures block
+  let
+    predSet = Set.fromList $ toList predFailures
+    expectedSet = Set.fromList $ toList expectedFailures
+    significantSet = predSet `Set.intersection` expectedSet
+  logToExpr predFailures
+  expectExprEqualWithMessage
+    "Some required predicate failures were absent"
+    significantSet
+    expectedSet
+
+-- | Given an action that submits transactions, try to resubmit the transactions as a block that
+-- has been modified by the supplied function. Return that block and any predicate failures that
+-- are produced.
 withTxsInBlockEither ::
   forall era.
   ShelleyEraImp era =>
+  (Block TestBlockHeader era -> Block TestBlockHeader era) ->
   Maybe (KeyHash BlockIssuer) ->
   ImpTestM era () ->
   ImpTestM
@@ -1563,37 +1682,21 @@ withTxsInBlockEither ::
         (NonEmpty (PredicateFailure (EraRule "BBODY" era)), Block TestBlockHeader era)
         (Block TestBlockHeader era)
     )
-withTxsInBlockEither mIssuer act = do
+withTxsInBlockEither modifyBlock mIssuer act = do
   stateBefore <- get
   txs <- impRecordSubmittedTxs act
   stateAfter <- get
   put stateBefore
-  case mIssuer of
-    Nothing -> tryTxsInBlock txs stateAfter
-    Just blockIssuer -> tryTxsInBlock' txs stateAfter blockIssuer
+  blockIssuer <- maybe freshKeyHash pure mIssuer
+  tryTxsInBlock modifyBlock txs stateAfter blockIssuer
 
--- | Given a sequence of fixed-up transactions and an expected final test state,
--- try to submit the transactions as a block.
--- Return the block that was created using the transactions and any predicate
--- failures that are produced.
+-- | Given a sequence of fixed-up transactions and an expected final test state, try to submit the
+-- transactions as a block that has been modified by the supplied function. Return that block and
+-- any predicate failures that are produced.
 tryTxsInBlock ::
   forall era.
   ShelleyEraImp era =>
-  StrictSeq (Tx TopTx era) ->
-  ImpTestState era ->
-  ImpTestM
-    era
-    ( Either
-        (NonEmpty (PredicateFailure (EraRule "BBODY" era)), Block TestBlockHeader era)
-        (Block TestBlockHeader era)
-    )
-tryTxsInBlock txs finalState = do
-  blockIssuer <- freshKeyHash
-  tryTxsInBlock' txs finalState blockIssuer
-
-tryTxsInBlock' ::
-  forall era.
-  ShelleyEraImp era =>
+  (Block TestBlockHeader era -> Block TestBlockHeader era) ->
   StrictSeq (Tx TopTx era) ->
   ImpTestState era ->
   KeyHash BlockIssuer ->
@@ -1603,11 +1706,12 @@ tryTxsInBlock' ::
         (NonEmpty (PredicateFailure (EraRule "BBODY" era)), Block TestBlockHeader era)
         (Block TestBlockHeader era)
     )
-tryTxsInBlock' txs finalState blockIssuer = do
+tryTxsInBlock modifyBlock txs finalState blockIssuer = do
   slotNo <- use impCurSlotNoG
   nes <- use impNESL
 
   let
+    ProtVer curMajor curMinor = nes ^. nesEsL . curPParamsEpochStateL . ppProtocolVersionL
     blockBody = mkBasicBlockBody @era & txSeqBlockBodyL .~ txs
     blockHeader =
       TestBlockHeader
@@ -1616,10 +1720,10 @@ tryTxsInBlock' txs finalState blockIssuer = do
         , tbhHSize = 0
         , tbhBHash = hashBlockBody blockBody
         , tbhSlot = slotNo
-        , tbhPrevNonce = Nothing
-        , tbhProtVer = nes ^. nesEsL . curPParamsEpochStateL . ppProtocolVersionL
+        , tbhVersionInfo = BlockHeaderVersionInfo (getVersion32 curMajor) curMinor
+        , tbhEbRefsAnn = SNothing
         }
-    block = Block {blockHeader, blockBody}
+    block = modifyBlock Block {blockHeader, blockBody}
 
   globals <- use impGlobalsL
 
@@ -1839,6 +1943,9 @@ freshKeyHashVRF ::
   ImpTestM era (VRFVerKeyHash (r :: KeyRoleVRF))
 freshKeyHashVRF = arbitrary
 
+freshBlsKey :: ImpTestM era BlsKey
+freshBlsKey = arbitrary
+
 -- | Adds a key pair to the keyhash lookup map
 addKeyPair ::
   (HasKeyPairs s, MonadState s m) =>
@@ -1893,7 +2000,7 @@ freshKeyAddr_ = snd <$> freshKeyAddr
 freshTxOutWithCoin :: EraTxOut era => Coin -> ImpTestM era (TxOut era)
 freshTxOutWithCoin c = do
   addr <- freshKeyAddr_
-  pure . mkBasicTxOut addr $ inject c
+  pure . mkBasicTxOutWithImplicitDeposit addr $ inject c
 
 freshMainnetKeyAddr_ :: (HasKeyPairs s, MonadState s m, HasStatefulGen g m) => m Addr
 freshMainnetKeyAddr_ = do
@@ -2012,7 +2119,7 @@ sendValueTo addr amount = do
     submitTxAnn
       ("Giving " <> show amount <> " to " <> show addr)
       $ mkBasicTx mkBasicTxBody
-        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOut addr amount)
+        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr amount)
   pure $ txInAt 0 tx
 
 sendValueTo_ :: (ShelleyEraImp era, HasCallStack) => Addr -> Value era -> ImpTestM era ()
@@ -2032,6 +2139,9 @@ getUTxO = getsNES utxoL
 getProtVer :: EraGov era => ImpTestM era ProtVer
 getProtVer = getsNES $ nesEsL . curPParamsEpochStateL . ppProtocolVersionL
 
+getCurSlotNo :: ImpTestM era SlotNo
+getCurSlotNo = gets . view $ impCurSlotNoL
+
 submitTxAnn ::
   (HasCallStack, ShelleyEraImp era) =>
   String ->
@@ -2049,6 +2159,10 @@ getAccountAddressFor ::
 getAccountAddressFor stakingC = do
   networkId <- use (impGlobalsL . to networkId)
   pure $ AccountAddress networkId (AccountId stakingC)
+
+-- | An account address whose staking credential is not registered.
+freshUnregisteredAccount :: Era era => ImpTestM era AccountAddress
+freshUnregisteredAccount = freshKeyHash >>= getAccountAddressFor . KeyHashObj
 
 registerStakeCredential ::
   forall era.
@@ -2155,6 +2269,16 @@ registerAccountAddress ::
   ) =>
   ImpTestM era AccountAddress
 registerAccountAddress = freshKeyHash >>= registerStakeCredential . KeyHashObj
+
+freshStakePool ::
+  ShelleyEraImp era =>
+  ImpTestM era (StakePoolParams era)
+freshStakePool = do
+  poolId <- freshKeyHash
+  ownerKeyHash <- freshKeyHash
+  let owner = KeyHashObj ownerKeyHash
+  ownerAccountAddress <- registerStakeCredential owner
+  freshPoolParams poolId ownerAccountAddress
 
 freshPoolParams ::
   ShelleyEraImp era =>
@@ -2320,7 +2444,7 @@ produceScript scriptHash = do
   let addr = mkAddr scriptHash StakeRefNull
   let tx =
         mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOut addr mempty)
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr mempty)
   logString $ "Produced script: " <> show scriptHash
   txInAt 0 <$> submitTx tx
 

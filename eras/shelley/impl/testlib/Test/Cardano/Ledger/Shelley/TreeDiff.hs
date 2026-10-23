@@ -94,6 +94,9 @@ instance ToExpr (ShelleyPpupPredFailure era)
 instance (EraTxOut era, ToExpr (Value era)) => ToExpr (ShelleyTxOut era) where
   toExpr (ShelleyTxOut x y) = App "ShelleyTxOut" [toExpr x, toExpr y]
 
+instance ToExpr (TxOut ShelleyEra) where
+  toExpr (ImplicitDepositTxOut output) = App "ImplicitDepositTxOut" [toExpr output]
+
 -- TxBody
 instance ToExpr (ShelleyTxBodyRaw TopTx ShelleyEra) where
   toExpr ShelleyTxBodyRaw {..} =
@@ -276,6 +279,12 @@ instance
   , ToExpr (Event (EraRule "RUPD" era))
   ) =>
   ToExpr (ShelleyTickEvent era)
+
+instance
+  ( ToExpr (Event (EraRule "UPEC" era))
+  , ToExpr (Event (EraRule "SNAP" era))
+  ) =>
+  ToExpr (ShelleyTickfEvent era)
 
 instance ToExpr RewardType
 

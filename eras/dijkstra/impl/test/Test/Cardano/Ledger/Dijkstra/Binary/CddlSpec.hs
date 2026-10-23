@@ -9,7 +9,7 @@ module Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec (spec) where
 
 import Cardano.Ledger.Alonzo.Scripts (CostModels)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers)
-import Cardano.Ledger.Block (Block (Block))
+import Cardano.Ledger.Block (Block (Block), EbReferencesAnnouncement)
 import Cardano.Ledger.Conway.Governance (
   GovAction,
   ProposalProcedure,
@@ -21,6 +21,11 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.HuddleSpec (dijkstraCDDL)
 import Cardano.Ledger.Dijkstra.Scripts (AccountBalanceInterval, AccountBalanceIntervals)
 import Cardano.Ledger.Dijkstra.Tx (Tx (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  NetUTxODepositChange,
+  SubTxNetUTxODepositChange,
+  TopTxReleaseSettlement,
+ )
 import Cardano.Ledger.Plutus.Data (Data, Datum)
 import Cardano.Protocol.Crypto (StandardCrypto)
 import qualified Cardano.Protocol.Leios.BlockHeader as Leios
@@ -35,7 +40,6 @@ import Test.Cardano.Ledger.Binary.Cuddle (
  )
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Conway.Arbitrary (genNonEmptyVotingProcedures)
-import Test.Cardano.Ledger.Core.Arbitrary (genEraProtVer)
 import Test.Cardano.Ledger.Core.Binary (
   fullAnnCddlSpec,
   fullAnnGenCddlSpec,
@@ -50,20 +54,8 @@ import Test.Cardano.Ledger.Dijkstra.Arbitrary (
 import Test.Cardano.Ledger.Dijkstra.Binary.Annotator ()
 import Test.Cardano.Protocol.Leios.BlockHeader.Arbitrary ()
 
-genLeiosHeader :: Gen (Leios.Header StandardCrypto)
-genLeiosHeader = do
-  h <- arbitrary
-  pv <- genEraProtVer @DijkstraEra
-  pure $ Leios.Header ((Leios.headerBody h) {Leios.hbProtVer = pv}) (Leios.headerSig h)
-
-genLeiosHeaderBody :: Gen (Leios.HeaderBody StandardCrypto)
-genLeiosHeaderBody = do
-  hb <- arbitrary
-  pv <- genEraProtVer @DijkstraEra
-  pure hb {Leios.hbProtVer = pv}
-
 genLeiosBlock :: Gen (Block (Leios.Header StandardCrypto) DijkstraEra)
-genLeiosBlock = Block <$> genLeiosHeader <*> genSmallDijkstraTxsBlockBody
+genLeiosBlock = Block <$> arbitrary <*> genSmallDijkstraTxsBlockBody
 
 spec :: Spec
 spec = do
@@ -80,6 +72,9 @@ spec = do
         v
         "account_balance_intervals"
       fullCddlSpec @(Value DijkstraEra) v "value"
+      fullCddlSpec @NetUTxODepositChange v "net_utxo_deposit_change"
+      fullCddlSpec @SubTxNetUTxODepositChange v "sub_tx_net_utxo_deposit_change"
+      fullCddlSpec @TopTxReleaseSettlement v "top_tx_release_settlement"
       fullAnnCddlSpec @(TxBody TopTx DijkstraEra) v "transaction_body"
       fullAnnCddlSpec @(TxBody SubTx DijkstraEra) v "sub_transaction_body"
       fullAnnCddlSpec @(TxAuxData DijkstraEra) v "auxiliary_data"
@@ -103,12 +98,12 @@ spec = do
       -- Leios block header
       huddleRoundTripAnnCborSpec @(Leios.Header StandardCrypto) v "header"
       huddleRoundTripCborSpec @(Leios.Header StandardCrypto) v "header"
-      huddleRoundTripGenValidate @(Leios.Header StandardCrypto) genLeiosHeader v "header"
+      huddleRoundTripGenValidate @(Leios.Header StandardCrypto) arbitrary v "header"
       huddleDecoderEquivalenceSpec @(Leios.Header StandardCrypto) v "header"
       huddleRoundTripCborSpec @(Leios.HeaderBody StandardCrypto) v "header_body"
-      huddleRoundTripGenValidate @(Leios.HeaderBody StandardCrypto) genLeiosHeaderBody v "header_body"
+      huddleRoundTripGenValidate @(Leios.HeaderBody StandardCrypto) arbitrary v "header_body"
       huddleRoundTripGenValidate @(Block (Leios.Header StandardCrypto) DijkstraEra)
         genLeiosBlock
         v
         "block"
-      fullCddlSpec @Leios.EbAnnouncement v "eb_announcement"
+      fullCddlSpec @EbReferencesAnnouncement v "eb_references_announcement"

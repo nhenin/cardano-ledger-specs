@@ -58,7 +58,6 @@ import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..), IsPhase2Valid (..), totExUnit
 import Cardano.Ledger.Alonzo.TxBody (
   AllegraEraTxBody (..),
   AlonzoEraTxBody (..),
-  AlonzoEraTxOut (..),
   MaryEraTxBody (..),
  )
 import Cardano.Ledger.Alonzo.TxWits (AlonzoEraTxWits (..), unRedeemersL)
@@ -107,6 +106,7 @@ import Control.Monad (unless)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
 import qualified Data.ByteString.Lazy as BSL (length)
+import Data.Coerce (coerce)
 import Data.Either (isRight)
 import Data.Foldable as F (foldl', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
@@ -370,7 +370,7 @@ validateCollateralContainsNonADA ::
 validateCollateralContainsNonADA collateralTxOuts =
   failureUnless (areAllAdaOnly collateralTxOuts) $
     CollateralContainsNonADA $
-      sumAllValue collateralTxOuts
+      coerce (sumAllAssets collateralTxOuts)
 
 -- | If tx has non-native scripts, end of validity interval must translate to time
 --
@@ -397,16 +397,16 @@ validateOutsideForecast ei slotNo sysSt tx =
               failureUnless (isRight (epochInfoSlotToUTCTime ei' sysSt ifj)) $ OutsideForecast ifj
     _ -> pure ()
 
--- | Ensure that there are no `TxOut`s that have value less than the sized @coinsPerUTxOWord@
+-- | Private: ensure implicit-deposit outputs cover the sized @coinsPerUTxOWord@ cost.
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (utxoEntrySize txout ∗ coinsPerUTxOWord pp)
-validateOutputTooSmallUTxO ::
-  (AlonzoEraTxOut era, Foldable f) =>
+validateImplicitDeposits ::
+  (EraImplicitDepositTxOut era, Foldable f) =>
   PParams era ->
-  f (TxOut era) ->
+  f (ImplicitDepositTxOut era) ->
   Test (AlonzoUtxoPredFailure era)
-validateOutputTooSmallUTxO pp outputs =
-  failureOnNonEmpty outputsTooSmall OutputTooSmallUTxO
+validateImplicitDeposits pp outputs =
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
   where
     outputsTooSmall =
       filter
@@ -417,9 +417,8 @@ validateOutputTooSmallUTxO pp outputs =
         )
         (toList outputs)
 
--- | Ensure that there are no `TxOut`s that have `Value` of size larger
--- than @MaxValSize@. We use serialized length of `Value` because this Value
--- size is being limited inside a serialized `Tx`.
+-- | Ensure the serialized value of either output variant does not exceed
+-- @MaxValSize@. For store-backed outputs, measure their application assets.
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp
 validateOutputTooBigUTxO ::
@@ -437,8 +436,10 @@ validateOutputTooBigUTxO pp outputs =
     protVer = pp ^. ppProtocolVersionL
     outputsTooBig = F.foldl' accum [] outputs
     accum ans txOut =
-      let v = txOut ^. valueTxOutL
-          serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) v
+      let value = case txOut of
+            ImplicitDepositTxOut output -> output ^. valueTxOutL
+            StoreBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+          serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) value
        in if serSize > maxValSize
             then (fromIntegral serSize, fromIntegral maxValSize, txOut) : ans
             else ans
@@ -555,8 +556,10 @@ utxoTransition = do
      above check not needed because mint field of type MultiAsset cannot contain ada -}
 
   let outputs = txBody ^. outputsTxBodyL
+      -- This legacy transition has only implicit-deposit outputs.
+      implicitOutputs = [output | ImplicitDepositTxOut output <- toList outputs]
   {-   ∀ txout ∈ txouts txb, getValuetxout ≥ inject (uxoEntrySizetxout ∗ coinsPerUTxOWord p) -}
-  runTest $ validateOutputTooSmallUTxO pp outputs
+  runTest $ validateImplicitDeposits pp implicitOutputs
 
   {-   ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp   -}
   runTest $ validateOutputTooBigUTxO pp outputs

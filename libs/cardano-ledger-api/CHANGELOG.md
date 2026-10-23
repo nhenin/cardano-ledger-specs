@@ -1,12 +1,32 @@
 # Version history for `cardano-ledger-api`
 
+## 1.16.0.0
+
+* Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
+* Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
+* Re-export abstract `StrictlyPositiveCoin`, `mkStrictlyPositiveCoin`, and `unStrictlyPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
+* Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
+
+* Add methods to `AnyEraTxBody`:
+  - `subTransactionsTxBodyG`
+  - `requiredTopLevelGuardsTxBodyG`
+  - `directDepositsTxBodyG`
+  - `accountBalanceIntervalsTxBodyG`
+  - `startingAccountBalanceIntervalsTxBodyG`
+
 ## 1.15.0.0
 
 * Add `ssLeiosCommittee` to `StakeSnapshots`: the Leios voting committee seated on the `set` snapshot, in seat order, each seat attributed to its pool and carrying the pool's registered key with its registration epoch and whether that key is still honoured. Adds `QueryLeiosSeat`
 * Replace `qpsrStakePoolParams` and `qpsrDeposits` with a single `qpsrStakePools` reporting `StakePoolState`, so `queryPoolState` exposes a pool's registered BLS key with the epoch it was registered in, plus its delegators. `queryPoolState` and `mkQueryPoolStateResult` no longer take a `Network`
+* Add `queryNonMyopicMemberRewards` (`GetNonMyopicMemberRewards`) with the `QueryResultNonMyopicMemberRewards` result type
+* Move `allInputsTxBodyF` from `EraTxBody` to `EraTx` in order to workaround a GHC bug
 * Add `era` parameter to `QueryPoolStateResult`, `StakePoolParams`
 * Change result of the the `querySetSnapshotStakePoolDistr` to a stable result types `QueryResultPoolDistr` with `QueryResultIndividualPoolStake`
 * Add `qripsBls` field to `QueryResultIndividualPoolStake`, exposing the pool's registered BLS key to consensus alongside `qripsVrf`. Encoded and decoded only from protocol version 12 (Dijkstra) onwards, so the `GetPoolDistr2` wire format is unchanged in earlier eras
+
+### `testlib`
+
+* Add `Arbitrary` instance for `QueryResultNonMyopicMemberRewards`
 
 ## 1.14.0.0
 
