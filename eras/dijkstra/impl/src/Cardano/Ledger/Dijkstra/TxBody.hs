@@ -86,6 +86,7 @@ module Cardano.Ledger.Dijkstra.TxBody (
   basicDijkstraTxBodyRaw,
   inputsDijkstraTxBodyRawL,
   outputsDijkstraTxBodyRawL,
+  sizedOutputsDijkstraTxBodyRawL,
   feeDijkstraTxBodyRawL,
   vldtDijkstraTxBodyRawL,
   certsDijkstraTxBodyRawL,
@@ -97,6 +98,7 @@ module Cardano.Ledger.Dijkstra.TxBody (
   guardsDijkstraTxBodyRawL,
   networkIdDijkstraTxBodyRawL,
   collateralReturnDijkstraTxBodyRawL,
+  sizedCollateralReturnDijkstraTxBodyRawL,
   totalCollateralDijkstraTxBodyRawL,
   referenceInputsDijkstraTxBodyRawL,
   votingProceduresDijkstraTxBodyRawL,
@@ -166,7 +168,6 @@ import Cardano.Ledger.MemoBytes (
   Memoized (..),
   getMemoRawType,
   getMemoSafeHash,
-  lensMemoRawType,
   memoRawTypeL,
   mkMemoizedEra,
  )
@@ -393,7 +394,8 @@ instance
         Maybe (Decoder s (Annotator (DijkstraTxBodyRaw l era)))
       decoderByKey sTxLevel acc = \case
         0 -> Just $ decodeAccA acc (inputsDijkstraTxBodyRawL .~) (pure <$> decCBOR)
-        1 -> Just $ decodeAccA acc (outputsDijkstraTxBodyRawL .~) (pure <$> decCBOR)
+        -- Keep the accepted wire size: re-encoding a decoded output may be shorter.
+        1 -> Just $ decodeAccA acc (sizedOutputsDijkstraTxBodyRawL .~) (pure <$> decCBOR)
         2 | STopTx <- sTxLevel -> Just $ decodeAccA acc (feeDijkstraTxBodyRawL .~) (pure <$> decCBOR)
         3 -> Just $ decodeAccA acc (vldtDijkstraTxBodyRawL . invalidHereAfterL .~) (pure . SJust <$> decCBOR)
         4 ->
@@ -434,7 +436,7 @@ instance
         15 -> Just $ decodeAccA acc (networkIdDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
         16
           | STopTx <- sTxLevel ->
-              Just $ decodeAccA acc (collateralReturnDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
+              Just $ decodeAccA acc (sizedCollateralReturnDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
         17
           | STopTx <- sTxLevel ->
               Just $ decodeAccA acc (totalCollateralDijkstraTxBodyRawL .~) (pure . SJust <$> decCBOR)
@@ -1151,6 +1153,19 @@ inputsDijkstraTxBodyRawL =
         x@DijkstraSubTxBodyRaw {} -> \y -> x {dstbrSpendInputs = y}
     )
 
+sizedOutputsDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw l era) (StrictSeq (Sized (TxOut era)))
+sizedOutputsDijkstraTxBodyRawL =
+  lens
+    ( \case
+        DijkstraTxBodyRaw {dtbrOutputs} -> dtbrOutputs
+        DijkstraSubTxBodyRaw {dstbrOutputs} -> dstbrOutputs
+    )
+    ( \case
+        x@DijkstraTxBodyRaw {} -> \y -> x {dtbrOutputs = y}
+        x@DijkstraSubTxBodyRaw {} -> \y -> x {dstbrOutputs = y}
+    )
+
 outputsDijkstraTxBodyRawL ::
   forall era l.
   EraTxOut era =>
@@ -1498,6 +1513,11 @@ instance
 
   redeemerPointerInverse = dijkstraRedeemerPointerInverse
 
+sizedCollateralReturnDijkstraTxBodyRawL ::
+  Lens' (DijkstraTxBodyRaw TopTx era) (StrictMaybe (Sized (TxOut era)))
+sizedCollateralReturnDijkstraTxBodyRawL =
+  lens dtbrCollateralReturn $ \txb x -> txb {dtbrCollateralReturn = x}
+
 collateralReturnDijkstraTxBodyRawL ::
   forall era.
   EraTxBody era =>
@@ -1535,16 +1555,7 @@ instance
   ) =>
   BabbageEraTxBody DijkstraEra
   where
-  sizedOutputsTxBodyL =
-    lensMemoRawType @DijkstraEra
-      ( \case
-          DijkstraTxBodyRaw {dtbrOutputs} -> dtbrOutputs
-          DijkstraSubTxBodyRaw {dstbrOutputs} -> dstbrOutputs
-      )
-      ( \case
-          x@DijkstraTxBodyRaw {} -> \y -> x {dtbrOutputs = y}
-          x@DijkstraSubTxBodyRaw {} -> \y -> x {dstbrOutputs = y}
-      )
+  sizedOutputsTxBodyL = memoRawTypeL @DijkstraEra . sizedOutputsDijkstraTxBodyRawL
   {-# INLINE sizedOutputsTxBodyL #-}
 
   referenceInputsTxBodyL = memoRawTypeL @DijkstraEra . referenceInputsDijkstraTxBodyRawL
@@ -1556,9 +1567,7 @@ instance
   collateralReturnTxBodyL = memoRawTypeL @DijkstraEra . collateralReturnDijkstraTxBodyRawL
   {-# INLINE collateralReturnTxBodyL #-}
 
-  sizedCollateralReturnTxBodyL =
-    lensMemoRawType @DijkstraEra dtbrCollateralReturn $
-      \txb x -> txb {dtbrCollateralReturn = x}
+  sizedCollateralReturnTxBodyL = memoRawTypeL @DijkstraEra . sizedCollateralReturnDijkstraTxBodyRawL
   {-# INLINE sizedCollateralReturnTxBodyL #-}
 
   allSizedOutputsTxBodyF = to $ \txBody ->

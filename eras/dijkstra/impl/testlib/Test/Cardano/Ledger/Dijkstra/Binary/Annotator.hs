@@ -65,7 +65,7 @@ instance Typeable l => DecCBOR (DijkstraTxBodyRaw l DijkstraEra) where
           pure $ inputsDijkstraTxBodyRawL .~ x $ acc
         1 -> Just $ do
           x <- decCBOR
-          pure $ outputsDijkstraTxBodyRawL .~ x $ acc
+          pure $ sizedOutputsDijkstraTxBodyRawL .~ x $ acc
         2 | STopTx <- sTxLevel -> Just $ do
           x <- decCBOR
           pure $ feeDijkstraTxBodyRawL .~ x $ acc
@@ -105,7 +105,7 @@ instance Typeable l => DecCBOR (DijkstraTxBodyRaw l DijkstraEra) where
           pure $ networkIdDijkstraTxBodyRawL .~ SJust x $ acc
         16 | STopTx <- sTxLevel -> Just $ do
           x <- decCBOR
-          pure $ collateralReturnDijkstraTxBodyRawL .~ SJust x $ acc
+          pure $ sizedCollateralReturnDijkstraTxBodyRawL .~ SJust x $ acc
         17 | STopTx <- sTxLevel -> Just $ do
           x <- decCBOR
           pure $ totalCollateralDijkstraTxBodyRawL .~ SJust x $ acc

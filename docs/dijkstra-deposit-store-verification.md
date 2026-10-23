@@ -1,6 +1,6 @@
 # Dijkstra DepositStore verification record
 
-**Updated:** 20 October 2026
+**Updated:** 23 October 2026
 
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -58,12 +58,16 @@ source links follow the current modules. Previous documentation anchors still re
 ## Current implementation status
 
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
-registers **221 business examples: 186 implemented checks and 35 unimplemented
-LedgerEffects placeholders**. All implemented checks pass. They comprise 80
-Declarations (21 Grammar and 59 Requirements), 58 Accounting (41 NetChange, three
-Attribution and 14 Balance), two Authorization, 33 Settlement, five Minimum coin,
-seven Collateral and one Ledger-effects Fees property. The eight collateral-related
-properties replace the previous 31 entries; none remains a placeholder.
+registers **206 implemented business contracts**, with no pending LedgerEffects
+entry: 80 Declarations (21 Grammar and 59 Requirements), 58 Accounting
+(41 NetChange, three Attribution and 14 Balance), two Authorization, 33 Settlement,
+five Minimum coin, seven Collateral and 21 Ledger-effects checks.
+The 21 effects checks replace the earlier nine-contract outline; the eight
+pending contracts are now implemented or refined into explicit observations.
+The former rejection-snapshot placeholder is removed: the submission adapter
+installs state only on success, so snapshot equality after rejection would retest
+that adapter rather than establish a new DepositStore transition. Transaction-rule
+rejection checks remain unchanged.
 
 All 14 Balance properties submit real transactions
 and pass 100 generated scenarios each. The 19 October zero-net-change suite
@@ -129,14 +133,15 @@ have been replaced by real ledger submissions.
 | [DS-COLLATERAL-FUNDING](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | All three generated contracts pass: accept sufficient application-coin funding, reject deficits despite released Store surplus, and derive collateral funding independently of ordinary declarations. Each sample covers nine input/return configurations on both real script outcomes. F01 also rejects zero application coins without a return, despite ample released deposits. P02 is an isolated calculation, not ledger acceptance. |
 | [DS-COLLATERAL-TOTAL](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Both generated contracts pass: an absent or exact input-minus-return total accepts; either one-lovelace mismatch rejects with exactly IncorrectTotalCollateralField. Store funding, surplus and absent-return cases run with both script outcomes. |
 | [DS-COLLATERAL-ASSETS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Both generated contracts pass: preserve the exact native-asset map across implicit and Store-backed output forms; reject missing, extra, changed or unreturned assets. Funded Store returns also accept tokens with zero application ADA. Rejected variants retain sufficient deposit and fee funding. |
-| [DS-STATE-EXECUTION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs) | Ordinary, accepted phase-2-failure and rejection effects remain placeholders. |
-| [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs) | Production state records allocations by live output reference. The dedicated allocation examples remain placeholders. Earlier Release runs observed creation, removal and preservation; the current Release assertions cover submission outcomes only. |
-| [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs) | Ordinary and collateral execution update the Store balance. Collateral tests observe selected effects; dedicated balance examples remain placeholders. The current Release assertions cover submission outcomes only. |
-| [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | P01 passes across all 18 funding configurations. Actual script success leaves collateral Store records untouched; failure applies the expected fee credit, Store balance, allocation-map and UTxO changes. Treasury and unrelated records remain unchanged. Ordinary inputs and outputs are implicit; general state lifecycle coverage remains separate. |
-| [DS-STATE-SOLVENCY](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs) | Production validation checks prospective solvency on both ordinary and collateral paths. Dedicated solvency and epoch examples remain placeholders. |
-| [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | The Store balance is included once in the ledger ADA total. The dedicated conservation property remains a placeholder. |
-| [DS-STATE-INITIALIZATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs) | Conway translation initializes the Store empty. Dedicated initialization and pot-preservation examples remain placeholders. |
-| [DS-STATE-RECOVERY](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs) | Store and Dijkstra snapshot serialization retain balance and records; earlier-era snapshot encoding is preserved. Dedicated recovery examples remain placeholders. |
+| [DS-STATE-UTXO](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs) | Five generated checks observe exact ordinary and collateral UTxO maps, successful and failing real scripts, reference-only inputs, inactive multi-SubTx operations on failure and overlapping ordinary/collateral input roles. |
+| [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, retained noncanonical accepted sizes after state restoration and price changes, zero-price records from translated implicit sources, and inactive ordinary records on phase-2 failure. |
+| [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Four generated checks observe exact ordinary/collateral Store transfers with zero or positive surplus, release of the original noncanonical-byte allocation after restoration/repricing, and no ordinary transfer on phase-2 failure. Shared input roles consume their selected allocation once. |
+| [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
+| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | The former lifecycle and invented-oracle checks are consolidated into Store consistency and balance. Production validateDepositStoreSolvency boundary tests remain an explicit separate validation gap; no rejection from an otherwise valid solvent state is fabricated. |
+| [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records, unallocated Store surplus and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
+| [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies an empty Store. It does not claim complete NewEpochState equality. |
+| [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | One generated property funds live Store records and crosses two actual ordinary epoch boundaries, first with exact backing then positive surplus. It checks the exact Store pair, epoch increment and unchanged parameters. |
+| [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Inherited binary round trips cover Dijkstra UTxOState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore a reachable UTxOState and spend its retained noncanonical-byte allocation after repricing. Consensus rollback remains outside this ledger API. |
 | [DS-STAKE](dijkstra-deposit-store-rules.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
 | [DS-VOTING](dijkstra-deposit-store-rules.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
 
@@ -145,6 +150,132 @@ projection, and the unresolved stronger settlement guarantee remain deferred. An
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## LedgerEffects implementation on 23 October 2026
+
+The revised hierarchy implements 21 generated effects checks:
+
+| Responsibility | Checks | Observation |
+| --- | ---: | --- |
+| UTxO | 5 | Exact selected map, inactive ordinary/collateral paths, reference-only inputs and shared input roles. |
+| Store / Allocations | 5 | Ordinary/collateral records, retained accepted sizes after restoration, zero-price records and inactive ordinary operations. |
+| Store / Balance | 4 | Exact transfers, zero/positive surplus, historical release after restoration and inactive ordinary operations. |
+| Fees | 2 | Ordinary fee or collateral fee plus released surplus; treasury unchanged. |
+| Conservation | 3 | Correct actual-ADA counting, ordinary conservation and collateral conservation. |
+| Lifecycle | 2 | Conway translation and two actual epoch transitions with exact backing then positive surplus. |
+
+Each effect assertion follows a successful submission. Expected maps are derived
+from the signed transaction and retained records, without calling production Store
+update helpers. Translation compares semantic output fields and actual monetary
+pots from generated Conway states; it does not assert full state equality.
+
+The noncanonical-byte test exposed a production decoder defect: ordinary outputs
+and collateral returns were decoded through unsized lenses, recalculating their
+sizes from canonical encoding. A valid indefinite output map is one byte longer
+than its canonical encoding, so the decoder understated its required allocation.
+Both transaction levels and collateral returns now decode through sized raw
+lenses, preserving the accepted byte count. Encoding is unchanged. Three focused
+binary regressions cover those locations independently of the ledger fixtures.
+
+The former rejection snapshot placeholder is not counted as implemented coverage.
+`trySubmitTx` installs a new state only after success; a snapshot comparison after
+rejection would mostly retest that helper. Consensus rollback and upstream
+SubTx-script failure propagation remain outside these effects assertions.
+
+| Verification | Result |
+| --- | --- |
+| Dijkstra test executable | Builds successfully with the decoder correction and all new specs. |
+| Full DepositStore stream, seed `739231514` | **206 examples, 0 failures, no pending cases**; all 21 LedgerEffects properties pass 100 generated samples each. |
+| Full-stream execution time | **266.7483 s** wall time; **444.3352 s** CPU time. |
+| LedgerEffects execution time | **214.745 s**, summing the individual test durations in the full-stream run. |
+| Accepted output-size regressions | **3 examples, 0 failures**, 100 samples each; **0.0174 s** wall time, **0.0291 s** CPU time. Both production and independent plain decoders are exercised. |
+| Existing transaction round trips | **5 examples, 0 failures**, 100 samples each with `--qc-max-size=10`; **44.4036 s** wall time, **85.1395 s** CPU time. Covers `TxOut` and both annotating/plain `TxBody` and `Tx` decoders. |
+| Formatting | All 17 changed or added Haskell files pass Fourmolu; `git diff --check` passes. |
+| Documentation | All 21 LedgerEffects case anchors and chapter-3 source links checked; internal anchors, expand nesting and math delimiters checked. |
+
+The four longest properties are Allocations P03 (**56.158 s**), Balance P03
+(**56.567 s**), Translation N01 (**35.184 s**) and Epoch N01 (**38.552 s**).
+These durations include 100 generated samples per property. The full log retains
+each test's duration. Ctags were regenerated after the final code changes.
+
+Compatibility checks target the existing `TxOut`, `TxBody` and `Tx` round trips,
+using 100 samples with `--qc-max-size=10`. Earlier broad and default-size attempts
+were interrupted during expensive state/body generation; neither is recorded as
+a completed regression suite. The full DepositStore run and the new focused
+decoder regressions use the default QuickCheck size.
+
+Commands use `--seed 739231514 --format=specdoc --times --print-cpu-time --no-color`:
+
+```sh
+cabal build cardano-ledger-dijkstra:test:tests --offline --enable-tests --enable-benchmarks --jobs=2
+tests --match '/Dijkstra/Era-specific spec/DepositStore/' --seed 739231514 --format=specdoc --times --print-cpu-time --no-color
+tests --match '/Dijkstra/Era-specific spec/TxBody accepted output sizes/' --seed 739231514 --format=specdoc --times --print-cpu-time --no-color
+tests --match '/Dijkstra/Era-specific spec/RoundTrip/Core Type Families/Tx' --qc-max-size=10 --seed 739231514 --format=specdoc --times --print-cpu-time --no-color
+```
+
+Here `tests` is the built executable at
+`dist-newstyle/build/aarch64-osx/ghc-9.6.7/cardano-ledger-dijkstra-0.5.0.0/t/tests/build/tests/tests`.
+
+Local evidence:
+
+- Build: `/private/tmp/ds-ledger-effects-implementation-build8.log`
+- Full DepositStore stream: `/private/tmp/ds-ledger-effects-implementation-full.log`
+- Accepted output-size regressions: `/private/tmp/ds-ledger-effects-implementation-binary.log`
+- Existing transaction round trips: `/private/tmp/ds-ledger-effects-implementation-tx-roundtrip-size10.log`
+- Formatting: `/private/tmp/ds-ledger-effects-final-format.log`
+- Ctags: `/private/tmp/ds-ledger-effects-final-tags.log`
+
+## LedgerEffects contracts revised on 20 October 2026
+
+This is a **specification and structure revision**. It introduces no new passing
+behavioral test and changes no production rule or transaction-rule assertion.
+The existing Fees property and its collateral UTxO/Store assertions remain intact.
+
+| Responsibility | Current contracts | Implementation |
+| --- | ---: | --- |
+| Execution | 3 | Pending ordinary effects, collateral effects and rejected-state atomicity. |
+| Store / Allocations | 1 | Pending independent record-map and live-output consistency observations. |
+| Store / Balance | 1 | Pending exact pot transfer and preserved surplus. |
+| Fees | 1 | Existing implemented property retained. |
+| Conservation | 1 | Pending independent actual-pot total and production total projection. |
+| Lifecycle / Translation | 1 | Pending complete Conway state migration. |
+| Lifecycle / Epoch | 1 | Pending populated-Store preservation at an ordinary epoch boundary. |
+
+The former **36 LedgerEffects entries** (one implemented, 35 fabricated failures)
+become **nine contracts** (one implemented, eight pending). The full executable
+outline therefore changes from 221 to 194 entries; its 186 implemented checks are
+unchanged. `pendingWith` reports the missing observation honestly. These entries
+are neither passing tests nor evidence of ledger defects.
+
+Creation/removal, equal outputs at distinct references, unrelated and reference-only
+outputs, overlapping input roles, local/delegated batches, zero-net changes, historic
+recorded amounts and positive Store surplus remain scenario dimensions under the
+exact transitions. No requirement is considered implemented merely by consolidation.
+
+The rules document retains former anchors with a migration table. Generic snapshot
+round trips refer to the inherited executable tests. The real defensive solvency
+validator still needs focused boundary coverage, identified separately from accepted
+ledger effects. Consensus rollback needs an owning integration/API before a test
+can claim to exercise it.
+
+| Verification | Result |
+| --- | --- |
+| Dijkstra test executable | Builds successfully after the module moves. |
+| Full DepositStore stream, seed `739231514` | **194 examples, 0 failures, 8 pending**: all 186 implemented checks pass. |
+| Execution time | **51.6269 s** wall time; 77.3002 s CPU time. |
+| LedgerEffects rerun after clarifying Conservation's valid-state precondition | **9 examples, 0 failures, 8 pending**, in 2.3830 s wall time. |
+| Documentation | Prior explicit anchors retained; internal links, file links and case source lines checked. |
+
+The executable was run with `--times --print-cpu-time`; the log includes individual
+test durations. Ctags were regenerated after the module moves.
+
+Local evidence:
+
+- Build: `/private/tmp/ds-ledger-effects-structure-build.log`
+- Final rebuild: `/private/tmp/ds-ledger-effects-final-build.log`
+- Test run: `/private/tmp/ds-ledger-effects-structure-regression.log`
+- Final LedgerEffects run: `/private/tmp/ds-ledger-effects-final-contracts.log`
+- Ctags: `/private/tmp/ds-ledger-effects-structure-tags.log`
 
 ## Store-specific collateral implemented on 20 October 2026
 

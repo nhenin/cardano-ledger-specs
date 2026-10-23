@@ -286,6 +286,7 @@ test-suite tests
   other-modules:
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
+    Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec
     Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Encoding
@@ -293,6 +294,10 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Encoding.JSON
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Assertions
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.ADA
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.OutputIndex
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration
@@ -325,14 +330,13 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Operations
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Output
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.AllocationsSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.BalanceSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.ConservationSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.ExecutionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.UTxOSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.FeesSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.InitializationSpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.RecoverySpec
-    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.SolvencySpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.EpochSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.TranslationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.AllocationsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.BalanceSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffectsSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.AssetsSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.FundingSpec
