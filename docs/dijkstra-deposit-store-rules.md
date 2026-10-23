@@ -4,7 +4,7 @@ This specification states the DepositStore business rules and the cases used to 
 them. The rule chapters follow the executable suite’s domain groups and case order.
 Short titles introduce each case; formulas state its contract. Semantic tags connect
 each requirement to its test independently of section
-numbering. The current executable scope covers Transaction rules and Ledger effects;
+numbering. The executable suite groups Transaction rules and Ledger effects;
 Deposit calculation and Derived distributions remain documented for later tests.
 Implementation status and recorded runs belong in the
 [verification record](dijkstra-deposit-store-verification.md).
@@ -529,94 +529,86 @@ Appendices contain the open design questions and supporting references.
   <dt><strong><a href="#ds-state">3. Ledger effects</a></strong></dt>
   <dd>
     <details>
-      <summary><a href="#ds-state-execution">3.1 Execution</a></summary>
+      <summary><a href="#ds-state-utxo">3.1 UTxO</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-execution-p01">3.1.1 P01 - Apply ordinary UTxO effects</a><br>
-          <a href="#ds-state-execution-n01">3.1.2 N01 - applies ordinary effects and no collateral effects on success, including when input roles overlap</a><br>
-          <a href="#ds-state-execution-n02">3.1.3 N02 - applies collateral settlement and no ordinary Store operations on an accepted phase-2 failure</a><br>
-          <a href="#ds-state-execution-n03">3.1.4 N03 - consumes only collateral inputs and creates only the specified collateral return in the UTxO on an accepted phase-2 failure</a><br>
-          <a href="#ds-state-execution-n04">3.1.5 N04 - does not credit the settlement amount to the selected output a second time</a><br>
-          <a href="#ds-state-execution-f01">3.1.6 F01 - leaves the entire ledger state unchanged when a later body rejects a batch after earlier SubTx processing</a><br>
-          <a href="#ds-state-execution-p02">3.1.7 P02 - Preserve state on rejection</a><br>
+          <a href="#ds-state-utxo-n01">3.1.1 N01 - Ordinary execution</a><br>
+          <a href="#ds-state-utxo-n02">3.1.2 N02 - Successful scripts leave collateral inactive</a><br>
+          <a href="#ds-state-utxo-n03">3.1.3 N03 - Failed scripts select collateral</a><br>
+          <a href="#ds-state-utxo-n04">3.1.4 N04 - Failed TopTx, inactive SubTxs</a><br>
+          <a href="#ds-state-utxo-n05">3.1.5 N05 - One input, two consuming roles</a><br>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-allocations">3.2 Allocations</a></summary>
+      <summary><a href="#ds-state-store">3.2 Store</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-allocations-p01">3.2.1 P01 - Release recorded input deposits</a><br>
-          <a href="#ds-state-allocations-n01">3.2.2 N01 - records the allocated UTxO capacity deposit alongside each newly created store-backed output</a><br>
-          <a href="#ds-state-allocations-n02">3.2.3 N02 - removes a spent output's UTxO capacity deposit record and releases its UTxO capacity deposit exactly once</a><br>
-          <a href="#ds-state-allocations-n03">3.2.4 N03 - keeps UTxO capacity deposit records unchanged when outputs are only referenced</a><br>
-          <a href="#ds-state-allocations-n04">3.2.5 N04 - Match live allocations to obligations</a><br>
-          <a href="#ds-state-allocations-n05">3.2.6 N05 - does not leave missing or orphan UTxO capacity deposit records after accepted transitions</a><br>
-          <a href="#ds-state-allocations-n06">3.2.7 N06 - releases the allocated UTxO capacity deposit even when reserialization would change the output size</a><br>
-          <a href="#ds-state-allocations-n07">3.2.8 N07 - does not release UTxO capacity deposits from the DepositStore when a translated implicit output is spent</a><br>
-          <a href="#ds-state-allocations-p02">3.2.9 P02 - Update obligations on ordinary success</a><br>
-          <a href="#ds-state-allocations-n08">3.2.10 N08 - removes consumed store-backed collateral records and records the return only when store-backed, preserving records outside collateral inputs on an accepted phase-2 failure</a><br>
-          <a href="#ds-state-allocations-p03">3.2.11 P03 - Update obligations on phase-2 failure</a><br>
+          <details>
+            <summary><a href="#ds-state-allocations">3.2.1 Allocations</a></summary>
+            <dl>
+              <dd>
+                <a href="#ds-state-allocations-p01">3.2.1.1 P01 - Ordinary records</a><br>
+                <a href="#ds-state-allocations-p02">3.2.1.2 P02 - Collateral records</a><br>
+                <a href="#ds-state-allocations-p03">3.2.1.3 P03 - Retained accepted size</a><br>
+                <a href="#ds-state-allocations-n01">3.2.1.4 N01 - Zero-priced allocations still have records</a><br>
+                <a href="#ds-state-allocations-p04">3.2.1.5 P04 - No ordinary records on failure</a><br>
+              </dd>
+            </dl>
+          </details>
+          <details>
+            <summary><a href="#ds-state-balance">3.2.2 Balance</a></summary>
+            <dl>
+              <dd>
+                <a href="#ds-state-balance-p01">3.2.2.1 P01 - Ordinary transfer</a><br>
+                <a href="#ds-state-balance-p02">3.2.2.2 P02 - Collateral transfer</a><br>
+                <a href="#ds-state-balance-p03">3.2.2.3 P03 - Historical release after restoration</a><br>
+                <a href="#ds-state-balance-p04">3.2.2.4 P04 - No ordinary transfer on failure</a><br>
+              </dd>
+            </dl>
+          </details>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-balance">3.3 Balance</a></summary>
+      <summary><a href="#ds-state-fees">3.3 Fees</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-balance-p01">3.3.1 P01 - Apply the declared net transfer</a><br>
-          <a href="#ds-state-balance-n01">3.3.2 N01 - changes the balance by exactly the applied allocations minus releases</a><br>
-          <a href="#ds-state-balance-p02">3.3.3 P02 - Apply collateral’s net transfer</a><br>
-          <a href="#ds-state-balance-p03">3.3.4 P03 - Preserve Store surplus</a><br>
-          <a href="#ds-state-balance-n02">3.3.5 N02 - preserves pre-existing Store surplus across ordinary success and accepted phase-2 failure</a><br>
-          <a href="#ds-state-balance-n03">3.3.6 N03 - applies no ordinary Store transfer when every declaration is absent</a><br>
+          <a href="#ds-state-fees-p01">3.3.1 P01 - Ordinary fee</a><br>
+          <a href="#ds-state-fees-p02">3.3.2 P02 - Collateral fee</a><br>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-fees">3.4 Fees</a></summary>
+      <summary><a href="#ds-state-conservation">3.4 Conservation</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-fees-p01">3.4.1 P01 - Apply the selected fee path</a><br>
+          <a href="#ds-state-conservation-n01">3.4.1 N01 - Count actual ADA once</a><br>
+          <a href="#ds-state-conservation-n02">3.4.2 N02 - Ordinary conservation</a><br>
+          <a href="#ds-state-conservation-n03">3.4.3 N03 - Collateral conservation</a><br>
         </dd>
       </dl>
     </details>
     <details>
-      <summary><a href="#ds-state-solvency">3.5 Solvency</a></summary>
+      <summary><a href="#ds-state-lifecycle">3.5 Lifecycle</a></summary>
       <dl>
         <dd>
-          <a href="#ds-state-solvency-p01">3.5.1 P01 - Keep every accepted state solvent</a><br>
-          <a href="#ds-state-solvency-n01">3.5.2 N01 - classifies proposed states at exact backing and one lovelace above as solvent</a><br>
-          <a href="#ds-state-solvency-f01">3.5.3 F01 - classifies a proposed state one lovelace below its independently calculated obligations as insolvent</a><br>
-          <a href="#ds-state-solvency-n02">3.5.4 N02 - observes Store backing in the completed batch result with local and delegated contributions</a><br>
-          <a href="#ds-state-solvency-n03">3.5.5 N03 - Preserve solvency across epochs</a><br>
-        </dd>
-      </dl>
-    </details>
-    <details>
-      <summary><a href="#ds-state-conservation">3.6 Conservation</a></summary>
-      <dl>
-        <dd>
-          <a href="#ds-state-conservation-n01">3.6.1 N01 - still counts Store ADA in total monetary conservation</a><br>
-        </dd>
-      </dl>
-    </details>
-    <details>
-      <summary><a href="#ds-state-initialization">3.7 Initialization</a></summary>
-      <dl>
-        <dd>
-          <a href="#ds-state-initialization-n01">3.7.1 N01 - preserves existing output references, addresses, values, datums and reference scripts and keeps those outputs implicit</a><br>
-          <a href="#ds-state-initialization-n02">3.7.2 N02 - initializes Store balance and UTxO capacity deposit obligations to zero</a><br>
-          <a href="#ds-state-initialization-n03">3.7.3 N03 - does not transfer funds from another ledger pot during initialization</a><br>
-        </dd>
-      </dl>
-    </details>
-    <details>
-      <summary><a href="#ds-state-recovery">3.8 Recovery</a></summary>
-      <dl>
-        <dd>
-          <a href="#ds-state-recovery-n01">3.8.1 N01 - preserves the complete ledger state through serialization and restoration, including outputs, allocated records and Store surplus</a><br>
-          <a href="#ds-state-recovery-n02">3.8.2 N02 - restores the complete prior ledger state on rollback after ordinary success or accepted phase-2 failure</a><br>
+          <details>
+            <summary><a href="#ds-state-translation">3.5.1 Translation</a></summary>
+            <dl>
+              <dd>
+                <a href="#ds-state-translation-n01">3.5.1.1 N01 - Introduce the empty Store</a><br>
+              </dd>
+            </dl>
+          </details>
+          <details>
+            <summary><a href="#ds-state-epoch">3.5.2 Epoch</a></summary>
+            <dl>
+              <dd>
+                <a href="#ds-state-epoch-n01">3.5.2.1 N01 - Retain the populated Store</a><br>
+              </dd>
+            </dl>
+          </details>
         </dd>
       </dl>
     </details>
@@ -5891,683 +5883,342 @@ inputs. Mixed-policy or distinct-token input maps remain an extension.
 [Funding N01](#ds-collateral-funding-n01) supplies the ADA-only no-return acceptance
 control. Ordinary outputs and unapplied minting cannot supply missing collateral assets.
 
-<a id="section-1-3" name="section-1-3"></a>
-<a id="ds-state" name="ds-state"></a>
+<a id="section-1-3" name="section-1-3"></a><a id="ds-state" name="ds-state"></a>
+
+<a id="ds-state-execution-p01" name="ds-state-execution-p01"></a><a id="ds-state-execution-n01" name="ds-state-execution-n01"></a><a id="ds-state-execution-n04" name="ds-state-execution-n04"></a><a id="ds-state-execution-n02" name="ds-state-execution-n02"></a><a id="ds-state-execution-n03" name="ds-state-execution-n03"></a>
 
 ## 3. Ledger effects
 
-> **Check the ledger state produced by each execution outcome.**
+> **Observe the state produced by an accepted transaction.**
 >
-> Correct declarations must lead to correct state updates. Recorded obligations and actual Store ADA remain distinct.
+> Transaction rules decide validity. Ledger effects checks the resulting UTxO,
+> Store records and monetary pots; Lifecycle checks translation and epoch boundaries.
 
-| Responsibility | Question answered |
+| Responsibility | Observation |
 | --- | --- |
-| [Execution](#ds-state-execution) | Which effects apply? |
-| [Allocations](#ds-state-allocations) | Which deposit belongs to each live output? |
-| [Balance](#ds-state-balance) | How much actual ADA enters or leaves the Store? |
-| [Fees](#ds-state-fees) | Where does released collateral-deposit surplus go? |
-| [Solvency](#ds-state-solvency) | Does Store ADA cover the outstanding deposits? |
-| [Conservation](#ds-state-conservation) | Is total ledger ADA preserved? |
-| [Initialization](#ds-state-initialization) | What state does the upgrade establish? |
-| [Recovery](#ds-state-recovery) | Do restoration and rollback preserve consistent state? |
+| [UTxO](#ds-state-utxo) | Exact consumed and created output references. |
+| [Store / Allocations](#ds-state-allocations) | Exact allocation map for live Store-backed outputs. |
+| [Store / Balance](#ds-state-balance) | Store ADA transfer and retained surplus. |
+| [Fees](#ds-state-fees) | Fee credit and unchanged treasury. |
+| [Conservation](#ds-state-conservation) | Correct ADA total and its preservation. |
+| [Lifecycle](#ds-state-lifecycle) | Era translation and ordinary epoch boundaries. |
 
-<a id="ds-state-execution" name="ds-state-execution"></a>
+The accepted outcome selects the inputs and outputs used by all these observations:
 
-### 3.1 Execution
-
-> **Select which effects may change the ledger.**
->
-> Ordinary success applies ordinary effects; accepted phase-2 failure applies collateral effects; rejection applies neither.
-
-**Decision:** Agreed.
-
-Apply only the effects selected by the transaction's ledger outcome. An accepted transaction whose phase-2 scripts fail is distinct from a rejected transaction:
-
-| Outcome | Ordinary inputs, outputs and Store operations | Collateral inputs, return and derived settlement |
+| Outcome | $\mathit{consumedInputs}$ | $\mathit{createdOutputs}$ |
 | --- | --- | --- |
-| Ordinary success | Applied | Unapplied |
-| Accepted phase-2 failure | Unapplied | Applied |
-| Rejection | Unapplied | Unapplied |
+| Ordinary success | Ordinary inputs of TopTx and every SubTx. | Their signed ordinary outputs, each under its own body's identifier and output index. |
+| Accepted phase-2 failure | Collateral inputs. | The signed collateral return, when present. |
 
-Collateral validation can still be required before ordinary success; this table determines which effects are applied, not when collateral must be supplied. The [shared collateral rules](#ds-collateral-existing-rules) define that requirement; [Funding](#ds-collateral-funding) derives the deposit adjustment.
+Settlement ADA is already included in the signed output. Reference-only and
+unrelated inputs remain unchanged; an input used in both consuming roles is
+consumed once through the selected path. Tests assert acceptance before checking
+these effects. Executed counts and timings belong to the [verification record](dijkstra-deposit-store-verification.md).
 
-For an ordinary successful batch, include the regular effects of TopTx and every SubTx:
+<a id="ds-state-execution" name="ds-state-execution"></a><a id="ds-state-utxo" name="ds-state-utxo"></a>
 
-$$
-\begin{aligned}
-\text{utxoAfter}
-&= \text{removeInputs}(\text{utxoBefore},\text{regularInputs}) \\
-&\quad \cup \text{newRegularOutputsWithUTxODeposits}
-\end{aligned}
-$$
+### 3.1 UTxO
 
-On an accepted phase-2 failure, consume only collateral inputs and create only the specified collateral return. Ordinary and collateral input roles need not be disjoint: a shared input is consumed once through the selected outcome. On ordinary success, inputs used only as collateral remain live; on accepted phase-2 failure, ordinary inputs outside the collateral set remain live. Branch selection does not promise preservation of an input also consumed in the applied role.
-
-UTxO entries, their allocated amounts and the Store balance must settle atomically for the chosen outcome. A rejected batch preserves the entire previously accepted ledger state, including all three; no partially applied result is an accepted state.
-
-A selected settlement output already contains its settlement amount in the submitted transaction. Applying the accepted transaction does not add that amount again. Exact contribution, destination and conservation checks remain separate prerequisites.
-
-<a id="ds-state-execution-p01" name="ds-state-execution-p01"></a>
-
-#### 3.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L11) - Apply ordinary UTxO effects
+> **Apply exactly the selected inputs and signed outputs.**
 
 $$
-\text{ordinary success} \implies
-\text{UTxO after} =
-\left(\text{UTxO before} \setminus \text{ordinary inputs}\right)
-\cup \text{created ordinary outputs}
+\mathit{utxoAfter}
+=(\mathit{utxoBefore}\setminus\mathit{consumedInputs})
+\cup\mathit{createdOutputs}
 $$
 
-Given an accepted ordinary batch, remove the regular inputs consumed by TopTx and its SubTxs and add their new regular outputs with allocated-deposit metadata. Compare the resulting ledger UTxO with that independently constructed result.
+Here, subtraction removes map entries by input reference; union inserts the
+selected outputs without changing their payloads.
 
-<a id="ds-state-execution-n01" name="ds-state-execution-n01"></a>
-
-#### 3.1.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L12) - applies ordinary effects and no collateral effects on success, including when input roles overlap
-
-Given an ordinary successful transaction that also supplies collateral, apply its ordinary Store operations without applying collateral settlement or creating the collateral return. Include a key-controlled input shared by ordinary spending and collateral: consume it as an ordinary input and release its recorded deposit once. Inputs used only as collateral remain live. Supplying or validating collateral creates no additional effects.
-
-<a id="ds-state-execution-n02" name="ds-state-execution-n02"></a>
-
-#### 3.1.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L13) - applies collateral settlement and no ordinary Store operations on an accepted phase-2 failure
-
-Given an accepted phase-2 failure with ordinary Store declarations, apply the derived collateral settlement and no ordinary Store operations. Ordinary declarations remain subject to validation, but cannot contribute funds to, or change, the applied collateral effects.
-
-<a id="ds-state-execution-n03" name="ds-state-execution-n03"></a>
-
-#### 3.1.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L14) - consumes only collateral inputs and creates only the specified collateral return in the UTxO on an accepted phase-2 failure
-
-Given an accepted phase-2 failure, remove only the collateral inputs and create only the specified collateral return. Include a key-controlled input shared by ordinary spending and collateral: consume it once as collateral. Ordinary inputs outside the collateral set remain live and ordinary outputs are not created. Cover absent, implicit and store-backed returns.
-
-<a id="ds-state-execution-n04" name="ds-state-execution-n04"></a>
-
-#### 3.1.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L15) - does not credit the settlement amount to the selected output a second time
-
-Given an accepted release whose selected output already includes its settlement amount, create that output with the submitted value. Adding another settlement credit during application would count the release twice.
+| Case | Scenario and observation |
+| --- | --- |
+| <a id="ds-state-utxo-n01" name="ds-state-utxo-n01"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L35)** | **Ordinary execution.** Standalone and multi-SubTx transactions allocate, release or replace deposits. Compare the entire resulting UTxO with the ordinary-input/output equation. |
+| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L49)** | **Successful scripts leave collateral inactive.** Generate collateral proposals with absent, implicit or Store-backed returns. Only ordinary outputs are created; collateral-only and reference-only inputs survive. |
+| <a id="ds-state-utxo-n03" name="ds-state-utxo-n03"></a>**3.&nbsp;[N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L63)** | **Failed scripts select collateral.** Submit a genuine phase-2 failure. Only collateral inputs disappear and only the collateral return is created; ordinary and reference-only inputs survive. |
+| <a id="ds-state-utxo-n04" name="ds-state-utxo-n04"></a>**4.&nbsp;[N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L78)** | **Failed TopTx, inactive SubTxs.** A real failing TopTx script selects collateral even when several children propose allocations and releases. Compare the complete UTxO: none of those ordinary effects is applied. |
+| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L96)** | **One input, two consuming roles.** A Store-backed input belongs to both ordinary and collateral sets. Exercise both actual script outcomes and compare the complete UTxO against the selected path; consume the shared input once. |
 
 <a id="ds-state-execution-f01" name="ds-state-execution-f01"></a>
 
-#### 3.1.6 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L16) - leaves the entire ledger state unchanged when a later body rejects a batch after earlier SubTx processing
-
-Start with an accepted control batch containing multiple bodies. Make a later body invalid after an earlier SubTx can contribute candidate effects. Compare the complete accepted ledger state before submission and after rejection, including UTxO entries, allocated records, Store balance, other monetary pots and derived distributions. No earlier candidate effect may survive rejection.
-
 <a id="ds-state-execution-p02" name="ds-state-execution-p02"></a>
 
-#### 3.1.7 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ExecutionSpec.hs#L17) - Preserve state on rejection
+**Rejected submissions.** A rejected transaction produces no new accepted state.
+The submission adapter installs a state only on success, so comparing its snapshots
+after rejection would mainly retest that adapter. Rejection assertions remain in
+Transaction rules; this section measures applied effects. Likewise, these failing
+scripts execute at TopTx: they do not claim to test propagation of a failing
+SubTx script through the upstream batch evaluator.
 
-$$
-\text{transaction rejected} \implies
-\text{ledger state after} = \text{ledger state before}
-$$
+<a id="ds-state-store" name="ds-state-store"></a>
 
-Across rejected batches, require the resulting accepted ledger state to equal the prior accepted state. This invariant distinguishes rejection from an accepted phase-2 failure, which legitimately applies collateral effects.
+### 3.2 Store
 
-<a id="ds-state-allocations" name="ds-state-allocations"></a>
+`DepositStore` contains actual ADA in `depositStoreBalance` and a `Map TxIn Coin`
+in `depositStoreAllocations`. The map records obligations; it is not another pot.
+A reference identifies the same output occurrence in the UTxO and allocation maps.
 
-### 3.2 Allocations
+<a id="ds-state-allocations" name="ds-state-allocations"></a><a id="ds-state-store-allocations" name="ds-state-store-allocations"></a>
 
-> **Track the deposit attached to each live store-backed output.**
->
-> Creation records it; consumption releases it exactly once; reference use leaves it unchanged.
+<a id="ds-state-allocations-n04" name="ds-state-allocations-n04"></a><a id="ds-state-allocations-n05" name="ds-state-allocations-n05"></a><a id="ds-state-allocations-n02" name="ds-state-allocations-n02"></a><a id="ds-state-allocations-n03" name="ds-state-allocations-n03"></a><a id="ds-state-allocations-n06" name="ds-state-allocations-n06"></a><a id="ds-state-allocations-n07" name="ds-state-allocations-n07"></a><a id="ds-state-allocations-n08" name="ds-state-allocations-n08"></a>
 
-**Decision:** Agreed.
+#### 3.2.1 Allocations
 
-Every live store-backed output retains exactly one recoverable allocated UTxO capacity deposit amount associated with its `TxIn`. Every live allocated amount is nonnegative. Treat `utxoDepositRecords` as a logical map; its domain is exactly the live store-backed UTxO, and its sum is the outstanding obligation:
+> **Retain one allocation for each live Store-backed output.**
 
-$$
-\begin{aligned}
-&\text{keys}(\text{utxoDepositRecords}(\text{state})) \\
-&\quad = \{\,\text{txIn} \mid
-  \text{UTxO}(\text{state})[\text{txIn}]\text{ is store-backed}\,\}
-\end{aligned}
-$$
-
-$$
-\text{totalUTxODeposits}(\text{utxo}(\text{state}))
-= \sum_{\text{txIn}\in\text{keys}(\text{utxoDepositRecords}(\text{state}))}
-  \text{utxoDepositRecords}(\text{state})[\text{txIn}]
-$$
-
-Creating a store-backed output establishes its amount using `DS-PRICING`. Consuming it releases that allocated amount exactly once and removes its record. Reference inputs leave the amount unchanged and release nothing. Implicit outputs, including outputs preserved by the Conway upgrade, have no Store obligation and release no Store deposit when consumed.
-
-The ledger retains the allocation map and its funding in `UTxOState`:
-
-```haskell
-data DepositStore = DepositStore
-  { depositStoreBalance :: Coin
-  , depositStoreAllocations :: Map TxIn Coin
-  }
-```
-
-A `TxIn` identifies both the live output and its allocation record. The output
-remains in the UTxO map; the recorded deposit remains in the Store map. These two
-maps must describe the same live store-backed occurrences. Neither the transaction
-output encoding nor the `TxIn` identifier gains a deposit field.
-
-Release uses the retained amount, not a later serialization of the output.
-Dijkstra ledger-state serialization preserves the Store balance and allocation map;
-Conway-to-Dijkstra initialization starts with an empty Store. The recorded amount
-supports exact release at fixed prices. Additional historical-pricing information
-remains under [Historical pricing](#ds-pricing-history).
-
-The applied outcome determines which records change. Ordinary success updates records for regular inputs and new ordinary outputs. Accepted phase-2 failure updates only consumed collateral records and a store-backed return, leaving unrelated records untouched. Their obligation deltas are:
-
-**Ordinary success:**
-
-$$
-\text{obligationsAfter}
-= \text{obligationsBefore} + \text{requiredTxTotalNetUTxODepositChange}
-$$
-
-**Accepted phase-2 failure:**
+Let $\mathit{recordsBefore}$ be independently retained creation-time amounts.
+Construct $\mathit{newAllocations}$ only for Store-backed outputs in
+$\mathit{createdOutputs}$, priced from their accepted serialized sizes under
+[Deposit calculation](#ds-pricing). Implicit outputs have no record; a Store-backed
+output priced at zero still has a record. For either accepted outcome:
 
 $$
 \begin{aligned}
-\text{obligationsAfter}
-&= \text{obligationsBefore} \\
-&\quad + \text{collateralReturnUTxODeposit} - \text{releasedUTxODeposits}
+\mathit{recordsAfter}
+&=(\mathit{recordsBefore}\setminus\mathit{consumedInputs})
+  \cup\mathit{newAllocations} \\
+\mathit{keys}(\mathit{recordsAfter})
+&=\{\,\mathit{outputRef}\mid\mathit{utxoAfter}[\mathit{outputRef}]\text{ is Store-backed}\,\} \\
+\mathit{recordsAfter}[\mathit{outputRef}]&\geq0
+\quad\text{for every recorded }\mathit{outputRef}
 \end{aligned}
 $$
 
-Check the records against the independently observed live UTxO and expected amounts. Comparing two totals derived from the same unchecked records would not detect missing or incorrect allocations. `DS-STATE-EXECUTION` governs atomic application; `DS-STATE-RECOVERY` governs preservation through serialization and rollback.
+Compare the actual map with this independently constructed map, and its domain
+with the actual resulting UTxO. Equality between two sums of the same unchecked
+map would miss missing, misplaced or incorrectly priced records. A consistent
+starting state has this exact domain and nonnegative recorded amounts. Balance
+derives solvency separately from a solvent initial state.
 
-<a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>
+| Case | Scenario and observation |
+| --- | --- |
+| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L58)** | **Ordinary records.** Derive records from signed Store-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
+| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L79)** | **Collateral records.** Generate mixed input forms and absent, implicit or Store-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Store-backed return; reference-only records survive. |
+| <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L103)** | **Retained accepted size.** Submit a noncanonical CBOR output whose accepted encoding is one byte longer than its canonical encoding. Restore the serialized UTxO state, double the byte price and reference the output: its creation record is unchanged. Spending it removes precisely that record. |
+| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L136)** | **Zero-priced allocations still have records.** Spend translated implicit sources and create Store-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; implicit sources never acquire allocation records. |
+| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L159)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
 
-#### 3.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L11) - Release recorded input deposits
+Historical release **amounts** are checked separately by [Balance P03](#ds-state-balance-p03).
 
-$$
-\text{ordinary success} \implies
-\text{released deposits} =
-\sum_{\text{input}\,\in\,\text{consumed store-backed inputs}}
-\text{recorded deposit(input)}
-$$
+<a id="ds-state-balance" name="ds-state-balance"></a><a id="ds-state-store-balance" name="ds-state-store-balance"></a>
 
-Given an ordinary successful spend, sum the recorded allocated amounts on the consumed store-backed inputs and compare that sum with the released amount. Use the input records, not current output repricing or the Store's global available balance.
+#### 3.2.2 Balance
 
-<a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>
+> **Fund the change in live allocations and preserve existing Store surplus.**
 
-#### 3.2.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L12) - records the allocated UTxO capacity deposit alongside each newly created store-backed output
-
-Given newly created store-backed outputs, compare the allocation attached to each independently identified output reference with its accepted allocation. Include equal-valued outputs at distinct indices and outputs in different bodies: each occurrence must retain its own record. The association supplies that output's later release amount.
-
-<a id="ds-state-allocations-n02" name="ds-state-allocations-n02"></a>
-
-#### 3.2.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L13) - removes a spent output's UTxO capacity deposit record and releases its UTxO capacity deposit exactly once
-
-Consume a store-backed output in an accepted transaction and expect its allocated amount to be released once and its record to disappear with the spent entry. Attempt a second spend and require rejection without another release. A surviving record or a second release would no longer correspond to a live obligation.
-
-<a id="ds-state-allocations-n03" name="ds-state-allocations-n03"></a>
-
-#### 3.2.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L14) - keeps UTxO capacity deposit records unchanged when outputs are only referenced
-
-Given a live store-backed output used only as a reference input, retain its allocated record unchanged. Referencing does not consume the output or release its obligation.
-
-<a id="ds-state-allocations-n04" name="ds-state-allocations-n04"></a>
-
-#### 3.2.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L15) - Match live allocations to obligations
-
-$$
-\text{outstanding obligations} =
-\sum_{\text{input}\,\in\,\text{live store-backed inputs}}
-\text{recorded deposit(input)}
-$$
-
-Given an accepted state, sum the independently identified live store-backed allocations and compare with its outstanding deposit obligations. The obligation total describes those live outputs, rather than extra money in the Store.
-
-<a id="ds-state-allocations-n05" name="ds-state-allocations-n05"></a>
-
-#### 3.2.6 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L16) - does not leave missing or orphan UTxO capacity deposit records after accepted transitions
-
-Across ordinary success and accepted phase-2 failure, compare record keys and per-reference amounts with an independent lifecycle model of the resulting live UTxO. Include equal-valued outputs at distinct indices. Every live store-backed occurrence must have one recoverable amount, and no record may remain for a nonexistent or implicit output.
-
-<a id="ds-state-allocations-n06" name="ds-state-allocations-n06"></a>
-
-#### 3.2.7 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L17) - releases the allocated UTxO capacity deposit even when reserialization would change the output size
-
-Given an output whose accepted CBOR size differs from a later reserialization, spend it and expect the originally allocated amount to be released. Recomputing its price from the new encoding would change an existing obligation incorrectly.
-
-<a id="ds-state-allocations-n07" name="ds-state-allocations-n07"></a>
-
-#### 3.2.8 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L18) - does not release UTxO capacity deposits from the DepositStore when a translated implicit output is spent
-
-Given an implicit output preserved by the Conway upgrade, spend it without releasing a deposit from the Store. Its full value was retained in the output and no external allocation was established during initialization.
-
-<a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>
-
-#### 3.2.9 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L19) - Update obligations on ordinary success
-
-$$
-\text{ordinary success} \implies
-\text{obligations after} = \text{obligations before}
-+ \text{required transaction net deposit}
-$$
-
-Given an ordinary successful batch, calculate the change in live allocated amounts from consumed and created outputs. Expect that change to equal the batch net deposit change, with every body included once.
-
-<a id="ds-state-allocations-n08" name="ds-state-allocations-n08"></a>
-
-#### 3.2.10 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L20) - removes consumed store-backed collateral records and records the return only when store-backed, preserving records outside collateral inputs on an accepted phase-2 failure
-
-Given an accepted phase-2 failure, remove records for consumed store-backed collateral and create a return record only if the return is store-backed. Cover mixed collateral variants and absent, implicit and store-backed returns. Include an input shared with ordinary spending and remove its record once. Preserve all records outside the collateral inputs because ordinary spending effects were not applied.
-
-<a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>
-
-#### 3.2.11 [P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/AllocationsSpec.hs#L21) - Update obligations on phase-2 failure
+Derive the transfer from new allocations and retained consumed records:
 
 $$
 \begin{aligned}
-\text{accepted phase-2 failure} \implies\quad
-\text{obligations after} &= \text{obligations before} \\
-&\quad + \text{collateral return deposit} \\
-&\quad - \text{released collateral deposits}
+\mathit{releasedDeposits}
+&=\sum_{\mathit{input}\in\mathit{consumedInputs}\cap\mathit{keys}(\mathit{recordsBefore})}
+  \mathit{recordsBefore}[\mathit{input}] \\
+\mathit{storeBalanceAfter}
+&=\mathit{storeBalanceBefore}+\sum\mathit{newAllocations}
+  -\mathit{releasedDeposits}
 \end{aligned}
 $$
 
-Given an accepted phase-2 failure, expect outstanding obligations to change by the return's allocated deposit minus the recorded deposits released from collateral. The equation must describe the resulting live records, independently of ordinary declarations.
-
-<a id="ds-state-balance" name="ds-state-balance"></a>
-
-### 3.3 Balance
-
-> **Apply each Store transfer exactly once to its actual ADA balance.**
->
-> This checks the balance change. Solvency separately checks whether the resulting balance covers all obligations.
-
-**Decision:** Agreed.
-
-The Store balance is actual ADA. Change it by the transfers actually applied, counting each allocation and release once:
-
-$$
-\begin{aligned}
-\text{storeBalanceAfter}
-&= \text{storeBalanceBefore} \\
-&\quad + \text{netAllocationApplied} - \text{netReleaseApplied}
-\end{aligned}
-$$
-
-A SubTx request for funding from TopTx contributes nothing to the balance until its funding is settled. SubTx contributions, including delegated contributions, are already included in the TopTx batch net change; they are not extra transfers to add on top. Under ordinary success with an explicit TopTx declaration:
-
-$$
-\text{storeBalanceAfter}
-= \text{storeBalanceBefore} + \text{declaredTxTotalNetUTxODepositChange}
-$$
-
-If every declaration is absent, ordinary acceptance requires no Store operations.
-The actual transfer is zero; absence still has no declared numeric value.
-
-Under accepted phase-2 failure, ordinary declarations are unapplied, and the balance instead follows the collateral return allocation minus released collateral deposits:
-
-$$
-\begin{aligned}
-\text{storeBalanceAfter}
-&= \text{storeBalanceBefore} \\
-&\quad + \text{collateralReturnUTxODeposit} - \text{releasedUTxODeposits}
-\end{aligned}
-$$
-
-Under the fixed pricing policy, the applied balance and obligation changes are equal on both accepted outcomes. Ordinary success uses the explicit $\text{declaredTxTotalNetUTxODepositChange}$ when present, or no transfer when all declarations are absent; accepted phase-2 failure uses $\text{collateralReturnUTxODeposit} - \text{releasedUTxODeposits}$. Consequently:
-
-$$
-\text{storeBalanceAfter} - \text{obligationsAfter}
-= \text{storeBalanceBefore} - \text{obligationsBefore}
-$$
-
-This preserves any pre-existing surplus; it does not assume that every initial or migrated state has zero surplus. Nor does it turn unrelated surplus into a refund claim: exact contributions still restrict a release to the body's actual change in allocated deposits. That rejection belongs to [Net change](#ds-tx-accounting-net-change): SubTx checks each own change and TopTx checks the transaction total. Solvency and total ADA conservation are separately checked under `DS-STATE-SOLVENCY` and `DS-STATE-CONSERVATION`.
-
-<a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>
-
-#### 3.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs#L11) - Apply the declared net transfer
-
-$$
-\begin{aligned}
-\text{ordinary success} \land \text{TopTx has a declaration}
-\implies\quad
-\text{Store balance after} &= \text{Store balance before} \\
-&\quad + \text{declared transaction net deposit}
-\end{aligned}
-$$
-
-Given an ordinary successful batch with an explicit TopTx declaration, compare the actual Store balance before and after application. Its change must equal the supplied total, already checked against independently derived obligations by Net change, without adding SubTx contributions again.
-
-<a id="ds-state-balance-n01" name="ds-state-balance-n01"></a>
-
-#### 3.3.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs#L12) - changes the balance by exactly the applied allocations minus releases
-
-Given applied allocations and releases, expect the Store balance to change by their exact signed difference. Unapplied requests or duplicate contribution credits must not alter the actual pot.
-
-<a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>
-
-#### 3.3.3 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs#L13) - Apply collateral’s net transfer
-
-$$
-\begin{aligned}
-\text{accepted phase-2 failure} \implies\quad
-\text{Store balance after} &= \text{Store balance before} \\
-&\quad + \text{collateral return deposit} \\
-&\quad - \text{released collateral deposits}
-\end{aligned}
-$$
-
-Given an accepted phase-2 failure, expect the Store balance to increase by the collateral return allocation and decrease by released collateral deposits. Ordinary declared operations supply no additional balance movement on this path.
-
-<a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>
-
-#### 3.3.4 [P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs#L14) - Preserve Store surplus
-
-$$
-\begin{aligned}
-\text{fixed pricing} \land \text{accepted execution} \implies\quad
-&\text{Store balance after} - \text{obligations after} \\
-&\qquad = \text{Store balance before} - \text{obligations before}
-\end{aligned}
-$$
-
-Given a fixed pricing policy, measure Store balance minus independently retained live obligations before and after ordinary success and accepted phase-2 failure. Exact matching changes preserve the difference on each outcome, including a zero net change.
+On ordinary success this equals the validated TopTx total; every SubTx is already
+included, whether funded locally or through TopTx. Accepted phase-2 failure uses
+only collateral allocations and releases. Exact declarations describe this
+validated transfer; applying them again would duplicate its movement of ADA.
 
 <a id="ds-state-balance-n02" name="ds-state-balance-n02"></a>
+With $\mathit{obligations}=\sum\mathit{records}$, matching record and balance changes imply:
 
-#### 3.3.5 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs#L15) - preserves pre-existing Store surplus across ordinary success and accepted phase-2 failure
+$$
+\mathit{storeBalanceAfter}-\mathit{obligationsAfter}
+=\mathit{storeBalanceBefore}-\mathit{obligationsBefore}
+$$
 
-Given a solvent initial state with a positive Store surplus, exercise allocations, releases and zero net changes under ordinary success and accepted phase-2 failure. Derive the actual balance and live obligations independently and require the same surplus afterward. This check does not grant permission to release unrelated Store surplus.
+This preserves positive surplus as well as exact backing. It does not require
+unchanged current prices: old allocations remain recorded, and new allocations
+use the applicable price. Historical repricing policy remains a separate
+[design question](#ds-pricing-history).
 
-<a id="ds-state-balance-n03" name="ds-state-balance-n03"></a>
+<a id="ds-state-balance-n01" name="ds-state-balance-n01"></a><a id="ds-state-balance-n03" name="ds-state-balance-n03"></a>
 
-#### 3.3.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/BalanceSpec.hs#L16) - applies no ordinary Store transfer when every declaration is absent
+| Case | Scenario and observation |
+| --- | --- |
+| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L39)** | **Ordinary transfer.** Measure new deposits from signed outputs and releases from the consumed records. The Store changes by their difference and retains zero or positive initial surplus, including multi-SubTx local/delegated funding and zero net replacement. |
+| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L62)** | **Collateral transfer.** Successful scripts release only ordinary records, including inputs shared with collateral. Failed scripts apply only the return deposit minus recorded collateral releases; zero or positive initial surplus remains intact. |
+| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L86)** | **Historical release after restoration.** Create an allocation from genuinely noncanonical accepted bytes, restore the state and change the price. Spending the output reduces the Store by the original allocation, not a newly calculated deposit. |
+| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L111)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
 
-Submit an otherwise valid, implicit-only ordinary transaction with every declaration absent. The actual Store balance and live allocation records must remain unchanged. Zero transfer is an observed effect here; it does not turn an absent field into an explicit declaration of zero.
+<a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
+From consistent records and a solvent initial state, nonnegative obligations and
+preserved surplus give $\mathit{storeBalance}\geq\mathit{obligations}\geq0$ after
+each accepted transition. This is a consequence of the two Store contracts,
+including completed batches, rather than a duplicate business property.
+
+<a id="ds-state-solvency-n01" name="ds-state-solvency-n01"></a><a id="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent" name="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent"></a><a id="ds-state-solvency-f01" name="ds-state-solvency-f01"></a><a id="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent" name="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent"></a>
+The production [solvency validator](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Accounting.hs#L203)
+separately checks balance against the record sum. A direct unit check of its
+$\mathit{obligations}-1$, $\mathit{obligations}$ and
+$\mathit{obligations}+1$ lovelace boundaries for $\mathit{obligations}>0$ remains
+a coverage gap: reject, accept and accept, respectively. A false independent
+inequality alone would not test that validator. An exact transition from a
+consistent solvent state cannot reach the insolvent boundary; no ledger
+rejection scenario is asserted here.
 
 <a id="ds-collateral-surplus" name="ds-collateral-surplus"></a>
 <a id="224-surplus" name="224-surplus"></a>
 <a id="ds-state-fees" name="ds-state-fees"></a>
 <a id="38-fees" name="38-fees"></a>
 
-### 3.4 Fees
+<a id="ds-collateral-surplus-n01" name="ds-collateral-surplus-n01"></a><a id="2241-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="2241-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="ds-state-fees-n01" name="ds-state-fees-n01"></a><a id="381-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="381-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="341-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="341-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="ds-collateral-surplus-p01" name="ds-collateral-surplus-p01"></a><a id="2242-p01---released-surplus-reaches-fees" name="2242-p01---released-surplus-reaches-fees"></a><a id="382-p01---released-surplus-reaches-fees" name="382-p01---released-surplus-reaches-fees"></a><a id="342-p01---released-surplus-reaches-fees" name="342-p01---released-surplus-reaches-fees"></a><a id="ds-collateral-surplus-p02" name="ds-collateral-surplus-p02"></a><a id="2243-p02---treasury-remains-unchanged" name="2243-p02---treasury-remains-unchanged"></a><a id="383-p02---treasury-remains-unchanged" name="383-p02---treasury-remains-unchanged"></a><a id="343-p02---treasury-remains-unchanged" name="343-p02---treasury-remains-unchanged"></a>
 
-> **Credit only the fee selected by the actual execution path.**
->
-> Accepted phase-2 failure adds released-deposit surplus to the coin fee. Ordinary success leaves collateral effects unapplied.
+### 3.3 Fees
 
-Using the collateral quantities defined under [Funding](#ds-collateral-funding):
+> **Credit the fee selected by the actual execution path.**
 
 $$
-\mathit{releasedSurplus}=\max(0,\mathit{releasedDeposits}-\mathit{returnDeposit})
+\begin{aligned}
+\mathit{additionalDeposit}&=\max(0,\mathit{returnDeposit}-\mathit{releasedDeposits})\\
+\mathit{releasedSurplus}&=\max(0,\mathit{releasedDeposits}-\mathit{returnDeposit})\\
+\mathit{collateralCoinFee}&=\mathit{inputCoins}-\mathit{returnCoins}-\mathit{additionalDeposit}
+\end{aligned}
 $$
 
-| Accepted outcome | Fee-pot increase | Collateral Store effect |
+| Accepted outcome | $\mathit{feesAfter}-\mathit{feesBefore}$ |
+| --- | --- |
+| Ordinary success | $\mathit{txFee}$ |
+| Phase-2 failure | $\mathit{collateralCoinFee}+\mathit{releasedSurplus}$ |
+
+Both paths preserve the treasury:
+$\mathit{treasuryAfter}=\mathit{treasuryBefore}$.
+
+| Case | Scenario and observation |
+| --- | --- |
+| <a id="ds-state-fees-p01" name="ds-state-fees-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L29)** | **Ordinary fee.** Local and delegated ordinary Store operations, plus real successful scripts with collateral proposals, credit only the declared transaction fee. |
+| <a id="ds-state-fees-p02" name="ds-state-fees-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L53)** | **Collateral fee.** Real failing scripts credit the application-coin fee plus unused recorded deposits. Cover absent returns, mixed inputs, deposit shortfall/equality/surplus and a changed byte price. |
+
+The input/return funding constraints belong to [Funding](#ds-collateral-funding).
+[Allocations](#ds-state-allocations) and [Balance](#ds-state-balance) observe the
+corresponding Store effects; these fee tests observe only fees and treasury.
+
+<a id="ds-state-conservation" name="ds-state-conservation"></a><a id="35-conservation" name="35-conservation"></a>
+
+### 3.4 Conservation
+
+> **Count every actual ADA pot, including the whole Store balance, exactly once.**
+
+Start from a valid ledger state and submit an accepted transaction. Read each
+actual pot independently from the observed state. Implicit outputs
+contribute their full coin; Store-backed outputs contribute application coin.
+The deposited pot is `utxosDeposited`, backing certificate/governance deposits.
+Allocation records contribute zero additional ADA.
+
+$$
+\begin{aligned}
+\mathit{actualAda}
+&=\mathit{outputAda}+\mathit{storeBalance}+\mathit{fees}
+  +\mathit{deposited}\\
+&\quad+\mathit{rewards}+\mathit{treasury}+\mathit{reserves}
+  +\mathit{donations}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+\mathit{actualAdaAfter}&=\mathit{actualAdaBefore} \\
+\mathit{totalAdaES}(\mathit{state})+\mathit{donations}(\mathit{state})&=\mathit{actualAda}(\mathit{state})
+\quad\text{for }\mathit{state}\in\{\mathit{before},\mathit{after}\}
+\end{aligned}
+$$
+
+The second equation checks the [production total](../eras/shelley/impl/src/Cardano/Ledger/Shelley/AdaPots.hs#L96)
+against the independent sum: `totalAdaES` includes Store balance but excludes the
+donation pot. Its certificate/governance obligation projection agrees with the
+deposited pot in a consistent valid state. Conservation alone cannot catch
+replacing Store balance with the allocation sum when the omitted surplus stays
+constant. Require an initial
+$\mathit{storeBalance}>\sum\mathit{records}>0$ to distinguish these quantities.
+
+<a id="ds-collateral-conservation" name="ds-collateral-conservation"></a><a id="227-conservation" name="227-conservation"></a><a id="ds-collateral-conservation-n01" name="ds-collateral-conservation-n01"></a><a id="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit" name="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit"></a><a id="ds-collateral-conservation-p01" name="ds-collateral-conservation-p01"></a><a id="2272-p01---collateral-settlement-conserves-ada" name="2272-p01---collateral-settlement-conserves-ada"></a><a id="351-n01---still-counts-store-ada-in-total-monetary-conservation" name="351-n01---still-counts-store-ada-in-total-monetary-conservation"></a>
+
+| Case | Scenario and observation |
+| --- | --- |
+| <a id="ds-state-conservation-n01" name="ds-state-conservation-n01"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L36)** | **Count actual ADA once.** Use positive allocation records, positive unallocated Store surplus and nonzero donations. Before and after an accepted transaction, compare the production total plus donations with the independent sum of actual pots. |
+| <a id="ds-state-conservation-n02" name="ds-state-conservation-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L61)** | **Ordinary conservation.** Compare independent actual-ADA sums immediately before and after accepted standalone and multi-SubTx transactions, with local or delegated funding and positive Store surplus. |
+| <a id="ds-state-conservation-n03" name="ds-state-conservation-n03"></a>**3.&nbsp;[N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L74)** | **Collateral conservation.** Repeat that comparison around real accepted phase-2 failures: mixed inputs, absent returns, and return deposits smaller than, equal to or greater than the recorded releases. |
+
+For collateral, the same accounting projects to
+$\mathit{collateralInputCoins}+\mathit{releasedDeposits}
+=\mathit{returnCoins}+\mathit{returnDeposit}+\mathit{collateralFee}$.
+Its funding prerequisites belong to [Funding](#ds-collateral-funding); this
+contract observes the actual applied state.
+
+<a id="ds-state-lifecycle" name="ds-state-lifecycle"></a>
+
+### 3.5 Lifecycle
+
+Translation establishes an empty Store. Ordinary epoch processing preserves an
+existing Store, including retained allocations and any surplus.
+
+<a id="ds-state-initialization" name="ds-state-initialization"></a><a id="36-initialization" name="36-initialization"></a><a id="ds-state-translation" name="ds-state-translation"></a>
+
+#### 3.5.1 Translation
+
+> **Preserve Conway outputs and existing pots while introducing an empty Store.**
+
+$$
+\begin{aligned}
+\mathit{outputReferencesAfter}&=\mathit{outputReferencesBefore} \\
+\mathit{outputPayloadsAfter}&=\mathit{outputPayloadsBefore} \\
+(\mathit{storeBalanceAfter},\mathit{recordsAfter})&=(0,\varnothing) \\
+\mathit{existingMonetaryPotsAfter}&=\mathit{existingMonetaryPotsBefore}
+\end{aligned}
+$$
+
+Every translated output is implicit. Preserve its semantic address, value, datum
+and reference script under era translation; do not extract its implicit minimum
+coin. Translate a complete Conway `NewEpochState`, then compare these fields with
+their Conway values: output references and payloads; treasury, reserves, fees,
+deposited ADA and donations; each account's rewards and deposit. This checks the
+Store introduction and its preservation boundary, rather than equality of every
+field across two different era types.
+
+| Case | Contract | Scenario axes |
 | --- | --- | --- |
-| Ordinary success | $\mathit{txFee}$ | Unapplied |
-| Phase-2 failure | $\mathit{coinFee}+\mathit{releasedSurplus}$ | Remove consumed records; add the Store-backed return’s record when present. |
+| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L29)** | **Introduce the empty Store.** Apply the real era translation; compare the listed fields independently with their source values and assert an empty Store. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
+
+<a id="ds-state-epoch" name="ds-state-epoch"></a>
+
+#### 3.5.2 Epoch
+
+> **Preserve the Store through ordinary epoch processing.**
 
 $$
-\mathit{treasuryAfter}=\mathit{treasuryBefore}
+(\mathit{storeBalanceAfter},\mathit{recordsAfter})
+=(\mathit{storeBalanceBefore},\mathit{recordsBefore})
 $$
 
-On accepted phase-2 failure:
-
-$$
-\mathit{storeBalanceAfter}
-=\mathit{storeBalanceBefore}+\mathit{returnDeposit}-\mathit{releasedDeposits}
-$$
-
-Only deposits attached to consumed collateral contribute. These fixtures keep
-ordinary inputs and outputs implicit, so the Store is unchanged on ordinary
-success. They include an unrelated allocation whose record must remain intact.
-Preservation of a positive unallocated Store surplus remains the separate
-[Balance N02](#ds-state-balance-n02) contract; it is not generated here. Global
-state contracts remain under [Allocations](#ds-state-allocations),
-[Balance](#ds-state-balance) and [Conservation](#ds-state-conservation).
-
-| Case | Scenario | Expected result |
+| Case | Contract | Scenario axes |
 | --- | --- | --- |
-| <a id="ds-collateral-surplus-n01" name="ds-collateral-surplus-n01"></a><a id="2241-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="2241-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="ds-state-fees-n01" name="ds-state-fees-n01"></a><a id="381-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="381-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="341-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury" name="341-n01---credits-excess-released-utxo-capacity-deposits-to-fees-rather-than-the-treasury"></a><a id="ds-collateral-surplus-p01" name="ds-collateral-surplus-p01"></a><a id="2242-p01---released-surplus-reaches-fees" name="2242-p01---released-surplus-reaches-fees"></a><a id="ds-state-fees-p01" name="ds-state-fees-p01"></a><a id="382-p01---released-surplus-reaches-fees" name="382-p01---released-surplus-reaches-fees"></a><a id="342-p01---released-surplus-reaches-fees" name="342-p01---released-surplus-reaches-fees"></a><a id="ds-collateral-surplus-p02" name="ds-collateral-surplus-p02"></a><a id="2243-p02---treasury-remains-unchanged" name="2243-p02---treasury-remains-unchanged"></a><a id="ds-state-fees-p02" name="ds-state-fees-p02"></a><a id="383-p02---treasury-remains-unchanged" name="383-p02---treasury-remains-unchanged"></a><a id="343-p02---treasury-remains-unchanged" name="343-p02---treasury-remains-unchanged"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L34)** | **Apply the selected fee path.** Generate funded collateral with a deposit shortfall, equal deposits or released surplus; exercise successful scripts and genuine phase-2 failure. | Observe the fee increase, unchanged treasury and collateral Store effects above; preserve unrelated records and unapplied effects. |
-
-<a id="ds-state-solvency" name="ds-state-solvency"></a>
-
-<a id="34-solvency" name="34-solvency"></a>
-
-### 3.5 Solvency
-
-> **Keep enough Store ADA to cover every live allocated deposit.**
->
-> $\text{Store balance} \ge \text{outstanding deposits} \ge 0$. Surplus is permitted; exact accounting still applies.
-
-**Decision:** Agreed; parameter-change handling remains deferred under `DS-PRICING-HISTORY`.
-
-Every accepted state must have enough actual Store ADA to cover the allocated deposits of all live store-backed outputs:
-
-$$
-\text{storeBalance}(\text{state})
-\ge \text{totalUTxODeposits}(\text{utxo}(\text{state})) \ge 0
-$$
-
-The right-hand amount is an obligation, not another monetary pot. Solvency permits a nonzero surplus; it does not require the two amounts to be equal. The accepted-state property compares the actual ledger balance with obligations calculated from independently retained live allocations. Its independent proposed-state oracle combines the expected applied transfer with the resulting model UTxO obligations:
-
-$$
-\begin{aligned}
-&\text{storeBalanceBefore} + \text{netAllocationApplied} - \text{netReleaseApplied} \\
-&\quad \ge \text{totalUTxODeposits}(\text{utxoAfter})
-\end{aligned}
-$$
-
-For a batch, observe Store backing in the completed TopTx and SubTx result, including local and delegated contributions. Temporary intermediate accounting is not an accepted ledger state. `DS-TX-ACCOUNTING-BALANCE` owns whether financially imbalanced SubTxs form an acceptable batch; a solvency observation checks the resulting Store balance and obligations rather than repeating that acceptance assertion. On accepted phase-2 failure, only applied collateral effects can supply funding; ordinary declarations that were not applied cannot do so.
-
-The invariant applies throughout the accepted lifecycle: initialization and Conway-to-Dijkstra translation, ordinary execution, collateral processing, fixed-policy epochs, state restoration and rollback. Generate valid sequences and require accepted examples for each outcome so rejection of every transaction cannot satisfy the invariant vacuously. The present executable scope assumes a fixed pricing policy. The eventual parameter-change policy must also preserve solvency, but these tests do not establish that future behavior.
-
-For independently calculated $\text{obligations} > 0$, the proposed-state invariant has these one-lovelace boundaries:
-
-| Proposed Store balance | Proposed obligations | Invariant result |
-| --- | --- | --- |
-| $\text{obligations} - 1\text{ lovelace}$ | $\text{obligations}$ | False |
-| $\text{obligations}$ | $\text{obligations}$ | True |
-| $\text{obligations} + 1\text{ lovelace}$ | $\text{obligations}$ | True |
-
-These are boundary checks for the independent state oracle, not transaction acceptance examples. Passing the inequality does not establish exact contributions, authorize a release or validate settlement. An excessive release still fails Net change (SubTx or TopTx), even if the proposed balance would remain solvent.
-
-From a solvent initial state, every exact accepted ordinary or collateral transition changes balance and obligations by the same signed amount. Its margin therefore cannot become negative under the fixed policy. F01 specifies the false boundary of the proposed-state invariant independently of ledger acceptance; it does not claim a separately reachable ledger rejection. Do not invent a transaction, submit a corrupted initial state or add a production solvency validator merely to make that case pass. P01 is the requirement that observed accepted ledger states satisfy the independently calculated invariant.
-
-<a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a>
-
-<a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a>
-
-#### 3.5.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L12) - Keep every accepted state solvent
-
-$$
-\begin{aligned}
-\text{fixed pricing} \land \text{solvent initial state}
-\implies\quad
-&\forall\,\text{state}\in\text{accepted lifecycle states}: \\
-&\text{Store balance(state)} \geq \text{obligations(state)} \geq 0
-\end{aligned}
-$$
-
-Given a solvent initial state and fixed pricing, follow accepted lifecycle states through ordinary success, accepted phase-2 failure, initialization, epoch processing, restoration and rollback. Compare the actual Store pot with independently retained live allocations at each observation. Require a nonnegative obligation total fully covered by that pot, without assuming zero surplus, and require accepted coverage for every applicable outcome.
-
-<a id="ds-state-solvency-n01" name="ds-state-solvency-n01"></a>
-
-<a id="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent" name="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent"></a>
-
-#### 3.5.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L13) - classifies proposed states at exact backing and one lovelace above as solvent
-
-Construct proposed-state oracle controls with independently calculated $\text{obligations}$ and balances $\text{obligations}$ and $\text{obligations} + 1\text{ lovelace}$. Require the invariant to classify both as solvent; also cover the empty Store. These controls establish the boundary of the independent expectation and do not themselves establish ledger acceptance.
-
-<a id="ds-state-solvency-f01" name="ds-state-solvency-f01"></a>
-
-<a id="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent" name="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent"></a>
-
-#### 3.5.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L14) - classifies a proposed state one lovelace below its independently calculated obligations as insolvent
-
-Construct a proposed result with $\text{obligations} > 0$, independently calculated from its model live allocations, and a Store balance of $\text{obligations} - 1\text{ lovelace}$. Require the proposed-state invariant to be false, with N01 providing adjacent true controls. This is the independent oracle boundary, not an assertion that an otherwise valid transaction reaches the result or that the ledger exposes a separate solvency failure.
-
-<a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a>
-
-<a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
-
-#### 3.5.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L15) - observes Store backing in the completed batch result with local and delegated contributions
-
-Given an accepted batch with local and delegated contributions, compare the completed Store balance with independently retained live obligations. Include mixed allocations and releases and SubTxs that need not balance independently. Assert the backing relation in the resulting state; batch financial acceptance is checked under `DS-TX-ACCOUNTING-BALANCE`.
-
-<a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a>
-
-<a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>
-
-#### 3.5.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/SolvencySpec.hs#L16) - Preserve solvency across epochs
-
-$$
-\begin{aligned}
-\text{fixed pricing} \land \text{solvent state before epoch}
-\implies\quad
-&\text{Store balance after epoch} \\
-&\qquad \geq \text{obligations after epoch} \geq 0
-\end{aligned}
-$$
-
-Given a solvent initial state and unchanged pricing, advance through epoch processing and check backing in the accepted result. This establishes the fixed-policy invariant, not the deferred behavior of a price change.
-
-<a id="ds-state-conservation" name="ds-state-conservation"></a>
-
-<a id="35-conservation" name="35-conservation"></a>
-
-### 3.6 Conservation
-
-> **Preserve total ADA across outputs and ledger pots after applying a transaction.**
->
-> Count actual Store ADA once. Allocation records describe obligations, not a second monetary balance.
-
-**Decision:** Agreed.
-
-Moving ADA between output values and the Store preserves the total ADA across ledger pots. Count the Store's actual balance once in that total. A live output's recorded allocated amount describes the Store's obligation and must not be counted as a second monetary balance.
-
-For this purpose an implicit output contributes its full output ADA, and a store-backed output contributes its application ADA. Store ADA remains monetary ADA even though it contributes no stake or voting power under `DS-STAKE` and `DS-VOTING`.
-
-This is an assertion about the applied ledger state across all relevant pots. `DS-TX-ACCOUNTING-BALANCE` separately checks the complete ordinary batch's consumed and produced values, while this section checks both applied paths, including collateral settlement. Satisfying an equation before application does not by itself prove that the state update preserves total ADA.
-
-<a id="ds-collateral-conservation" name="ds-collateral-conservation"></a>
-<a id="227-conservation" name="227-conservation"></a>
-<a id="ds-collateral-conservation-n01" name="ds-collateral-conservation-n01"></a>
-<a id="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit" name="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit"></a>
-<a id="ds-collateral-conservation-p01" name="ds-collateral-conservation-p01"></a>
-<a id="2272-p01---collateral-settlement-conserves-ada" name="2272-p01---collateral-settlement-conserves-ada"></a>
-<a id="ds-state-conservation-n01" name="ds-state-conservation-n01"></a>
-
-<a id="351-n01---still-counts-store-ada-in-total-monetary-conservation" name="351-n01---still-counts-store-ada-in-total-monetary-conservation"></a>
-
-#### 3.6.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L11) - still counts Store ADA in total monetary conservation
-
-Compare all affected monetary pots before and after ordinary success and accepted phase-2 failure, including Store states with positive surplus. Independently sum output ADA and the relevant ledger pots, observing fees and other applied charges or refunds. Include actual Store ADA exactly once and live allocation records zero times. Do not obtain the expected total by calling the ledger's total helper or omit Store ADA because it has no stake or voting weight.
-
-
-For an accepted phase-2 failure, independently compare the collateral inputs with
-the return, recorded deposit and observed fee increase:
-
-$$
-\begin{aligned}
-&\mathit{collateralInputCoins}+\mathit{releasedUTxODeposits}\\
-&\qquad=\mathit{collateralReturnCoins}+\mathit{collateralReturnUTxODeposit}+\mathit{collateralFee}
-\end{aligned}
-$$
-
-| Mixed-input example | ADA |
-| --- | ---: |
-| Implicit input | 2 |
-| Store-backed input: application ADA / recorded deposit | 3 / 1 |
-| Store-backed return: application ADA / required deposit | 3 / 2 |
-| Fee increase | 1 |
-
-$$
-\underbrace{5}_{\text{input coins}}+\underbrace{1}_{\text{released deposit}}
-=\underbrace{3}_{\text{return coins}}+\underbrace{2}_{\text{return deposit}}+\underbrace{1}_{\text{fees}}
-$$
-
-With a 1 ADA minimum fee, this is a funded phase-2 failure. It catches treating an
-implicit minimum as an external deposit or counting a recorded deposit twice.
-Generated coverage must also include surplus, equal deposits, additional funding
-and absent returns. Conservation alone does not imply sufficient funding: the
-last row of the [funding table](#ds-collateral-funding) balances but must reject.
-
-<a id="ds-state-initialization" name="ds-state-initialization"></a>
-
-<a id="36-initialization" name="36-initialization"></a>
-
-### 3.7 Initialization
-
-> **Establish the Store’s initial state at the Conway-to-Dijkstra upgrade.**
->
-> Existing outputs remain implicit; $\text{Store balance} = \text{outstanding deposits} = 0$. No existing pot funds initialization.
-
-**Decision:** Agreed.
-
-At the Conway-to-Dijkstra upgrade, preserve every existing output reference and full semantic output payload: address, ADA and native-asset value, datum and reference script under the existing era translation. Every such output remains an implicit-deposit output. Do not automatically convert it to a store-backed output or extract its implicit minimum ADA into the new Store.
-
-Initialize:
-
-$$
-\begin{aligned}
-\text{storeBalance} &= 0 \\
-\text{totalUTxODeposits} &= 0 \\
-\text{utxoDepositRecords} &= \varnothing
-\end{aligned}
-$$
-
-The upgrade takes no funding from existing ledger pots. Subsequent transactions can introduce store-backed outputs through the normal declaration, exact contribution and batch-funding rules; being funded by a translated output gives no exemption. Their presence and exactness cases live under the corresponding Tx responsibilities. Spending a translated implicit output itself releases no Store deposit, as checked under `DS-STATE-ALLOCATIONS`.
-
-Collateral return creation remains governed by the collateral failure-path rules. This initial upgrade creates no historical store-backed outputs whose pricing basis must be migrated; later historical-pricing requirements are deferred under `DS-PRICING-HISTORY`.
-
-<a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a>
-
-<a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a>
-
-#### 3.7.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L11) - preserves existing output references, addresses, values, datums and reference scripts and keeps those outputs implicit
-
-Given a valid Conway UTxO, translate it to Dijkstra with the same references and semantic addresses, ADA, native assets, datums and reference scripts, keeping every output implicit. Include present and absent optional payloads and equal-valued outputs at distinct references. The upgrade must neither rewrite ownership or spending conditions nor extract implicit deposits.
-
-<a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a>
-
-<a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a>
-
-#### 3.7.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L12) - initializes Store balance and UTxO capacity deposit obligations to zero
-
-Given the Conway-to-Dijkstra upgrade, expect zero Store balance, zero outstanding obligations and an empty allocation-record domain. Existing outputs require no external allocation because they remain implicit.
-
-<a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a>
-
-<a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>
-
-#### 3.7.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/InitializationSpec.hs#L13) - does not transfer funds from another ledger pot during initialization
-
-Given the upgrade, compare existing monetary pots before and after Store initialization. No transfer from those pots is needed to create an empty Store.
-
-<a id="ds-state-recovery" name="ds-state-recovery"></a>
-
-<a id="37-recovery" name="37-recovery"></a>
-
-### 3.8 Recovery
-
-> **Preserve accepted state through serialization, restoration and rollback.**
->
-> Outputs, allocation records and Store balance must remain consistent; recorded deposits are retained without repricing.
-
-**Decision:** Agreed; precise ledger-state APIs and encodings remain implementation work.
-
-Ledger-state serialization, snapshots and restoration must preserve the complete semantic ledger state, including outputs, each live store-backed output's allocated amount, the actual Store balance and any surplus. Compare relevant monetary pots and derived distributions as well as the UTxO and its records. Recovering state must preserve accepted amounts; it must not reprice outputs from decoded contents or current protocol parameters. This metadata belongs to ledger state, without adding fields to the transaction output or changing its `TxIn` reference.
-
-Rollback after either ordinary success or accepted phase-2 failure must restore the complete prior semantic ledger state, including the UTxO, allocated-deposit records, actual Store balance, other monetary pots and derived distributions. Restoring only some components could leave missing obligations, orphan records or a mismatched Store. Require equality with the prior state, not merely a newly solvent result, and verify that replaying the same transition reproduces its first result.
-
-This preservation requirement is already agreed at fixed prices. It does not choose the additional historical pricing representation or repricing policy deferred under `DS-PRICING-HISTORY`.
-
-<a id="ds-state-recovery-n01" name="ds-state-recovery-n01"></a>
-
-<a id="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus" name="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus"></a>
-
-#### 3.8.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs#L11) - preserves the complete ledger state through serialization and restoration, including outputs, allocated records and Store surplus
-
-Serialize and restore a complete state containing mixed output variants, distinct retained allocations and nonzero Store surplus. Compare the restored semantic ledger state with the original, including outputs, records, actual balance, other pots and derived distributions. Then spend a restored output whose accepted CBOR size differs from its later reserialization and observe release of the retained amount. Preserving record values alone is insufficient if the Store balance or output payload changed.
-
-<a id="ds-state-recovery-n02" name="ds-state-recovery-n02"></a>
-
-<a id="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure" name="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure"></a>
-
-#### 3.8.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/RecoverySpec.hs#L12) - restores the complete prior ledger state on rollback after ordinary success or accepted phase-2 failure
-
-For ordinary success and accepted phase-2 failure separately, record the complete prior ledger state, apply the transition and roll it back. Require exact semantic restoration, including outputs, records, Store balance, other pots and derived distributions. Replay the transition and compare its accepted result with the original result to detect lost allocation information.
+| <a id="ds-state-epoch-n01" name="ds-state-epoch-n01"></a><a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a><a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L22)** | **Retain the populated Store.** Cross an actual epoch boundary and compare the exact allocation map and Store balance. | Fund one to five live allocations through an accepted transaction. Cross one boundary with exact backing, then another after transferring positive surplus from reserves. Verify the epoch advanced and protocol parameters stayed unchanged. |
+
+<a id="ds-state-recovery" name="ds-state-recovery"></a><a id="37-recovery" name="37-recovery"></a><a id="ds-state-recovery-n01" name="ds-state-recovery-n01"></a><a id="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus" name="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus"></a>
+**Existing codec coverage.** Dijkstra's [test entry point](../eras/dijkstra/impl/test/Main.hs#L49)
+registers the [Conway common](../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Binary/RoundTrip.hs#L27)
+→ [Alonzo](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Binary/RoundTrip.hs#L35)
+→ [Shelley state round trips](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L64),
+including `UTxOState`, `EpochState` and `NewEpochState`. The [state generator](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Arbitrary.hs#L206)
+includes an arbitrary Dijkstra Store, and the [output generator](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Arbitrary.hs#L68)
+includes both output forms. This existing serialization coverage stays in the
+binary suite. [Allocations P03](#ds-state-allocations-p03) additionally submits an
+output whose accepted CBOR is one byte longer than its canonical encoding, then
+restores the serialized `UTxOState` and doubles the price. A reference-only
+transaction must retain its original record; spending must remove that record.
+[Balance P03](#ds-state-balance-p03) checks that the actual Store debit equals the
+recorded creation deposit, preserving any surplus.
+
+<a id="ds-state-recovery-n02" name="ds-state-recovery-n02"></a><a id="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure" name="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure"></a>
+**Rollback integration gap.** This ledger package exposes no rollback operation
+for a LedgerEffects case to exercise. Consensus integration must restore the
+complete prior semantic state after either accepted outcome, then replay the
+transition to reproduce its result. Codec equality does not establish rollback
+coverage; the former Recovery N02 remains this explicit integration requirement.
 
 <a id="derived-distributions" name="derived-distributions"></a>
 
@@ -6750,7 +6401,7 @@ could retain the applicable parameter directly or a pricing reference with enoug
 history to recover it. Its retention policy remains to be designed; this requirement
 does not mandate adding a field to the serialized transaction `TxOut`. Era translation
 must preserve the pricing basis of any existing store-backed outputs. The
-Conway-to-Dijkstra transition introduces no such outputs under DS-STATE-INITIALIZATION.
+Conway-to-Dijkstra transition introduces no such outputs under [Translation](#ds-state-translation).
 
 DS-TX-ACCOUNTING-NET-CHANGE requires exact UTxO capacity deposit accounting and rejects voluntary excess net
 allocations, so these operations create no separate overpayment refund claims. Whether
@@ -6860,7 +6511,8 @@ Semantic tags follow the invariant’s module path. `N`, `F` and `P` identify no
 
 The old identifiers remain listed here for historical references. Several old rules mixed responsibilities, so their cases can now have different semantic prefixes.
 
-Collateral cases now use eight generated contracts. Earlier case anchors remain
+Collateral transaction rules use seven generated contracts. Their applied effects
+belong to the UTxO, Store, Fees and Conservation cases. Earlier case anchors remain
 aliases at the contract that owns their scenario:
 
 | Earlier collateral cases | Current owner |
@@ -6872,8 +6524,25 @@ aliases at the contract that owns their scenario:
 | Other Scope cases; Authorization | [Shared collateral regressions](#ds-collateral-existing-rules) |
 | Total nominal / rejection cases | [Total N01](#ds-collateral-total-n01) / [F01](#ds-collateral-total-f01) |
 | Native-asset nominal / rejection cases from Conservation or Assets | [Assets N01](#ds-collateral-assets-n01) / [F01](#ds-collateral-assets-f01) |
-| Surplus; earlier Fees cases | [Fees P01](#ds-state-fees-p01) |
-| Collateral Conservation N01/P01 | [State Conservation N01](#ds-state-conservation-n01) |
+| Surplus; earlier Fees cases | [Fees P01](#ds-state-fees-p01) / [P02](#ds-state-fees-p02) |
+| Collateral Conservation N01/P01 | [State Conservation N03](#ds-state-conservation-n03) |
+
+Ledger effects is grouped under UTxO, Store, Fees, Conservation and Lifecycle. Earlier case anchors remain beside the contract or scenario that
+owns them; retired identifiers are not separate executable assertions:
+
+| Earlier Ledger effects cases | Current owner |
+| --- | --- |
+| Execution P01, N01, N04 | [UTxO N01](#ds-state-utxo-n01) and [N02](#ds-state-utxo-n02): ordinary effects and inactive collateral. |
+| Execution N02, N03 | [UTxO N03](#ds-state-utxo-n03): collateral effects; [N05](#ds-state-utxo-n05): overlapping input roles. |
+| Execution F01, P02 | [Rejected submissions](#ds-state-execution-f01): no applied result; snapshot comparison would retest the submission adapter. |
+| Allocations P01–P03, N01–N08 | [Allocations](#ds-state-allocations): ordinary/collateral records, retained accepted size, zero-priced records and inactive ordinary operations after phase-2 failure. |
+| Balance P01–P03, N01–N03; Solvency P01, N02 | [Balance](#ds-state-balance): ordinary/collateral transfers, historical releases, preserved surplus and derived solvency. |
+| Solvency N01, F01 | [Production validator boundary gap](#ds-state-solvency-n01); no independent-oracle business cases. |
+| Fees P01; Conservation N01 | Existing identities retained under [Fees](#ds-state-fees) and [Conservation](#ds-state-conservation). |
+| Initialization N01–N03 | [Translation N01](#ds-state-translation-n01): actual Conway translation, preserving output payloads and existing monetary pots while introducing an empty Store. |
+| Solvency N03 | [Epoch N01](#ds-state-epoch-n01): exact Store preservation through ordinary epochs. |
+| Recovery N01 | [Existing binary round trips](#ds-state-recovery-n01); post-restoration records and releases belong to [Allocations P03](#ds-state-allocations-p03) and [Balance P03](#ds-state-balance-p03). |
+| Recovery N02 | [Consensus rollback integration gap](#ds-state-recovery-n02). |
 
 Declarations groups syntax and contextual obligations under one domain:
 
@@ -6928,7 +6597,7 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-TX-004` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
 | `DS-TX-005` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index) |
 | `DS-TX-006` | [DS-TX-SETTLEMENT-DESIGNATION](#ds-tx-settlement-designation) |
-| `DS-TX-007` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index), [DS-TX-SETTLEMENT-OUTPUT-COIN](#ds-tx-settlement-output-coin), [DS-STATE-EXECUTION](#ds-state-execution) |
+| `DS-TX-007` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index), [DS-TX-SETTLEMENT-OUTPUT-COIN](#ds-tx-settlement-output-coin), [DS-STATE-UTXO](#ds-state-utxo) |
 | `DS-TX-008` | [DS-TX-DECLARATIONS-GRAMMAR](#ds-tx-declarations-grammar), [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx) |
 | `DS-TX-009` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](#ds-tx-declarations-requirements-subtx-declarations) |
 | `DS-TX-010` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
@@ -6938,12 +6607,12 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-COLL-001` | [Shared collateral rules](#ds-collateral-existing-rules), [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-ASSETS](#ds-collateral-assets) |
 | `DS-COLL-002` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-STATE-FEES](#ds-state-fees), [DS-STATE-CONSERVATION](#ds-state-conservation) |
 | `DS-COLL-003` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-COLLATERAL-TOTAL](#ds-collateral-total) |
-| `DS-COLL-004` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-STATE-EXECUTION](#ds-state-execution), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance) |
-| `DS-STORE-001` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance), [DS-STATE-SOLVENCY](#ds-state-solvency) |
+| `DS-COLL-004` | [DS-COLLATERAL-FUNDING](#ds-collateral-funding), [DS-STATE-UTXO](#ds-state-utxo), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance) |
+| `DS-STORE-001` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance) |
 | `DS-STORE-002` | [DS-PRICING-HISTORY](#ds-pricing-history) |
 | `DS-STORE-003` | [DS-PRICING](#ds-pricing), [DS-STATE-ALLOCATIONS](#ds-state-allocations) |
-| `DS-STORE-004` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](#ds-tx-declarations-requirements-operations-allocation), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-INITIALIZATION](#ds-state-initialization) |
-| `DS-STORE-005` | [DS-STATE-EXECUTION](#ds-state-execution), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-RECOVERY](#ds-state-recovery) |
+| `DS-STORE-004` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](#ds-tx-declarations-requirements-operations-allocation), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-TRANSLATION](#ds-state-translation) |
+| `DS-STORE-005` | [DS-STATE-UTXO](#ds-state-utxo), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-RECOVERY](#ds-state-recovery) |
 | `DS-PLUTUS-001` | [DS-PLUTUS-COMPATIBILITY](#ds-plutus-compatibility) |
 | `DS-STAKE-001` | [DS-STATE-CONSERVATION](#ds-state-conservation), [DS-STAKE](#ds-stake), [DS-VOTING](#ds-voting) |
 
@@ -7053,7 +6722,7 @@ The executable suite mirrors the rule chapters:
 | Chapter | Test modules under `DepositStore/` |
 | --- | --- |
 | Transaction rules | [`TransactionRulesSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRulesSpec.hs) composes `TransactionRules/Tx/` and `TransactionRules/Collateral/`. |
-| Ledger effects | [`LedgerEffectsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffectsSpec.hs) composes `LedgerEffects/` directly. |
+| Ledger effects | [`LedgerEffectsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffectsSpec.hs) composes `UTxOSpec`, `Store/`, `FeesSpec`, `ConservationSpec` and `Lifecycle/`. |
 
 [`DeclarationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/DeclarationsSpec.hs)
 composes [`GrammarSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs)
@@ -7087,9 +6756,38 @@ Balance checks the complete transaction's financial conservation when phase 2 is
 composes `FundingSpec`, `TotalSpec` and `AssetsSpec`. Existing input resolution,
 witnesses, fee percentages and total-field checks are linked in
 [Existing collateral rules](#ds-collateral-existing-rules).
-[`FeesSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs)
-owns applied released-deposit surplus; `ConservationSpec` checks total ledger ADA
-including the collateral path.
+The Ledger effects modules follow their state observations:
+
+```text
+LedgerEffects/
+├── UTxOSpec.hs
+├── Store/
+│   ├── AllocationsSpec.hs
+│   └── BalanceSpec.hs
+├── FeesSpec.hs
+├── ConservationSpec.hs
+└── Lifecycle/
+    ├── TranslationSpec.hs
+    └── EpochSpec.hs
+```
+
+[`UTxOSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs)
+owns the exact UTxO transition selected by the accepted outcome.
+[`AllocationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs)
+owns retained records; [`BalanceSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs)
+owns Store ADA and surplus. [`FeesSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs)
+checks ordinary and collateral fee credits and unchanged treasury. The map and
+Store assertions formerly embedded there now belong to UTxO and Store specs. [`ConservationSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs)
+compares independent actual-pot sums with the production total including donations.
+
+[`TranslationSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs)
+corresponds to [full-state translation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L100),
+[UTxO/Store translation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L214)
+and [implicit output upgrade](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs#L216).
+[`EpochSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs)
+observes the Store preserved by [ordinary epoch processing](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Epoch.hs#L214).
+Existing codec coverage and the rollback integration gap are linked under
+[Lifecycle](#ds-state-recovery).
 
 `Core.Specs` provides the domain vocabulary and fixtures shared by the executable
 specifications. Domain-named modules keep related generators, builders and
@@ -7111,6 +6809,12 @@ Core/
 │   │   │   ├── Allocation.hs
 │   │   │   └── Release.hs
 │   │   └── SubTx.hs
+│   ├── LedgerEffects.hs
+│   ├── LedgerEffects/
+│   │   ├── ADA.hs
+│   │   └── UTxO.hs
+│   ├── Lifecycle.hs
+│   ├── Collateral.hs
 │   ├── OutputIndex.hs
 │   ├── StrictlyPositiveCoin.hs
 │   └── Assertions.hs
@@ -7140,6 +6844,10 @@ Core/
 | `Specs.Tx.TopTx.Release` | Keep TopTx and its optional SubTxs with their funded ledger context; calculate the complete transaction's net deposit and apply the supplied declarations. |
 | `Specs.Tx.SubTx` | Generate release and equal-allocation-and-release scenarios; expose each child's `allocatedDeposits`, recorded release and `storeBackedInputs` in transaction order, and identify declarations by source input. |
 | `Specs.OutputIndex` / `StrictlyPositiveCoin` | Provide shared index generators and checked amount fixtures. |
+| `Specs.LedgerEffects` | Fund and sign valid ordinary, delegated or phase-2-invalid scenarios; preserve real noncanonical body bytes and restore UTxO-state snapshots. Expected state changes remain in the specs. |
+| `Specs.LedgerEffects.ADA` | Sum actual monetary pots independently of the production ADA-total projection. |
+| `Specs.LedgerEffects.UTxO` | Prepare reference-only and overlapping ordinary/collateral input roles while preserving valid signatures and script pointers. |
+| `Specs.Lifecycle` | Generate Conway translation states and funded Store scenarios for actual epoch transitions. |
 | `Specs.Assertions` | Apply a supplied expectation to one or more observations. |
 | `Encoding` | Observe CBOR and JSON behavior together, with a separate implementation for each format. |
 | `Submission` | Fund and prepare ledger transactions, preserve fixtures through fixup, submit and check ledger outcomes. Its declaration and output modules register the scenario rows. |

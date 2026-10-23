@@ -1,69 +1,67 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | The accepted execution path selects the fee credit. Collateral deposit
--- surplus reaches fees only on phase-2 failure; the treasury remains unchanged.
+-- | Ordinary success credits the declared transaction fee. Accepted phase-2
+-- failure credits the collateral fee and any released Store deposit surplus.
+-- Neither path redirects these amounts to the treasury.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.FeesSpec (spec) where
 
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore, utxosFees, utxosUtxo)
-import Cardano.Ledger.State (DepositStore (..), UTxO (..), treasuryL)
+import Cardano.Ledger.Shelley.LedgerState (utxosFees)
+import Cardano.Ledger.State (treasuryL)
 import Cardano.Ledger.Val (Val ((<->)))
-import qualified Data.Map.Strict as Map
-import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
-import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (Fixture (..))
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects as Effects
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted, submitTx)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
-  createdOrdinaryOutputs,
-  ordinarySpendingInputs,
-  readLedger,
- )
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (readLedger)
 import Test.Cardano.Ledger.Dijkstra.ImpTest (getsNES)
 import Test.Cardano.Ledger.Imp.Common (shouldBe)
 
--- | Generated allocations, equal deposits, surplus releases and absent returns
--- exercise both real script outcomes. Ordinary inputs and outputs are implicit,
--- so only collateral can change the Store. Preserve unrelated UTxOs and records.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
-spec = describe "DS-STATE-FEES - Fees" $
-  prop "DS-STATE-FEES-P01 - Δfees = (if phase2Valid then txFee else collateralCoinFee + releasedSurplus) ∧ Δtreasury = 0" $
+spec = describe "DS-STATE-FEES - Fees" $ do
+  -- Allocation, release and zero-net batches use both local and delegated child
+  -- declarations. Successful scripts additionally cover inactive collateral
+  -- proposals: neither ordinary deposits nor collateral alter the declared fee.
+  prop "DS-STATE-FEES-P01 - accepted ∧ phase2Valid ⇒ Δfees = txFee ∧ Δtreasury = 0" $
+    forAll ((,) <$> Effects.ordinaryScenarios <*> Collateral.fundingScenarios) $ \(ordinary, collateral) ->
+      forM_
+        ( [ buildAndSign scenario
+          | scenario <- ordinary
+          , buildAndSign <- [Effects.buildAndSignOrdinary, Effects.buildAndSignDelegatedOrdinary]
+          ]
+          <> [ signedTx <$> Collateral.buildAndSign scenario
+             | scenario <- collateral
+             , Collateral.phase2 scenario == Phase2Valid
+             ]
+        ) $ \buildAndSign -> do
+          tx <- buildAndSign
+          previousUTxOState <- readLedger
+          previousTreasury <- getsNES treasuryL
+          submitTx tx >>= isAccepted
+          utxoState <- readLedger
+          treasury <- getsNES treasuryL
+          utxosFees utxoState `shouldBe` utxosFees previousUTxOState <> (tx ^. bodyTxL . feeTxBodyL)
+          treasury `shouldBe` previousTreasury
+
+  -- Collateral application ADA first funds its return and any extra deposit.
+  -- Remaining application ADA plus unused recorded deposits go to fees. The
+  -- deposit release uses its recorded amount even after the byte price changes.
+  prop "DS-STATE-FEES-P02 - accepted ∧ phase2Invalid ⇒ Δfees = collateralCoinFee + releasedSurplus ∧ Δtreasury = 0" $
     forAll Collateral.fundingScenarios $ \scenarios ->
-      forM_ scenarios $ \scenario -> do
-        Fixture{signedTx, previousUTxOState, collateralInputs, inputCoins, releasedDeposits, returnDeposit} <- Collateral.buildAndSign scenario
+      forM_ (filter ((== Phase2Invalid) . Collateral.phase2) scenarios) $ \scenario -> do
+        Fixture{signedTx, previousUTxOState, inputCoins, releasedDeposits, returnDeposit} <- Collateral.buildAndSign scenario
         previousTreasury <- getsNES treasuryL
-        let previousStore = utxosDepositStore previousUTxOState
-            previousOutputs = unUTxO $ utxosUtxo previousUTxOState
-            collateralReturn = signedTx ^. bodyTxL . collateralReturnTxBodyL
-            returnCoins = foldMap (^. coinTxOutL) collateralReturn
+        let returnCoins = foldMap (^. coinTxOutL) (signedTx ^. bodyTxL . collateralReturnTxBodyL)
             additionalDeposit = max (Coin 0) (returnDeposit <-> releasedDeposits)
             releasedSurplus = max (Coin 0) (releasedDeposits <-> returnDeposit)
             collateralCoinFee = inputCoins <-> returnCoins <-> additionalDeposit
-            returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
         submitTx signedTx >>= isAccepted
         utxoState <- readLedger
         treasury <- getsNES treasuryL
+        utxosFees utxoState `shouldBe` utxosFees previousUTxOState <> collateralCoinFee <> releasedSurplus
         treasury `shouldBe` previousTreasury
-        case signedTx ^. isPhase2ValidTxL of
-          Phase2Valid -> do
-            -- Successful scripts execute ordinary effects and leave collateral untouched.
-            utxosFees utxoState `shouldBe` utxosFees previousUTxOState <> (signedTx ^. bodyTxL . feeTxBodyL)
-            utxosDepositStore utxoState `shouldBe` previousStore
-            unUTxO (utxosUtxo utxoState)
-              `shouldBe` createdOrdinaryOutputs signedTx <> Map.withoutKeys previousOutputs (ordinarySpendingInputs signedTx)
-          Phase2Invalid -> do
-            -- Failure consumes only collateral. External deposit surplus goes to fees.
-            utxosFees utxoState `shouldBe` utxosFees previousUTxOState <> collateralCoinFee <> releasedSurplus
-            depositStoreBalance (utxosDepositStore utxoState)
-              `shouldBe` (depositStoreBalance previousStore <> returnDeposit) <-> releasedDeposits
-            depositStoreAllocations (utxosDepositStore utxoState)
-              `shouldBe` (case collateralReturn of
-                SJust (StoreBackedTxOut _) -> Map.singleton returnInput returnDeposit
-                _ -> Map.empty) <> Map.withoutKeys (depositStoreAllocations previousStore) collateralInputs
-            unUTxO (utxosUtxo utxoState)
-              `shouldBe` foldMap (Map.singleton returnInput) collateralReturn <> Map.withoutKeys previousOutputs collateralInputs
 {- FOURMOLU_ENABLE -}

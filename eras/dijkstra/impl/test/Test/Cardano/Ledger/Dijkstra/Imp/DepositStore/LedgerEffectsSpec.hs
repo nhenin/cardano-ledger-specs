@@ -1,23 +1,25 @@
+-- | Observe applied state after validation. Each responsibility owns a different
+-- observation: UTxOs, allocation records, the Store pot, fees or total ADA.
+-- Translation and epoch processing establish and preserve the same Store state.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffectsSpec (spec) where
 
 import Test.Cardano.Ledger.Common (Spec, describe)
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.AllocationsSpec as Allocations
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.BalanceSpec as Balance
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.ConservationSpec as Conservation
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.ExecutionSpec as Execution
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.FeesSpec as Fees
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.InitializationSpec as Initialization
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.RecoverySpec as Recovery
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.SolvencySpec as Solvency
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.EpochSpec as Epoch
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.TranslationSpec as Translation
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.AllocationsSpec as Allocations
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.BalanceSpec as Balance
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.UTxOSpec as UTxO
 
--- | Applied effects and invariants of the accepted ledger state.
 spec :: Spec
 spec = describe "Ledger effects" $ do
-  Execution.spec
-  Allocations.spec
-  Balance.spec
+  UTxO.spec
+  describe "Store" $ do
+    Allocations.spec
+    Balance.spec
   Fees.spec
-  Solvency.spec
   Conservation.spec
-  Initialization.spec
-  Recovery.spec
+  describe "Lifecycle" $ do
+    Translation.spec
+    Epoch.spec

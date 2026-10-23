@@ -6,7 +6,8 @@
 -- prepare ledger fixtures without repairing the defect under test. Expected
 -- outcomes must come from the independent domain rule.
 --
--- Agreed rules awaiting implementation remain deliberately failing assertions.
+-- Agreed contracts awaiting implementation are explicitly pending, not passing
+-- checks or fabricated failures. Existing coverage is referenced rather than copied.
 -- Implementation evidence belongs in docs/dijkstra-deposit-store-verification.md.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec (spec) where
 
