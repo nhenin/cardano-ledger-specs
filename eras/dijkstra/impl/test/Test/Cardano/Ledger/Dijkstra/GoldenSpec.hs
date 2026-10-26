@@ -16,6 +16,7 @@ import Cardano.Ledger.Dijkstra.Rules (
 import Cardano.Ledger.Dijkstra.Tx (DijkstraEraTx (hashTx))
 import Cardano.Ledger.Hashes (extractHash)
 import Cardano.Ledger.TxIn (TxIn (..))
+import Data.Either (isLeft)
 import Paths_cardano_ledger_dijkstra (getDataFileName)
 import Test.Cardano.Ledger.Binary.Golden (goldenForHashHex)
 import Test.Cardano.Ledger.Binary.Plain.Golden (DiffView (DiffCBOR), Enc (..), expectGoldenToCBOR)
@@ -58,11 +59,15 @@ spec =
           [ InexactTopTxDepositChange (Coin $ negate amount) (Coin $ negate amount - 1)
           , InexactSubTxDepositChange txId (Coin $ negate amount) (Coin $ negate amount - 1)
           , NegativeDepositAllocation input (Coin $ negate amount)
-          , DepositStoreInsolvent (Coin $ negate amount) (Coin $ amount + 1)
           ]
           $ \accountingFailure -> do
             let failure = DepositStoreFailure accountingFailure :: DijkstraUtxoPredFailure DijkstraEra
             Binary.decodeFull version (Binary.serialize version failure) `shouldBe` Right failure
+      it "Rejects the retired independent-balance solvency failure tag" $
+        Binary.decodeFull @DepositStoreAccountingFailure
+          version
+          (Binary.toLazyByteString $ Binary.toCBOR $ Em [E $ TkListLen 3, E @Int 9, E @Int 0, E @Int 1])
+          `shouldSatisfy` isLeft
     describe "SUBUTXO predicate failures" . forEachEraVersion @DijkstraEra $ \version ->
       it "Encodes and decodes a missing declaration for SubTx's own store-backed outputs" $ do
         let failure = SubMissingUTxODepositDeclaration @DijkstraEra

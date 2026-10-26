@@ -1,35 +1,30 @@
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.EpochSpec (spec) where
 
 import Cardano.Ledger.Shelley.LedgerState
-import Cardano.Ledger.State (depositStoreAllocations, depositStoreBalance)
-import Cardano.Ledger.Val (Val ((<->)))
+import Cardano.Ledger.State (depositStoreAllocations)
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle as Lifecycle
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting (
-  addStoreSurplus,
   fundAccountingScenario,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (getsNES, passEpoch)
 import Test.Cardano.Ledger.Imp.Common (shouldBe)
 
--- | Cross an ordinary epoch boundary with live allocations, unchanged protocol
--- parameters and zero or positive Store surplus. Observe the actual Store fields.
+-- | Cross two ordinary epoch boundaries with live allocations and unchanged
+-- protocol parameters. Epoch processing must preserve every recorded deposit.
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec = describe "DS-STATE-EPOCH - Epoch" $
-  prop "DS-STATE-EPOCH-N01 - ordinaryEpochTransition ⇒ (storeBalanceAfter, allocationsAfter) = (storeBalanceBefore, allocationsBefore)" $
-    forAll Lifecycle.populatedStore $ \(fundingScenario, surplus) -> do
+  prop "DS-STATE-EPOCH-N01 - ordinaryEpochTransition ⇒ allocationsAfter = allocationsBefore" $
+    forAll Lifecycle.populatedStore $ \fundingScenario -> do
       -- Submit only the funding transaction: its Store-backed outputs remain unspent.
       _ <- fundAccountingScenario fundingScenario
-      forM_ [mempty, surplus] $ \addedSurplus -> do
-        addStoreSurplus addedSurplus
+      forM_ [1 :: Int, 2] $ \_ -> do
         previousState <- getsNES id
         let previousStore = previousState ^. nesEsL . esLStateL . lsUTxOStateL . utxosDepositStoreL
         Map.null (depositStoreAllocations previousStore) `shouldBe` False
-        depositStoreBalance previousStore <-> foldMap id (depositStoreAllocations previousStore)
-          `shouldBe` addedSurplus
         passEpoch
         state <- getsNES id
         state ^. nesELL `shouldBe` succ (previousState ^. nesELL)

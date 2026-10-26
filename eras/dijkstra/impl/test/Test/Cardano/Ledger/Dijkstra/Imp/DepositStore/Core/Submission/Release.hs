@@ -55,7 +55,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   utxosDepositStore,
   utxosUtxo,
  )
-import Cardano.Ledger.State (DepositStore (..), UTxO (..))
+import Cardano.Ledger.State (DepositStore (..), UTxO (..), depositStoreBalance)
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)

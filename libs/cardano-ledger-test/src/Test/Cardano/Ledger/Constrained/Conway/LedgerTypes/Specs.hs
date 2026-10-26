@@ -443,7 +443,7 @@ utxoStateSpec ::
 utxoStateSpec pp univ certstate =
   constrained $ \ [var|utxoState|] ->
     match utxoState $ \ [var|utxo|] [var|deposits|] [var|fees|] [var|gov|] [var|distr|] [var|donation|] [var|depositStore|] ->
-      [ assert $ depositStore ==. lit (DepositStore (Coin 0) mempty)
+      [ assert $ depositStore ==. lit (DepositStore mempty)
       , assert $ donation ==. lit (Coin 0)
       , reify
           certstate

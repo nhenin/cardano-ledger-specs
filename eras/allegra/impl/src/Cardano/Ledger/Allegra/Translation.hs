@@ -119,7 +119,7 @@ instance TranslateEra AllegraEra UTxOState where
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
-        , utxosDepositStore = DepositStore mempty mempty
+        , utxosDepositStore = DepositStore mempty
         }
 
 instance TranslateEra AllegraEra ShelleyInstantStake where

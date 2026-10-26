@@ -2,7 +2,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -22,7 +21,6 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   locallyAccountedSubTxNetUTxODeposit,
   attributedTopTxNetUTxODeposit,
   validateDepositStoreInputs,
-  validateDepositStoreSolvency,
   validateTopTxExactness,
   validateSubTxExactness,
   validateTopTxSettlement,
@@ -72,7 +70,6 @@ data DepositStoreAccountingFailure
   | UnexpectedTopTxSettlement !TxIx
   | InvalidSettlementOutput !TxId !TxIx
   | InsufficientSettlementOutput !TxId !TxIx !Coin !Coin
-  | DepositStoreInsolvent !Coin !Coin
   deriving (Eq, Ord, Show, Generic)
 
 instance NFData DepositStoreAccountingFailure
@@ -89,7 +86,6 @@ instance EncCBOR DepositStoreAccountingFailure where
       UnexpectedTopTxSettlement index -> Sum UnexpectedTopTxSettlement 6 !> To index
       InvalidSettlementOutput body index -> Sum InvalidSettlementOutput 7 !> To body !> To index
       InsufficientSettlementOutput body index supplied required -> Sum InsufficientSettlementOutput 8 !> To body !> To index !> To supplied !> To required
-      DepositStoreInsolvent balance obligations -> Sum DepositStoreInsolvent 9 !> To balance !> To obligations
 
 instance DecCBOR DepositStoreAccountingFailure where
   decCBOR = decode $ Summands "DepositStoreAccountingFailure" $ \case
@@ -109,10 +105,7 @@ instance DecCBOR DepositStoreAccountingFailure where
     6 -> SumD UnexpectedTopTxSettlement <! From
     7 -> SumD InvalidSettlementOutput <! From <! From
     8 -> SumD InsufficientSettlementOutput <! From <! From <! From <! From
-    9 ->
-      SumD (\balance obligations -> DepositStoreInsolvent (Coin balance) (Coin obligations))
-        <! From
-        <! From
+    -- Tag 9 belonged to the removed independent-balance solvency failure.
     tag -> Invalid tag
 
 -- | Price the accepted serialized size of a new output, including its output
@@ -200,13 +193,6 @@ validateInputAllocation store (input, output) =
     (_, Just amount) -> failureUnless (amount >= mempty) (NegativeDepositAllocation input amount)
     (_, Nothing) -> pure ()
 
-validateDepositStoreSolvency ::
-  DepositStore -> Validation (NonEmpty DepositStoreAccountingFailure) ()
-validateDepositStoreSolvency DepositStore {depositStoreBalance, depositStoreAllocations} =
-  failureUnless
-    (depositStoreBalance >= fold depositStoreAllocations)
-    (DepositStoreInsolvent depositStoreBalance $ fold depositStoreAllocations)
-
 -- | Validate the hypothetical ordinary transaction regardless of the eventual
 -- script outcome. Missing declarations are owned by presence rules; amount
 -- and settlement validation do not manufacture further failures for absence.
@@ -224,7 +210,6 @@ validateOrdinaryDepositStore pp originalUTxO store body =
     *> when
       (all (hasKnownSubTxContribution pp store . (^. bodyTxL)) (body ^. subTransactionsTxBodyL))
       (validateTopTxSettlement body)
-    *> validateDepositStoreSolvency (applyOrdinaryDepositStore pp store body)
 
 -- | An absent nonzero contribution is already a presence failure. Do not
 -- derive a misleading TopTx settlement share by treating that contribution as
@@ -327,8 +312,8 @@ createdDepositAllocations pp body =
 
 -- | Apply once for the complete ordinary transaction after successful
 -- validation. Do not call this independently for each SubTx: TopTx already
--- declares the complete transfer. Unrelated records and any Store surplus
--- remain unchanged.
+-- declares the complete transfer. Unrelated records remain unchanged; the
+-- Store balance follows from the resulting allocation map.
 applyOrdinaryDepositStore ::
   (EraTx era, DijkstraEraTxBody era) =>
   PParams era -> DepositStore -> TxBody TopTx era -> DepositStore
@@ -341,12 +326,7 @@ applyOrdinaryDepositStore pp store body =
 
 applyDepositAllocations :: DepositStore -> Set TxIn -> Map TxIn Coin -> DepositStore
 applyDepositAllocations store consumed created =
-  DepositStore
-    { depositStoreBalance =
-        (depositStoreBalance store <> fold created) <-> releasedInputDeposits store consumed
-    , depositStoreAllocations =
-        Map.union created $ Map.withoutKeys (depositStoreAllocations store) consumed
-    }
+  DepositStore $ Map.union created $ Map.withoutKeys (depositStoreAllocations store) consumed
 
 -- | Collateral funding distinguishes the coin-funded minimum fee from the
 -- complete fee credit. Released deposit surplus is credited to fees but cannot

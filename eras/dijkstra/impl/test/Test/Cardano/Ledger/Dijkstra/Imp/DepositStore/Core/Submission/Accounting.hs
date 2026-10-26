@@ -13,7 +13,6 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting 
   mutateSubTxDeclaration,
   replaceSubTxDeclarations,
   subTxIdAt,
-  addStoreSurplus,
 ) where
 
 import Cardano.Ledger.Binary (Sized (sizedSize), mkSized)
@@ -26,14 +25,11 @@ import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
-  esLStateL,
-  lsUTxOStateL,
   nesEsL,
   utxosDepositStore,
-  utxosDepositStoreL,
   utxosUtxo,
  )
-import Cardano.Ledger.State (depositStoreAllocations, depositStoreBalanceL, reservesL, unUTxO)
+import Cardano.Ledger.State (depositStoreAllocations, unUTxO)
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -260,14 +256,3 @@ replaceSubTxDeclarations declarations tx = do
 -- | Final child identifier after declaration mutation and witness regeneration.
 subTxIdAt :: Int -> Tx TopTx DijkstraEra -> TxId
 subTxIdAt index tx = txIdTxBody $ (OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL) !! index ^. bodyTxL
-
--- | Establish a pre-existing Store surplus by moving ADA from the test reserves.
--- This explicit initial-state fixture preserves total ADA and every allocation
--- record; it does not pretend the surplus belongs to any consumed output.
-addStoreSurplus :: Coin -> ImpTestM DijkstraEra ()
-addStoreSurplus amount = do
-  reserves <- getsNES reservesL
-  (reserves >= amount) `shouldBe` True
-  modifyNES $
-    (reservesL %~ (<-> amount))
-      . (nesEsL . esLStateL . lsUTxOStateL . utxosDepositStoreL . depositStoreBalanceL <>~ amount)
