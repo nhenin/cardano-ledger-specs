@@ -69,11 +69,9 @@ conwayStates = do
               )
   pure [withPots 0, withPots 1]
 
--- | Funding establishes one to five live allocation records. The positive
--- surplus is used after first checking the same Store with zero surplus.
-populatedStore :: Gen (Accounting.AccountingScenario, Coin)
+-- | Funding establishes one to five live allocation records through an accepted
+-- transaction. The generated proposal is left unsubmitted, so those records remain live.
+populatedStore :: Gen Accounting.AccountingScenario
 populatedStore = do
   allocationCount <- chooseInt (1, 5)
-  funding <- Accounting.scenario (Accounting.bodyOperations 0 allocationCount) []
-  surplus <- Coin <$> chooseInteger (1, 1_000_000)
-  pure (funding, surplus)
+  Accounting.scenario (Accounting.bodyOperations 0 allocationCount) []

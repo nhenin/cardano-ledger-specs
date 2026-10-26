@@ -161,7 +161,7 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 
 -- State serialization generators need not satisfy transition invariants.
 instance Arbitrary DepositStore where
-  arbitrary = DepositStore <$> arbitrary <*> arbitrary
+  arbitrary = DepositStore <$> arbitrary
   shrink = genericShrink
 
 instance Arbitrary ActiveSlotCoeff where

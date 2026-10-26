@@ -12,7 +12,7 @@
 -- Common setup: declarations satisfy grammar and Required declarations;
 -- TopTx declares transactionNetDeposit(topTx), the sum of every body's own change.
 -- SubTx declarations outside the case under test remain exact; all inputs resolve.
--- Accepted cases satisfy settlement, authorization, solvency and all other rules.
+-- Accepted cases satisfy settlement, authorization and all other rules.
 -- Rejection fixtures preserve financial balance or require the specific
 -- InexactSubTxDepositChange failure even if conservation also fails. An unrelated
 -- rejection cannot demonstrate SubTx exactness.
@@ -21,7 +21,6 @@
 -- declarationError(subTx) = declaredNetDeposit(subTx) - ownNetDeposit(subTx).
 -- delegatesAllocation means RequestsUTxODepositFromTopTx;
 -- delegatesRelease means a release with the DelegateToTopTx target.
--- storeSurplus = Store balance - the sum of all live recorded deposits.
 -- translatedImplicitInput denotes a live previous-era output translated to the
 -- implicit form, with no Store deposit. Every named SubTx belongs to TopTx.
 -- Unless stated otherwise, phase 2 succeeds. Phase-2 failure cases use a real
@@ -38,14 +37,16 @@ import Cardano.Ledger.Dijkstra.Rules (
   validateSubTxExactness,
  )
 import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore)
+import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.Val ((<->))
 import Data.Foldable (traverse_)
 import qualified Data.List.NonEmpty as NonEmpty
+import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
+import qualified Data.Set as Set
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common (
   Spec,
-  chooseInteger,
   describe,
   elements,
   forAll,
@@ -61,7 +62,6 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Sub
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Ledger
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release as TopTx
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting (
-  addStoreSurplus,
   buildAndSignPhase2InvalidTx,
   buildAndSignTx,
   fundAccountingScenario,
@@ -72,9 +72,10 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting 
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   isAccepted,
   isRejectedWith,
+  ordinarySpendingInputs,
   submitTx,
  )
-import Test.Cardano.Ledger.Imp.Common (shouldBe)
+import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
 import Validation (Validation (..))
 
 -- | Keep each mathematical requirement beside its named example.
@@ -376,27 +377,31 @@ spec =
             (subTxIdAt 0 invalidTx) (Coin declared) (Coin required))
         submitTx signedTx >>= isAccepted
 
-    -- Store surplus cannot increase a SubTx release.
-    -- An additional release within the existing Store surplus can preserve solvency; it is still not released by this SubTx inputs.
-    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F09 - 0 < unrelatedRelease ≤ storeSurplus ∧ ownNetDeposit(subTx) ≤ 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - unrelatedRelease ⇒ rejectedWith(InexactSubTxDepositChange)" $
-      forAll Cases.nonPositiveOwnNetChange $ \scenario ->
-        forAll (chooseInteger (1, 2000000)) $ \unrelatedRelease -> do
-          addStoreSurplus $ Coin unrelatedRelease
-          proposal <- fundAccountingScenario scenario
-          let Coin required = TopTx.netDeposit proposal
-          signedTx <- buildAndSignTx $ TopTx.addDeclaration
-            (Declarations
-              (if required == 0 then TopTx.DeclaresZeroNetUTxODeposit
-                else TopTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate required) TopTx.NoTopTxSettlement)
-              [if required == 0 then SubTx.DeclaresZeroNetUTxODeposit
-                else SubTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate required) (SubTx.SubTxSettlementOutput $ TxIx 0)]) proposal
-          let declared = required - unrelatedRelease
-          invalidTx <- mutateSubTxDeclaration 0
-            (SubTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate declared) (SubTx.SubTxSettlementOutput $ TxIx 0)) signedTx
-          submitTx invalidTx >>= isRejectedWith
-            (DepositStoreFailure $ InexactSubTxDepositChange
-              (subTxIdAt 0 invalidTx) (Coin declared) (Coin required))
-          submitTx signedTx >>= isAccepted
+    -- Unspent outputs cannot increase a SubTx release.
+    -- Real funding leaves other outputs' deposits in the Store. The transaction
+    -- consumes none of those outputs, so their deposits cannot fund its declaration.
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F09 - unspentInputs ∩ consumedInputs = ∅ ∧ 0 < unrelatedRelease ≤ recordedDeposits(unspentInputs) ∧ ownNetDeposit(subTx) ≤ 0 ∧ declaredNetDeposit(subTx) = ownNetDeposit(subTx) - unrelatedRelease ⇒ rejectedWith(InexactSubTxDepositChange)" $
+      forAll Cases.releaseFromUnspentOutputs $ \(scenario, unrelatedFunding, unrelatedRelease) -> do
+        unrelatedProposal <- fundAccountingScenario unrelatedFunding
+        proposal <- fundAccountingScenario scenario
+        let Coin required = TopTx.netDeposit proposal
+            records = depositStoreAllocations $ utxosDepositStore $ Ledger.utxoState $ TopTx.ledgerState proposal
+            unspentRecords = Map.restrictKeys records $ ordinarySpendingInputs $ TopTx.unsignedTx unrelatedProposal
+        Coin unrelatedRelease `shouldSatisfy` (\amount -> amount > Coin 0 && amount <= foldMap id unspentRecords)
+        signedTx <- buildAndSignTx $ TopTx.addDeclaration
+          (Declarations
+            (if required == 0 then TopTx.DeclaresZeroNetUTxODeposit
+              else TopTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate required) TopTx.NoTopTxSettlement)
+            [if required == 0 then SubTx.DeclaresZeroNetUTxODeposit
+              else SubTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate required) (SubTx.SubTxSettlementOutput $ TxIx 0)]) proposal
+        Set.disjoint (Map.keysSet unspentRecords) (ordinarySpendingInputs signedTx) `shouldBe` True
+        let declared = required - unrelatedRelease
+        invalidTx <- mutateSubTxDeclaration 0
+          (SubTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate declared) (SubTx.SubTxSettlementOutput $ TxIx 0)) signedTx
+        submitTx invalidTx >>= isRejectedWith
+          (DepositStoreFailure $ InexactSubTxDepositChange
+            (subTxIdAt 0 invalidTx) (Coin declared) (Coin required))
+        submitTx signedTx >>= isAccepted
 
     -- A release cannot replace a required allocation.
     -- Exercise valid local and delegated release forms; their sign contradicts the independently required own change.

@@ -45,7 +45,7 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
               fmap hashScript (output ^. referenceScriptTxOutL)
                 `shouldBe` fmap hashScript (previousOutput ^. referenceScriptTxOutL)
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
-        utxosDepositStore utxoState `shouldBe` DepositStore mempty Map.empty
+        utxosDepositStore utxoState `shouldBe` DepositStore Map.empty
         -- Check each actual monetary pot, so a swapped or reset pot is visible.
         translatedState ^. treasuryL `shouldBe` previousState ^. treasuryL
         translatedState ^. reservesL `shouldBe` previousState ^. reservesL

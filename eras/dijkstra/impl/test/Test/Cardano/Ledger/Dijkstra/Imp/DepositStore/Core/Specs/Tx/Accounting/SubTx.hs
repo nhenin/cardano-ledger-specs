@@ -6,7 +6,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Su
   declarationErrors,
   netAllocation,
   netRelease,
-  nonPositiveOwnNetChange,
+  releaseFromUnspentOutputs,
   twoAllocatingSubTxs,
   equalAllocationsAndReleases,
   onlyImplicitOutputs,
@@ -15,7 +15,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Su
   translatedImplicitInput,
 ) where
 
-import Test.Cardano.Ledger.Common (Gen, chooseInt, elements, oneof, vectorOf)
+import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, elements, oneof, vectorOf)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting (
   AccountingScenario (..),
   BodyOperations (..),
@@ -62,10 +62,16 @@ netRelease = do
   additionalReleases <- chooseInt (1, 4)
   scenario (bodyOperations 0 0) [bodyOperations allocations (allocations + additionalReleases)]
 
--- | A child whose required signed change is negative or zero. A proposed extra
--- release cannot be justified by the Store's unrelated surplus in either case.
-nonPositiveOwnNetChange :: Gen AccountingScenario
-nonPositiveOwnNetChange = oneof [netRelease, equalAllocationsAndReleases]
+-- | One child has a negative or zero own net change. A separate funding plan
+-- creates live deposits that its transaction will not consume. The claimed extra
+-- release is positive and no greater than those unrelated recorded deposits.
+releaseFromUnspentOutputs :: Gen (AccountingScenario, AccountingScenario, Integer)
+releaseFromUnspentOutputs = do
+  ownOperations <- oneof [netRelease, equalAllocationsAndReleases]
+  unspentDepositCount <- chooseInt (1, 4)
+  unrelatedFunding <- scenario (bodyOperations 0 unspentDepositCount) []
+  unrelatedRelease <- chooseInteger (1, toInteger unspentDepositCount * 1000000)
+  pure (ownOperations, unrelatedFunding, unrelatedRelease)
 
 -- | Two distinct children both allocate. Their independently varied positive
 -- changes remain positive after the specification adds opposite one-lovelace errors.

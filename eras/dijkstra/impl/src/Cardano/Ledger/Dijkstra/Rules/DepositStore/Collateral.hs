@@ -5,7 +5,8 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Collateral funds its own storage before covering the minimum fee. Released
--- Store surplus reaches the fee pot without relaxing either requirement.
+-- deposits left after funding the return reach the fee pot without relaxing
+-- either requirement.
 module Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral (
   validateCollateralFunding,
 ) where

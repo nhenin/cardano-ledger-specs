@@ -420,7 +420,8 @@ dijkstraUtxoTransition = do
       validateTopTxReleaseDeclarationPresence originalUtxo txBody
 
   -- Recorded deposits survive SubTx processing until this complete-batch check.
-  -- Deposit exactness and prospective Store solvency apply on both paths.
+  -- Deposit exactness applies on both paths. The Store balance is the sum of
+  -- its allocation records by construction.
   runTest $
     first (fmap DepositStoreFailure) $
       DepositStore.validateOrdinaryDepositStore pp originalUtxo (utxosDepositStore utxos) txBody
@@ -437,10 +438,6 @@ dijkstraUtxoTransition = do
           originalUtxo
           (utxosDepositStore utxos)
           (txBody ^. collateralInputsTxBodyL)
-          *> DepositStore.validateDepositStoreSolvency
-            ( DepositStore.collateralStore $
-                DepositStore.collateralDepositSettlement pp originalUtxo (utxosDepositStore utxos) txBody
-            )
 
   -- If the transaction is phase2-invalid, the `produced` value in legacy mode will
   -- wrongly include a deposit for a pool that a sub-transaction already registered,
