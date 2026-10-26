@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Funded transactions for observing ledger effects. Exact declarations and
@@ -11,6 +12,9 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects (
   buildAndSignOrdinaryPhase2Invalid,
   declaredOrdinaryProposal,
   buildAndSignNoncanonicalAllocation,
+  buildAndSignNoncanonicalAllocationAtRate,
+  buildAndSignNoncanonicalSubAllocation,
+  withNoncanonicalOutput,
   restoreUTxOState,
 ) where
 
@@ -22,6 +26,7 @@ import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (UTxOState, esLStateL, lsUTxOStateL, nesEsL)
+import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -29,8 +34,10 @@ import Data.Foldable (toList)
 import Data.Maybe (listToMaybe)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
+import Data.Typeable (Typeable)
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt)
+import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -136,15 +143,21 @@ declaredOrdinaryProposal proposal =
 -- never manufacture a 'Binary.Sized' value or edit its cached size.
 -- The returned byte count is measured directly from the supplied wire encoding.
 buildAndSignNoncanonicalAllocation :: Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, Int)
-buildAndSignNoncanonicalAllocation coins = do
-  modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 1000)
+buildAndSignNoncanonicalAllocation = buildAndSignNoncanonicalAllocationAtRate (CoinPerByte $ CompactCoin 1000)
+
+-- | Allocate under the supplied rate so one reachable ledger can retain several
+-- creation prices. The size still comes from decoding the actual accepted bytes.
+buildAndSignNoncanonicalAllocationAtRate ::
+  CoinPerByte -> Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, Int)
+buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) coins = do
+  modifyPParams $ ppCoinsPerUTxOByteL .~ rate
   address <- freshKeyAddrNoPtr_
   let output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject coins
       version = eraProtVerLow @DijkstraEra
       canonical = BSL.toStrict $ Binary.serialize version output
       noncanonical = BS.cons 0xbf (BS.tail canonical) <> BS.singleton 0xff
       acceptedBytes = BS.length noncanonical
-      requiredDeposit = Coin $ 1000 * (160 + toInteger acceptedBytes)
+      requiredDeposit = Coin $ toInteger price * (160 + toInteger acceptedBytes)
   -- The fixture has just address and applicationAssets, hence a two-field map.
   BS.head canonical `shouldBe` 0xa2
   Binary.decodeFull @(TxOut DijkstraEra) version (BSL.fromStrict noncanonical) `shouldBe` Right output
@@ -169,6 +182,68 @@ buildAndSignNoncanonicalAllocation coins = do
   fromIntegral (Binary.sizedSize acceptedOutput) `shouldBe` acceptedBytes
   Binary.sizedValue acceptedOutput `shouldBe` output
   Binary.serialize version decoded `shouldBe` BSL.fromStrict modifiedBytes
+  signed <- rederiveAddrTxWits $ prepared & bodyTxL .~ decoded
+  Binary.serialize version (signed ^. bodyTxL) `shouldBe` BSL.fromStrict modifiedBytes
+  pure (signed, acceptedBytes)
+
+-- | The child creates a noncanonical output and delegates its deposit funding to
+-- TopTx. Decode and sign the child first, then sign the parent with its final ID.
+buildAndSignNoncanonicalSubAllocation ::
+  Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, TxIn, Int)
+buildAndSignNoncanonicalSubAllocation coins = do
+  modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 1000)
+  address <- freshKeyAddrNoPtr_
+  let output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject coins
+      acceptedBytes = fromIntegral (BSL.length $ Binary.serialize (eraProtVerLow @DijkstraEra) output) + 1
+      deposit = 1000 * (160 + toInteger acceptedBytes)
+      child =
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
+          & bodyTxL . subTxNetUTxODepositChangeTxBodyL
+            .~ SubTx.RequestsUTxODepositFromTopTx (positiveAmount deposit)
+  prepared <-
+    fixupTx $
+      Pricing.declareNetDeposit (Coin deposit) $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . subTransactionsTxBodyL .~ OMap.fromFoldable [child]
+          & bodyTxL . feeTxBodyL .~ Coin 2000000
+  preparedChild <-
+    expectJust $ listToMaybe $ OMap.elems $ prepared ^. bodyTxL . subTransactionsTxBodyL
+  (signedChild, measuredBytes) <- withNoncanonicalOutput preparedChild output
+  measuredBytes `shouldBe` acceptedBytes
+  accepted <- expectJust $ listToMaybe $ toList $ signedChild ^. bodyTxL . sizedOutputsTxBodyL
+  fromIntegral (Binary.sizedSize accepted) `shouldBe` measuredBytes
+  signed <-
+    rederiveAddrTxWits $
+      prepared & bodyTxL . subTransactionsTxBodyL .~ OMap.fromFoldable [signedChild]
+  pure (signed, txInAt 0 signedChild, measuredBytes)
+
+-- | Change only an output's CBOR map framing inside a prepared transaction.
+-- Witnesses are rederived without balancing or replacing the decoded body.
+withNoncanonicalOutput ::
+  forall l.
+  Typeable l =>
+  Tx l DijkstraEra ->
+  TxOut DijkstraEra ->
+  ImpTestM DijkstraEra (Tx l DijkstraEra, Int)
+withNoncanonicalOutput prepared output = do
+  let version = eraProtVerLow @DijkstraEra
+      canonical = BSL.toStrict $ Binary.serialize version output
+      noncanonical = BS.cons 0xbf (BS.tail canonical) <> BS.singleton 0xff
+      acceptedBytes = BS.length noncanonical
+      bodyBytes = BSL.toStrict $ Binary.serialize version $ prepared ^. bodyTxL
+      (prefix, suffix) = BS.breakSubstring canonical bodyBytes
+      modifiedBytes = prefix <> noncanonical <> BS.drop (BS.length canonical) suffix
+  (BS.head canonical >= 0xa0 && BS.head canonical <= 0xb7) `shouldBe` True
+  BS.null suffix `shouldBe` False
+  Binary.decodeFull @(TxOut DijkstraEra) version (BSL.fromStrict noncanonical) `shouldBe` Right output
+  decoded <-
+    expectRight $
+      Binary.decodeFullAnnotator
+        version
+        "noncanonical stored output"
+        Binary.decCBOR
+        (BSL.fromStrict modifiedBytes)
   signed <- rederiveAddrTxWits $ prepared & bodyTxL .~ decoded
   Binary.serialize version (signed ^. bodyTxL) `shouldBe` BSL.fromStrict modifiedBytes
   pure (signed, acceptedBytes)

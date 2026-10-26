@@ -1548,6 +1548,7 @@ instance (Typeable (CertState era), EraTxOut era) => HasSimpleRep (LedgerState e
 
 instance
   ( EraTxOut era
+  , HasSpec (OutputStorage era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1559,14 +1560,21 @@ instance
   ) =>
   HasSpec (LedgerState era)
 
-instance HasSimpleRep DepositStore
+-- This Conway generator represents legacy output storage directly as its UTxO.
+-- It never constructs store-backed allocations or invents historical metadata.
+instance HasSimpleRep (OutputStorage ConwayEra) where
+  type TheSop (OutputStorage ConwayEra) = '["LegacyOutputs" ::: '[UTxO ConwayEra]]
+  type SimpleRep (OutputStorage ConwayEra) = UTxO ConwayEra
+  toSimpleRep = outputStorageUTxO
+  fromSimpleRep = LegacyOutputs
 
-instance HasSpec DepositStore
+instance HasSpec (OutputStorage ConwayEra)
 
 instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
 
 instance
   ( EraTxOut era
+  , HasSpec (OutputStorage era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1916,6 +1924,7 @@ instance Era era => HasSimpleRep (EpochState era)
 
 instance
   ( EraTxOut era
+  , HasSpec (OutputStorage era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1967,6 +1976,7 @@ instance (Typeable (StashedAVVMAddresses era), Era era) => HasSimpleRep (NewEpoc
 
 instance
   ( EraTxOut era
+  , HasSpec (OutputStorage era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)

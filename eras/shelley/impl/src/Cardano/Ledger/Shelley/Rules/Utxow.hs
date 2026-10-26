@@ -63,7 +63,7 @@ import Cardano.Ledger.Rules.ValidationMode (
  )
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.Era (ShelleyEra, UTXOW)
-import Cardano.Ledger.Shelley.LedgerState.Types (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState.Types (UTxOState (..), utxosUtxo)
 import Cardano.Ledger.Shelley.Rules.Ppup (ShelleyPpupPredFailure)
 import Cardano.Ledger.Shelley.Rules.Utxo (
   ShelleyUtxoPredFailure,

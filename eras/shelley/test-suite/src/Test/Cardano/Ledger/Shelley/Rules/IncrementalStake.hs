@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Shelley.Rules.IncrementalStake (
   incrStakeComputationTest,
@@ -113,9 +114,11 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
     checkIncrStakeComp :: SourceSignalTarget (EraRule "LEDGER" era) -> Property
     checkIncrStakeComp
       SourceSignalTarget
-        { source = LedgerState UTxOState {utxosUtxo = u, utxosInstantStake = is} dp
+        { source =
+          LedgerState UTxOState {utxosOutputStorage = (outputStorageUTxO -> u), utxosInstantStake = is} dp
         , signal = stAnnTx
-        , target = LedgerState UTxOState {utxosUtxo = u', utxosInstantStake = is'} dp'
+        , target =
+          LedgerState UTxOState {utxosOutputStorage = (outputStorageUTxO -> u'), utxosInstantStake = is'} dp'
         } =
         let tx = stAnnTx ^. txStAnnTxG
          in counterexample
@@ -174,7 +177,7 @@ checkIncrementalStake ::
   Property
 checkIncrementalStake es =
   let
-    LedgerState (UTxOState utxo _ _ _ instantStake _ _) certState = esLState es
+    LedgerState (UTxOState (outputStorageUTxO -> utxo) _ _ _ instantStake _) certState = esLState es
     dstate = certState ^. certDStateL
     pstate = certState ^. certPStateL
     stake = stakeDistr @era utxo dstate pstate

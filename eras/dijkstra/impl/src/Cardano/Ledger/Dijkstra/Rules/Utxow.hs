@@ -65,7 +65,7 @@ import Cardano.Ledger.Keys (VKey)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..))
+import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..), storeUTxO)
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
@@ -233,8 +233,10 @@ dijkstraUtxowTransition ::
   ) =>
   TransitionRule (EraRule "UTXOW" era)
 dijkstraUtxowTransition = do
-  TRC (UtxoEnv slot pp pState originalCertState originalUtxo, u, stAnnTx) <- judgmentContext
-  let tx = stAnnTx ^. txStAnnTxG
+  TRC (UtxoEnv slot pp pState originalCertState previousInMemoryUnspentTxOutputStore, u, stAnnTx) <-
+    judgmentContext
+  let originalUtxo = storeUTxO previousInMemoryUnspentTxOutputStore
+      tx = stAnnTx ^. txStAnnTxG
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
 
   let txBody = tx ^. bodyTxL
@@ -320,9 +322,9 @@ dijkstraUtxowTransition = do
   {- TODO: Fill in from the formal spec -}
   runTest $ validateGuardDatums scriptsProvided txBody
 
-  -- Pass through to UTXO sub-rule, carrying the original UTxO
+  -- Pass through to UTXO sub-rule, carrying the previous store.
   trans @(EraRule "UTXO" era) $
-    TRC (UtxoEnv slot pp pState originalCertState originalUtxo, u, stAnnTx)
+    TRC (UtxoEnv slot pp pState originalCertState previousInMemoryUnspentTxOutputStore, u, stAnnTx)
 
 instance
   forall era.

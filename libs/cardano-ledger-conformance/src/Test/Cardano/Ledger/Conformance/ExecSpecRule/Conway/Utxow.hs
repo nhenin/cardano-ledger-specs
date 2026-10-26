@@ -15,7 +15,7 @@ module Test.Cardano.Ledger.Conformance.ExecSpecRule.Conway.Utxow () where
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Conway.UTxO (getConwayWitsVKeyNeeded)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
 import Cardano.Ledger.Shelley.Rules (utxoEnvCertStateL)
 import Control.State.Transition.Extended (TRC (..))
 import Data.Bifunctor (Bifunctor (..))

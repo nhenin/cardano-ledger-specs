@@ -11,6 +11,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Test.Cardano.Ledger.Generic.Trace where
@@ -190,7 +191,7 @@ makeEpochState gstate ledgerstate =
 
 snaps ::
   (EraTxOut era, EraCertState era, ShelleyEraAccounts era) => LedgerState era -> SnapShots era
-snaps (LedgerState UTxOState {utxosUtxo = u, utxosFees = f} certState) =
+snaps (LedgerState UTxOState {utxosOutputStorage = (outputStorageUTxO -> u), utxosFees = f} certState) =
   SnapShots mark set (mkGoSnapShot set) f
   where
     pstate = certState ^. certPStateL

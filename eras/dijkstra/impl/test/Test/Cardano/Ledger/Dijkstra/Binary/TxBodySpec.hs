@@ -5,7 +5,7 @@
 
 -- | Decoding a body must retain each output's accepted wire size. Re-encoding an
 -- equivalent output can use fewer bytes and must not redefine that stored size.
-module Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec (spec) where
+module Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec (spec, storeOutput, withIndefiniteOutput, decodedBodies) where
 
 import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..))

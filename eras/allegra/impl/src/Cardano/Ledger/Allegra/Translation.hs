@@ -25,6 +25,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
   UTxOState (..),
   returnRedeemAddrsToReserves,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
@@ -113,13 +114,12 @@ instance TranslateEra AllegraEra UTxOState where
   translateEra ctxt us =
     return
       UTxOState
-        { utxosUtxo = translateEra' ctxt $ utxosUtxo us
+        { utxosOutputStorage = LegacyOutputs $ translateEra' ctxt $ utxosUtxo us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
-        , utxosDepositStore = DepositStore mempty
         }
 
 instance TranslateEra AllegraEra ShelleyInstantStake where

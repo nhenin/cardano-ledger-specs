@@ -24,7 +24,7 @@ import Cardano.Crypto.DSIGN (
  )
 import Cardano.Ledger.Address
 import Cardano.Ledger.BaseTypes
-import Cardano.Ledger.Binary (rawEncodeFixedSized)
+import Cardano.Ledger.Binary (rawEncodeFixedSized, sizedSize)
 import Cardano.Ledger.Block
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible (fromCompact)
@@ -52,6 +52,33 @@ import Type.Reflection (Typeable, typeRep)
 instance ToExpr Coin
 
 instance ToExpr DepositStore
+
+instance ToExpr DepositCalculation
+
+instance ToExpr OutputStoreError
+
+instance ToExpr InMemoryOutputDepositAmount where
+  toExpr = toExpr . unInMemoryOutputDepositAmount
+
+instance ToExpr (TxOut era) => ToExpr (Allocation era) where
+  toExpr allocation =
+    App
+      "Allocation"
+      [ toExpr $ allocationOutput allocation
+      , toExpr $ sizedSize <$> allocationSizedOutput allocation
+      , toExpr $ allocationCalculation allocation
+      ]
+
+instance ToExpr (TxOut era) => ToExpr (Allocations era) where
+  toExpr = toExpr . unAllocations
+
+instance ToExpr (TxOut era) => ToExpr (InMemoryUnspentTxOutputStore era) where
+  toExpr store =
+    App "InMemoryUnspentTxOutputStore" [toExpr $ totalDepositAmount store, toExpr $ allocations store]
+
+instance ToExpr (TxOut era) => ToExpr (OutputStorage era) where
+  toExpr (LegacyOutputs outputs) = App "LegacyOutputs" [toExpr outputs]
+  toExpr (StoredOutputs store) = App "StoredOutputs" [toExpr store]
 
 instance ToExpr StrictlyPositiveCoin where
   toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]

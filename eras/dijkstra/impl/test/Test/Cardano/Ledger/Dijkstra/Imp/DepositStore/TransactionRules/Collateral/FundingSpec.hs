@@ -14,7 +14,7 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraUtxoPredFailure (InsufficientCollateral),
   collateralDepositSettlement,
  )
-import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
 import Cardano.Ledger.Val ((<->))
 import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro
@@ -24,6 +24,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (
   OutputForm (..),
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (declarationToTxBody)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
@@ -129,7 +130,7 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
                 & feeTxBodyL .~ (originalBody ^. feeTxBodyL)
                 & totalCollateralTxBodyL .~ (originalBody ^. totalCollateralTxBodyL)
               settlement = collateralDepositSettlement protocolParameters
-                (utxosUtxo previousUTxOState) (utxosDepositStore previousUTxOState) body
+                (utxosUtxo previousUTxOState) (recordedDepositStore previousUTxOState) body
           collateralReleasedDeposits settlement `shouldBe` releasedDeposits
           collateralReturnDeposit settlement `shouldBe` returnDeposit
           collateralAdditionalDeposit settlement `shouldBe` additionalDeposit

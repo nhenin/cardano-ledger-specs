@@ -505,7 +505,7 @@ updateUTxOState pp certState tx utxoState =
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { utxosUtxo = UTxO (Map.union utxoKeep collouts) -- NEW to Babbage
+                  { utxosOutputStorage = LegacyOutputs $ UTxO (Map.union utxoKeep collouts) -- NEW to Babbage
                   {- fees + collateralFees -}
                   , utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , utxosInstantStake =

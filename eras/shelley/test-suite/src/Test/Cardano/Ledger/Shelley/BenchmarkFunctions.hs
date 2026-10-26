@@ -95,13 +95,12 @@ injcoins n = fmap (\_ -> mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coi
 initUTxO :: Integer -> UTxOState ShelleyEra
 initUTxO n =
   UTxOState
-    (genesisCoins genesisId (injcoins n))
+    (LegacyOutputs $ genesisCoins genesisId (injcoins n))
     (Coin 0)
     (Coin 0)
     def
     mempty
     mempty
-    def
 
 -- Protocal Parameters used for the benchmarknig tests.
 -- Note that the fees and deposits are set to zero for

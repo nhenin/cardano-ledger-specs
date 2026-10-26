@@ -234,20 +234,16 @@ exampleNewEpochState value ppp pp =
             LedgerState
               { lsUTxOState =
                   UTxOState
-                    { utxosUtxo =
-                        UTxO $
-                          Map.fromList
-                            [
-                              ( TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound
-                              , mkBasicTxOutWithImplicitDeposit addr value
-                              )
-                            ]
+                    { utxosOutputStorage =
+                        fromLegacyAllocationStorage $
+                          Map.singleton
+                            (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
+                            (mkBasicImplicitDepositTxOut addr value)
                     , utxosDeposited = Coin 1000
                     , utxosFees = Coin 1
                     , utxosGovState = emptyGovState
                     , utxosInstantStake = mempty
                     , utxosDonation = mempty
-                    , utxosDepositStore = def
                     }
               , lsCertState = def
               }

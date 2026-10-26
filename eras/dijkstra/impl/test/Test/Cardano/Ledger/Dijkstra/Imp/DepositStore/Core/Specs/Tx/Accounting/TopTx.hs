@@ -34,11 +34,11 @@ import Cardano.Ledger.Dijkstra.Rules (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
-import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore)
 import Cardano.Ledger.Val ((<->))
 import Data.List.NonEmpty (NonEmpty (..))
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, elements)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -227,7 +227,7 @@ requiredNetChange :: ReleaseTx -> Coin
 requiredNetChange proposal =
   requiredTxTotalNetUTxODeposit
     (Standalone.protocolParameters $ ledgerState proposal)
-    (utxosDepositStore $ Standalone.utxoState $ ledgerState proposal)
+    (recordedDepositStore $ Standalone.utxoState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
 -- | Run only production TopTx exactness against the funded snapshot. Other
@@ -236,7 +236,7 @@ validateNetChange :: ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFai
 validateNetChange proposal =
   validateTopTxExactness
     (Standalone.protocolParameters $ ledgerState proposal)
-    (utxosDepositStore $ Standalone.utxoState $ ledgerState proposal)
+    (recordedDepositStore $ Standalone.utxoState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
 -- | Independently require the declared amount to equal priced allocations minus

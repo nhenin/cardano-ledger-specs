@@ -22,11 +22,16 @@ import Test.Cardano.Ledger.Common (
  )
 import Test.Cardano.Ledger.Dijkstra.Examples (exampleDijkstraGenesis)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle as Lifecycle
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedDepositTotal,
+  liveOutputStore,
+  recordedDepositStore,
+ )
 
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec = describe "DS-STATE-TRANSLATION - Translation" $
-  prop "DS-STATE-TRANSLATION-N01 - Conway → Dijkstra ⇒ (outputsAfter, storeAfter, existingPotsAfter) = (implicit(outputsBefore), emptyStore, existingPotsBefore)" $
+  prop "DS-STATE-TRANSLATION-N01 - Conway → Dijkstra ⇒ (outputsAfter, externalDepositsAfter, existingPotsAfter) = (implicit(outputsBefore), zero, existingPotsBefore)" $
     forAll Lifecycle.conwayStates $ \states ->
       forM_ states $ \previousState -> do
         let translatedState = translateEra' @DijkstraEra exampleDijkstraGenesis previousState
@@ -45,7 +50,14 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
               fmap hashScript (output ^. referenceScriptTxOutL)
                 `shouldBe` fmap hashScript (previousOutput ^. referenceScriptTxOutL)
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
-        utxosDepositStore utxoState `shouldBe` DepositStore Map.empty
+        recordedDepositStore utxoState `shouldBe` DepositStore Map.empty
+        let entries = unAllocations $ allocations $ liveOutputStore utxoState
+        Map.keysSet entries `shouldBe` Map.keysSet outputs
+        forM_ (Map.elems entries) $ \entry -> do
+          allocationCalculation entry `shouldBe` Nothing
+          fmap (const ()) (allocationSizedOutput entry) `shouldBe` Nothing
+        unInMemoryOutputDepositAmount (totalDepositAmount $ liveOutputStore utxoState)
+          `shouldBe` expectedDepositTotal (liveOutputStore utxoState)
         -- Check each actual monetary pot, so a swapped or reset pot is visible.
         translatedState ^. treasuryL `shouldBe` previousState ^. treasuryL
         translatedState ^. reservesL `shouldBe` previousState ^. reservesL

@@ -24,10 +24,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   UTxOState (..),
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..))
 import Data.Coerce (coerce)
-import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Lens.Micro
 
@@ -137,13 +137,12 @@ instance TranslateEra BabbageEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosUtxo = translateEra' ctxt $ utxosUtxo us
+        { utxosOutputStorage = LegacyOutputs $ translateEra' ctxt $ utxosUtxo us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
         , utxosDonation = utxosDonation us
-        , utxosDepositStore = def
         }
 
 instance TranslateEra BabbageEra ShelleyInstantStake where

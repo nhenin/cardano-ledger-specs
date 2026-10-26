@@ -40,6 +40,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   lsCertStateL,
   lsUTxOStateL,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.Rules
 import Cardano.Ledger.Shelley.State
@@ -194,7 +195,7 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
     LedgerState utxoSt delegationSt = ledgerSt0
     utxo = unUTxO . utxosUtxo $ utxoSt
     (relevantUTxO, irrelevantUTxO) = Map.partitionWithKey (const . (`Set.member` txIns)) utxo
-    restrictedSt0 = LedgerState (utxoSt {utxosUtxo = UTxO relevantUTxO}) delegationSt
+    restrictedSt0 = LedgerState (utxoSt {utxosOutputStorage = LegacyOutputs $ UTxO relevantUTxO}) delegationSt
 
 -- | Reconstruct a POOL trace from the transactions in a Block and ChainState
 poolTraceFromBlock ::

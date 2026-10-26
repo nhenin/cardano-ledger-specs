@@ -23,7 +23,7 @@ import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Keys (asWitness, witVKeyHash)
-import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL, utxosDepositStore)
+import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
 import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject, (<->))
@@ -37,6 +37,7 @@ import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInteger)
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair, mkAddr, mkWitnessVKey)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance as Balance
@@ -123,7 +124,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
   impGetUTxO input >>= (`shouldBe` source)
   refreshFeeSource feeSource
   state <- Release.readLedger
-  recorded <- expectJust $ Map.lookup input $ depositStoreAllocations $ utxosDepositStore state
+  recorded <- expectJust $ Map.lookup input $ depositStoreAllocations $ recordedDepositStore state
   recorded `shouldBe` allocated
   parentAddress <- freshKeyAddrNoPtr_
   let parent = case scenarioMode of

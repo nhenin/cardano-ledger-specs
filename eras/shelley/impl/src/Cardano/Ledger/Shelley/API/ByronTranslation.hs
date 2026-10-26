@@ -160,13 +160,12 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       LedgerState
         { lsUTxOState =
             UTxOState
-              { utxosUtxo = utxoShelley
+              { utxosOutputStorage = LegacyOutputs utxoShelley
               , utxosDeposited = Coin 0
               , utxosFees = Coin 0
               , utxosGovState = emptyGovState
               , utxosInstantStake = mempty
               , utxosDonation = mempty
-              , utxosDepositStore = def
               }
         , lsCertState = mkShelleyCertState def dState
         }

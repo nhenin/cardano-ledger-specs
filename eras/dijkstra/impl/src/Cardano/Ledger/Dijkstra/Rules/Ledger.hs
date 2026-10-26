@@ -83,11 +83,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsCertState,
   lsUTxOStateL,
   utxosGovStateL,
-  utxosUtxo,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
 import Control.DeepSeq (NFData)
+import Control.Exception (throw)
 import Control.State.Transition.Extended
 import Data.Word (Word32)
 import GHC.Generics (Generic (..))
@@ -389,14 +389,26 @@ dijkstraLedgerTransition ::
   ) =>
   TransitionRule (LEDGER era)
 dijkstraLedgerTransition = do
-  TRC (Shelley.LedgerEnv slot mbCurEpochNo _txIx pp chainAccountState, ledgerState, stAnnTx) <-
+  ctx@(TRC (Shelley.LedgerEnv slot mbCurEpochNo _txIx pp chainAccountState, ledgerState, stAnnTx)) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
-  -- Capture the original UTxO before any subtransaction processing.
-  -- This is passed through the environment to UTXOW
-  -- and SUBLEDGERS, and used for all witness/validation lookups.
-  let originalUtxo = utxosUtxo (ledgerState ^. lsUTxOStateL)
+  -- Retain the previous store before SubTxs consume any entries.
+  -- Witness checks use their output view; whole-batch accounting also needs
+  -- each allocation's historical calculation and accepted size.
+  previousInMemoryUnspentTxOutputStore <-
+    case utxosOutputStorage (ledgerState ^. lsUTxOStateL) of
+      StoredOutputs store -> pure store
+      LegacyOutputs _ ->
+        throw $
+          AssertionException $
+            AssertionViolation
+              { avSTS = "Dijkstra LEDGER"
+              , avMsg = "Dijkstra ledger state must contain an InMemoryUnspentTxOutputStore"
+              , avCtx = ctx
+              , avState = Nothing
+              }
+  let originalUtxo = storeUTxO previousInMemoryUnspentTxOutputStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 
@@ -469,7 +481,7 @@ dijkstraLedgerTransition = do
           )
       else pure (utxoStateAfterSubLedgers, certStateAfterSubLedgers)
 
-  -- Call UTXOW with UtxoEnv, passing the original UTxO, the original certState,
+  -- Call UTXOW with UtxoEnv, passing the previous store, the original certState,
   -- and the PState updated by all sub-ledgers
   utxoStateFinal <-
     trans @(EraRule "UTXOW" era) $
@@ -479,7 +491,7 @@ dijkstraLedgerTransition = do
             pp
             (certStateAfterSubLedgers ^. certPStateL)
             (lsCertState ledgerState)
-            originalUtxo
+            previousInMemoryUnspentTxOutputStore
         , utxoStateBeforeUtxow
         , stAnnTx
         )

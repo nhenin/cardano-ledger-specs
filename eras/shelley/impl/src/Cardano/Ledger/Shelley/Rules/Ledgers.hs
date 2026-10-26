@@ -212,7 +212,7 @@ ledgersTransition = do
   foldM
     ( \ !curLedgerState (ix, tx) ->
         -- build the annotations against the same utxo snapshot that the rule will validate against
-        let utxo = curLedgerState ^. utxoL
+        let utxo = curLedgerState ^. utxoG
             stAnnTx = mkStAnnTx ei sysStart pp utxo mempty tx
          in trans @(EraRule "LEDGER" era) $
               TRC (LedgerEnv slot (Just epochNo) ix pp account, curLedgerState, stAnnTx)

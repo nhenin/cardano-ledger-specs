@@ -74,7 +74,7 @@ import Cardano.Ledger.Conway.Rules.Utxos (ConwayUtxosPredFailure)
 import Cardano.Ledger.Conway.Rules.Utxow (ConwayUtxowPredFailure)
 import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), utxoL)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), utxoG)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (UTxO (..), txouts, unUTxO)
 import Control.DeepSeq (NFData)
@@ -327,7 +327,7 @@ bbodyTransition = do
     failOnJust checkHeaderProtVerTooHigh $
       injectFailure . HeaderProtVerTooHigh @era
 
-  validateBodyRefScriptsSizeTooBig @era pp blockBody (ls ^. utxoL)
+  validateBodyRefScriptsSizeTooBig @era pp blockBody (ls ^. utxoG)
 
 instance
   ( Era era

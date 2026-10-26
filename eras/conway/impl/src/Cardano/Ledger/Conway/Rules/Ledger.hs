@@ -377,7 +377,7 @@ conwayLedgerTransitionTRC
         then do
           let txBody = tx ^. bodyTxL
           runTest $ validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
-          runTest $ validateRefScriptSize pp (utxoState ^. utxoL) tx
+          runTest $ validateRefScriptSize pp (utxoState ^. utxoG) tx
 
           let govState = utxoState ^. utxosGovStateL
               committee = govState ^. committeeGovStateL

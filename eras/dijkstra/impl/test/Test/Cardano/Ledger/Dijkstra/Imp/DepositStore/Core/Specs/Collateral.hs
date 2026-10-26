@@ -38,7 +38,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState,
   curPParamsEpochStateL,
   nesEsL,
-  utxosDepositStore,
  )
 import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
 import Cardano.Ledger.State (depositStoreAllocations)
@@ -53,6 +52,7 @@ import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Common (Gen, arbitrary, chooseInt, chooseInteger)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration as Declaration
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
@@ -247,7 +247,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
         & bodyTxL . collateralReturnTxBodyL .~ finalReturn
         & isPhase2ValidTxL .~ phase2
   state <- readLedger
-  let records = depositStoreAllocations $ utxosDepositStore state
+  let records = depositStoreAllocations $ recordedDepositStore state
       released = foldMap id $ Map.restrictKeys records inputs
       Coin fee = signed ^. bodyTxL . feeTxBodyL
       percentage = toInteger $ parameters ^. ppCollateralPercentageL

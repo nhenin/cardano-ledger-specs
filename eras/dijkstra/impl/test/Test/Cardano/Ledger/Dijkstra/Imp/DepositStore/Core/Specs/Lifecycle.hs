@@ -52,7 +52,7 @@ conwayStates = do
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =
         previousState
-          & utxoL .~ UTxO outputMap
+          & utxoStateL . utxosOutputStorageL .~ LegacyOutputs (UTxO outputMap)
           & treasuryL .~ Coin (factor * amount)
           & reservesL .~ Coin (factor * (amount + 1))
           & utxoStateL . utxosDepositedL .~ Coin (factor * (amount + 2))

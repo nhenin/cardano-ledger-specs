@@ -24,7 +24,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   esLStateL,
   lsUTxOStateL,
   nesEsL,
-  utxosDepositStore,
  )
 import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.Val (inject)
@@ -35,6 +34,7 @@ import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, Property, forAll)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.SubTx as SubTx
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (isImplicitOutput)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (ordinarySpendingInputs)
@@ -97,7 +97,7 @@ forAllPostConwayAllocationTx scenarios check =
     let sourceInput = txInAt 0 funded
     impGetUTxO sourceInput >>= (`shouldBe` translatedOutput)
     records <-
-      depositStoreAllocations . utxosDepositStore <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
+      depositStoreAllocations . recordedDepositStore <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
     Map.lookup sourceInput records `shouldBe` Nothing
     check $
       TopTx.AllocationTx parameters $
@@ -151,7 +151,7 @@ buildAndSignTx proposal = do
   map (^. bodyTxL . inputsTxBodyL) (OMap.elems $ signed ^. bodyTxL . subTransactionsTxBodyL)
     `shouldBe` map (^. bodyTxL . inputsTxBodyL) (OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL)
   records <-
-    depositStoreAllocations . utxosDepositStore <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
+    depositStoreAllocations . recordedDepositStore <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
   forM_ (ordinarySpendingInputs signed) $ \input -> do
     output <- impGetUTxO input
     isImplicitOutput output `shouldBe` True

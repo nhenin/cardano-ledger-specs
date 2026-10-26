@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Shelley.Rules.CollisionFreeness (
   tests,
@@ -111,7 +112,7 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
     (_, ledgerTr) = ledgerTraceFromBlock @era chainSt block
     inputsEliminated
       SourceSignalTarget
-        { target = LedgerState (UTxOState {utxosUtxo = (UTxO u')}) _
+        { target = LedgerState (UTxOState {utxosOutputStorage = (outputStorageUTxO -> UTxO u')}) _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -143,9 +144,9 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
     (_, ledgerTr) = ledgerTraceFromBlock @era chainSt block
     newEntryPresent
       SourceSignalTarget
-        { source = LedgerState (UTxOState {utxosUtxo = UTxO u}) _
+        { source = LedgerState (UTxOState {utxosOutputStorage = (outputStorageUTxO -> UTxO u)}) _
         , signal = stAnnTx
-        , target = LedgerState (UTxOState {utxosUtxo = UTxO u'}) _
+        , target = LedgerState (UTxOState {utxosOutputStorage = (outputStorageUTxO -> UTxO u')}) _
         } =
         let tx = stAnnTx ^. txStAnnTxG
             UTxO outs = txouts @era (tx ^. bodyTxL)

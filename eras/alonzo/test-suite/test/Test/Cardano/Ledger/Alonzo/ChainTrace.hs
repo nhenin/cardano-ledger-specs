@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 -- Embed instances for (AlonzoEra TestCrypto)
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -27,6 +28,7 @@ import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..), ScriptResult (..)
 import Cardano.Ledger.Plutus.Language (plutusFromRunnable)
 import Cardano.Ledger.Shelley.LedgerState hiding (circulation)
 import Cardano.Ledger.Slot (EpochSize (..))
+import Cardano.Ledger.State (outputStorageUTxO)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Control.State.Transition
@@ -82,9 +84,19 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
     alonzoSpecificPropsLEDGER :: SourceSignalTarget (LEDGER AlonzoEra) -> Property
     alonzoSpecificPropsLEDGER
       SourceSignalTarget
-        { source = LedgerState UTxOState {utxosUtxo = UTxO u, utxosDeposited = dp, utxosFees = f} ds
+        { source =
+          LedgerState
+            UTxOState {utxosOutputStorage = (outputStorageUTxO -> UTxO u), utxosDeposited = dp, utxosFees = f}
+            ds
         , signal = stAnnTx
-        , target = LedgerState UTxOState {utxosUtxo = UTxO u', utxosDeposited = dp', utxosFees = f'} ds'
+        , target =
+          LedgerState
+            UTxOState
+              { utxosOutputStorage = (outputStorageUTxO -> UTxO u')
+              , utxosDeposited = dp'
+              , utxosFees = f'
+              }
+            ds'
         } =
         let tx = stAnnTx ^. txStAnnTxG
             isValid' = tx ^. isPhase2ValidTxL

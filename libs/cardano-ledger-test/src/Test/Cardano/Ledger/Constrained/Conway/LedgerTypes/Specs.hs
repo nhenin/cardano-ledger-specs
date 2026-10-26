@@ -442,18 +442,18 @@ utxoStateSpec ::
   Specification (UTxOState era)
 utxoStateSpec pp univ certstate =
   constrained $ \ [var|utxoState|] ->
-    match utxoState $ \ [var|utxo|] [var|deposits|] [var|fees|] [var|gov|] [var|distr|] [var|donation|] [var|depositStore|] ->
-      [ assert $ depositStore ==. lit (DepositStore mempty)
-      , assert $ donation ==. lit (Coin 0)
-      , reify
-          certstate
-          (sumObligation . obligationCertState)
-          (\ [var|depositsum|] -> assert $ deposits ==. depositsum)
-      , assert $ lit (Coin 0) <=. fees
-      , reify certstate getDelegs (\ [var|delegs|] -> satisfies utxo (utxoSpecWit univ delegs))
-      , satisfies gov (conwayGovStateSpec pp (testGovEnv pp))
-      , reify utxo (`addInstantStake` mempty) (\ [var|i|] -> distr ==. i)
-      ]
+    match utxoState $ \ [var|outputStorage|] [var|deposits|] [var|fees|] [var|gov|] [var|distr|] [var|donation|] ->
+      match outputStorage $ \ [var|utxo|] ->
+        [ assert $ donation ==. lit (Coin 0)
+        , reify
+            certstate
+            (sumObligation . obligationCertState)
+            (\ [var|depositsum|] -> assert $ deposits ==. depositsum)
+        , assert $ lit (Coin 0) <=. fees
+        , reify certstate getDelegs (\ [var|delegs|] -> satisfies utxo (utxoSpecWit univ delegs))
+        , satisfies gov (conwayGovStateSpec pp (testGovEnv pp))
+        , reify utxo (`addInstantStake` mempty) (\ [var|i|] -> distr ==. i)
+        ]
 
 getDelegs ::
   forall era.

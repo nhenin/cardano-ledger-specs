@@ -61,7 +61,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), natVersion)
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosUtxo)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (ShelleyScriptsNeeded (..))
 import Cardano.Ledger.State (

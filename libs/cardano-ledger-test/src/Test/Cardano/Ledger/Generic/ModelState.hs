@@ -53,6 +53,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesStakePoolDistrG,
   prevPParamsEpochStateL,
   smartUTxOState,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PoolRank (NonMyopic (..))
 import Cardano.Ledger.Shelley.RewardUpdate (PulsingRewUpdate (..), RewardUpdate (..))
@@ -178,14 +179,7 @@ nonMyopicZero :: NonMyopic
 nonMyopicZero = NonMyopic mempty mempty
 
 uTxOStateZero :: forall era. Reflect era => UTxOState era
-uTxOStateZero =
-  smartUTxOState
-    def
-    utxoZero
-    mempty
-    mempty
-    emptyGovState
-    mempty
+uTxOStateZero = UTxOState def mempty mempty emptyGovState mempty mempty
 
 ledgerStateZero :: forall era. Reflect era => LedgerState era
 ledgerStateZero = LedgerState uTxOStateZero dPStateZero

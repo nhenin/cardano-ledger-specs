@@ -85,6 +85,7 @@ import Cardano.Ledger.Shelley.LedgerState as X (
   ShelleyGovState (..),
   UTxOState (..),
   mkShelleyCertState,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PParams as X (
   ProposedPPUpdates (..),

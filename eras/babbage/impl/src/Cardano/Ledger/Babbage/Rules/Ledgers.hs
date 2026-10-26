@@ -129,7 +129,7 @@ ledgersTransition = do
     foldM -- cache is lazy on purpose, since it is unused when validation is off
       ( \(!curLedgerState, stAnnTxCache) (ix, tx) -> do
           let
-            utxo = curLedgerState ^. utxoL
+            utxo = curLedgerState ^. utxoG
             stAnnTx = mkStAnnTx ei sysStart pp utxo stAnnTxCache tx
           newLedgerState <-
             trans @(EraRule "LEDGER" era) $

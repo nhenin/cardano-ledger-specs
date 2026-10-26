@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Shelley.Generator.Utxo (
   genTx,
@@ -134,7 +135,7 @@ genTx
          constants
        )
   (LedgerEnv slot _ txIx pparams reserves)
-  (LedgerState utxoSt@(UTxOState utxo _ _ _ _ _ _) dpState) =
+  (LedgerState utxoSt@(UTxOState (outputStorageUTxO -> utxo) _ _ _ _ _) dpState) =
     do
       -------------------------------------------------------------------------
       -- Generate the building blocks of a TxBody

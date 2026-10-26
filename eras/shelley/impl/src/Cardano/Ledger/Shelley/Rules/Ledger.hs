@@ -53,6 +53,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   UTxOState (..),
   utxosDepositedL,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.LedgerState.Types (allObligations, potEqualsObligation)
 import Cardano.Ledger.Shelley.Rules.Deleg (AccountAlreadyRegistered, ShelleyDelegPredFailure)
