@@ -98,7 +98,7 @@ import Cardano.Ledger.Plutus (
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
-  utxoL,
+  utxoG,
  )
 import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..), UTxO (..), txouts)
 import Cardano.Ledger.TxIn (TxIn)
@@ -184,7 +184,7 @@ impGetPlutusContexts ::
   ImpTestM era [(PlutusPurpose AsIxItem era, ScriptHash, ScriptTestContext)]
 impGetPlutusContexts tx = do
   let txBody = tx ^. bodyTxL
-  utxo <- getsNES utxoL
+  utxo <- getsNES utxoG
   let AlonzoScriptsNeeded asn = getScriptsNeeded utxo txBody
   mbyContexts <- forM asn $ \(prp, sh) -> do
     pure $ (prp,sh,) <$> impLookupScriptContext @era sh
@@ -546,7 +546,7 @@ impAlonzoExpectTxSuccess ::
   ) =>
   Tx TopTx era -> ImpTestM era ()
 impAlonzoExpectTxSuccess tx = do
-  utxo <- getsNES utxoL
+  utxo <- getsNES utxoG
   let inputs = tx ^. bodyTxL . inputsTxBodyL
       collaterals = tx ^. bodyTxL . collateralInputsTxBodyL
       outputs = Map.toList . unUTxO . txouts $ tx ^. bodyTxL

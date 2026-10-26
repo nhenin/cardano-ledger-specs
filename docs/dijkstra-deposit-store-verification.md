@@ -57,19 +57,27 @@ source links follow the current modules. Previous documentation anchors still re
 
 ## Current implementation status
 
-**Store model updated on 26 October:** `DepositStore` now contains only its
-allocation map. Balance equals the sum of recorded deposits by construction;
-there is no independent balance, unallocated Store surplus or solvency comparison.
-The checks and model changes are described below; dated passing results before
-26 October remain evidence for their original revisions, not for this change.
+The results below describe the `OutputStorage` integration checkpoint selected for
+commit. This checkpoint introduces the shared-state bridge for Dijkstra’s Store;
+future changes to that shared representation can be reviewed separately.
+
+**Unified Store revision on 26 October:** the live Dijkstra state now owns outputs
+and their historical deposit metadata in `InMemoryUnspentTxOutputStore`. A cached
+total equals the sum calculated from accepted output sizes and creation-time prices.
+The previous map-only Coin representation remains a checked read-only accounting
+view. V1 is operational; V2 is reserved and rejected. This revision changes the
+experimental Dijkstra snapshot schema; earlier-era bytes remain unchanged.
+The new revision's executed checks are recorded separately below. Earlier passing
+results apply to their stated revisions and do not establish a pass for this change.
 
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
-registers **206 implemented business contracts**, with no pending LedgerEffects
+registers **209 implemented business contracts**, with no pending LedgerEffects
 entry: 80 Declarations (21 Grammar and 59 Requirements), 58 Accounting
 (41 NetChange, three Attribution and 14 Balance), two Authorization, 33 Settlement,
-five Minimum coin, seven Collateral and 21 Ledger-effects checks.
-The 21 effects checks replace the earlier nine-contract outline; the eight
-pending contracts are now implemented or refined into explicit observations.
+five Minimum coin, seven Collateral and 24 Ledger-effects checks.
+The original 21 effects checks replaced the earlier nine-contract outline: its eight
+pending contracts were implemented or refined into explicit observations. Three
+historical-metadata lifecycle regressions now extend that coverage.
 The former rejection-snapshot placeholder is removed: the submission adapter
 installs state only on success, so snapshot equality after rejection would retest
 that adapter rather than establish a new DepositStore transition. Transaction-rule
@@ -105,21 +113,24 @@ Historical local evidence:
 `/private/tmp/ds-conservation-scope-inventory.log` and
 `/private/tmp/ds-conservation-scope-audit.json`.
 
-Production state now retains the exact allocation for each live Store-backed
-`TxIn` in one map. Its balance is the sum of those records. Ordinary validation checks per-body contributions, the batch net
-total and release destinations. Successful execution updates allocations once for the
-complete transaction. Collateral execution derives its own allocation, release and fee
+Production state owns each live output in one allocation map. Store-backed entries
+retain the accepted full-output size and creation-time V1 price; legacy entries have
+zero external deposit. Checked construction, decoding and atomic updates preserve
+the exact cached total. Accounting derives a selected-input Coin view when needed. Ordinary validation checks per-body contributions, the batch net
+total and release destinations. Successful execution applies each body’s output delta once, while batch validation
+retains the original allocation store for historical input refunds. Collateral execution derives its own allocation, release and fee
 settlement. Store ADA is included once in the ledger total.
 
-The current suite contains Transaction rules and Ledger effects only. Pricing, Stake
-and Voting tests remain deferred. Grammar has 21 codec checks; the reusable positive
+The business suite contains Transaction rules and Ledger effects. The full Pricing,
+Stake and Voting matrices remain deferred; focused metadata and codec properties
+cover historical V1 pricing, unsupported V2, malformed sizes and cached totals. Grammar has 21 codec checks; the reusable positive
 amount type has five independent ledger-core checks. One technical fixture property
 remains outside the business specification. The old model-only release fixture checks
 have been replaced by real ledger submissions.
 
 | Semantic responsibility and executable spec | Current implementation or verification |
 | --- | --- |
-| [DS-PRICING](dijkstra-deposit-store-rules.md#ds-pricing) | Pricing tests are deferred; the rules and seven examples remain documented. |
+| [DS-PRICING](dijkstra-deposit-store-rules.md#ds-pricing) | The full pricing matrix remains deferred; focused metadata codecs and ledger lifecycle regressions cover retained accepted size, creation price and zero pricing. |
 | [DS-TX-DECLARATIONS-GRAMMAR](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs) | Twenty-one declaration checks are implemented in separate TopTx and SubTx modules: typed amount integration, absent versus zero, legal forms and malformed payloads. Both levels have separate zero, negative and overflowing amount cases, generated structural inputs, and properties for generated negative or overflowing release indices. The former zero-delegation accounting case is implemented as Accounting Attribution N01, covering active and inactive explicit-zero children. |
 | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs) | P01 generates independent input/output deposit forms for TopTx and zero to four SubTxs at zero deposit price. It checks each active body's omitted declaration against its own ledger failure, then accepts the declared control, on ordinary success and real phase-2 failure paths. Activity is derived from actual input/output forms, independently of production predicates and amounts. |
 | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs) | All 17 checks pass. N05/F02 cover standalone allocation and omission; N06–N08/F07–F08 retain the own-output scope checks. F06 uses production Conway-to-Dijkstra output conversion followed by real funding, then rejects omission and accepts its declared control. N09 accepts independent parent/child allocations with exact local and aggregate declarations. |
@@ -141,23 +152,97 @@ have been replaced by real ledger submissions.
 | [DS-COLLATERAL-ASSETS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Both generated contracts pass: preserve the exact native-asset map across implicit and Store-backed output forms; reject missing, extra, changed or unreturned assets. Funded Store returns also accept tokens with zero application ADA. Rejected variants retain sufficient deposit and fee funding. |
 | [DS-STATE-UTXO](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs) | Five generated checks observe exact ordinary and collateral UTxO maps, successful and failing real scripts, reference-only inputs, inactive multi-SubTx operations on failure and overlapping ordinary/collateral input roles. |
 | [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, retained noncanonical accepted sizes after state restoration and price changes, zero-price records from translated implicit sources, and inactive ordinary records on phase-2 failure. |
-| [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Four generated checks observe exact ordinary/collateral changes in the sum of recorded deposits, release of the original noncanonical-byte allocation after restoration/repricing, and no ordinary transfer on phase-2 failure. Shared input roles consume their selected allocation once. |
+| [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Seven generated checks preserve the original four contracts and add mixed-rate inputs with current-price replacement, a noncanonical child output and a noncanonical collateral return. Each historical output is snapshotted, restored and refunded after a price change. Independent metadata sums check the cached total. |
 | [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
-| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired: the single map makes a balance/record-sum mismatch unrepresentable. Record validity and correspondence with live Store-backed outputs remain required; no standalone solvency validator remains. |
+| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. Checked constructors and updates maintain exact cached equality; the snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
-| [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies an empty Store. It does not claim complete NewEpochState equality. |
-| [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | One generated property funds live Store records and crosses two actual ordinary epoch boundaries, preserving the same allocation map. It checks exact records, the epoch increment and unchanged parameters; the balance follows from the map. |
+| [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
+| [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | One generated property funds live Store records and crosses two actual ordinary epoch boundaries, preserving the same allocation map. It checks exact records, the epoch increment and unchanged parameters; historical size/rate metadata and the independently checked cached total are preserved. |
 | [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Inherited binary round trips cover Dijkstra UTxOState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore a reachable UTxOState and spend its retained noncanonical-byte allocation after repricing. Consensus rollback remains outside this ledger API. |
 | [DS-STAKE](dijkstra-deposit-store-rules.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
 | [DS-VOTING](dijkstra-deposit-store-rules.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
 
-Historical pricing and parameter-change handling (`DS-PRICING-HISTORY`), Plutus context
-projection, and the unresolved stronger settlement guarantee remain deferred. An agreed
+Explicit repricing, Plutus context projection and the unresolved stronger settlement
+guarantee remain deferred. Historical V1 pricing survives ordinary parameter changes;
+V2 remains unsupported. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
 
-## Map-only Store revision on 26 October 2026
+## Unified live Store revision on 26 October 2026
+
+The live state owns outputs, accepted sizes and creation rates together. The test DSL
+continues to express the original business amounts through a checked read-only view;
+fixtures obtain historical metadata from accepted transactions. They never derive
+old accepted sizes by canonical re-encoding or reprice old outputs at current parameters.
+
+The [new codec group](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Binary/InMemoryUnspentTxOutputStoreSpec.hs) exercises actual noncanonical body bytes through both store
+encoders, historical mixed-rate refunds, cached totals after deltas and replacement,
+legacy and zero-priced allocations, rejected reconstruction from bare Store-backed
+outputs, negative sizes, reserved V2, cached-total mismatches, variant mismatches,
+retired Coin-only stores and retired seven-field Dijkstra snapshots. Existing output
+size decoder tests still cover TopTx, SubTx and collateral return independently.
+
+The three new live contracts are `DS-STATE-BALANCE-P05`, `P06` and `P07`. Existing
+allocation retention, translation, epoch and conservation checks now inspect the
+owning store or independently recompute its cached total from historical metadata.
+All previous business assertions remain present.
+
+**Executed verification.** The checks below completed against this integration
+checkpoint. They do not constitute a full multi-era suite pass.
+
+| Executed check | Result | Time |
+| --- | --- | --- |
+| Complete DepositStore business stream, seed `739231514` | 209 examples, 0 failures; generated properties use 100 samples | 471.9578 s; CPU 833.2724 s |
+| Dijkstra UTxOState snapshot round trip, seed `739231514`, `--qc-max-size=10` | 1 property, 100 generated samples, 0 failures | 236.407 s |
+| Dijkstra EpochState snapshot round trip, seed `739231514`, `--qc-max-size=10` | 1 property, 100 generated samples, 0 failures | 239.213 s |
+| Dijkstra NewEpochState snapshot round trip, seed `739231514`, `--qc-max-size=10` | 1 property, 100 generated samples, 0 failures | 247.707 s |
+| Historical metadata/store codecs, seed `739231514` | 11 examples, 100 generated samples each, 0 failures | 66.9767 s |
+| Accepted output-size decoder checks (TopTx, SubTx, collateral return), seed `739231514` | 3 examples, 100 samples each, 0 failures | 0.0150 s |
+| Dijkstra golden group, seed `739231514` | 127 examples, 0 failures | 0.3895 s; CPU 0.6813 s |
+| Core `DepositStore` compatibility codecs, seed `739231514` | 4 examples, 0 failures | 0.0691 s; CPU 0.1246 s |
+| Shelley six-field snapshot byte compatibility | 1 property, 100 generated samples, 0 failures | 0.0851 s |
+| Babbage six-field snapshot byte compatibility | 1 property, 100 generated samples, 0 failures | 37.1165 s |
+| Babbage `UTXO`-matched regression group | 249 examples, 0 failures | 1.3218 s; CPU 1.7606 s |
+| Conway six-field snapshot byte compatibility | 1 property, 100 generated samples, 0 failures | 86.8146 s; wall 88.748 s |
+
+The three bounded state-container round trips completed as one group: **3 examples,
+0 failures**, 723.3295 s elapsed and 1395.4262 s CPU. The generator bound was 10;
+this is distinct from the business stream’s default-sized 100-sample properties.
+
+**Implementation limitation:** Dijkstra's `storeUTxO` compatibility view currently
+materializes an output-only map in O(number of live allocations). Selected-input
+deposit/refund queries restrict the allocations first. This is source-level behavior,
+not a measured performance regression; functional verification is not a performance
+sign-off.
+
+The integration build completed successfully. The compatibility-target build also
+completed: canonical-state Conway adapters, the conformance library, ledger-state
+performance support and the selected older Shelley, Alonzo and Mary test/benchmark
+targets typecheck. These are build results, not executed-suite passes.
+Build logs: `/private/tmp/ds-historical-domain-build.log` and
+`/private/tmp/ds-historical-final-optional-build.log`.
+
+The final compatibility audit restored the test initializer's existing-root
+behavior: an already present root output and its metadata are retained. The
+affected Shelley test library rebuilt successfully; the full business run above
+preceded this initializer-only correction. Build log:
+`/private/tmp/ds-outputstorage-commit-initializer-build.log`.
+
+Local evidence: `/private/tmp/ds-history-final-business.log`,
+`/private/tmp/ds-history-final-state-snapshots.log`,
+`/private/tmp/ds-history-final-metadata-codecs.log`,
+`/private/tmp/ds-history-final-accepted-sizes.log`,
+`/private/tmp/ds-history-final-golden.log`, `/private/tmp/ds-history-core-deposit.log`,
+`/private/tmp/ds-history-shelley-compat.log`,
+`/private/tmp/ds-history-babbage-compat.log`,
+`/private/tmp/ds-history-babbage-utxo.log` and
+`/private/tmp/ds-historical-conway-snapshot.log`.
+
+## Historical map-only Store revision on 26 October 2026
+
+The following implementation description and runs concern the preceding map-only
+revision. They remain historical evidence and do not describe the unified live model.
 
 > **One allocation map; its sum is the Store balance.**
 

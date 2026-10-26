@@ -286,6 +286,7 @@ test-suite tests
   other-modules:
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
+    Test.Cardano.Ledger.Dijkstra.Binary.InMemoryUnspentTxOutputStoreSpec
     Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec
     Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
@@ -297,6 +298,7 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.ADA
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.OutputIndex
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin

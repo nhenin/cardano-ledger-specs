@@ -28,6 +28,7 @@ import Cardano.Ledger.Conway.Governance (
   translateProposals,
  )
 import Cardano.Ledger.Conway.Governance.DRepPulser (PulsingSnapshot (..))
+import Cardano.Ledger.Conway.TxBody (upgradeBabbageTxOut)
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Genesis (DijkstraGenesis (..))
 import Cardano.Ledger.Dijkstra.Governance ()
@@ -43,9 +44,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
   lsCertStateL,
   lsUTxOStateL,
+  utxosUtxo,
  )
+import qualified Cardano.Ledger.State as Store
 import Data.Coerce (coerce)
-import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((&), (.~), (^.))
 
@@ -215,14 +217,21 @@ instance TranslateEra DijkstraEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosUtxo = translateEra' ctxt $ utxosUtxo us
+        { utxosOutputStorage =
+            StoredOutputs $
+              Store.fromLegacyAllocations $
+                Map.map upgradeImplicit (unUTxO $ utxosUtxo us)
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
         , utxosGovState = translateEra' ctxt $ utxosGovState us
         , utxosInstantStake = coerce $ utxosInstantStake us
         , utxosDonation = utxosDonation us
-        , utxosDepositStore = def
         }
+    where
+      -- Conway cannot contain store-backed outputs. Translation therefore
+      -- creates legacy allocations without inventing a historical price/size.
+      upgradeImplicit :: TxOut ConwayEra -> ImplicitDepositTxOut DijkstraEra
+      upgradeImplicit (ImplicitDepositTxOut output) = upgradeBabbageTxOut output
 
 instance TranslateEra DijkstraEra UTxO where
   translateEra _ctxt utxo =

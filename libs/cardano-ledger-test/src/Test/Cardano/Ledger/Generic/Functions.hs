@@ -312,8 +312,12 @@ instance TotalAda ChainAccountState where
   totalAda (ChainAccountState treasury reserves) = treasury <+> reserves
 
 instance Reflect era => TotalAda (UTxOState era) where
-  totalAda (UTxOState utxo _deposits fees gs _ donations store) =
-    totalAda utxo <+> fees <+> govStateTotalAda gs <+> donations <+> depositStoreBalance store
+  totalAda (UTxOState storage _deposits fees gs _ donations) =
+    totalAda (outputStorageUTxO storage)
+      <+> fees
+      <+> govStateTotalAda gs
+      <+> donations
+      <+> outputStorageTotalDeposit storage
 
 -- we don't add in the _deposits, because it is invariant that this
 -- is equal to the sum of the key deposit map and the pool deposit map

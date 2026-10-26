@@ -15,7 +15,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   esLStateL,
   lsUTxOStateL,
   nesEsL,
-  utxosDepositStore,
  )
 import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.TxIn (TxIn)
@@ -26,6 +25,7 @@ import qualified Data.Set as Set
 import Data.Typeable (Typeable)
 import Lens.Micro
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations as Operations
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (LedgerState (..))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
@@ -64,7 +64,7 @@ fundOperations scenario = do
   forM_ (zip [0 ..] sourceOutputs) $ \(index, source) -> do
     let input = txInAt index funded
     impGetUTxO input >>= (`shouldBe` source)
-    Map.lookup input (depositStoreAllocations $ utxosDepositStore state)
+    Map.lookup input (depositStoreAllocations $ recordedDepositStore state)
       `shouldBe` case source of
         StoreBackedTxOut _ -> Just (Coin 0)
         ImplicitDepositTxOut _ -> Nothing

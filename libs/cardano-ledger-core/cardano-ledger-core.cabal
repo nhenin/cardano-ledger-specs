@@ -103,7 +103,9 @@ library
     Cardano.Ledger.State.ChainAccount
     Cardano.Ledger.State.DepositStore
     Cardano.Ledger.State.Governance
+    Cardano.Ledger.State.InMemoryUnspentTxOutputStore
     Cardano.Ledger.State.LeiosCommittee
+    Cardano.Ledger.State.OutputStorage
     Cardano.Ledger.State.PoolDistr
     Cardano.Ledger.State.SnapShots
     Cardano.Ledger.State.Stake

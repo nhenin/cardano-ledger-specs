@@ -124,7 +124,7 @@ alonzoLedgersTransition = do
   (finalLedgerState, _) <-
     foldM -- cache is lazy on purpose, since it is unused when validation is off
       ( \(!curLedgerState, stAnnTxCache) (ix, tx) -> do
-          let utxo = curLedgerState ^. utxoL
+          let utxo = curLedgerState ^. utxoG
               stAnnTx =
                 mkStAnnTx (unsafeLinearExtendEpochInfo slot ei) sysStart pp utxo stAnnTxCache tx
           newLedgerState <-

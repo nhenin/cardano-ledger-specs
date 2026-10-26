@@ -38,7 +38,6 @@ import Cardano.Ledger.Shelley.Rewards (
  )
 import Cardano.Ledger.State
 import Control.DeepSeq (NFData (rnf), deepseq)
-import Data.Default (def)
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -47,16 +46,9 @@ import Lens.Micro
 
 -- ================================================
 
--- | A valid (or self-consistent) UTxOState{utxosUtxo, utxosDeposited , utxosFees  , utxosPpups , utxosStakeDistr}
---   maintains an invariant between the utxosUtxo and utxosStakeDistr fields. the utxosStakeDistr field is
---   the aggregation of Coin over the StakeReferences in the UTxO. It can be computed by a pure
---   function from the _utxo field. In some situations, mostly unit or example tests, or when
---   initializing a small UTxO, we want to create a UTxOState that computes the utxosStakeDistr from
---   the utxosUtxo. This is aways safe to do, but if the utxosUtxo field is big, this can be very expensive,
---   which defeats the purpose of memoizing the utxosStakeDistr field. So use of this function should be
---   restricted to tests and initializations, where the invariant should be maintained.
---
---   TO IncrementalStake
+-- | Initialize legacy output storage and compute its cached instant stake.
+-- Use this for legacy-era tests and initialization. Dijkstra callers construct
+-- explicit storage so historical allocation metadata cannot be reconstructed.
 smartUTxOState ::
   EraStake era =>
   PParams era ->
@@ -68,13 +60,12 @@ smartUTxOState ::
   UTxOState era
 smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
-    utxo
+    (LegacyOutputs utxo)
     c1
     c2
     st
     (addInstantStake utxo mempty)
     donation
-    def
 
 -- =====================================================
 -- Part 3 Apply a reward update, in NewEpoch rule

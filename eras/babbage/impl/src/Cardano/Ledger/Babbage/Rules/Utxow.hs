@@ -50,7 +50,7 @@ import Cardano.Ledger.Binary.Coders (
   (<!),
  )
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL, utxosUtxo)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..))
 import Control.DeepSeq (NFData)

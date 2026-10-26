@@ -144,15 +144,13 @@ utxoStateSpec ::
 utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState} =
   constrained $ \utxoState ->
     match utxoState $
-      \utxosUtxo
+      \utxosOutputStorage
        _utxosDeposited
        _utxosFees
        utxosGovState
        _utxosStakeDistr
-       _utxosDonation
-       utxosDepositStore ->
-          [ assert $ utxosDepositStore ==. lit (DepositStore mempty)
-          , assert $ utxosUtxo ==. lit uecUTxO
+       _utxosDonation ->
+          [ assert $ utxosOutputStorage ==. lit (LegacyOutputs uecUTxO)
           , match utxosGovState $ \props _ constitution _ _ _ _ ->
               match constitution $ \_ policy ->
                 satisfies props $

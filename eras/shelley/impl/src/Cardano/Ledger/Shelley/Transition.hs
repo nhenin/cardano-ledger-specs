@@ -440,7 +440,7 @@ createInitialState tc =
               , esLState =
                   LedgerState
                     { lsUTxOState =
-                        smartUTxOState pp initialUtxo zero zero govState zero
+                        UTxOState def zero zero govState mempty zero
                     , lsCertState =
                         def & certDStateL . dsGenDelegsL .~ GenDelegs (sgGenDelegs sg)
                     }
@@ -606,7 +606,7 @@ resetStakeDistribution nes =
     -- we don't have a previous epoch when starting out
     initSnapShot :: SnapShot
     initSnapShot =
-      snapShotFromInstantStake (addInstantStake (nes ^. utxoL) mempty) dState pState
+      snapShotFromInstantStake (addInstantStake (nes ^. utxoG) mempty) dState pState
     markSnapShot :: MarkSnapShot
     markSnapShot = nes ^. nesEsL . esSnapshotsL . ssStakeMarkL & msSnapShotL .~ initSnapShot
     setSnapShot :: SetSnapShot
@@ -660,7 +660,10 @@ registerInitialFunds hasFS tc newEpochState = do
     foldInjectionData hasFS source addInitialFund (Map.empty, mempty)
 
   -- Forced: left lazy, this thunk retains both inputs of `mergeUtxoNoOverlap`.
-  pure $! applyFunds newUtxoEntries totalCoins
+  outputStorage <-
+    either (throwIO . userError . show) pure $
+      applyLegacyOutputDelta mempty (UTxO newUtxoEntries) (utxosOutputStorage utxoState)
+  pure $! applyFunds outputStorage newUtxoEntries totalCoins
   where
     epochState = nesEs newEpochState
     accountState = esChainAccountState epochState
@@ -668,7 +671,7 @@ registerInitialFunds hasFS tc newEpochState = do
     utxoState = lsUTxOState ledgerState
     utxo = utxosUtxo utxoState
 
-    applyFunds newUtxoEntries totalCoins =
+    applyFunds outputStorage newUtxoEntries totalCoins =
       newEpochState
         { nesEs =
             epochState
@@ -690,7 +693,7 @@ registerInitialFunds hasFS tc newEpochState = do
           ledgerState
             { lsUTxOState =
                 utxoState
-                  { utxosUtxo = utxo'
+                  { utxosOutputStorage = outputStorage
                   , -- Normally we would incrementally update here. But since we pass
                     -- the full UTxO as "toAdd" rather than a delta, we simply
                     -- reinitialise the full instant stake.

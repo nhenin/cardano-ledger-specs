@@ -24,6 +24,7 @@ import Test.Cardano.Ledger.Dijkstra.Arbitrary (genSmallDijkstraTxsBlockBody)
 import Test.Cardano.Ledger.Dijkstra.Binary.Annotator ()
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec as Cddl
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.Golden as GoldenBinary
+import qualified Test.Cardano.Ledger.Dijkstra.Binary.InMemoryUnspentTxOutputStoreSpec as OutputStoreBinary
 import Test.Cardano.Ledger.Dijkstra.Binary.RoundTrip ()
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec as TxBodyBinary
 import qualified Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec as DepositStoreFixture
@@ -46,6 +47,7 @@ main =
     DepositStore.spec
     describe "Test infrastructure" DepositStoreFixture.spec
     TxBodyBinary.spec
+    OutputStoreBinary.spec
     describe "RoundTrip" $ do
       roundTripConwayCommonSpec @DijkstraEra
       prop "Block (Leios.Header)" $

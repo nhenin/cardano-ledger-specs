@@ -696,8 +696,7 @@ impEraStartEpochNo = EpochNo (getVersion majProtVer * 100)
 
 defaultInitImpTestState ::
   forall era s g m.
-  ( EraGov era
-  , EraTxOut era
+  ( EraTxOut era
   , HasKeyPairs s
   , MonadState s m
   , HasStatefulGen g m
@@ -716,7 +715,14 @@ defaultInitImpTestState nes = do
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
-    nesWithRoot = nes & utxoL <>~ UTxO (Map.singleton rootTxIn rootTxOut)
+    existingStorage = nes ^. outputStorageG
+  rootStorage <-
+    if Map.member rootTxIn (unUTxO $ outputStorageUTxO existingStorage)
+      then pure existingStorage
+      else
+        either (fail . show) pure $
+          applyLegacyOutputDelta mempty (UTxO $ Map.singleton rootTxIn rootTxOut) existingStorage
+  let nesWithRoot = nes & outputStorageL .~ rootStorage
   prepState <- get
   let epochInfoE =
         fixedEpochInfo
@@ -967,7 +973,7 @@ impWitsVKeyNeeded txBody = do
       bootAddrs = Set.fromList $ mapMaybe toBootAddr $ Set.toList (txBody ^. spendableInputsTxBodyF)
       bootKeyHashes = Set.map (coerceKeyRole . bootstrapKeyHash) bootAddrs
       allKeyHashes =
-        getWitsVKeyNeeded (ls ^. lsCertStateL) (ls ^. utxoL) txBody
+        getWitsVKeyNeeded (ls ^. lsCertStateL) (ls ^. utxoG) txBody
   pure (bootAddrs, allKeyHashes Set.\\ bootKeyHashes)
 
 data ImpTestEnv era = ImpTestEnv
@@ -1322,7 +1328,7 @@ impShelleyExpectTxSuccess ::
   Tx TopTx era ->
   ImpTestM era ()
 impShelleyExpectTxSuccess tx = do
-  utxo <- getsNES utxoL
+  utxo <- getsNES utxoG
   let inputs = tx ^. bodyTxL . inputsTxBodyL
       outputs = Map.toList . unUTxO . txouts $ tx ^. bodyTxL
   impAnn "Inputs should be gone from UTxO" $
@@ -1333,7 +1339,7 @@ impShelleyExpectTxSuccess tx = do
 logFeeMismatch :: (EraGov era, EraUTxO era, HasCallStack) => Tx TopTx era -> ImpTestM era ()
 logFeeMismatch tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getsNES utxoL
+  utxo <- getsNES utxoG
   let Coin feeUsed = tx ^. bodyTxL . feeTxBodyL
       Coin feeMin = getMinFeeTxUtxo pp tx utxo
   when (feeUsed /= feeMin) $ do
@@ -2134,7 +2140,7 @@ getsNES :: SimpleGetter (NewEpochState era) a -> ImpTestM era a
 getsNES l = gets . view $ impNESL . l
 
 getUTxO :: ImpTestM era (UTxO era)
-getUTxO = getsNES utxoL
+getUTxO = getsNES utxoG
 
 getProtVer :: EraGov era => ImpTestM era ProtVer
 getProtVer = getsNES $ nesEsL . curPParamsEpochStateL . ppProtocolVersionL

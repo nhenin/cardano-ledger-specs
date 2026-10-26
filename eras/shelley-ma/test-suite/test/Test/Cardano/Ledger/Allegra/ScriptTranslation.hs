@@ -64,7 +64,7 @@ testScriptPostTranslation =
               minBound
               emptyPParams
               (ChainAccountState (S.Coin 0) (S.Coin 0))
-          utxoStShelley = def {S.utxosUtxo = utxo}
+          utxoStShelley = def {S.utxosOutputStorage = LegacyOutputs utxo}
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =
             mkBasicTxBody @ShelleyEra @TopTx

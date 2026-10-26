@@ -40,6 +40,7 @@ import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   SUBUTXO,
  )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (applyBodyAllocations)
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreOutputDeclarationFailure (..),
   validateSubTxAllocationDeclarationPresence,
@@ -51,11 +52,12 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (
  )
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody)
 import Cardano.Ledger.Rules.ValidationMode
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosDonationL, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosDonationL, utxosOutputStorage, utxosUtxo)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
+import Control.Exception (throw)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
 import Data.Foldable (toList)
@@ -236,7 +238,7 @@ dijkstraSubUtxoTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXO" era)
 dijkstraSubUtxoTransition = do
-  TRC (SubUtxoEnv slot pp _ originalUtxo topTxIsPhase2Valid, utxoState, stAnnTx) <-
+  ctx@(TRC (SubUtxoEnv slot pp _ originalUtxo topTxIsPhase2Valid, utxoState, stAnnTx)) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
@@ -276,11 +278,28 @@ dijkstraSubUtxoTransition = do
   runTestOnSignal $ Alonzo.validateWrongNetworkInTxBody netId txBody
 
   case topTxIsPhase2Valid of
-    Phase2Valid ->
-      Shelley.updateUTxOAndInstantStake
-        txBody
-        (\a b -> tellEvent $ TxUTxODiff a b)
-        (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
+    Phase2Valid -> do
+      let invariantFailure :: String -> a
+          invariantFailure message =
+            throw $
+              AssertionException $
+                AssertionViolation
+                  { avSTS = "Dijkstra SUBUTXO"
+                  , avMsg = message
+                  , avCtx = ctx
+                  , avState = Nothing
+                  }
+          inMemoryUnspentTxOutputStore = case utxosOutputStorage utxoState of
+            StoredOutputs store -> store
+            LegacyOutputs _ -> invariantFailure "Dijkstra state must contain InMemoryUnspentTxOutputStore"
+      case applyBodyAllocations pp txBody inMemoryUnspentTxOutputStore of
+        Left err -> invariantFailure $ "SubTx allocation invariant violated: " <> show err
+        Right store ->
+          Shelley.updateUTxOAndInstantStakeWithStorage
+            (StoredOutputs store)
+            txBody
+            (\a b -> tellEvent $ TxUTxODiff a b)
+            (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
     Phase2Invalid ->
       pure utxoState
 

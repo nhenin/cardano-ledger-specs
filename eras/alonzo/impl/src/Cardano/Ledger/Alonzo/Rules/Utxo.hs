@@ -795,7 +795,7 @@ updateUTxOState pp certState tx utxoState =
           let !(utxoKeep, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
            in pure $!
                 utxoState
-                  { utxosUtxo = UTxO utxoKeep
+                  { utxosOutputStorage = LegacyOutputs $ UTxO utxoKeep
                   , utxosFees = utxosFees utxoState <> sumAllCoin utxoDel
                   , utxosInstantStake = deleteInstantStake (UTxO utxoDel) (utxoState ^. instantStakeL)
                   }

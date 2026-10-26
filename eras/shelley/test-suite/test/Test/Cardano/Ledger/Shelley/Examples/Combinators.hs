@@ -76,6 +76,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   prevPParamsEpochStateL,
   utxosDepositedL,
   utxosFeesL,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates)
 import Cardano.Ledger.Shelley.Rules (emptyInstantaneousRewards, votedFuturePParams)
@@ -175,7 +176,7 @@ newUTxO txb cs = cs {chainNes = nes'}
     utxoDel = UTxO utxoToDel
     utxo' = UTxO (utxoWithout `Map.union` unUTxO utxoAdd)
     is' = deleteInstantStake utxoDel (addInstantStake utxoAdd (utxoSt ^. instantStakeL))
-    utxoSt' = utxoSt {utxosUtxo = utxo', utxosInstantStake = is'}
+    utxoSt' = utxoSt {utxosOutputStorage = LegacyOutputs utxo', utxosInstantStake = is'}
     ls' = ls {lsUTxOState = utxoSt'}
     es' = es {esLState = ls'}
     nes' = nes {nesEs = es'}

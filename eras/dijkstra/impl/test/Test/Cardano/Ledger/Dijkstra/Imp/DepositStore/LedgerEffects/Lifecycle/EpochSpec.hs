@@ -6,6 +6,11 @@ import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle as Lifecycle
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  assertDepositTotal,
+  liveOutputStore,
+  recordedDepositStore,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting (
   fundAccountingScenario,
  )
@@ -23,11 +28,15 @@ spec = describe "DS-STATE-EPOCH - Epoch" $
       _ <- fundAccountingScenario fundingScenario
       forM_ [1 :: Int, 2] $ \_ -> do
         previousState <- getsNES id
-        let previousStore = previousState ^. nesEsL . esLStateL . lsUTxOStateL . utxosDepositStoreL
-        Map.null (depositStoreAllocations previousStore) `shouldBe` False
+        let previousUTxOState = previousState ^. nesEsL . esLStateL . lsUTxOStateL
+            previousStore = liveOutputStore previousUTxOState
+        Map.null (depositStoreAllocations $ recordedDepositStore previousUTxOState) `shouldBe` False
+        assertDepositTotal previousUTxOState
         passEpoch
         state <- getsNES id
         state ^. nesELL `shouldBe` succ (previousState ^. nesELL)
         state ^. nesEsL . curPParamsEpochStateL `shouldBe` previousState ^. nesEsL . curPParamsEpochStateL
-        state ^. nesEsL . esLStateL . lsUTxOStateL . utxosDepositStoreL `shouldBe` previousStore
+        let utxoState = state ^. nesEsL . esLStateL . lsUTxOStateL
+        liveOutputStore utxoState `shouldBe` previousStore
+        assertDepositTotal utxoState
 {- FOURMOLU_ENABLE -}

@@ -281,18 +281,18 @@ aliceGivesBobLovelace
 utxoState :: UTxOState ShelleyEra
 utxoState =
   UTxOState
-    ( genesisCoins
-        genesisId
-        [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin
-        , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 1000)
-        ]
+    ( LegacyOutputs $
+        genesisCoins
+          genesisId
+          [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin
+          , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 1000)
+          ]
     )
     (Coin 0)
     (Coin 0)
     def
     mempty
     mempty
-    def
 
 dpState :: CertState ShelleyEra
 dpState = def

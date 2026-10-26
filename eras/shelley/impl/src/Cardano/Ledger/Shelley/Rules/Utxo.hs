@@ -26,6 +26,7 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   updateUTxOState,
   updateUTxOStateDeposits,
   updateUTxOAndInstantStake,
+  updateUTxOAndInstantStakeWithStorage,
 
   -- * Validations
   validateImplicitDeposit,
@@ -95,7 +96,6 @@ import Data.Coerce (coerce)
 import Data.Foldable as F (foldl', toList)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
-import Data.MapExtras (extractKeys)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
@@ -302,7 +302,7 @@ instance
     AssertionViolation
       { avSTS
       , avMsg
-      , avCtx = TRC (UtxoEnv _slot pp certState, UTxOState {utxosDeposited, utxosUtxo}, stAnnTx)
+      , avCtx = TRC (UtxoEnv _slot pp certState, utxoState@UTxOState {utxosDeposited}, stAnnTx)
       } =
       let tx = stAnnTx ^. txStAnnTxG
        in "AssertionViolation ("
@@ -316,7 +316,7 @@ instance
             <> "\n Deposits\n"
             <> show utxosDeposited
             <> "\n Consumed\n"
-            <> show (consumedTxBody (tx ^. bodyTxL) pp certState utxosUtxo)
+            <> show (consumedTxBody (tx ^. bodyTxL) pp certState (utxosUtxo utxoState))
             <> "\n Produced\n"
             <> show (producedTxBody (tx ^. bodyTxL) pp certState)
 
@@ -366,8 +366,8 @@ utxoInductive ::
 utxoInductive = do
   TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = utxoState ^. utxoL
-      UTxOState _ _ _ ppup _ _ _ = utxoState
+      utxo = utxoState ^. utxoG
+      UTxOState _ _ _ ppup _ _ = utxoState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
       genDelegs = dsGenDelegs (certState ^. certDStateL)
@@ -621,23 +621,33 @@ updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState =
   withUtxo <- updateUTxOAndInstantStake txBody utxoDiffEvent withDeposits
   pure $ withUtxo & utxosFeesL <>~ (txBody ^. feeTxBodyL)
 
--- | Apply the txBody's inputs/outputs to the UTxO map and to the instant stake,
--- firing the diff event.
+-- | Update a legacy-era output map and instant stake. Dijkstra prepares its
+-- allocation delta explicitly and calls 'updateUTxOAndInstantStakeWithStorage'.
 updateUTxOAndInstantStake ::
-  ( EraTxBody era
-  , EraStake era
-  , Monad m
-  ) =>
+  (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
   (UTxO era -> UTxO era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
-updateUTxOAndInstantStake txBody utxoDiffEvent utxoState = do
+updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
+  let UTxO previous = utxosUtxo utxoState
+      UTxO created = txouts txBody
+      remaining = Map.withoutKeys previous $ txBody ^. inputsTxBodyL
+      storage = LegacyOutputs $ UTxO $ Map.union remaining created
+   in updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState
+
+-- | Apply caller-prepared output storage while updating stake and emitting the
+-- output difference. The caller retains or validates all allocation metadata.
+updateUTxOAndInstantStakeWithStorage ::
+  (EraTxBody era, EraStake era, Monad m) =>
+  OutputStorage era ->
+  TxBody l era ->
+  (UTxO era -> UTxO era -> m ()) ->
+  UTxOState era ->
+  m (UTxOState era)
+updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState = do
   let !utxoAdd = txouts txBody
-      {- utxoDel  = txins txb ◁ utxo -}
-      !(utxoWithout, utxoDel) = extractKeys (unUTxO (utxoState ^. utxoL)) (txBody ^. inputsTxBodyL)
-      {- newUTxO = (txins txb ⋪ utxo) ∪ outs txb -}
-      newUtxo = utxoWithout `Map.union` unUTxO utxoAdd
+      !utxoDel = Map.restrictKeys (unUTxO $ utxosUtxo utxoState) (txBody ^. inputsTxBodyL)
       deletedUtxo = UTxO utxoDel
       newInstantStake =
         deleteInstantStake
@@ -646,7 +656,7 @@ updateUTxOAndInstantStake txBody utxoDiffEvent utxoState = do
   utxoDiffEvent deletedUtxo utxoAdd
   pure $!
     utxoState
-      & utxoL .~ UTxO newUtxo
+      & utxosOutputStorageL .~ storage
       & instantStakeL .~ newInstantStake
 
 updateUTxOStateDeposits ::

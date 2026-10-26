@@ -107,14 +107,14 @@ instance SpecTranslate ConwayEra (UTxOState ConwayEra) where
   type SpecRep ConwayEra (UTxOState ConwayEra) = Agda.UTxOState
   type SpecContext ConwayEra (UTxOState ConwayEra) = CertState ConwayEra
 
-  toSpecRep UTxOState {..} = do
+  toSpecRep state@UTxOState {..} = do
     certState <- askSpecTransM
     let
       props = utxosGovState ^. cgsProposalsL
       deposits = depositsMap certState props
     withCtxSpecTransM () $
       Agda.MkUTxOState
-        <$> toSpecRep utxosUtxo
+        <$> toSpecRep (utxosUtxo state)
         <*> toSpecRep utxosFees
         <*> deposits
         <*> toSpecRep utxosDonation

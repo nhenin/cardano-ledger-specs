@@ -77,13 +77,13 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   RewardUpdate,
-  UTxOState (..),
   circulation,
   createRUpd,
   curPParamsEpochStateL,
   esLStateL,
   lsCertStateL,
   nesEsL,
+  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PoolRank (
   NonMyopic (..),

@@ -52,7 +52,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   esLStateL,
   lsUTxOStateL,
   nesEsL,
-  utxosDepositStore,
   utxosUtxo,
  )
 import Cardano.Ledger.State (DepositStore (..), UTxO (..), depositStoreBalance)
@@ -69,6 +68,7 @@ import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, Property, forAll)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -270,11 +270,11 @@ fundReleaseScenario scenario = do
       spending = mkBasicTx mkBasicTxBody & bodyTxL . inputsTxBodyL .~ inputs
       released = Standalone.releasedDeposits ledgerState spending
       created = Standalone.createdOutputs address scenario released
-  depositStoreBalance (utxosDepositStore after)
-    `shouldBe` depositStoreBalance (utxosDepositStore before)
+  depositStoreBalance (recordedDepositStore after)
+    `shouldBe` depositStoreBalance (recordedDepositStore before)
     <> allocation
-  depositStoreAllocations (utxosDepositStore after)
-    `shouldBe` Map.union fundingAllocations (depositStoreAllocations $ utxosDepositStore before)
+  depositStoreAllocations (recordedDepositStore after)
+    `shouldBe` Map.union fundingAllocations (depositStoreAllocations $ recordedDepositStore before)
   pure (ledgerState, spending & bodyTxL . outputsTxBodyL .~ SSeq.fromList created)
 
 -- | Build and sign a standalone proposal without submitting it. Preserve its inputs,
@@ -330,9 +330,9 @@ checkPreservedReleaseProposal ledgerState tx fixed = do
   currentUTxOState <- readLedger
   Map.restrictKeys (unUTxO $ utxosUtxo currentUTxOState) suppliedInputs
     `shouldBe` Map.restrictKeys (unUTxO $ utxosUtxo $ Standalone.utxoState ledgerState) suppliedInputs
-  Map.restrictKeys (depositStoreAllocations $ utxosDepositStore currentUTxOState) suppliedInputs
+  Map.restrictKeys (depositStoreAllocations $ recordedDepositStore currentUTxOState) suppliedInputs
     `shouldBe` Map.restrictKeys
-      (depositStoreAllocations $ utxosDepositStore $ Standalone.utxoState ledgerState)
+      (depositStoreAllocations $ recordedDepositStore $ Standalone.utxoState ledgerState)
       suppliedInputs
 
 -- | Submit the declared transaction through the real ledger. Preparation may add
@@ -344,7 +344,7 @@ submitTxAndExpectSuccess ::
 submitTxAndExpectSuccess ledgerState tx = do
   fixed <- buildAndSignStandaloneReleaseTx ledgerState tx
   previousUTxOState <- readLedger
-  let before = utxosDepositStore previousUTxOState
+  let before = recordedDepositStore previousUTxOState
       consumed = fixed ^. bodyTxL . inputsTxBodyL
       newAllocations =
         Map.fromList
@@ -357,7 +357,7 @@ submitTxAndExpectSuccess ledgerState tx = do
   withNoFixup $ submitTx_ fixed
   afterState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
   UTxO outputsAfter <- getUTxO
-  let after = utxosDepositStore afterState
+  let after = recordedDepositStore afterState
   depositStoreAllocations after
     `shouldBe` Map.union newAllocations (Map.withoutKeys (depositStoreAllocations before) consumed)
   depositStoreBalance after
@@ -389,7 +389,7 @@ fundSubTxReleaseScenario scenario = do
   before <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
   funded <- ImpTest.submitTx fundingTx
   after <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
-  let allocationRecords = depositStoreAllocations $ utxosDepositStore after
+  let allocationRecords = depositStoreAllocations $ recordedDepositStore after
       fundedInputs = [txInAt index funded | index <- [0 .. length outputs - 1]]
       ownInput = listToMaybe $ take (length ownSources) fundedInputs
       childInputs = take (length childSources) $ drop (length ownSources) fundedInputs
@@ -411,11 +411,11 @@ fundSubTxReleaseScenario scenario = do
           | (input, output) <- zip fundedInputs outputs
           , not $ isImplicitOutput output
           ]
-  depositStoreBalance (utxosDepositStore after)
-    `shouldBe` depositStoreBalance (utxosDepositStore before)
+  depositStoreBalance (recordedDepositStore after)
+    `shouldBe` depositStoreBalance (recordedDepositStore before)
     <> allocation
   allocationRecords
-    `shouldBe` Map.union fundingAllocations (depositStoreAllocations $ utxosDepositStore before)
+    `shouldBe` Map.union fundingAllocations (depositStoreAllocations $ recordedDepositStore before)
   let actualChildren = OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL
       capturedDeposits = zip childInputs childDeposits <> [(input, ownDeposit) | input <- maybeToList ownInput]
   length actualChildren `shouldBe` length childSources
@@ -458,7 +458,7 @@ subTxSettlingItsSource address source input deposit =
 checkAddedOrdinaryInputsUseImplicitDeposits ::
   Tx TopTx DijkstraEra -> Tx TopTx DijkstraEra -> ImpTestM DijkstraEra ()
 checkAddedOrdinaryInputsUseImplicitDeposits prepared submitted = do
-  records <- depositStoreAllocations . utxosDepositStore <$> readLedger
+  records <- depositStoreAllocations . recordedDepositStore <$> readLedger
   let addedInputs = ordinarySpendingInputs submitted `Set.difference` ordinarySpendingInputs prepared
   forM_ addedInputs $ \input -> do
     output <- impGetUTxO input
@@ -628,7 +628,7 @@ checkPreservedReleaseFixture fixture submitted = do
   checkPreservedOutputsAndDeclarations prepared submitted
   resolved <- impGetUTxO input
   isImplicitOutput resolved `shouldBe` False
-  records <- depositStoreAllocations . utxosDepositStore <$> readLedger
+  records <- depositStoreAllocations . recordedDepositStore <$> readLedger
   Map.lookup input records `shouldBe` Just (sourceDeposit fixture)
   all isImplicitOutput outputs `shouldBe` True
   Set.member input (submitted ^. bodyTxL . collateralInputsTxBodyL) `shouldBe` False
@@ -699,7 +699,7 @@ forAllReferenceOnlyStoreTx scenarios check =
         proposal =
           mkBasicTx mkBasicTxBody
             & bodyTxL . referenceInputsTxBodyL .~ references
-        records = depositStoreAllocations $ utxosDepositStore $ Standalone.utxoState ledgerState
+        records = depositStoreAllocations $ recordedDepositStore $ Standalone.utxoState ledgerState
         context = Context.ReleaseTx ledgerState proposal
     Set.null references `shouldBe` False
     forM_ references $ \input -> do
@@ -770,7 +770,7 @@ buildAndSignCollateralOnlyTx scenario declarations = do
       . totalCollateralTxBodyL
       `shouldBe` SJust (Release.collateralInputCoins scenario <-> Release.collateralReturnCoins scenario)
   let context = Context.ReleaseTx ledgerState signed
-      records = depositStoreAllocations $ utxosDepositStore $ Standalone.utxoState ledgerState
+      records = depositStoreAllocations $ recordedDepositStore $ Standalone.utxoState ledgerState
   Map.lookup collateralInput records
     `shouldBe` if inputHasStoreDeposit then Just allocation else Nothing
   (Context.allocatedDeposits context, Context.releasedDeposits context) `shouldBe` (Coin 0, Coin 0)

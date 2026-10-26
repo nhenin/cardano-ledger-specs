@@ -14,7 +14,7 @@ import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
-import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
 import Cardano.Ledger.State (depositStoreAllocations, unUTxO)
 import Cardano.Ledger.StrictlyPositiveCoin (mkStrictlyPositiveCoin)
 import Data.Foldable (toList)
@@ -23,6 +23,7 @@ import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (Fixture (..))
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (ordinarySpendingInputs)
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM, fixupPPHash, rederiveAddrTxWits)
 import Test.Cardano.Ledger.Imp.Common (expectJust)
@@ -31,7 +32,7 @@ import Test.Cardano.Ledger.Imp.Common (expectJust)
 -- Its full output and allocation must survive either script outcome.
 withReferenceOnlyInput :: Fixture -> ImpTestM DijkstraEra Fixture
 withReferenceOnlyInput fixture@Fixture {signedTx, previousUTxOState, collateralInputs} = do
-  let recordedInputs = Map.keysSet . depositStoreAllocations $ utxosDepositStore previousUTxOState
+  let recordedInputs = Map.keysSet . depositStoreAllocations $ recordedDepositStore previousUTxOState
   reference <-
     expectJust $
       Set.lookupMin $
@@ -49,7 +50,7 @@ withReferenceOnlyInput fixture@Fixture {signedTx, previousUTxOState, collateralI
 -- this shared source once; the inactive path does not consume it a second time.
 withSharedOrdinaryInput :: Fixture -> ImpTestM DijkstraEra Fixture
 withSharedOrdinaryInput fixture@Fixture {signedTx, previousUTxOState, collateralInputs} = do
-  let records = depositStoreAllocations $ utxosDepositStore previousUTxOState
+  let records = depositStoreAllocations $ recordedDepositStore previousUTxOState
       sourceOutputs = unUTxO $ utxosUtxo previousUTxOState
       originalInputs = signedTx ^. bodyTxL . inputsTxBodyL
   sharedInput <- expectJust $ Set.lookupMin $ collateralInputs `Set.intersection` Map.keysSet records

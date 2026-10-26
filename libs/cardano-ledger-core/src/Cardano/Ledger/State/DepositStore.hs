@@ -22,13 +22,15 @@ import GHC.Generics (Generic)
 import Lens.Micro (Lens', lens)
 import NoThunks.Class (NoThunks)
 
--- | ADA held outside outputs to fund their UTxO capacity deposits. Allocations
--- record each live store-backed output's deposit at creation; spending releases
--- that recorded amount, without pricing the consumed output again.
+-- | Read-only historical deposit amounts projected from ledger state for
+-- accounting and compatibility. Each entry gives a store-backed output's deposit
+-- at creation; spending releases that amount without repricing the output.
 --
--- The Store holds exactly the sum of its recorded deposits. Its balance is
--- derived from this map, never stored or updated independently. Count that sum
--- once when computing total ledger ADA; it is not part of the outputs' coins.
+-- This map is not authoritative persistent ledger storage.
+-- @InMemoryUnspentTxOutputStore@ owns the live outputs, their historical pricing
+-- metadata and the cached deposit total. A projection can contain all allocations
+-- or only those needed by a transaction. Its balance is derived from these
+-- entries; changing the projection does not update ledger state.
 newtype DepositStore = DepositStore
   { depositStoreAllocations :: Map TxIn Coin
   }
@@ -52,7 +54,8 @@ instance ToKeyValuePairs DepositStore where
   toKeyValuePairs DepositStore {depositStoreAllocations} =
     ["allocations" .= depositStoreAllocations]
 
--- | Total ADA held by the Store. Computing it traverses the allocation map.
+-- | Sum of the projected deposit amounts. Computing it traverses this map;
+-- a projection restricted to selected inputs is not the ledger's total deposit.
 depositStoreBalance :: DepositStore -> Coin
 depositStoreBalance = fold . depositStoreAllocations
 

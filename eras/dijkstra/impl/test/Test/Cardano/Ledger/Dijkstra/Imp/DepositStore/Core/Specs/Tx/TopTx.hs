@@ -18,6 +18,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (
   sourceOutputs,
   createdOutputs,
   outputDeposit,
+  sizedOutputDeposit,
   allocatedDeposits,
   releasedDeposits,
   createdAllocations,
@@ -28,13 +29,13 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (
 ) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
-import Cardano.Ledger.Binary (Sized (sizedSize), mkSized)
+import Cardano.Ledger.Binary (Sized (..), mkSized)
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosDepositStore)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import Cardano.Ledger.State (DepositStore (..))
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
@@ -44,6 +45,7 @@ import qualified Data.Map.Strict as Map
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, elements, vectorOf)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -146,22 +148,28 @@ storeBackedOutput address = mkBasicTxOutWithStoreBackedDeposit address . Applica
 -- | Independent specification formula for the current fixed policy. Only the
 -- serialized store-backed output is priced; external allocations are excluded.
 outputDeposit :: PParams DijkstraEra -> TxOut DijkstraEra -> Coin
-outputDeposit _ (ImplicitDepositTxOut _) = mempty
-outputDeposit pp output@(StoreBackedTxOut _) =
+outputDeposit pp = sizedOutputDeposit pp . mkSized (eraProtVerLow @DijkstraEra)
+
+-- | Accepted bodies already carry the size charged by the protocol. Use it
+-- directly: canonical re-encoding can be shorter than the submitted output.
+sizedOutputDeposit :: PParams DijkstraEra -> Sized (TxOut DijkstraEra) -> Coin
+sizedOutputDeposit _ (Sized (ImplicitDepositTxOut _) _) = mempty
+sizedOutputDeposit pp (Sized (StoreBackedTxOut _) acceptedBytes) =
   case pp ^. ppCoinsPerUTxOByteL of
     CoinPerByte (CompactCoin price) ->
-      Coin $ toInteger price * (160 + toInteger (sizedSize $ mkSized (eraProtVerLow @DijkstraEra) output))
+      Coin $ toInteger price * (160 + toInteger acceptedBytes)
 
 allocatedDeposits :: LedgerState -> Tx TopTx DijkstraEra -> Coin
 allocatedDeposits ledgerState topTx =
-  foldMap (outputDeposit $ protocolParameters ledgerState) $ topTx ^. bodyTxL . outputsTxBodyL
+  foldMap (sizedOutputDeposit $ protocolParameters ledgerState) $
+    topTx ^. bodyTxL . sizedOutputsTxBodyL
 
 -- | Read only records belonging to this transaction's ordinary inputs.
 releasedDeposits :: LedgerState -> Tx TopTx DijkstraEra -> Coin
 releasedDeposits ledgerState topTx =
   foldMap id $
     Map.restrictKeys
-      (depositStoreAllocations $ utxosDepositStore $ utxoState ledgerState)
+      (depositStoreAllocations $ recordedDepositStore $ utxoState ledgerState)
       (topTx ^. bodyTxL . inputsTxBodyL)
 
 -- | Price every created store-backed ordinary output independently of the Store
@@ -177,8 +185,9 @@ createdAllocations ledgerState topTx =
 createdBodyAllocations :: PParams DijkstraEra -> Tx l DijkstraEra -> Map.Map TxIn Coin
 createdBodyAllocations parameters tx =
   Map.fromList
-    [ (txInAt index tx, outputDeposit parameters output)
-    | (index, output@(StoreBackedTxOut _)) <- zip [0 ..] $ toList $ tx ^. bodyTxL . outputsTxBodyL
+    [ (txInAt index tx, sizedOutputDeposit parameters output)
+    | (index, output@(Sized (StoreBackedTxOut _) _)) <-
+        zip [0 ..] $ toList $ tx ^. bodyTxL . sizedOutputsTxBodyL
     ]
 
 -- | The declaration supplied by TopTx, without deriving or repairing its amount.

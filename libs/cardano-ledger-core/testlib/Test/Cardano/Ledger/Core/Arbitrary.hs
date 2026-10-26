@@ -75,7 +75,7 @@ import Cardano.Ledger.BaseTypes (
   textToUrl,
  )
 import qualified Cardano.Ledger.BaseTypes as BaseTypes
-import Cardano.Ledger.Binary (EncCBOR, Sized, mkSized)
+import Cardano.Ledger.Binary (EncCBOR, Sized, mkSized, natVersion)
 import Cardano.Ledger.Block (BlockHeaderVersionInfo (..))
 import Cardano.Ledger.Coin (
   Coin (..),
@@ -163,6 +163,45 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 instance Arbitrary DepositStore where
   arbitrary = DepositStore <$> arbitrary
   shrink = genericShrink
+
+-- Only supported calculation versions belong in valid serialized stores.
+instance Arbitrary DepositCalculation where
+  arbitrary = DepositCalculationV1 <$> arbitrary
+  shrink (DepositCalculationV1 rate) = DepositCalculationV1 <$> shrink rate
+  shrink (DepositCalculationV2 _) = []
+
+instance Arbitrary OutputStoreError where
+  arbitrary =
+    oneof
+      [ NegativeOutputSize <$> arbitrary
+      , UnsupportedDepositCalculation <$> arbitrary
+      , MissingHistoricalAllocation <$> arbitrary
+      , CachedDepositTotalMismatch <$> arbitrary <*> arbitrary
+      , pure ExpectedStoredOutputs
+      , pure ExpectedLegacyOutputs
+      ]
+  shrink = genericShrink
+
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (Allocation era) where
+  arbitrary =
+    suchThatMap ((,) <$> arbitrary <*> arbitrary) $ \(rate, output) ->
+      either (const Nothing) Just $ mkV1Allocation rate $ mkSized (eraProtVerLow @era) output
+
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (InMemoryUnspentTxOutputStore era) where
+  arbitrary = suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations
+  shrink store =
+    mapMaybe (either (const Nothing) Just . fromAllocations . Map.fromList) $
+      shrinkList (const []) $
+        Map.toList $
+          unAllocations $
+            allocations store
+
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (OutputStorage era) where
+  arbitrary
+    | eraProtVerLow @era >= natVersion @12 = StoredOutputs <$> arbitrary
+    | otherwise = LegacyOutputs <$> arbitrary
+  shrink (LegacyOutputs outputs) = LegacyOutputs <$> shrink outputs
+  shrink (StoredOutputs store) = StoredOutputs <$> shrink store
 
 instance Arbitrary ActiveSlotCoeff where
   arbitrary = mkActiveSlotCoeff <$> arbitrary

@@ -36,7 +36,6 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraUtxoPredFailure (..),
   validateSubTxExactness,
  )
-import Cardano.Ledger.Shelley.LedgerState (utxosDepositStore)
 import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.Val ((<->))
 import Data.Foldable (traverse_)
@@ -53,6 +52,7 @@ import Test.Cardano.Ledger.Common (
   forM_,
   prop,
  )
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -116,7 +116,7 @@ spec =
                 Just failures -> Failure failures
             ledgerState = TopTx.ledgerState proposal
         traverse_ (validateSubTxExactness (Ledger.protocolParameters ledgerState)
-          (utxosDepositStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
+          (recordedDepositStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
           `shouldBe` expected
 
     -- Exact own change, with any allocation and release combination.
@@ -385,7 +385,7 @@ spec =
         unrelatedProposal <- fundAccountingScenario unrelatedFunding
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
-            records = depositStoreAllocations $ utxosDepositStore $ Ledger.utxoState $ TopTx.ledgerState proposal
+            records = depositStoreAllocations $ recordedDepositStore $ Ledger.utxoState $ TopTx.ledgerState proposal
             unspentRecords = Map.restrictKeys records $ ordinarySpendingInputs $ TopTx.unsignedTx unrelatedProposal
         Coin unrelatedRelease `shouldSatisfy` (\amount -> amount > Coin 0 && amount <= foldMap id unspentRecords)
         signedTx <- buildAndSignTx $ TopTx.addDeclaration
