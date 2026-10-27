@@ -32,7 +32,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitTx,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (rederiveAddrTxWits, simulateThenRestore)
-import Test.Cardano.Ledger.Imp.Common (expectRight, shouldBe, shouldSatisfy)
+import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
 
 -- | Every sample includes both real script outcomes and every deposit relationship.
 -- The return's final serialized bytes determine its deposit, including at zero ADA.
@@ -128,8 +128,8 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
                 & collateralReturnTxBodyL .~ (originalBody ^. collateralReturnTxBodyL)
                 & feeTxBodyL .~ (originalBody ^. feeTxBodyL)
                 & totalCollateralTxBodyL .~ (originalBody ^. totalCollateralTxBodyL)
-          settlement <- expectRight $ collateralDepositSettlement protocolParameters
-            (liveOutputStore previousUTxOState) body
+              settlement = collateralDepositSettlement protocolParameters
+                (liveOutputStore previousUTxOState) body
           collateralReleasedDeposits settlement `shouldBe` releasedDeposits
           collateralReturnDeposit settlement `shouldBe` returnDeposit
           collateralAdditionalDeposit settlement `shouldBe` additionalDeposit

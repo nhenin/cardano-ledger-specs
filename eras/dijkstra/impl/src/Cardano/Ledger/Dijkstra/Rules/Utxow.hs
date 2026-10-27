@@ -65,7 +65,7 @@ import Cardano.Ledger.Keys (VKey)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..), storeUTxO)
+import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..), toUTxO)
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
@@ -235,7 +235,7 @@ dijkstraUtxowTransition ::
 dijkstraUtxowTransition = do
   TRC (UtxoEnv slot pp pState originalCertState previousUTxOStore, u, stAnnTx) <-
     judgmentContext
-  let originalUtxo = storeUTxO previousUTxOStore
+  let originalUtxo = toUTxO previousUTxOStore
       tx = stAnnTx ^. txStAnnTxG
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
 

@@ -26,6 +26,7 @@ import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Slot
 import Cardano.Ledger.State
 import Cardano.Ledger.State.UTxO (CurrentEra, readHexUTxO, readNewEpochState)
+import Cardano.Ledger.TxOut (areAllAdaOnly)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.DeepSeq

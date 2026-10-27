@@ -85,9 +85,17 @@ library
     Cardano.Ledger.Rules.ValidationMode
     Cardano.Ledger.Slot
     Cardano.Ledger.State
+    Cardano.Ledger.State.UTxOs
+    Cardano.Ledger.State.UTxOs.Allocations
+    Cardano.Ledger.State.UTxOs.Allocations.UTxO
+    Cardano.Ledger.State.UTxOs.Deposit
+    Cardano.Ledger.State.UTxOs.Store.Error
+    Cardano.Ledger.State.UTxOs.Store
+    Cardano.Ledger.State.UTxOs.LegacyUTxOMap
     Cardano.Ledger.StrictlyPositiveCoin
     Cardano.Ledger.Tools
     Cardano.Ledger.TxIn
+    Cardano.Ledger.TxOut
     Cardano.Ledger.Val
 
   hs-source-dirs: src
@@ -102,8 +110,6 @@ library
     Cardano.Ledger.State.CertState
     Cardano.Ledger.State.ChainAccount
     Cardano.Ledger.State.Governance
-    Cardano.Ledger.State.UTxO.Store
-    Cardano.Ledger.State.UTxO.LegacyUTxOMap
     Cardano.Ledger.State.LeiosCommittee
     Cardano.Ledger.State.PoolDistr
     Cardano.Ledger.State.SnapShots

@@ -722,12 +722,12 @@ The store and its wrappers use record fields:
 
 ```haskell
 data UTxOStore era = UTxOStore
-  { totalDepositAmount :: !UnspentOutputDepositsAmount
+  { totalDepositAmount :: !DepositAmount
   , allocations :: !(Allocations era)
   }
 
-newtype UnspentOutputDepositsAmount = UnspentOutputDepositsAmount
-  { unspentOutputDepositsAmount :: Coin
+newtype DepositAmount = DepositAmount
+  { toCoin :: Coin
   }
 
 newtype Allocations era = Allocations
@@ -751,8 +751,9 @@ $$
 \text{allocatedUTxODeposit(output)}
 $$
 
-`allocationFromOutput` constructs an allocation from a sized output and an explicit
-`DepositCalculation`, preserving the accepted full-output size. Construction is pure;
+Construct an allocation directly as
+`Unspent {sizedOutput = acceptedOutput, depositCalculation = calculation}`,
+preserving the accepted full-output size and explicit calculation. Construction is pure;
 `fromAllocations` validates metadata and establishes the cached total, while
 `applyAllocationDelta` validates the delta and preserves the total for a valid store.
 Snapshot decoding validates both metadata and cached equality. The exported record
@@ -767,17 +768,29 @@ retain their existing minimum-ADA requirement, with no external deposit.
 available. A release can fund a new allocation in the same transaction. A price
 change affects new allocations; it does not reprice existing allocations.
 
-Accounting queries read the retained allocations directly. `allocationDeposit`
-calculates one historical deposit and `refundForInputs` sums selected input refunds.
-Both return explicit errors when inspected raw metadata has a negative size or an
-unsupported calculation. Consumers read `sizedOutput` and `depositCalculation`;
+Accounting queries read the retained allocations directly. `UTxO.depositAmount`
+calculates one historical deposit and `allocatedDepositTotalAmount` sums selected input refunds.
+The amount reads are pure:
+
+```haskell
+UTxO.depositAmount :: Unspent (TxOut era) -> Coin
+sumDepositAmounts :: Allocations era -> DepositAmount
+allocatedDepositTotalAmount :: Set TxIn -> Allocations era -> DepositAmount
+```
+
+Checked Store construction/update and entry decoding reject negative sizes; these
+reads do not validate raw metadata. `lookupUTxO`, `allocatedDepositTotalAmount` and
+`sumDepositAmounts` operate on `Allocations era`; callers supply the Store's
+`allocations` field and use `toCoin` explicitly when Coin arithmetic is needed.
+Store construction consumes the aggregate `DepositAmount` directly.
+Consumers read `sizedOutput` and `depositCalculation`;
 the wrapped `TxOut` retains its `LegacyTxOut` or `NewTxOut` constructor.
 `emptyUTxOStore` creates the empty
 store, and `encodeUTxOStore` is the snapshot encoder.
 Store-backed allocations remain present even when priced at zero. Earlier eras use
 the legacy UTxO branch.
-`DepositCalculationV2` is reserved, has no defined formula and is rejected by
-calculation and allocation decoding.
+`DepositCalculationV2` is accepted with the same provisional formula as V1.
+Production still selects V1; unknown encoded calculation versions are rejected.
 
 Legacy imports that lack accepted metadata currently use `mkSized` at the era's
 lowest protocol version and `DepositCalculationV1` with a zero byte price. These
@@ -6439,7 +6452,8 @@ Compare the complete resulting voting distribution with an independent expectati
 > **Preserve the basis of an output’s original deposit when pricing parameters change.**
 
 **Decision:** Every Store-backed allocation retains its accepted full-output size
-and `DepositCalculationV1 CoinPerByte`. The fixed V1 formula is
+and explicit `DepositCalculation`. Production creates `DepositCalculationV1 CoinPerByte`.
+The V1 formula is
 `creationCoinPerByte × (160 + acceptedSize)`. Refunds use this metadata directly,
 including after a state snapshot is restored. The current price applies only to new
 outputs. No policy history or policy index is needed for this design.
@@ -6449,10 +6463,20 @@ For example, an output accepted at 100 bytes and 4 lovelace per byte contributes
 Noncanonical accepted encodings can be longer than canonical re-encoding; the
 snapshot therefore stores the accepted size separately from the output payload.
 
-`DepositCalculationV2 CoinPerByte` represents a possible future formula version.
-There is no V2 formula in this implementation. Calculation returns an explicit
-unsupported-version error, and decoding rejects V2 allocations. Activating it will
-require a separately specified formula and compatibility rules.
+The calculation module exposes a pure function and an explicit size type:
+
+```haskell
+newtype ByteSize = ByteSize {unByteSize :: Int64}
+
+calculateDeposit :: DepositCalculation -> ByteSize -> Coin
+```
+
+`DepositCalculationV2 CoinPerByte` provisionally uses the same formula as V1:
+`(160 + size) × rate`. Codecs and checked Store operations accept both versions;
+unknown encoded versions, such as 3, are rejected. Negative sizes are rejected by
+checked Store insertion and entry decoding, rather than by `calculateDeposit`.
+Production still selects V1. No parameter-driven version selection or historical
+policy migration is introduced by this provisional V2 parity.
 
 Conway translation creates only legacy allocations, with zero external deposit.
 Their current import metadata is provisional: `mkSized` at the era's lowest
@@ -6554,22 +6578,52 @@ data UTxOs era
 ```
 
 Earlier eras use `LegacyUTxOMap`; Dijkstra uses the `UTxOs` constructor.
-[`Cardano.Ledger.State.UTxO.Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxO/Store.hs)
-contains both the `UTxOs` wrapper and the `UTxOStore` model, whose in-memory
-record constructor is also named `UTxOStore`. The sibling module
-[`Cardano.Ledger.State.UTxO.LegacyUTxOMap`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxO/LegacyUTxOMap.hs)
-owns the `UTxO` newtype, instances, `CanGetUTxO`, `CanSetUTxO`,
-`EraUTxO` and shared functions previously defined in `Cardano.Ledger.State.UTxO`.
-That former module is removed; the `UTxO` type name is retained.
+[`Cardano.Ledger.State.UTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs.hs)
+owns the `UTxOs` wrapper, its instances and every operation on that wrapper:
+`CanGetUTxOs`, `CanSetUTxOs`, `utxosUTxO`, `fromLegacyAllocationStorage`,
+`fromLegacyUTxOs`, `applyLegacyOutputDelta` and `encodeUTxOs`.
 
-`utxosUTxO` projects the outputs and `utxosTotalDeposit` reads the external-deposit
-total. `fromLegacyUTxOs` constructs the wrapper from legacy outputs, and
+[`Cardano.Ledger.State.UTxOs.Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store.hs)
+contains the `UTxOStore` model, whose record constructor is also named `UTxOStore`,
+its cached total, checked construction and allocation deltas, conversions and
+compatibility initialization. The other model modules separate the following responsibilities:
+
+| Module under `Cardano.Ledger.State.UTxOs` | Responsibility |
+| --- | --- |
+| [`Allocations`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Allocations.hs) | Allocation collection, lookup and deposit/refund sums. |
+| [`Allocations.UTxO`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Allocations/UTxO.hs) | Generic `Unspent` record, `toTxOut`, `depositAmount`, `encodeWith`, and entry instances/codecs. |
+| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Deposit.hs) | `DepositAmount` and `toCoin`, `ByteSize`, `DepositCalculation`, and pure `calculateDeposit`. |
+| [`Store.Error`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store/Error.hs) | `OutputStoreError`: `NegativeOutputSize Int64` and `MissingHistoricalAllocation TxIn`, with their instances. |
+
+[`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/LegacyUTxOMap.hs)
+owns the `UTxO` newtype, instances, `CanGetUTxO`, `CanSetUTxO`,
+`EraUTxO` and the remaining map API previously defined in `Cardano.Ledger.State.UTxO`.
+The original `UTxO` type name is retained. All seven modules in the plural
+`Cardano.Ledger.State.UTxOs` namespace are exposed for direct imports.
+`Cardano.Ledger.State` reexports the shared API but only `Unspent(..)` from the
+entry module. Consumers import `Allocations.UTxO` qualified as `UTxO` to use
+`UTxO.toTxOut`, `UTxO.depositAmount` and `UTxO.encodeWith`.
+
+[`Cardano.Ledger.TxOut`](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut.hs)
+owns the output model: `TxOut`, `NoNewTxOut`, the three output interfaces,
+builders, lenses and value wrappers. `Core` retains its existing exports of that
+API. Queries over output collections also belong here: `sumAllAssets`,
+`sumAllValue`, `sumAllApplicationAssets`, `sumAllCoin` and `areAllAdaOnly`.
+They depend on the output forms, independently of how the ledger stores them;
+consumers import these queries directly from `TxOut`.
+
+`toUTxO :: UTxOStore era -> UTxO era` projects a Store into an output-only UTxO;
+`utxosUTxO` provides the corresponding projection for either storage branch.
+Read a Store's external-deposit total directly
+with `toCoin (totalDepositAmount store)`. Callers that support
+both storage branches distinguish `LegacyUTxOMap`, which has no external total,
+from `UTxOs store`. `fromLegacyUTxOs` constructs the wrapper from legacy outputs, and
 `encodeUTxOs` encodes its snapshot representation.
 
 The Store owns the allocation map and a checked cached total.
 The output-only projection is read-only; deposit queries use the
 allocations directly. `totalDepositAmount`, `allocations`,
-`unspentOutputDepositsAmount`, `unAllocations`, `sizedOutput` and
+`toCoin`, `unAllocations`, `sizedOutput` and
 `depositCalculation` are record selectors. Ledger
 updates use `applyAllocationDelta` to replace complete allocations and maintain
 their cached total. Dijkstra's
@@ -6587,6 +6641,10 @@ retains MemPack output payloads and persists the size and calculation explicitly
 for both forms. Decoding validates nonnegative size, supported calculation and
 exact cached total. The external JSON key `"outputStorage"` used by `UTxOState`
 for the Store branch remains unchanged.
+
+Unknown calculation versions and cached-total mismatches are ordinary decoder
+failures, without separate `OutputStoreError` variants. The structured error codec
+retains tags 0 and 2; tags 1, 3, 4 and 5 are retired and rejected.
 
 The uniform entry changes the experimental Dijkstra snapshot schema. The former
 two-field legacy and four-field Store-backed allocation entries are rejected.
@@ -7002,7 +7060,7 @@ expectations remain specification support.
 - [TopTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxODeposit/TopTx.hs)
 - [SubTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxODeposit/SubTx.hs)
 - [Transaction fields, operations and lenses](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
-- [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/Core.hs)
+- [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut.hs)
 - [Dijkstra output representations](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
 - [Existing byte-based minimum-UTxO formula](../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs)
 - [Serialized size measurement](../libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Decoding/Sized.hs)

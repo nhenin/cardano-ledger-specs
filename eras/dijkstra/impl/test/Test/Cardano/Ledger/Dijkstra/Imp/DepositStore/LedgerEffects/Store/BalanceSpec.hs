@@ -8,7 +8,7 @@ import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
-import Cardano.Ledger.State (sumAllAssets)
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (inject, (<->))
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map

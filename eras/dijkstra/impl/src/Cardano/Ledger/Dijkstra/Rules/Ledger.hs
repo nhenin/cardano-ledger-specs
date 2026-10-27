@@ -408,7 +408,7 @@ dijkstraLedgerTransition = do
               , avCtx = ctx
               , avState = Nothing
               }
-  let originalUtxo = storeUTxO previousUTxOStore
+  let originalUtxo = toUTxO previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 

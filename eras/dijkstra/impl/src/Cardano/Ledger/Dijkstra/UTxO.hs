@@ -51,6 +51,7 @@ import Cardano.Ledger.Dijkstra.Tx (DijkstraStAnnTx (..))
 import Cardano.Ledger.Mary.UTxO (burnedMultiAssets, getConsumedMaryValue)
 import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Cardano.Ledger.Plutus (Language, PlutusWithContext)
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Data.Foldable (Foldable (..))
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map

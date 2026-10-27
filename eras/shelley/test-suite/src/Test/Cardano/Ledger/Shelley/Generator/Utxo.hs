@@ -33,6 +33,7 @@ import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..))
 import Cardano.Ledger.Shelley.Rules (DelplEnv, LedgerEnv (..))
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllValue)
 import Cardano.Ledger.Val (Val (..), sumVal, (<+>), (<->), (<×>))
 import Cardano.Protocol.Crypto (Crypto)
 import Control.Monad (when)
