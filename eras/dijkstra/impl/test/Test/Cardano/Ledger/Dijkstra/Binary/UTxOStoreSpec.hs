@@ -67,8 +67,8 @@ spec = describe "UTxOStore historical metadata" $ do
                       Binary.serialize version encoding
                 restored `shouldBe` store
                 restoredEntry <- expectJust $ lookupAllocation (TxIn txId $ TxIx 0) restored
-                Binary.sizedValue (unspentOutput restoredEntry) `shouldBe` output
-                Binary.sizedSize (unspentOutput restoredEntry) `shouldBe` Binary.sizedSize accepted
+                Binary.sizedValue (sizedOutput restoredEntry) `shouldBe` output
+                Binary.sizedSize (sizedOutput restoredEntry) `shouldBe` Binary.sizedSize accepted
                 depositCalculation restoredEntry `shouldBe` DepositCalculationV1 oldRate
                 allocationDeposit restoredEntry `shouldBe` Right expectedDeposit
                 cachedTotal restored `shouldBe` expectedDeposit
@@ -116,9 +116,9 @@ spec = describe "UTxOStore historical metadata" $ do
       cachedTotal store `shouldBe` Coin 0
       case (allocationOutput legacy, allocationOutput zero) of
         (LegacyTxOut _, NewTxOut _) -> do
-          unspentOutput legacy `shouldBe` Binary.mkSized version implicit
+          sizedOutput legacy `shouldBe` Binary.mkSized version implicit
           depositCalculation legacy `shouldBe` DepositCalculationV1 creationRate
-          unspentOutput zero `shouldBe` Binary.mkSized version backed
+          sizedOutput zero `shouldBe` Binary.mkSized version backed
           depositCalculation zero `shouldBe` DepositCalculationV1 (rate 0)
         _ -> expectationFailure "Expected distinct legacy and zero-priced Store-backed allocations"
       allocationDeposit legacy `shouldBe` Right (Coin 0)

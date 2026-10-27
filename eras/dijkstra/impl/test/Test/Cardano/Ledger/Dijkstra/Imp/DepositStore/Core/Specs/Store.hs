@@ -34,7 +34,7 @@ expectedAllocationDeposit allocation =
     DepositCalculationV1 (CoinPerByte (CompactCoin price)) -> case allocationOutput allocation of
       LegacyTxOut _ -> Coin 0
       NewTxOut _ ->
-        Coin $ toInteger price * (160 + toInteger (sizedSize $ unspentOutput allocation))
+        Coin $ toInteger price * (160 + toInteger (sizedSize $ sizedOutput allocation))
     DepositCalculationV2 _ -> error "Test allocation contains unsupported V2 historical metadata"
 
 -- | Independent test observation of external deposits. Legacy entries contribute
@@ -65,6 +65,6 @@ retainsCreationMetadata input acceptedBytes rate state = do
   case allocationOutput entry of
     LegacyTxOut _ -> expectationFailure "Expected a Store-backed allocation with creation metadata"
     NewTxOut _ -> do
-      sizedSize (unspentOutput entry) `shouldBe` fromIntegral acceptedBytes
+      sizedSize (sizedOutput entry) `shouldBe` fromIntegral acceptedBytes
       depositCalculation entry `shouldBe` DepositCalculationV1 rate
   assertDepositTotal state

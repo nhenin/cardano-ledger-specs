@@ -734,8 +734,8 @@ newtype Allocations era = Allocations
   { unAllocations :: Map TxIn (Unspent (TxOut era))
   }
 
-data Unspent a = Unspent
-  { unspentOutput :: !(Sized a)
+data Unspent output = Unspent
+  { sizedOutput :: !(Sized output)
   , depositCalculation :: !DepositCalculation
   }
 ```
@@ -770,7 +770,7 @@ change affects new allocations; it does not reprice existing allocations.
 Accounting queries read the retained allocations directly. `allocationDeposit`
 calculates one historical deposit and `refundForInputs` sums selected input refunds.
 Both return explicit errors when inspected raw metadata has a negative size or an
-unsupported calculation. Consumers read `unspentOutput` and `depositCalculation`;
+unsupported calculation. Consumers read `sizedOutput` and `depositCalculation`;
 the wrapped `TxOut` retains its `LegacyTxOut` or `NewTxOut` constructor.
 `emptyUTxOStore` creates the empty
 store, and `encodeUTxOStore` is the snapshot encoder.
@@ -6569,7 +6569,7 @@ total. `fromLegacyUTxOs` constructs the wrapper from legacy outputs, and
 The Store owns the allocation map and a checked cached total.
 The output-only projection is read-only; deposit queries use the
 allocations directly. `totalDepositAmount`, `allocations`,
-`unspentOutputDepositsAmount`, `unAllocations`, `unspentOutput` and
+`unspentOutputDepositsAmount`, `unAllocations`, `sizedOutput` and
 `depositCalculation` are record selectors. Ledger
 updates use `applyAllocationDelta` to replace complete allocations and maintain
 their cached total. Dijkstra's

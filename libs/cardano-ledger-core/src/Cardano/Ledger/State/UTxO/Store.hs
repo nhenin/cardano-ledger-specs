@@ -95,8 +95,8 @@ newtype Allocations era = Allocations
 
 -- | An unspent value with its accepted size and deposit calculation.
 -- The wrapped TxOut determines whether its deposit is separately held.
-data Unspent a = Unspent
-  { unspentOutput :: !(Sized a)
+data Unspent output = Unspent
+  { sizedOutput :: !(Sized output)
   , depositCalculation :: !DepositCalculation
   }
   deriving (Eq, Show, Generic)
@@ -161,7 +161,7 @@ emptyUTxOStore =
 -- deposit; this conversion neither evaluates nor re-encodes the output.
 allocationFromOutput :: DepositCalculation -> Sized (TxOut era) -> Unspent (TxOut era)
 allocationFromOutput calculation output =
-  Unspent {unspentOutput = output, depositCalculation = calculation}
+  Unspent {sizedOutput = output, depositCalculation = calculation}
 
 -- | Calculate with historical parameters only. Convert to Integer before adding
 -- the overhead so even an Int64 size cannot overflow the intermediate sum.
@@ -174,7 +174,7 @@ calculateDeposit calculation size
       DepositCalculationV2 _ -> Left $ UnsupportedDepositCalculation 2
 
 allocationOutput :: Unspent (TxOut era) -> TxOut era
-allocationOutput = sizedValue . unspentOutput
+allocationOutput = sizedValue . sizedOutput
 
 allocationDeposit :: Unspent (TxOut era) -> Either OutputStoreError Coin
 allocationDeposit (Unspent (Sized output size) calculation) = do
@@ -261,7 +261,7 @@ fromLegacyAllocations outputs =
       let sized = mkSized (eraProtVerLow @era) $ LegacyTxOut output
        in sizedSize sized `seq`
             Unspent
-              { unspentOutput = sized
+              { sizedOutput = sized
               , depositCalculation = DepositCalculationV1 $ CoinPerByte $ CompactCoin 0
               }
 

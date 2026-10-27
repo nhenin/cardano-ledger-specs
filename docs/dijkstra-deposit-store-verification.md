@@ -63,7 +63,7 @@ The integration checkpoint `04ae12ff5` retains its original commit title,
 `UTxOs (UTxOStore era)`.
 Accounting reads historical allocations directly; the retired map-only `DepositStore` type
 and compatibility getters remain removed. The allocation map now contains
-`Unspent (TxOut era)` values. Each retains `unspentOutput :: Sized (TxOut era)`
+`Unspent (TxOut era)` values. Each retains `sizedOutput :: Sized (TxOut era)`
 and `depositCalculation :: DepositCalculation`; the wrapped `TxOut` distinguishes
 legacy and Store-backed outputs. Both retain supplied accepted metadata, while
 legacy external refunds remain zero. Legacy imports without that metadata use
@@ -73,11 +73,13 @@ The `UTxOStore` type uses the `UTxOStore` record constructor and
 `Cardano.Ledger.State.UTxO.LegacyUTxOMap`; the wrapper and Store model are in
 `Cardano.Ledger.State.UTxO.Store`.
 
-Selected verification of the generic `Unspent` wrapper and its new snapshot entry
-is complete. The Dijkstra and core test targets build; 165 targeted examples
-passed with zero failures, plus a supplemental `UTxOState DijkstraEra` property
-with 100 trials at maximum generator size 20. The broader State Types suite was
-not completed; the interrupted runs are recorded below.
+The core test-target build and formatting checks passed for the mechanical
+field/type-parameter rename. Runtime tests were not rerun, and the Dijkstra
+target was not rebuilt after this rename.
+The preceding checkpoint `52d2c835e` passed 165 targeted examples with zero
+failures, plus a supplemental `UTxOState DijkstraEra` property with 100 trials at
+maximum generator size 20. Those are prior-revision results; the broader State
+Types suite was not completed, as recorded below.
 The preceding module-only move passed its core test-target build and formatting
 checks. The earlier layout passed all 11 selected build targets and 158 executed
 examples on 27 October.
@@ -195,7 +197,22 @@ rule awaiting an executable ledger check is distinct from a business question wh
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
 
-## Generic Unspent metadata on 27 October 2026
+## Unspent field naming on 27 October 2026
+
+**Core build verification passed.** The declaration now uses the type parameter
+`output` and field `sizedOutput :: Sized output`. This mechanically renames
+the field and type parameter; the model and snapshot encoding are unchanged.
+The exact diff was independently checked to contain only those literal renames.
+`cabal build cardano-ledger-core:test:tests --offline --enable-tests --jobs=2`
+passed, compiling the core library, test library and test executable. Formatting
+passed for four Haskell files, and `git diff --check` passed. Evidence:
+`/private/tmp/ds-sized-output-build.log` and
+`/private/tmp/ds-sized-output-format.log`.
+No runtime tests were rerun, and the Dijkstra target was not rebuilt after this
+field-name change. The 165 targeted examples and
+supplemental bounded `UTxOState` property below belong to checkpoint `52d2c835e`.
+
+## Generic Unspent metadata at 52d2c835e on 27 October 2026
 
 `Allocations` now maps each `TxIn` to
 `Unspent (TxOut era)`, with a sized output and explicit deposit calculation for
@@ -216,8 +233,8 @@ Legacy imports currently use `mkSized` at the era's lowest protocol version and
 values, not historical metadata; migration design remains deferred. Earlier
 verification below does not establish correctness of this new wrapper or schema.
 
-**Completed selected verification.** The final build passed for the generic wrapper and
-latest constructor names:
+**Completed selected verification at `52d2c835e`.** The build passed for the generic
+wrapper and constructor names before the field/type-parameter rename:
 
 ```sh
 cabal build cardano-ledger-dijkstra:test:tests cardano-ledger-core:test:tests --offline --enable-tests --jobs=2
