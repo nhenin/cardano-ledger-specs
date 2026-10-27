@@ -303,14 +303,14 @@ makeDatumWitness :: forall era. Reflect era => TxOut era -> GenRS era (TxWits er
 makeDatumWitness txout =
   let proof = reify @era
    in case (proof, txout) of
-        (Babbage, ImplicitDepositTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
-        (Babbage, ImplicitDepositTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
-        (Babbage, ImplicitDepositTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
-        (Conway, ImplicitDepositTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
-        (Conway, ImplicitDepositTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
-        (Conway, ImplicitDepositTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
-        (Alonzo, ImplicitDepositTxOut (AlonzoTxOut _ _ mDatum)) -> mkDatumWit mDatum
-        (_, StoreBackedTxOut _) -> error "makeDatumWitness: unexpected store-backed output"
+        (Babbage, LegacyTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
+        (Babbage, LegacyTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
+        (Babbage, LegacyTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
+        (Conway, LegacyTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
+        (Conway, LegacyTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
+        (Conway, LegacyTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
+        (Alonzo, LegacyTxOut (AlonzoTxOut _ _ mDatum)) -> mkDatumWit mDatum
+        (_, NewTxOut _) -> error "makeDatumWitness: unexpected store-backed output"
         _ -> pure id -- No other era has data witnesses
   where
     mkDatumWit ::

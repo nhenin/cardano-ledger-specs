@@ -42,7 +42,7 @@ import Cardano.Ledger.Keys (
   asWitness,
  )
 import Cardano.Ledger.State (EraCertState)
-import Cardano.Ledger.State.UTxO (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State.UTxO.LegacyUTxOMap (EraUTxO (..), UTxO (..))
 import Cardano.Ledger.Val (coin, modifyCoin)
 import Data.Bits (Bits (..), shiftR)
 import Data.ByteString (ByteString)
@@ -87,7 +87,7 @@ setMinFeeTxUtxo pp tx utxo =
 -- > coin (ensureMinCoinTxOut pp txOut ^. valueTxOutL) >= coin (setMinCoinTxOut pp txOut ^. valueTxOutL)
 -- @
 ensureMinCoinTxOut ::
-  EraImplicitDepositTxOut era => PParams era -> ImplicitDepositTxOut era -> ImplicitDepositTxOut era
+  EraLegacyTxOut era => PParams era -> LegacyTxOut era -> LegacyTxOut era
 ensureMinCoinTxOut = setMinCoinTxOutWith (>=)
 
 setMinFeeTxInternal ::
@@ -287,15 +287,15 @@ addDummyWitsTx pp tx numKeyWits byronAttrs =
 -- | Same as `setMinCoinSizedTxOut`, except it doesn't require the size of the
 -- TxOut and will recompute it if needed. Initial amount is not important.
 setMinCoinTxOut ::
-  EraImplicitDepositTxOut era => PParams era -> ImplicitDepositTxOut era -> ImplicitDepositTxOut era
+  EraLegacyTxOut era => PParams era -> LegacyTxOut era -> LegacyTxOut era
 setMinCoinTxOut = setMinCoinTxOutWith (==)
 
 setMinCoinTxOutWith ::
-  EraImplicitDepositTxOut era =>
+  EraLegacyTxOut era =>
   (Coin -> Coin -> Bool) ->
   PParams era ->
-  ImplicitDepositTxOut era ->
-  ImplicitDepositTxOut era
+  LegacyTxOut era ->
+  LegacyTxOut era
 setMinCoinTxOutWith f pp = go
   where
     go !txOut =

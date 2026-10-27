@@ -401,12 +401,12 @@ validateOutsideForecast ei slotNo sysSt tx =
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (utxoEntrySize txout ∗ coinsPerUTxOWord pp)
 validateImplicitDeposits ::
-  (EraImplicitDepositTxOut era, Foldable f) =>
+  (EraLegacyTxOut era, Foldable f) =>
   PParams era ->
-  f (ImplicitDepositTxOut era) ->
+  f (LegacyTxOut era) ->
   Test (AlonzoUtxoPredFailure era)
 validateImplicitDeposits pp outputs =
-  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap LegacyTxOut)
   where
     outputsTooSmall =
       filter
@@ -437,8 +437,8 @@ validateOutputTooBigUTxO pp outputs =
     outputsTooBig = F.foldl' accum [] outputs
     accum ans txOut =
       let value = case txOut of
-            ImplicitDepositTxOut output -> output ^. valueTxOutL
-            StoreBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+            LegacyTxOut output -> output ^. valueTxOutL
+            NewTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
           serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) value
        in if serSize > maxValSize
             then (fromIntegral serSize, fromIntegral maxValSize, txOut) : ans
@@ -557,7 +557,7 @@ utxoTransition = do
 
   let outputs = txBody ^. outputsTxBodyL
       -- This legacy transition has only implicit-deposit outputs.
-      implicitOutputs = [output | ImplicitDepositTxOut output <- toList outputs]
+      implicitOutputs = [output | LegacyTxOut output <- toList outputs]
   {-   ∀ txout ∈ txouts txb, getValuetxout ≥ inject (uxoEntrySizetxout ∗ coinsPerUTxOWord p) -}
   runTest $ validateImplicitDeposits pp implicitOutputs
 
@@ -795,7 +795,7 @@ updateUTxOState pp certState tx utxoState =
           let !(utxoKeep, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
            in pure $!
                 utxoState
-                  { utxosOutputStorage = LegacyOutputs $ UTxO utxoKeep
+                  { utxosUTxOs = LegacyUTxOMap $ UTxO utxoKeep
                   , utxosFees = utxosFees utxoState <> sumAllCoin utxoDel
                   , utxosInstantStake = deleteInstantStake (UTxO utxoDel) (utxoState ^. instantStakeL)
                   }

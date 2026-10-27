@@ -24,7 +24,7 @@ import Cardano.Crypto.DSIGN (
  )
 import Cardano.Ledger.Address
 import Cardano.Ledger.BaseTypes
-import Cardano.Ledger.Binary (rawEncodeFixedSized, sizedSize)
+import Cardano.Ledger.Binary (rawEncodeFixedSized)
 import Cardano.Ledger.Block
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible (fromCompact)
@@ -51,34 +51,25 @@ import Type.Reflection (Typeable, typeRep)
 -- Coin
 instance ToExpr Coin
 
-instance ToExpr DepositStore
-
 instance ToExpr DepositCalculation
 
 instance ToExpr OutputStoreError
 
-instance ToExpr InMemoryOutputDepositAmount where
-  toExpr = toExpr . unInMemoryOutputDepositAmount
+instance ToExpr UnspentOutputDepositsAmount where
+  toExpr = toExpr . unspentOutputDepositsAmount
 
-instance ToExpr (TxOut era) => ToExpr (Allocation era) where
-  toExpr allocation =
-    App
-      "Allocation"
-      [ toExpr $ allocationOutput allocation
-      , toExpr $ sizedSize <$> allocationSizedOutput allocation
-      , toExpr $ allocationCalculation allocation
-      ]
+instance ToExpr a => ToExpr (Unspent a)
 
 instance ToExpr (TxOut era) => ToExpr (Allocations era) where
   toExpr = toExpr . unAllocations
 
-instance ToExpr (TxOut era) => ToExpr (InMemoryUnspentTxOutputStore era) where
+instance ToExpr (TxOut era) => ToExpr (UTxOStore era) where
   toExpr store =
-    App "InMemoryUnspentTxOutputStore" [toExpr $ totalDepositAmount store, toExpr $ allocations store]
+    App "UTxOStore" [toExpr $ totalDepositAmount store, toExpr $ allocations store]
 
-instance ToExpr (TxOut era) => ToExpr (OutputStorage era) where
-  toExpr (LegacyOutputs outputs) = App "LegacyOutputs" [toExpr outputs]
-  toExpr (StoredOutputs store) = App "StoredOutputs" [toExpr store]
+instance ToExpr (TxOut era) => ToExpr (UTxOs era) where
+  toExpr (LegacyUTxOMap outputs) = App "LegacyUTxOMap" [toExpr outputs]
+  toExpr (UTxOs store) = App "UTxOs" [toExpr store]
 
 instance ToExpr StrictlyPositiveCoin where
   toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]

@@ -86,7 +86,7 @@ instantStakeIncludesRewards = do
     -- Since tom uses a StakeRefNull those entries will not be distributed
     utxo1 =
       UTxO @era $
-        ImplicitDepositTxOut
+        LegacyTxOut
           <$> Map.fromList
             [ (tomTxIn1, mkCoinTxOut tomAddr $ fromCompact tomCoin1) -- Not distrubuted, see tomAddr
             , (tomTxIn2, mkCoinTxOut tomAddr $ fromCompact tomCoin2) -- Not distributed, see tomAddr

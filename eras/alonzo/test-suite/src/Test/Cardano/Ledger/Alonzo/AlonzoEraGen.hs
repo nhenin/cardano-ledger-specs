@@ -571,10 +571,10 @@ getDataMap (scriptInfo3, _) = Map.foldlWithKey' accum Map.empty
           Map.insert (hashData dat) (Data dat) ans
 
 instance MinGenTxout AlonzoEra where
-  calcEraMinUTxO (ImplicitDepositTxOut implicitOutput) pp =
+  calcEraMinUTxO (LegacyTxOut implicitOutput) pp =
     utxoEntrySize implicitOutput <×> unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)
-  addValToTxOut value txOut@(ImplicitDepositTxOut implicitOutput) =
-    ImplicitDepositTxOut (implicitOutput & valueTxOutL %~ (value <+>))
+  addValToTxOut value txOut@(LegacyTxOut implicitOutput) =
+    LegacyTxOut (implicitOutput & valueTxOutL %~ (value <+>))
       & dataHashTxOutL .~ dataFromAddr (txOut ^. addrTxOutL)
   genEraTxOut genv genVal addrs = do
     values <- replicateM (length addrs) genVal

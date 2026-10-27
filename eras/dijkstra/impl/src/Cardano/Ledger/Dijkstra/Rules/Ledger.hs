@@ -396,19 +396,19 @@ dijkstraLedgerTransition = do
   -- Retain the previous store before SubTxs consume any entries.
   -- Witness checks use their output view; whole-batch accounting also needs
   -- each allocation's historical calculation and accepted size.
-  previousInMemoryUnspentTxOutputStore <-
-    case utxosOutputStorage (ledgerState ^. lsUTxOStateL) of
-      StoredOutputs store -> pure store
-      LegacyOutputs _ ->
+  previousUTxOStore <-
+    case utxosUTxOs (ledgerState ^. lsUTxOStateL) of
+      UTxOs store -> pure store
+      LegacyUTxOMap _ ->
         throw $
           AssertionException $
             AssertionViolation
               { avSTS = "Dijkstra LEDGER"
-              , avMsg = "Dijkstra ledger state must contain an InMemoryUnspentTxOutputStore"
+              , avMsg = "Dijkstra ledger state must contain an UTxOStore"
               , avCtx = ctx
               , avState = Nothing
               }
-  let originalUtxo = storeUTxO previousInMemoryUnspentTxOutputStore
+  let originalUtxo = storeUTxO previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 
@@ -491,7 +491,7 @@ dijkstraLedgerTransition = do
             pp
             (certStateAfterSubLedgers ^. certPStateL)
             (lsCertState ledgerState)
-            previousInMemoryUnspentTxOutputStore
+            previousUTxOStore
         , utxoStateBeforeUtxow
         , stAnnTx
         )

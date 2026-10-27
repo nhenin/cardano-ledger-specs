@@ -3,7 +3,7 @@
 -- | Rules for declaring UTxO capacity deposit changes across TopTx and SubTx.
 -- Allocation and release concern proposed ordinary-path Store operations before
 -- netting: a body may require both, including when their net change is zero.
--- Presence follows the 'StoreBackedTxOut' form, even when its deposit amount is
+-- Presence follows the 'NewTxOut' form, even when its deposit amount is
 -- zero. These checks establish neither amount exactness nor ledger acceptance.
 -- They apply on both phase-2 paths; ordinary Store effects require phase-2 success.
 -- Ledger predicate failures are assigned by the calling transition rule.
@@ -109,8 +109,8 @@ validateStoreBackedOutputsDeclaration hasDeclaration outputs =
     MissingBodyUTxODepositDeclaration
 
 isStoreBackedOutput :: TxOut era -> Bool
-isStoreBackedOutput (ImplicitDepositTxOut _) = False
-isStoreBackedOutput (StoreBackedTxOut _) = True
+isStoreBackedOutput (LegacyTxOut _) = False
+isStoreBackedOutput (NewTxOut _) = True
 
 -- | Whether a SubTx explicitly declares a net UTxO capacity deposit change,
 -- including zero.

@@ -47,8 +47,8 @@ spec = describe "UTXO" $ do
       largeDatum = PV1.B $ BS.replicate 1500 0
       txOut = mkBasicTxOutWithImplicitDeposit addr amount & datumTxOutL .~ mkInlineDatum largeDatum
       minimumCoin = case txOut of
-        ImplicitDepositTxOut output -> getMinCoinTxOut pp output
-        StoreBackedTxOut _ -> error "Min-utxo value with output too large: unexpected StoreBackedTxOut"
+        LegacyTxOut output -> getMinCoinTxOut pp output
+        NewTxOut _ -> error "Min-utxo value with output too large: unexpected NewTxOut"
     submitFailingTx
       (mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut])
       [ injectFailure $

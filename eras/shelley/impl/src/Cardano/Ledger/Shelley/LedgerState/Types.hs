@@ -77,11 +77,11 @@ instance CanGetUTxO EpochState where
   utxoG = to esLState . utxoG
   {-# INLINE utxoG #-}
 
-instance CanGetOutputStorage EpochState
+instance CanGetUTxOs EpochState
 
-instance CanSetOutputStorage EpochState where
-  outputStorageL = lens esLState (\state value -> state {esLState = value}) . outputStorageL
-  {-# INLINE outputStorageL #-}
+instance CanSetUTxOs EpochState where
+  utxosL = lens esLState (\state value -> state {esLState = value}) . utxosL
+  {-# INLINE utxosL #-}
 
 instance CanGetInstantStake EpochState
 
@@ -195,7 +195,7 @@ instance
 -- metadata. Its output-only view determines the cached instant stake.
 -- Transaction rules update outputs and instant stake together.
 data UTxOState era = UTxOState
-  { utxosOutputStorage :: !(OutputStorage era)
+  { utxosUTxOs :: !(UTxOs era)
   , utxosDeposited :: !Coin
   , utxosFees :: !Coin
   , utxosGovState :: !(GovState era)
@@ -206,22 +206,18 @@ data UTxOState era = UTxOState
 
 -- | Read-only transaction-output view. Legacy eras return their existing map.
 utxosUtxo :: UTxOState era -> UTxO era
-utxosUtxo = outputStorageUTxO . utxosOutputStorage
+utxosUtxo = utxosUTxO . utxosUTxOs
 {-# INLINE utxosUtxo #-}
-
--- | Read-only compatibility view of separately held allocation deposits.
-utxosDepositStore :: UTxOState era -> Either OutputStoreError DepositStore
-utxosDepositStore = outputStorageDepositStore . utxosOutputStorage
 
 instance CanGetUTxO UTxOState where
   utxoG = to utxosUtxo
   {-# INLINE utxoG #-}
 
-instance CanGetOutputStorage UTxOState
+instance CanGetUTxOs UTxOState
 
-instance CanSetOutputStorage UTxOState where
-  outputStorageL = utxosOutputStorageL
-  {-# INLINE outputStorageL #-}
+instance CanSetUTxOs UTxOState where
+  utxosL = utxosUTxOsL
+  {-# INLINE utxosL #-}
 
 instance CanGetInstantStake UTxOState
 
@@ -266,7 +262,7 @@ instance
   where
   encCBOR UTxOState {..} =
     encodeListLen 6
-      <> encodeOutputStorage utxosOutputStorage
+      <> encodeUTxOs utxosUTxOs
       <> encCBOR utxosDeposited
       <> encCBOR utxosFees
       <> encCBOR utxosGovState
@@ -283,7 +279,7 @@ instance (EraTxOut era, EraGov era, EraStake era) => DecShareCBOR (UTxOState era
       )
   decShareCBOR is@(cs, _, _, _) =
     decodeRecordNamed "UTxOState" (const 6) $ do
-      utxosOutputStorage <- decShareCBOR cs
+      utxosUTxOs <- decShareCBOR cs
       utxosDeposited <- decCBOR
       utxosFees <- decCBOR
       utxosGovState <- decShareCBOR is
@@ -299,9 +295,9 @@ deriving via
 instance (EraTxOut era, EraGov era, EraStake era) => ToKeyValuePairs (UTxOState era) where
   toKeyValuePairs utxoState@(UTxOState _ _ _ _ _ _) =
     let UTxOState {..} = utxoState
-        outputs = case utxosOutputStorage of
-          LegacyOutputs utxo -> ["utxo" .= utxo]
-          StoredOutputs store -> ["outputStorage" .= store]
+        outputs = case utxosUTxOs of
+          LegacyUTxOMap utxo -> ["utxo" .= utxo]
+          UTxOs store -> ["outputStorage" .= store]
      in outputs
           <> [ "deposited" .= utxosDeposited
              , "fees" .= utxosFees
@@ -343,11 +339,11 @@ instance CanGetUTxO NewEpochState where
   utxoG = to nesEs . utxoG
   {-# INLINE utxoG #-}
 
-instance CanGetOutputStorage NewEpochState
+instance CanGetUTxOs NewEpochState
 
-instance CanSetOutputStorage NewEpochState where
-  outputStorageL = lens nesEs (\state value -> state {nesEs = value}) . outputStorageL
-  {-# INLINE outputStorageL #-}
+instance CanSetUTxOs NewEpochState where
+  utxosL = lens nesEs (\state value -> state {nesEs = value}) . utxosL
+  {-# INLINE utxosL #-}
 
 instance CanGetInstantStake NewEpochState
 
@@ -466,11 +462,11 @@ instance CanGetUTxO LedgerState where
   utxoG = to lsUTxOState . utxoG
   {-# INLINE utxoG #-}
 
-instance CanGetOutputStorage LedgerState
+instance CanGetUTxOs LedgerState
 
-instance CanSetOutputStorage LedgerState where
-  outputStorageL = lens lsUTxOState (\state value -> state {lsUTxOState = value}) . outputStorageL
-  {-# INLINE outputStorageL #-}
+instance CanSetUTxOs LedgerState where
+  utxosL = lens lsUTxOState (\state value -> state {lsUTxOState = value}) . utxosL
+  {-# INLINE utxosL #-}
 
 instance CanGetInstantStake LedgerState
 
@@ -651,9 +647,9 @@ utxosFeesL = lens utxosFees (\x y -> x {utxosFees = y})
 utxosGovStateL :: Lens' (UTxOState era) (GovState era)
 utxosGovStateL = lens utxosGovState (\x y -> x {utxosGovState = y})
 
-utxosOutputStorageL :: Lens' (UTxOState era) (OutputStorage era)
-utxosOutputStorageL = lens utxosOutputStorage (\state storage -> state {utxosOutputStorage = storage})
-{-# INLINE utxosOutputStorageL #-}
+utxosUTxOsL :: Lens' (UTxOState era) (UTxOs era)
+utxosUTxOsL = lens utxosUTxOs (\state storage -> state {utxosUTxOs = storage})
+{-# INLINE utxosUTxOsL #-}
 
 utxosDonationL :: Lens' (UTxOState era) Coin
 utxosDonationL = lens utxosDonation (\x y -> x {utxosDonation = y})

@@ -176,7 +176,7 @@ instance
       <*> arbitrary
 
 instance Arbitrary (TxOut AlonzoEra) where
-  arbitrary = ImplicitDepositTxOut <$> arbitrary
+  arbitrary = LegacyTxOut <$> arbitrary
 
 instance Arbitrary (TxBody TopTx AlonzoEra) where
   arbitrary =

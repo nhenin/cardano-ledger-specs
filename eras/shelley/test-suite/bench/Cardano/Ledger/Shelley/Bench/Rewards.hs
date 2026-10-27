@@ -93,7 +93,7 @@ genChainInEpoch epoch = do
           . LS.nesEs
           $ chainNes genesisChainState
       initUtxoAddrs =
-        Maybe.mapMaybe (\(ImplicitDepositTxOut (ShelleyTxOut addr _)) -> addrToKeyHash addr)
+        Maybe.mapMaybe (\(LegacyTxOut (ShelleyTxOut addr _)) -> addrToKeyHash addr)
           . Map.elems
           . unUTxO
           $ initUtxo

@@ -53,7 +53,7 @@ instance
   ToExpr (BabbageTxOut era)
 
 instance ToExpr (TxOut BabbageEra) where
-  toExpr (ImplicitDepositTxOut output) = App "ImplicitDepositTxOut" [toExpr output]
+  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
 
 -- TxBody
 instance ToExpr (BabbageTxBodyRaw TopTx BabbageEra) where

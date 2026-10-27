@@ -33,7 +33,7 @@ import Cardano.Ledger.BaseTypes (ProtVer (..), TxIx (..), inject, natVersion)
 import Cardano.Ledger.Coin (Coin (..), DeltaCoin (..))
 import Cardano.Ledger.Core (
   ProtVerHigh,
-  TxOut (ImplicitDepositTxOut),
+  TxOut (LegacyTxOut),
   bodyTxL,
   eraProtVerHigh,
   eraProtVerLow,
@@ -80,7 +80,7 @@ spec = describe "UTXOS" $ do
       txIn <- produceScript plutusScriptHash
       addr <- freshKeyAddr_
       let txOut =
-            ImplicitDepositTxOut (mkCoinTxOut addr (inject $ Coin 5_000_000))
+            LegacyTxOut (mkCoinTxOut addr (inject $ Coin 5_000_000))
               & referenceScriptTxOutL .~ pure nativeScript
           tx =
             mkBasicTx $

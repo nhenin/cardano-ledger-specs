@@ -715,14 +715,14 @@ defaultInitImpTestState nes = do
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
-    existingStorage = nes ^. outputStorageG
+    existingStorage = nes ^. utxosG
   rootStorage <-
-    if Map.member rootTxIn (unUTxO $ outputStorageUTxO existingStorage)
+    if Map.member rootTxIn (unUTxO $ utxosUTxO existingStorage)
       then pure existingStorage
       else
         either (fail . show) pure $
           applyLegacyOutputDelta mempty (UTxO $ Map.singleton rootTxIn rootTxOut) existingStorage
-  let nesWithRoot = nes & outputStorageL .~ rootStorage
+  let nesWithRoot = nes & utxosL .~ rootStorage
   prepState <- get
   let epochInfoE =
         fixedEpochInfo
@@ -1228,7 +1228,7 @@ fixupTxOuts :: (ShelleyEraImp era, HasCallStack) => Tx l era -> ImpTestM era (Tx
 fixupTxOuts tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   outputs <- forM (tx ^. bodyTxL . outputsTxBodyL) $ \case
-    ImplicitDepositTxOut output
+    LegacyTxOut output
       | coin (output ^. valueTxOutL) == zero -> do
           amount <- arbitrary
           let fundedOutput =
@@ -1237,7 +1237,7 @@ fixupTxOuts tx = do
           logDoc $
             "Fixed up the amount in the TxOut to "
               <> ansiExpr (coin (fundedOutput ^. valueTxOutL))
-          pure $ ImplicitDepositTxOut fundedOutput
+          pure $ LegacyTxOut fundedOutput
     output -> pure output
   pure $ tx & bodyTxL . outputsTxBodyL .~ outputs
 
@@ -1289,7 +1289,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
     -- If the remainder is sufficently big we add it to outputs, otherwise we add the
     -- extraneous coin to the fee and discard the remainder TxOut
     txWithFee
-      | ImplicitDepositTxOut implicitChangeTxOut <- changeTxOut
+      | LegacyTxOut implicitChangeTxOut <- changeTxOut
       , change >= getMinCoinTxOut pp implicitChangeTxOut =
           txNoWits
             & bodyTxL . outputsTxBodyL .~ (outsBeforeFee :|> changeTxOut)

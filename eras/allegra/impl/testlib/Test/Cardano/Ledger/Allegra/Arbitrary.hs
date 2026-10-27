@@ -106,7 +106,7 @@ instance
   arbitrary = genericArbitraryU
 
 instance Arbitrary (TxOut AllegraEra) where
-  arbitrary = ImplicitDepositTxOut <$> arbitrary
+  arbitrary = LegacyTxOut <$> arbitrary
 
 instance Arbitrary (TxBody TopTx AllegraEra) where
   arbitrary =

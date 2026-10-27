@@ -140,8 +140,8 @@ transTxOutV2 ::
   Either (ContextError era) PV2.TxOut
 transTxOutV2 txOutSource txOut = do
   let val = case txOut of
-        ImplicitDepositTxOut output -> output ^. valueTxOutL
-        StoreBackedTxOut _ -> error "Babbage.transTxOutV2: unexpected StoreBackedTxOut"
+        LegacyTxOut output -> output ^. valueTxOutL
+        NewTxOut _ -> error "Babbage.transTxOutV2: unexpected NewTxOut"
       referenceScript = transReferenceScript $ txOut ^. referenceScriptTxOutL
       datum =
         case txOut ^. datumTxOutF of

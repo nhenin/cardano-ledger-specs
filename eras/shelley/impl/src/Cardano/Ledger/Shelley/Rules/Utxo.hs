@@ -404,7 +404,7 @@ utxoInductive = do
   runTest $
     validateImplicitDeposits
       pp
-      [implicitOutput | ImplicitDepositTxOut implicitOutput <- toList outputs]
+      [implicitOutput | LegacyTxOut implicitOutput <- toList outputs]
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTest $ validateOutputBootAddrAttrsTooBig outputs
@@ -533,9 +533,9 @@ validateValueNotConservedUTxO pp utxo certState txBody =
 
 -- | Ensure an implicit-deposit output has at least @minUTxOValue@.
 validateImplicitDeposit ::
-  EraImplicitDepositTxOut era =>
+  EraLegacyTxOut era =>
   PParams era ->
-  ImplicitDepositTxOut era ->
+  LegacyTxOut era ->
   Test (ShelleyUtxoPredFailure era)
 validateImplicitDeposit pp =
   validateImplicitDeposits pp . (: [])
@@ -544,12 +544,12 @@ validateImplicitDeposit pp =
 --
 -- > ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp)
 validateImplicitDeposits ::
-  (EraImplicitDepositTxOut era, Foldable f) =>
+  (EraLegacyTxOut era, Foldable f) =>
   PParams era ->
-  f (ImplicitDepositTxOut era) ->
+  f (LegacyTxOut era) ->
   Test (ShelleyUtxoPredFailure era)
 validateImplicitDeposits pp outputs =
-  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap LegacyTxOut)
   where
     -- minUTxOValue deposit comparison done as Coin because this rule is correct
     -- strictly in the Shelley era (in ShelleyMA we additionally check that all
@@ -633,14 +633,14 @@ updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
   let UTxO previous = utxosUtxo utxoState
       UTxO created = txouts txBody
       remaining = Map.withoutKeys previous $ txBody ^. inputsTxBodyL
-      storage = LegacyOutputs $ UTxO $ Map.union remaining created
+      storage = LegacyUTxOMap $ UTxO $ Map.union remaining created
    in updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState
 
 -- | Apply caller-prepared output storage while updating stake and emitting the
 -- output difference. The caller retains or validates all allocation metadata.
 updateUTxOAndInstantStakeWithStorage ::
   (EraTxBody era, EraStake era, Monad m) =>
-  OutputStorage era ->
+  UTxOs era ->
   TxBody l era ->
   (UTxO era -> UTxO era -> m ()) ->
   UTxOState era ->
@@ -656,7 +656,7 @@ updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState = do
   utxoDiffEvent deletedUtxo utxoAdd
   pure $!
     utxoState
-      & utxosOutputStorageL .~ storage
+      & utxosUTxOsL .~ storage
       & instantStakeL .~ newInstantStake
 
 updateUTxOStateDeposits ::

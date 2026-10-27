@@ -36,7 +36,6 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
-import Cardano.Ledger.State (DepositStore (..))
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -45,7 +44,10 @@ import qualified Data.Map.Strict as Map
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, elements, vectorOf)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -153,8 +155,8 @@ outputDeposit pp = sizedOutputDeposit pp . mkSized (eraProtVerLow @DijkstraEra)
 -- | Accepted bodies already carry the size charged by the protocol. Use it
 -- directly: canonical re-encoding can be shorter than the submitted output.
 sizedOutputDeposit :: PParams DijkstraEra -> Sized (TxOut DijkstraEra) -> Coin
-sizedOutputDeposit _ (Sized (ImplicitDepositTxOut _) _) = mempty
-sizedOutputDeposit pp (Sized (StoreBackedTxOut _) acceptedBytes) =
+sizedOutputDeposit _ (Sized (LegacyTxOut _) _) = mempty
+sizedOutputDeposit pp (Sized (NewTxOut _) acceptedBytes) =
   case pp ^. ppCoinsPerUTxOByteL of
     CoinPerByte (CompactCoin price) ->
       Coin $ toInteger price * (160 + toInteger acceptedBytes)
@@ -169,7 +171,7 @@ releasedDeposits :: LedgerState -> Tx TopTx DijkstraEra -> Coin
 releasedDeposits ledgerState topTx =
   foldMap id $
     Map.restrictKeys
-      (depositStoreAllocations $ recordedDepositStore $ utxoState ledgerState)
+      (recordedAmounts $ liveOutputStore $ utxoState ledgerState)
       (topTx ^. bodyTxL . inputsTxBodyL)
 
 -- | Price every created store-backed ordinary output independently of the Store
@@ -186,7 +188,7 @@ createdBodyAllocations :: PParams DijkstraEra -> Tx l DijkstraEra -> Map.Map TxI
 createdBodyAllocations parameters tx =
   Map.fromList
     [ (txInAt index tx, sizedOutputDeposit parameters output)
-    | (index, output@(Sized (StoreBackedTxOut _) _)) <-
+    | (index, output@(Sized (NewTxOut _) _)) <-
         zip [0 ..] $ toList $ tx ^. bodyTxL . sizedOutputsTxBodyL
     ]
 

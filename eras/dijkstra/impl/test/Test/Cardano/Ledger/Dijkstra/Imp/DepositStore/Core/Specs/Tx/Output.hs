@@ -134,5 +134,5 @@ outputAtAddress address StoreBackedOutput =
 
 -- | Recognize change outputs that do not introduce Store operations.
 isImplicitOutput :: TxOut DijkstraEra -> Bool
-isImplicitOutput (ImplicitDepositTxOut _) = True
-isImplicitOutput (StoreBackedTxOut _) = False
+isImplicitOutput (LegacyTxOut _) = True
+isImplicitOutput (NewTxOut _) = False

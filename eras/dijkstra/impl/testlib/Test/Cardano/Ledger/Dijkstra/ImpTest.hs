@@ -507,7 +507,7 @@ mkBalancerSubTx consumed produced = do
           LT -> (mempty, produced <-> consumed)
         -- a buffer to make both the input UTxO and the change output satisfy minCoin. It's added on both sides, so it cancels out.
         minChangeCoin =
-          ImplicitDepositTxOut (ensureMinCoinTxOut pp (mkBasicImplicitDepositTxOut addr mempty))
+          LegacyTxOut (ensureMinCoinTxOut pp (mkBasicLegacyTxOut addr mempty))
             ^. coinTxOutL
         inputCoin = minChangeCoin <> shortfall
         changeCoin = minChangeCoin <> surplus

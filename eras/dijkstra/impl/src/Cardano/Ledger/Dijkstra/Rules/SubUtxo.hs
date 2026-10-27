@@ -52,7 +52,12 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (
  )
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody)
 import Cardano.Ledger.Rules.ValidationMode
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosDonationL, utxosOutputStorage, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (
+  UTxOState,
+  utxosDonationL,
+  utxosUTxOs,
+  utxosUtxo,
+ )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn)
@@ -271,7 +276,7 @@ dijkstraSubUtxoTransition = do
   runTestOnSignal $
     Babbage.validateImplicitDeposits
       pp
-      [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
+      [Sized output size | Sized (LegacyTxOut output) size <- toList allSizedOutputs]
 
   netId <- liftSTS $ asks networkId
   runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs
@@ -289,14 +294,14 @@ dijkstraSubUtxoTransition = do
                   , avCtx = ctx
                   , avState = Nothing
                   }
-          inMemoryUnspentTxOutputStore = case utxosOutputStorage utxoState of
-            StoredOutputs store -> store
-            LegacyOutputs _ -> invariantFailure "Dijkstra state must contain InMemoryUnspentTxOutputStore"
-      case applyBodyAllocations pp txBody inMemoryUnspentTxOutputStore of
+          utxoStore = case utxosUTxOs utxoState of
+            UTxOs store -> store
+            LegacyUTxOMap _ -> invariantFailure "Dijkstra state must contain UTxOStore"
+      case applyBodyAllocations pp txBody utxoStore of
         Left err -> invariantFailure $ "SubTx allocation invariant violated: " <> show err
         Right store ->
           Shelley.updateUTxOAndInstantStakeWithStorage
-            (StoredOutputs store)
+            (UTxOs store)
             txBody
             (\a b -> tellEvent $ TxUTxODiff a b)
             (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)

@@ -307,10 +307,10 @@ validateCollateralContainsNonADA txBody utxoCollateral =
       SJust retTxOut -> collateralBalance <-> implicitCollateralValue retTxOut
 
 -- | Private: this legacy collateral rule expects implicit-deposit outputs.
-implicitCollateralValue :: EraImplicitDepositTxOut era => TxOut era -> Value era
+implicitCollateralValue :: EraLegacyTxOut era => TxOut era -> Value era
 implicitCollateralValue = \case
-  ImplicitDepositTxOut output -> output ^. valueTxOutL
-  StoreBackedTxOut _ -> error "Babbage.implicitCollateralValue: unexpected StoreBackedTxOut"
+  LegacyTxOut output -> output ^. valueTxOutL
+  NewTxOut _ -> error "Babbage.implicitCollateralValue: unexpected NewTxOut"
 
 -- > (txcoll tx ≠ ◇) => balance == txcoll tx
 validateCollateralEqBalance ::
@@ -324,12 +324,12 @@ validateCollateralEqBalance bal txcoll =
 --
 -- > getValue txout ≥ inject ( serSize txout ∗ coinsPerUTxOByte pp )
 validateImplicitDeposits ::
-  (EraImplicitDepositTxOut era, Foldable f) =>
+  (EraLegacyTxOut era, Foldable f) =>
   PParams era ->
-  f (Sized (ImplicitDepositTxOut era)) ->
+  f (Sized (LegacyTxOut era)) ->
   Test (BabbageUtxoPredFailure era)
 validateImplicitDeposits pp outs =
-  failureOnNonEmpty outputsTooSmall (BabbageOutputTooSmallUTxO . fmap (first ImplicitDepositTxOut))
+  failureOnNonEmpty outputsTooSmall (BabbageOutputTooSmallUTxO . fmap (first LegacyTxOut))
   where
     outs' = map (\out -> (sizedValue out, getMinCoinSizedTxOut pp out)) (toList outs)
     outputsTooSmall =
@@ -407,7 +407,7 @@ babbageUtxoValidation = do
   let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
       -- Retain the cached size: the implicit wrapper preserves the output encoding.
       implicitSizedOutputs =
-        [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
+        [Sized output size | Sized (LegacyTxOut output) size <- toList allSizedOutputs]
   runTest $ validateImplicitDeposits pp implicitSizedOutputs
 
   let allOutputs = fmap sizedValue allSizedOutputs
@@ -505,7 +505,7 @@ updateUTxOState pp certState tx utxoState =
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { utxosOutputStorage = LegacyOutputs $ UTxO (Map.union utxoKeep collouts) -- NEW to Babbage
+                  { utxosUTxOs = LegacyUTxOMap $ UTxO (Map.union utxoKeep collouts) -- NEW to Babbage
                   {- fees + collateralFees -}
                   , utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , utxosInstantStake =

@@ -78,8 +78,8 @@ initUTxO :: UTxO MaryEra
 initUTxO =
   UTxO $
     Map.fromList
-      [ (mkTxInPartial bootstrapTxId 0, ImplicitDepositTxOut $ mkCoinTxOut Cast.aliceAddr aliceInitCoin)
-      , (mkTxInPartial bootstrapTxId 1, ImplicitDepositTxOut $ mkCoinTxOut Cast.bobAddr bobInitCoin)
+      [ (mkTxInPartial bootstrapTxId 0, LegacyTxOut $ mkCoinTxOut Cast.aliceAddr aliceInitCoin)
+      , (mkTxInPartial bootstrapTxId 1, LegacyTxOut $ mkCoinTxOut Cast.bobAddr bobInitCoin)
       ]
 
 pp :: PParams MaryEra

@@ -30,7 +30,7 @@ testGroupByronTranslation =
 prop_translateTxOut_correctness :: Byron.CompactTxOut -> Property
 prop_translateTxOut_correctness compactTxOut =
   translateTxOutByronToShelley (Byron.fromCompactTxOut compactTxOut)
-    === ImplicitDepositTxOut (translateCompactTxOutByronToShelley compactTxOut)
+    === LegacyTxOut (translateCompactTxOutByronToShelley compactTxOut)
 
 {------------------------------------------------------------------------------
   Reference implementation

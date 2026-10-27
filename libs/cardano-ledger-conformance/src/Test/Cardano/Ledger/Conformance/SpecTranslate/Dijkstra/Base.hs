@@ -216,8 +216,8 @@ instance SpecTranslate DijkstraEra (AlonzoScript DijkstraEra) where
 instance SpecTranslate DijkstraEra (TxOut DijkstraEra) where
   type SpecRep DijkstraEra (TxOut DijkstraEra) = Agda.TxOut
 
-  toSpecRep (ImplicitDepositTxOut output) = toSpecRep output
-  toSpecRep (StoreBackedTxOut _) =
+  toSpecRep (LegacyTxOut output) = toSpecRep output
+  toSpecRep (NewTxOut _) =
     throwError "The Dijkstra formal specification does not support store-backed outputs"
 
 instance SpecTranslate DijkstraEra (BabbageTxOut DijkstraEra) where

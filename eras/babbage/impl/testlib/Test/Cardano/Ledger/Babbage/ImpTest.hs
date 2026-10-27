@@ -105,8 +105,8 @@ fixupCollateralReturn tx = do
       & bodyTxL . collateralReturnTxBodyL
         %~ fmap
           ( \case
-              ImplicitDepositTxOut output -> ImplicitDepositTxOut $ ensureMinCoinTxOut pp output
-              StoreBackedTxOut _ -> error "fixupCollateralReturn: unexpected StoreBackedTxOut"
+              LegacyTxOut output -> LegacyTxOut $ ensureMinCoinTxOut pp output
+              NewTxOut _ -> error "fixupCollateralReturn: unexpected NewTxOut"
           )
 
 impBabbageExpectTxSuccess ::
@@ -162,8 +162,8 @@ produceRefScriptsTx scripts = do
     let txOutZero =
           mkBasicTxOutWithImplicitDeposit addr mempty & referenceScriptTxOutL .~ SJust script
     pure $ case txOutZero of
-      ImplicitDepositTxOut output -> ImplicitDepositTxOut $ setMinCoinTxOut pp output
-      StoreBackedTxOut _ -> error "produceRefScriptsTx: unexpected StoreBackedTxOut"
+      LegacyTxOut output -> LegacyTxOut $ setMinCoinTxOut pp output
+      NewTxOut _ -> error "produceRefScriptsTx: unexpected NewTxOut"
   let txBody = mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (NE.toList txOuts)
   submitTx (mkBasicTx txBody)
 

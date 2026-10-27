@@ -28,7 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
   utxosUtxo,
  )
-import Cardano.Ledger.State (depositStoreAllocations, unUTxO)
+import Cardano.Ledger.State (unUTxO)
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -43,7 +43,10 @@ import Data.Typeable (Typeable)
 import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Core.Utils (txInAt)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx as Children
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
@@ -79,14 +82,14 @@ fundAccountingScenario plan = do
       children = zipWith (proposalBody address) (tail inputGroups) (Accounting.subOperations plan)
       tx = top & bodyTxL . subTransactionsTxBodyL .~ OMap.fromFoldable children
       context = ReleaseTx (Pricing.LedgerState state parameters) tx
-      records = depositStoreAllocations $ recordedDepositStore state
+      records = recordedAmounts $ liveOutputStore state
   length children `shouldBe` length (tx ^. bodyTxL . subTransactionsTxBodyL)
   forM_ (zip [0 ..] sources) $ \(index, source) -> do
     impGetUTxO (txInAt index funded) >>= (`shouldBe` source)
     Map.lookup (txInAt index funded) records
       `shouldBe` case source of
-        ImplicitDepositTxOut _ -> Nothing
-        StoreBackedTxOut _ -> Just Accounting.depositUnit
+        LegacyTxOut _ -> Nothing
+        NewTxOut _ -> Just Accounting.depositUnit
   Pricing.allocatedDeposits (ledgerState context) tx
     `shouldBe` units (Accounting.allocatedDepositUnits $ Accounting.topOperations plan)
   Pricing.releasedDeposits (ledgerState context) tx

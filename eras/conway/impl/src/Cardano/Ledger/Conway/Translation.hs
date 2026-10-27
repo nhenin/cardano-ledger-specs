@@ -181,7 +181,7 @@ instance TranslateEra ConwayEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { API.utxosOutputStorage = LegacyOutputs $ translateEra' ctxt $ API.utxosUtxo us
+        { API.utxosUTxOs = LegacyUTxOMap $ translateEra' ctxt $ API.utxosUtxo us
         , API.utxosDeposited = API.utxosDeposited us
         , API.utxosFees = API.utxosFees us
         , API.utxosGovState = translateGovState ctxt $ API.utxosGovState us

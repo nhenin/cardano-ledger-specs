@@ -135,7 +135,7 @@ genTx
          constants
        )
   (LedgerEnv slot _ txIx pparams reserves)
-  (LedgerState utxoSt@(UTxOState (outputStorageUTxO -> utxo) _ _ _ _ _) dpState) =
+  (LedgerState utxoSt@(UTxOState (utxosUTxO -> utxo) _ _ _ _ _) dpState) =
     do
       -------------------------------------------------------------------------
       -- Generate the building blocks of a TxBody
@@ -223,7 +223,7 @@ genTx
 
       -- Occasionally we have a transaction generated with insufficient inputs
       -- to cover the deposits. In this case we discard the test case.
-      let enough = sumVal (getMinCoinTxOut pparams . requireImplicitDepositTxOut <$> draftOutputs)
+      let enough = sumVal (getMinCoinTxOut pparams . requireLegacyTxOut <$> draftOutputs)
       !_ <-
         when (coin spendingBalance < enough) $
           tracedDiscard $
@@ -265,7 +265,7 @@ genTx
       !_ <-
         when
           ( any
-              (\txOut -> getMinCoinTxOut pparams (requireImplicitDepositTxOut txOut) > txOut ^. coinTxOutL)
+              (\txOut -> getMinCoinTxOut pparams (requireLegacyTxOut txOut) > txOut ^. coinTxOutL)
               txOuts
           )
           $ tracedDiscard
@@ -339,7 +339,7 @@ setMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
 setMinCoinTxOut pp = go
   where
     go txOut =
-      let curMinCoin = getMinCoinTxOut pp (requireImplicitDepositTxOut txOut)
+      let curMinCoin = getMinCoinTxOut pp (requireLegacyTxOut txOut)
           curCoin = txOut ^. coinTxOutL
        in if curCoin == curMinCoin
             then txOut
@@ -394,7 +394,7 @@ genNextDelta
         totalFee = baseTxFee <+> deltaFee :: Coin
         remainingFee = totalFee <-> dfees :: Coin
         changeAmount = getChangeAmount change
-        minAda = getMinCoinTxOut pparams (requireImplicitDepositTxOut change)
+        minAda = getMinCoinTxOut pparams (requireLegacyTxOut change)
      in if remainingFee <= Coin 0 -- we've paid for all the fees
           then pure delta -- we're done
           else -- the change covers what we need, so shift Coin from change to dfees.
@@ -459,7 +459,7 @@ genNextDelta
         TxOut era ->
         TxOut era
       deltaChange f =
-        ImplicitDepositTxOut . (valueTxOutL %~ f) . requireImplicitDepositTxOut
+        LegacyTxOut . (valueTxOutL %~ f) . requireLegacyTxOut
       getChangeAmount txOut = txOut ^. coinTxOutL
 
 -- calculates fixed point of getNextDelta such that
@@ -740,7 +740,7 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo)
   let (inputs, witnesses) = unzip (fmap witnessedInput <$> selectedUtxo)
   return
     ( inputs
-    , sumAllValue @era (requireImplicitDepositTxOut . snd <$> selectedUtxo)
+    , sumAllValue @era (requireLegacyTxOut . snd <$> selectedUtxo)
     , Either.partitionEithers witnesses
     )
   where
@@ -753,10 +753,10 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo)
         _ -> error "unsupported address"
 
 -- | Private: these legacy generators only construct and consume implicit-deposit outputs.
-requireImplicitDepositTxOut :: TxOut era -> ImplicitDepositTxOut era
-requireImplicitDepositTxOut (ImplicitDepositTxOut output) = output
-requireImplicitDepositTxOut (StoreBackedTxOut _) =
-  error "Shelley.Generator.Utxo: unexpected StoreBackedTxOut"
+requireLegacyTxOut :: TxOut era -> LegacyTxOut era
+requireLegacyTxOut (LegacyTxOut output) = output
+requireLegacyTxOut (NewTxOut _) =
+  error "Shelley.Generator.Utxo: unexpected NewTxOut"
 
 -- | Select a subset of the account addresses to use for reward withdrawals.
 genWithdrawals ::

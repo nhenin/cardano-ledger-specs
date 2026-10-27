@@ -101,16 +101,14 @@ library
     Cardano.Ledger.State.Account
     Cardano.Ledger.State.CertState
     Cardano.Ledger.State.ChainAccount
-    Cardano.Ledger.State.DepositStore
     Cardano.Ledger.State.Governance
-    Cardano.Ledger.State.InMemoryUnspentTxOutputStore
+    Cardano.Ledger.State.UTxO.Store
+    Cardano.Ledger.State.UTxO.LegacyUTxOMap
     Cardano.Ledger.State.LeiosCommittee
-    Cardano.Ledger.State.OutputStorage
     Cardano.Ledger.State.PoolDistr
     Cardano.Ledger.State.SnapShots
     Cardano.Ledger.State.Stake
     Cardano.Ledger.State.StakePool
-    Cardano.Ledger.State.UTxO
 
   default-language: Haskell2010
   build-depends:

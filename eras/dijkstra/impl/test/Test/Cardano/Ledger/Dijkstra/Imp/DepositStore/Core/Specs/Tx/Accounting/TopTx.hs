@@ -34,11 +34,12 @@ import Cardano.Ledger.Dijkstra.Rules (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import Cardano.Ledger.State (OutputStoreError)
 import Cardano.Ledger.Val ((<->))
 import Data.List.NonEmpty (NonEmpty (..))
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, elements)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (liveOutputStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -223,20 +224,21 @@ ownNetDeposit proposal =
 -- | Observe the production required transaction total for the supplied proposal.
 -- Tests compare this with independently priced outputs and recorded input deposits;
 -- the declaration's local/delegated form must not change the required amount.
-requiredNetChange :: ReleaseTx -> Coin
+requiredNetChange :: ReleaseTx -> Either OutputStoreError Coin
 requiredNetChange proposal =
   requiredTxTotalNetUTxODeposit
     (Standalone.protocolParameters $ ledgerState proposal)
-    (recordedDepositStore $ Standalone.utxoState $ ledgerState proposal)
+    (liveOutputStore $ Standalone.utxoState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
 -- | Run only production TopTx exactness against the funded snapshot. Other
 -- ledger rules do not affect this result, including settlement and conservation.
-validateNetChange :: ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
+validateNetChange ::
+  ReleaseTx -> Either OutputStoreError (Validation (NonEmpty DepositStoreAccountingFailure) ())
 validateNetChange proposal =
   validateTopTxExactness
     (Standalone.protocolParameters $ ledgerState proposal)
-    (recordedDepositStore $ Standalone.utxoState $ ledgerState proposal)
+    (liveOutputStore $ Standalone.utxoState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
 -- | Independently require the declared amount to equal priced allocations minus

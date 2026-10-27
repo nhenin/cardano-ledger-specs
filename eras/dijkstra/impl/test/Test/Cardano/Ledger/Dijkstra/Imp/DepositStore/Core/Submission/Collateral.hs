@@ -75,8 +75,8 @@ prepareFundingFixture source released collateralReturn = do
   -- Prepare ordinary funding and the script with an implicit return, then
   -- install the tested output variant and sign the final body without fixup.
   let preparationReturn = case collateralReturn of
-        ImplicitDepositTxOut _ -> collateralReturn
-        StoreBackedTxOut _ ->
+        LegacyTxOut _ -> collateralReturn
+        NewTxOut _ ->
           mkBasicTxOutWithImplicitDeposit (collateralReturn ^. addrTxOutL) $
             inject $
               collateralReturn ^. coinTxOutL

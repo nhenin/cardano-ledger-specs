@@ -68,7 +68,7 @@ instance Arbitrary (DijkstraPParams StrictMaybe DijkstraEra) where
 instance Arbitrary (TxOut DijkstraEra) where
   arbitrary =
     oneof
-      [ ImplicitDepositTxOut <$> arbitrary
+      [ LegacyTxOut <$> arbitrary
       , ( \address assets datum script ->
             mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets assets)
               & datumTxOutL .~ datum

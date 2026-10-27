@@ -58,8 +58,8 @@ spec = describe "UTXO" $ do
       let
         ptrAddr = Addr Testnet cred (StakeRefPtr ptr)
         ptrOutput =
-          ImplicitDepositTxOut . ensureMinCoinTxOut pp $
-            mkBasicImplicitDepositTxOut ptrAddr (inject $ Coin 100)
+          LegacyTxOut . ensureMinCoinTxOut pp $
+            mkBasicLegacyTxOut ptrAddr (inject $ Coin 100)
         tx =
           mkBasicTx mkBasicTxBody
             & bodyTxL . collateralReturnTxBodyL .~ SJust ptrOutput
@@ -645,8 +645,8 @@ spec = describe "UTXO" $ do
       pp <- getsPParams id
       addr <- freshKeyAddr_
       amount <- arbitrary @Coin
-      pure . ImplicitDepositTxOut $
-        ensureMinCoinTxOut pp (mkBasicImplicitDepositTxOut addr (inject amount))
+      pure . LegacyTxOut $
+        ensureMinCoinTxOut pp (mkBasicLegacyTxOut addr (inject amount))
     fundAccountBalance :: AccountAddress -> Coin -> ImpTestM era ()
     fundAccountBalance account amount = do
       submitTx_ $

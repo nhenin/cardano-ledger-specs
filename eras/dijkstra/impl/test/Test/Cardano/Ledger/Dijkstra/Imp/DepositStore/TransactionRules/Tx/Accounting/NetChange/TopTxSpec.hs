@@ -51,7 +51,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   submitTxAndExpectFailureContaining,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (fixupTx, rederiveAddrTxWits)
-import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
+import Test.Cardano.Ledger.Imp.Common (expectJust, expectRight, expectationFailure, shouldBe)
 
 -- | Keep each mathematical requirement beside its named example.
 {- FOURMOLU_DISABLE -}
@@ -79,7 +79,7 @@ spec =
               GT -> TopTx.DeclaresNetUTxODepositAllocation $ positiveAmount amount
               LT -> TopTx.DeclaresNetUTxODepositRelease (positiveAmount $ negate amount) (TopTx.TopTxSettlementOutput $ TxIx 0)
               EQ -> TopTx.DeclaresZeroNetUTxODeposit) proposal)
-            `shouldBe` Scenario.expectedNetChange declared proposal
+            `shouldBe` Right (Scenario.expectedNetChange declared proposal)
 
     -- Delegation preserves the transaction total for both allocation and release.
     -- Each mode uses the same generated operation plan on freshly funded inputs,
@@ -108,7 +108,7 @@ spec =
                          (if delegated then SubTx.DelegateToTopTx else SubTx.SubTxSettlementOutput $ TxIx 0)
                     | (allocated, released) <- zip (SubTx.allocatedDeposits proposal) (SubTx.releasedDeposits proposal)
                     ]) proposal
-                observed = Scenario.requiredNetChange declaredProposal
+            observed <- expectRight $ Scenario.requiredNetChange declaredProposal
             observed `shouldBe` required
             buildAndSignTx declaredProposal >>= submitTx >>= isAccepted
             pure observed

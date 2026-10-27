@@ -81,33 +81,33 @@ instance (Era era, MemPack (CompactForm (Value era))) => MemPack (ShelleyTxOut e
   {-# INLINE unpackM #-}
 
 instance EraTxOut ShelleyEra where
-  type ImplicitDepositTxOut ShelleyEra = ShelleyTxOut ShelleyEra
-  type StoreBackedTxOut ShelleyEra = NoStoreBackedTxOut ShelleyEra
+  type LegacyTxOut ShelleyEra = ShelleyTxOut ShelleyEra
+  type NewTxOut ShelleyEra = NoNewTxOut ShelleyEra
 
   -- Calling this partial function will result in compilation error, since ByronEra has
   -- no instance for EraTxOut type class.
   upgradeTxOut = error "It is not possible to translate Byron TxOut with 'upgradeTxOut'"
 
   addrEitherTxOutL =
-    lens shelleyTxOut (const ImplicitDepositTxOut) . addrEitherShelleyTxOutL
+    lens shelleyTxOut (const LegacyTxOut) . addrEitherShelleyTxOutL
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraImplicitDepositTxOut ShelleyEra where
-  mkBasicImplicitDepositTxOut = ShelleyTxOut
+instance EraLegacyTxOut ShelleyEra where
+  mkBasicLegacyTxOut = ShelleyTxOut
 
   valueEitherTxOutL = valueEitherShelleyTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinTxOut pp _ = pp ^. ppMinUTxOValueL
 
-instance EraStoreBackedTxOut ShelleyEra where
-  mkBasicStoreBackedTxOut = notSupportedInThisEra
+instance EraNewTxOut ShelleyEra where
+  mkBasicNewTxOut = notSupportedInThisEra
 
   applicationAssetsTxOutL _ unavailable = case unavailable of {}
 
 -- | Private: recover the historical representation from Shelley's only supported variant.
 shelleyTxOut :: TxOut ShelleyEra -> ShelleyTxOut ShelleyEra
-shelleyTxOut (ImplicitDepositTxOut output) = output
+shelleyTxOut (LegacyTxOut output) = output
 {-# INLINE shelleyTxOut #-}
 
 -- The wrapper retains the historical instances and encodings without a variant tag.
@@ -129,23 +129,23 @@ instance EncCBOR (TxOut ShelleyEra) where
   encCBOR = encCBOR . shelleyTxOut
 
 instance DecCBOR (TxOut ShelleyEra) where
-  decCBOR = ImplicitDepositTxOut <$> decCBOR
+  decCBOR = LegacyTxOut <$> decCBOR
 
 instance DecShareCBOR (TxOut ShelleyEra) where
   type Share (TxOut ShelleyEra) = Interns (Credential Staking)
-  decShareCBOR = fmap ImplicitDepositTxOut . decShareCBOR
+  decShareCBOR = fmap LegacyTxOut . decShareCBOR
 
 instance MemPack (TxOut ShelleyEra) where
   packedByteCount = packedByteCount . shelleyTxOut
   packM = packM . shelleyTxOut
-  unpackM = ImplicitDepositTxOut <$> unpackM
+  unpackM = LegacyTxOut <$> unpackM
 
 instance ToJSON (TxOut ShelleyEra) where
   toJSON = toJSON . shelleyTxOut
   toEncoding = toEncoding . shelleyTxOut
 
 instance FromJSON (TxOut ShelleyEra) where
-  parseJSON = fmap ImplicitDepositTxOut . parseJSON
+  parseJSON = fmap LegacyTxOut . parseJSON
 
 addrEitherShelleyTxOutL :: Lens' (ShelleyTxOut era) (Either Addr CompactAddr)
 addrEitherShelleyTxOutL =

@@ -124,8 +124,8 @@ spec = describe "UTXO" $ do
       (_, rootTxOut) <- getImpRootTxOut
       let
         rootTxOutValue = case rootTxOut of
-          ImplicitDepositTxOut implicitOutput -> implicitOutput ^. valueTxOutL
-          StoreBackedTxOut _ -> error "DRepNotRegistered: unexpected StoreBackedTxOut for the root output"
+          LegacyTxOut implicitOutput -> implicitOutput ^. valueTxOutL
+          NewTxOut _ -> error "DRepNotRegistered: unexpected NewTxOut for the root output"
         txBody =
           mkBasicTxBody
             & inputsTxBodyL .~ [txIn]

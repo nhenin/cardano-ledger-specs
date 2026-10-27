@@ -660,10 +660,10 @@ registerInitialFunds hasFS tc newEpochState = do
     foldInjectionData hasFS source addInitialFund (Map.empty, mempty)
 
   -- Forced: left lazy, this thunk retains both inputs of `mergeUtxoNoOverlap`.
-  outputStorage <-
+  utxos <-
     either (throwIO . userError . show) pure $
-      applyLegacyOutputDelta mempty (UTxO newUtxoEntries) (utxosOutputStorage utxoState)
-  pure $! applyFunds outputStorage newUtxoEntries totalCoins
+      applyLegacyOutputDelta mempty (UTxO newUtxoEntries) (utxosUTxOs utxoState)
+  pure $! applyFunds utxos newUtxoEntries totalCoins
   where
     epochState = nesEs newEpochState
     accountState = esChainAccountState epochState
@@ -671,7 +671,7 @@ registerInitialFunds hasFS tc newEpochState = do
     utxoState = lsUTxOState ledgerState
     utxo = utxosUtxo utxoState
 
-    applyFunds outputStorage newUtxoEntries totalCoins =
+    applyFunds utxos newUtxoEntries totalCoins =
       newEpochState
         { nesEs =
             epochState
@@ -693,7 +693,7 @@ registerInitialFunds hasFS tc newEpochState = do
           ledgerState
             { lsUTxOState =
                 utxoState
-                  { utxosOutputStorage = outputStorage
+                  { utxosUTxOs = utxos
                   , -- Normally we would incrementally update here. But since we pass
                     -- the full UTxO as "toAdd" rather than a delta, we simply
                     -- reinitialise the full instant stake.

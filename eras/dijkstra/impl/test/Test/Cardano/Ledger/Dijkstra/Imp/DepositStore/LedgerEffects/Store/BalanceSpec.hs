@@ -8,7 +8,7 @@ import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
-import Cardano.Ledger.State (depositStoreAllocations, depositStoreBalance, sumAllAssets)
+import Cardano.Ledger.State (sumAllAssets)
 import Cardano.Ledger.Val (inject, (<->))
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -25,8 +25,10 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Ledger
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO as InputRoles
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   assertDepositTotal,
-  recordedDepositStore,
+  liveOutputStore,
+  recordedAmounts,
   retainsCreationMetadata,
+  storedDepositTotal,
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
@@ -50,16 +52,16 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
           signedTx <- build scenario
           previousUTxOState <- readLedger
           parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-          let previousStore = recordedDepositStore previousUTxOState
+          let previousStore = liveOutputStore previousUTxOState
               newDeposits = foldMap id $ Pricing.createdAllocations
                 (Pricing.LedgerState previousUTxOState parameters) signedTx
               recordedReleases = foldMap id $ Map.restrictKeys
-                (depositStoreAllocations previousStore) (ordinarySpendingInputs signedTx)
+                (recordedAmounts previousStore) (ordinarySpendingInputs signedTx)
           submitTx signedTx >>= isAccepted
           state <- readLedger
           assertDepositTotal state
-          let store = recordedDepositStore state
-          depositStoreBalance store `shouldBe` (depositStoreBalance previousStore <> newDeposits) <-> recordedReleases
+          let store = liveOutputStore state
+          storedDepositTotal store `shouldBe` (storedDepositTotal previousStore <> newDeposits) <-> recordedReleases
 
   -- Real failures release historical collateral records and fund only the actual
   -- return. Real successes release only ordinary sources, including a source shared
@@ -71,16 +73,16 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
           fixture <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           Fixture{signedTx, releasedDeposits, returnDeposit} <-
             if shared then InputRoles.withSharedOrdinaryInput fixture else pure fixture
-          previousStore <- recordedDepositStore <$> readLedger
+          previousStore <- liveOutputStore <$> readLedger
           let change = case signedTx ^. isPhase2ValidTxL of
                 Phase2Valid -> Coin 0 <-> foldMap id (Map.restrictKeys
-                  (depositStoreAllocations previousStore) (ordinarySpendingInputs signedTx))
+                  (recordedAmounts previousStore) (ordinarySpendingInputs signedTx))
                 Phase2Invalid -> returnDeposit <-> releasedDeposits
           submitTx signedTx >>= isAccepted
           state <- readLedger
           assertDepositTotal state
-          let store = recordedDepositStore state
-          depositStoreBalance store `shouldBe` depositStoreBalance previousStore <> change
+          let store = liveOutputStore state
+          storedDepositTotal store `shouldBe` storedDepositTotal previousStore <> change
 
   -- Recorded releases survive snapshot restoration, changed prices and a shorter re-encoding.
   -- Releasing the source returns its actual creation-time contribution,
@@ -99,13 +101,13 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin coins)
-      previousStore <- recordedDepositStore <$> readLedger
-      Map.lookup source (depositStoreAllocations previousStore) `shouldBe` Just recordedDeposit
+      previousStore <- liveOutputStore <$> readLedger
+      Map.lookup source (recordedAmounts previousStore) `shouldBe` Just recordedDeposit
       submitTx spendingTx >>= isAccepted
       state <- readLedger
       assertDepositTotal state
-      let store = recordedDepositStore state
-      depositStoreBalance store `shouldBe` depositStoreBalance previousStore <-> recordedDeposit
+      let store = liveOutputStore state
+      storedDepositTotal store `shouldBe` storedDepositTotal previousStore <-> recordedDeposit
 
   -- Ordinary multi-body declarations can describe allocations and releases, but
   -- a real failing parent script applies neither transfer. Its collateral is implicit.
@@ -113,11 +115,11 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
     forAll Effects.ordinaryScenarios $ \scenarios ->
       forM_ (filter (not . null . Accounting.subOperations) scenarios) $ \scenario -> do
         signedTx <- Effects.buildAndSignOrdinaryPhase2Invalid scenario
-        balanceBefore <- depositStoreBalance . recordedDepositStore <$> readLedger
+        balanceBefore <- storedDepositTotal . liveOutputStore <$> readLedger
         submitTx signedTx >>= isAccepted
         state <- readLedger
         assertDepositTotal state
-        let balanceAfter = depositStoreBalance $ recordedDepositStore state
+        let balanceAfter = storedDepositTotal $ liveOutputStore state
         balanceAfter `shouldBe` balanceBefore
 
   -- Two independently accepted outputs retain distinct historical prices, while
@@ -151,11 +153,11 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       submitTx signedTx >>= isAccepted
       after <- readLedger
       retainsCreationMetadata (txInAt 0 signedTx) createdBytes (CoinPerByte $ CompactCoin 3000) after
-      let beforeStore = recordedDepositStore before
-          afterStore = recordedDepositStore after
-      depositStoreBalance afterStore `shouldBe` (depositStoreBalance beforeStore <> newDeposit) <-> releases
-      Map.lookup oldInput (depositStoreAllocations afterStore) `shouldBe` Nothing
-      Map.lookup newerInput (depositStoreAllocations afterStore) `shouldBe` Nothing
+      let beforeStore = liveOutputStore before
+          afterStore = liveOutputStore after
+      storedDepositTotal afterStore `shouldBe` (storedDepositTotal beforeStore <> newDeposit) <-> releases
+      Map.lookup oldInput (recordedAmounts afterStore) `shouldBe` Nothing
+      Map.lookup newerInput (recordedAmounts afterStore) `shouldBe` Nothing
 
   -- A child's accepted bytes and rate must enter the same store as parent outputs.
   -- A later ordinary spend uses the child's own output reference after restoration.
@@ -177,8 +179,8 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       submitTx spendingTx >>= isAccepted
       after <- readLedger
       assertDepositTotal after
-      depositStoreBalance (recordedDepositStore after) `shouldBe` depositStoreBalance (recordedDepositStore before) <-> release
-      Map.lookup source (depositStoreAllocations $ recordedDepositStore after) `shouldBe` Nothing
+      storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal (liveOutputStore before) <-> release
+      Map.lookup source (recordedAmounts $ liveOutputStore after) `shouldBe` Nothing
 
   -- The actually applied collateral return gets its accepted byte count even
   -- though ordinary outputs are skipped. A later spend releases that exact amount.
@@ -207,6 +209,6 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       submitTx spendingTx >>= isAccepted
       after <- readLedger
       assertDepositTotal after
-      depositStoreBalance (recordedDepositStore after) `shouldBe` depositStoreBalance (recordedDepositStore before) <-> release
-      Map.lookup source (depositStoreAllocations $ recordedDepositStore after) `shouldBe` Nothing
+      storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal (liveOutputStore before) <-> release
+      Map.lookup source (recordedAmounts $ liveOutputStore after) `shouldBe` Nothing
 {- FOURMOLU_ENABLE -}

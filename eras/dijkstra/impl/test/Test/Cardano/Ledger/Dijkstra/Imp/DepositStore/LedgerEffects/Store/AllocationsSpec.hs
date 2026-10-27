@@ -16,7 +16,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
   utxosUtxo,
  )
-import Cardano.Ledger.State (depositStoreAllocations, unUTxO)
+import Cardano.Ledger.State (unUTxO)
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -31,7 +31,8 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Ledger
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO as InputRoles
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   assertDepositTotal,
-  recordedDepositStore,
+  liveOutputStore,
+  recordedAmounts,
   retainsCreationMetadata,
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
@@ -66,13 +67,13 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
           signedTx <- build scenario
           previousUTxOState <- readLedger
           parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-          let recordsBefore = depositStoreAllocations $ recordedDepositStore previousUTxOState
+          let recordsBefore = recordedAmounts $ liveOutputStore previousUTxOState
               newAllocations = Pricing.createdAllocations
                 (Pricing.LedgerState previousUTxOState parameters) signedTx
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
           assertDepositTotal utxoState
-          let recordsAfter = depositStoreAllocations $ recordedDepositStore utxoState
+          let recordsAfter = recordedAmounts $ liveOutputStore utxoState
           recordsAfter `shouldBe` newAllocations <> Map.withoutKeys recordsBefore (ordinarySpendingInputs signedTx)
           Map.keysSet recordsAfter `shouldBe` Map.keysSet
             (Map.filter (not . isImplicitOutput) $ unUTxO $ utxosUtxo utxoState)
@@ -87,15 +88,15 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
           fixture <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           Fixture{signedTx, previousUTxOState, collateralInputs, returnDeposit} <-
             if shared then InputRoles.withSharedOrdinaryInput fixture else pure fixture
-          let recordsBefore = depositStoreAllocations $ recordedDepositStore previousUTxOState
+          let recordsBefore = recordedAmounts $ liveOutputStore previousUTxOState
               returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
               returnAllocation = case signedTx ^. bodyTxL . collateralReturnTxBodyL of
-                SJust (StoreBackedTxOut _) -> Map.singleton returnInput returnDeposit
+                SJust (NewTxOut _) -> Map.singleton returnInput returnDeposit
                 _ -> Map.empty
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
           assertDepositTotal utxoState
-          let recordsAfter = depositStoreAllocations $ recordedDepositStore utxoState
+          let recordsAfter = recordedAmounts $ liveOutputStore utxoState
           recordsAfter `shouldBe` case signedTx ^. isPhase2ValidTxL of
             Phase2Valid -> Map.withoutKeys recordsBefore $ ordinarySpendingInputs signedTx
             Phase2Invalid -> returnAllocation <> Map.withoutKeys recordsBefore collateralInputs
@@ -114,7 +115,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       submitTx allocationTx >>= isAccepted
       allocatedState <- readLedger
       retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin 1000) allocatedState
-      let records = depositStoreAllocations $ recordedDepositStore allocatedState
+      let records = recordedAmounts $ liveOutputStore allocatedState
       Map.lookup source records `shouldBe` Just creationDeposit
       canonicalOutput <- expectJust $
         Map.lookup source $ unUTxO $ utxosUtxo allocatedState
@@ -127,7 +128,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       submitTx referenceTx >>= isAccepted
       referencedState <- readLedger
       retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin 1000) referencedState
-      depositStoreAllocations (recordedDepositStore referencedState) `shouldBe` records
+      recordedAmounts (liveOutputStore referencedState) `shouldBe` records
       address <- freshKeyAddrNoPtr_
       spendingTx <- fixupTx $
         Pricing.declareNetDeposit (Coin $ negate $ 1000 * (160 + toInteger acceptedBytes)) $
@@ -137,7 +138,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       submitTx spendingTx >>= isAccepted
       consumedState <- readLedger
       assertDepositTotal consumedState
-      depositStoreAllocations (recordedDepositStore consumedState) `shouldBe` Map.delete source records
+      recordedAmounts (liveOutputStore consumedState) `shouldBe` Map.delete source records
 
   -- A zero byte price creates zero-valued records, not missing records. Parent
   -- and child outputs remain distinct; their translated funding inputs are implicit.
@@ -159,9 +160,9 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
         submitTx signedTx >>= isAccepted
         utxoState <- readLedger
         assertDepositTotal utxoState
-        depositStoreAllocations (recordedDepositStore utxoState)
+        recordedAmounts (liveOutputStore utxoState)
           `shouldBe` newAllocations <> Map.withoutKeys
-            (depositStoreAllocations $ recordedDepositStore previousUTxOState) (ordinarySpendingInputs signedTx)
+            (recordedAmounts $ liveOutputStore previousUTxOState) (ordinarySpendingInputs signedTx)
 
   -- A real failing parent script skips proposed allocations/releases in every
   -- ordinary body. This fixture's disjoint collateral uses implicit deposits only.
@@ -169,8 +170,8 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
     forAll Effects.ordinaryScenarios $ \scenarios ->
       forM_ (filter (not . null . Accounting.subOperations) scenarios) $ \scenario -> do
         signedTx <- Effects.buildAndSignOrdinaryPhase2Invalid scenario
-        recordsBefore <- depositStoreAllocations . recordedDepositStore <$> readLedger
+        recordsBefore <- recordedAmounts . liveOutputStore <$> readLedger
         submitTx signedTx >>= isAccepted
-        recordsAfter <- depositStoreAllocations . recordedDepositStore <$> readLedger
+        recordsAfter <- recordedAmounts . liveOutputStore <$> readLedger
         recordsAfter `shouldBe` recordsBefore
 {- FOURMOLU_ENABLE -}

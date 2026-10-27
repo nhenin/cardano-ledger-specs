@@ -14,7 +14,6 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraUtxoPredFailure (InsufficientCollateral),
   collateralDepositSettlement,
  )
-import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
 import Cardano.Ledger.Val ((<->))
 import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro
@@ -24,7 +23,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (
   OutputForm (..),
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (liveOutputStore)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (declarationToTxBody)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
@@ -33,7 +32,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitTx,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (rederiveAddrTxWits, simulateThenRestore)
-import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
+import Test.Cardano.Ledger.Imp.Common (expectRight, shouldBe, shouldSatisfy)
 
 -- | Every sample includes both real script outcomes and every deposit relationship.
 -- The return's final serialized bytes determine its deposit, including at zero ADA.
@@ -129,8 +128,8 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
                 & collateralReturnTxBodyL .~ (originalBody ^. collateralReturnTxBodyL)
                 & feeTxBodyL .~ (originalBody ^. feeTxBodyL)
                 & totalCollateralTxBodyL .~ (originalBody ^. totalCollateralTxBodyL)
-              settlement = collateralDepositSettlement protocolParameters
-                (utxosUtxo previousUTxOState) (recordedDepositStore previousUTxOState) body
+          settlement <- expectRight $ collateralDepositSettlement protocolParameters
+            (liveOutputStore previousUTxOState) body
           collateralReleasedDeposits settlement `shouldBe` releasedDeposits
           collateralReturnDeposit settlement `shouldBe` returnDeposit
           collateralAdditionalDeposit settlement `shouldBe` additionalDeposit

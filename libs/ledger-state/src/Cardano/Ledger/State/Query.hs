@@ -80,7 +80,7 @@ insertUTxO ::
 insertUTxO utxo stateKey = do
   mapM_ insertTxOut $ Map.toList (Shelley.unUTxO utxo)
   where
-    insertTxOut (TxIn.TxIn txId txIx, ImplicitDepositTxOut output) = do
+    insertTxOut (TxIn.TxIn txId txIx, LegacyTxOut output) = do
       txKey <-
         insert $ Tx {txInIx = txIx, txInId = txId, txOut = output}
       txsKey <-
@@ -538,7 +538,7 @@ sourceUTxO ::
   ConduitM () (TxIn.TxIn, TxOut CurrentEra) (ReaderT SqlBackend m) ()
 sourceUTxO =
   selectSource [] []
-    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, ImplicitDepositTxOut txOut))
+    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, LegacyTxOut txOut))
 
 sourceWithSharingUTxO ::
   MonadResource m =>
@@ -547,8 +547,8 @@ sourceWithSharingUTxO ::
 sourceWithSharingUTxO stakeCredentials =
   sourceUTxO
     .| mapC
-      ( fmap $ \(ImplicitDepositTxOut output) ->
-          ImplicitDepositTxOut $ internBabbageTxOut (`intern` stakeCredentials) output
+      ( fmap $ \(LegacyTxOut output) ->
+          LegacyTxOut $ internBabbageTxOut (`intern` stakeCredentials) output
       )
 
 foldDbUTxO ::

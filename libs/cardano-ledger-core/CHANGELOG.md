@@ -2,7 +2,10 @@
 
 ## 1.23.0.0
 
-* Add `DepositStore`, reexported from `Cardano.Ledger.State`, with a separate ADA balance, per-`TxIn` recorded UTxO capacity deposits, state lenses and serialization.
+* Use `LegacyTxOut` and `NewTxOut` for the two output APIs, with `EraLegacyTxOut`, `EraNewTxOut` and their corresponding basic-output builders.
+* Add `UTxOStore`, reexported from `Cardano.Ledger.State`, with the `UTxOStore` record constructor, `UnspentOutputDepositsAmount` total and `Allocations` map of `Unspent (TxOut era)` values. The generic `Unspent` record retains a sized output and deposit calculation for both output forms; legacy external refunds remain zero. Provide checked construction, atomic updates and uniform three-field metadata serialization; reject the earlier experimental allocation-entry schemas.
+* Add the `UTxOs` bridge, with `LegacyUTxOMap` retaining the existing UTxO representation for earlier eras and the `UTxOs` constructor holding the unified allocation store for Dijkstra.
+* Place both `UTxOs` and `UTxOStore` in `Cardano.Ledger.State.UTxO.Store`. Move the complete `Cardano.Ledger.State.UTxO` API, including its newtype, instances, shared classes, `EraUTxO` and functions, into `Cardano.Ledger.State.UTxO.LegacyUTxOMap` and remove the old core module; retain the `UTxO` type name.
 * Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
 
 * Select the Leios voting committee (CIP-0164) when the mark snapshot is created, instead of when it rotates into the set position:

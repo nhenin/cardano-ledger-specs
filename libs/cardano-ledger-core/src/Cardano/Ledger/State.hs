@@ -2,10 +2,8 @@ module Cardano.Ledger.State (
   module Cardano.Ledger.State.Account,
   module Cardano.Ledger.State.ChainAccount,
   module Cardano.Ledger.State.CertState,
-  module Cardano.Ledger.State.DepositStore,
-  module Cardano.Ledger.State.InMemoryUnspentTxOutputStore,
-  module Cardano.Ledger.State.OutputStorage,
-  module Cardano.Ledger.State.UTxO,
+  module Cardano.Ledger.State.UTxO.Store,
+  module Cardano.Ledger.State.UTxO.LegacyUTxOMap,
   module Cardano.Ledger.State.LeiosCommittee,
   module Cardano.Ledger.State.PoolDistr,
   module Cardano.Ledger.State.SnapShots,
@@ -17,13 +15,11 @@ module Cardano.Ledger.State (
 import Cardano.Ledger.State.Account
 import Cardano.Ledger.State.CertState
 import Cardano.Ledger.State.ChainAccount
-import Cardano.Ledger.State.DepositStore
 import Cardano.Ledger.State.Governance
-import Cardano.Ledger.State.InMemoryUnspentTxOutputStore
 import Cardano.Ledger.State.LeiosCommittee
-import Cardano.Ledger.State.OutputStorage
 import Cardano.Ledger.State.PoolDistr
 import Cardano.Ledger.State.SnapShots
 import Cardano.Ledger.State.Stake
 import Cardano.Ledger.State.StakePool
-import Cardano.Ledger.State.UTxO
+import Cardano.Ledger.State.UTxO.LegacyUTxOMap
+import Cardano.Ledger.State.UTxO.Store

@@ -32,7 +32,6 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxODeposit.SubTx
-import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)))
@@ -42,7 +41,10 @@ import qualified Data.OMap.Strict as OMap
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, elements, shuffle, vectorOf)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (
   SingleSourceScenario (..),
  )
@@ -188,7 +190,7 @@ releasedDeposits :: Context.ReleaseTx -> [Coin]
 releasedDeposits context =
   [ foldMap id $ Map.restrictKeys records (subTx ^. bodyTxL . inputsTxBodyL)
   | subTx <- OMap.elems $ Context.unsignedTx context ^. bodyTxL . subTransactionsTxBodyL
-  , let records = depositStoreAllocations $ recordedDepositStore $ TopTx.utxoState $ Context.ledgerState context
+  , let records = recordedAmounts $ liveOutputStore $ TopTx.utxoState $ Context.ledgerState context
   ]
 
 -- | Original ordinary input references, grouped in SubTx order. Each generated
@@ -205,5 +207,5 @@ spendingInputs context =
 -- children are active, so an absent declaration cannot conceal a recorded release.
 storeBackedInputs :: Context.ReleaseTx -> [TxIn]
 storeBackedInputs context =
-  let records = depositStoreAllocations $ recordedDepositStore $ TopTx.utxoState $ Context.ledgerState context
+  let records = recordedAmounts $ liveOutputStore $ TopTx.utxoState $ Context.ledgerState context
    in filter (`Map.member` records) $ spendingInputs context

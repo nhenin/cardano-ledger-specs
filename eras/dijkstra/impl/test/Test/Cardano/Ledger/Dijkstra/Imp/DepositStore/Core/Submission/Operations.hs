@@ -16,7 +16,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsUTxOStateL,
   nesEsL,
  )
-import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
@@ -25,7 +24,10 @@ import qualified Data.Set as Set
 import Data.Typeable (Typeable)
 import Lens.Micro
 import Test.Cardano.Ledger.Core.Utils (txInAt)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations as Operations
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (LedgerState (..))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
@@ -64,10 +66,10 @@ fundOperations scenario = do
   forM_ (zip [0 ..] sourceOutputs) $ \(index, source) -> do
     let input = txInAt index funded
     impGetUTxO input >>= (`shouldBe` source)
-    Map.lookup input (depositStoreAllocations $ recordedDepositStore state)
+    Map.lookup input (recordedAmounts $ liveOutputStore state)
       `shouldBe` case source of
-        StoreBackedTxOut _ -> Just (Coin 0)
-        ImplicitDepositTxOut _ -> Nothing
+        NewTxOut _ -> Just (Coin 0)
+        LegacyTxOut _ -> Nothing
   pure $ ReleaseTx (LedgerState state parameters) proposal
 
 -- | Construct one undeclared body retaining its source's application ADA. Its

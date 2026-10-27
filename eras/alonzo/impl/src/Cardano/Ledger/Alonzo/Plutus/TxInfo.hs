@@ -348,8 +348,8 @@ transTxOut txOut = do
   -- We can check for Byron address without decompacting the address in the TxOut
   guard $ isNothing (txOut ^. bootAddrTxOutF)
   let val = case txOut of
-        ImplicitDepositTxOut output -> output ^. valueTxOutL
-        StoreBackedTxOut _ -> error "Alonzo.transTxOut: unexpected StoreBackedTxOut"
+        LegacyTxOut output -> output ^. valueTxOutL
+        NewTxOut _ -> error "Alonzo.transTxOut: unexpected NewTxOut"
       dataHash = txOut ^. dataHashTxOutL
   address <- transAddr (txOut ^. addrTxOutL)
   pure $ PV1.TxOut address (transValue val) (transDataHash <$> strictMaybeToMaybe dataHash)

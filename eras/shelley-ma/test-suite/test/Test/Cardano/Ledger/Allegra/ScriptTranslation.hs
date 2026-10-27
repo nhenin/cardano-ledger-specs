@@ -56,7 +56,7 @@ testScriptPostTranslation =
             S.UTxO $
               Map.singleton
                 (S.TxIn bootstrapTxId minBound)
-                (ImplicitDepositTxOut $ mkCoinTxOut addr (S.Coin 1))
+                (LegacyTxOut $ mkCoinTxOut addr (S.Coin 1))
           env =
             S.LedgerEnv
               (SlotNo 0)
@@ -64,7 +64,7 @@ testScriptPostTranslation =
               minBound
               emptyPParams
               (ChainAccountState (S.Coin 0) (S.Coin 0))
-          utxoStShelley = def {S.utxosOutputStorage = LegacyOutputs utxo}
+          utxoStShelley = def {S.utxosUTxOs = LegacyUTxOMap utxo}
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =
             mkBasicTxBody @ShelleyEra @TopTx

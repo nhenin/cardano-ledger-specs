@@ -80,7 +80,7 @@ translateUTxOByronToShelley (Byron.UTxO utxoByron) =
       [ (txInShelley, txOutShelley)
       | (txInByron, txOutByron) <- Map.toList utxoByron
       , let txInShelley = translateCompactTxInByronToShelley txInByron
-            txOutShelley = ImplicitDepositTxOut . translateCompactTxOutByronToShelley $ txOutByron
+            txOutShelley = LegacyTxOut . translateCompactTxOutByronToShelley $ txOutByron
       , -- In some testnets there are a few TxOuts with zero values injected at
       -- initialization of Byron. We do not allow zero values in TxOuts in Shelley
       -- onwards.
@@ -160,7 +160,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       LedgerState
         { lsUTxOState =
             UTxOState
-              { utxosOutputStorage = LegacyOutputs utxoShelley
+              { utxosUTxOs = LegacyUTxOMap utxoShelley
               , utxosDeposited = Coin 0
               , utxosFees = Coin 0
               , utxosGovState = emptyGovState

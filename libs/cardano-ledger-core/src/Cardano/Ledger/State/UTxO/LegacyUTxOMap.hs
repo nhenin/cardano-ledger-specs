@@ -17,7 +17,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
-module Cardano.Ledger.State.UTxO (
+module Cardano.Ledger.State.UTxO.LegacyUTxOMap (
   CanGetUTxO (..),
   CanSetUTxO (..),
 
@@ -203,20 +203,20 @@ sumCoinUTxO = sumAllCoin . unUTxO
 sumAllAssets ::
   (EraTxOut era, Foldable f) => f (TxOut era) -> Assets era
 sumAllAssets = foldMap' $ \case
-  ImplicitDepositTxOut txOut -> Assets (txOut ^. valueTxOutL)
-  StoreBackedTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
+  LegacyTxOut txOut -> Assets (txOut ^. valueTxOutL)
+  NewTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
 {-# INLINE sumAllAssets #-}
 
 -- | Sum all the value in any Foldable with 'TxOut's
 sumAllValue ::
-  (EraImplicitDepositTxOut era, Foldable f) => f (ImplicitDepositTxOut era) -> Value era
+  (EraLegacyTxOut era, Foldable f) => f (LegacyTxOut era) -> Value era
 sumAllValue = foldMap' (^. valueTxOutL)
 {-# INLINE sumAllValue #-}
 
 -- | Sum the application assets of store-backed outputs.
 sumAllApplicationAssets ::
-  (EraStoreBackedTxOut era, Monoid (ApplicationAssets era), Foldable f) =>
-  f (StoreBackedTxOut era) -> ApplicationAssets era
+  (EraNewTxOut era, Monoid (ApplicationAssets era), Foldable f) =>
+  f (NewTxOut era) -> ApplicationAssets era
 sumAllApplicationAssets = foldMap' (^. applicationAssetsTxOutL)
 {-# INLINE sumAllApplicationAssets #-}
 

@@ -199,7 +199,7 @@ instance
 
 -- TxOut
 instance ToExpr (TxOut ConwayEra) where
-  toExpr (ImplicitDepositTxOut output) = App "ImplicitDepositTxOut" [toExpr output]
+  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
 
 -- TxBody
 instance ToExpr (ConwayTxBodyRaw TopTx ConwayEra) where

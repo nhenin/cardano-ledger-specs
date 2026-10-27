@@ -286,7 +286,7 @@ test-suite tests
   other-modules:
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
-    Test.Cardano.Ledger.Dijkstra.Binary.InMemoryUnspentTxOutputStoreSpec
+    Test.Cardano.Ledger.Dijkstra.Binary.UTxOStoreSpec
     Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec
     Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec

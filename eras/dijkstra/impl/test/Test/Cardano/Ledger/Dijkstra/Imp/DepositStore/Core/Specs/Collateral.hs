@@ -40,7 +40,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
-import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
 import qualified Data.ByteString as BS
@@ -52,7 +51,10 @@ import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Common (Gen, arbitrary, chooseInt, chooseInteger)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration as Declaration
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
@@ -247,7 +249,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
         & bodyTxL . collateralReturnTxBodyL .~ finalReturn
         & isPhase2ValidTxL .~ phase2
   state <- readLedger
-  let records = depositStoreAllocations $ recordedDepositStore state
+  let records = recordedAmounts $ liveOutputStore state
       released = foldMap id $ Map.restrictKeys records inputs
       Coin fee = signed ^. bodyTxL . feeTxBodyL
       percentage = toInteger $ parameters ^. ppCollateralPercentageL
@@ -315,8 +317,8 @@ withReturnAssets assets fixture = do
   returned <- expectJust $ strictMaybeToMaybe $ signedTx fixture ^. bodyTxL . collateralReturnTxBodyL
   let value = MaryValue (returned ^. coinTxOutL) assets
       changed = case returned of
-        ImplicitDepositTxOut implicit -> ImplicitDepositTxOut $ implicit & valueTxOutL .~ value
-        StoreBackedTxOut stored -> StoreBackedTxOut $ stored & applicationAssetsTxOutL .~ ApplicationAssets value
+        LegacyTxOut implicit -> LegacyTxOut $ implicit & valueTxOutL .~ value
+        NewTxOut stored -> NewTxOut $ stored & applicationAssetsTxOutL .~ ApplicationAssets value
   installReturn (SJust changed) fixture
 
 -- | Remove the return entirely while keeping the collateral inputs and script.

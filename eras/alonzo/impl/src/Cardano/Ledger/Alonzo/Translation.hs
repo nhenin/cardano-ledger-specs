@@ -138,7 +138,7 @@ instance TranslateEra AlonzoEra UTxOState where
   translateEra ctxt us =
     return
       UTxOState
-        { utxosOutputStorage = LegacyOutputs $ translateEra' ctxt $ utxosUtxo us
+        { utxosUTxOs = LegacyUTxOMap $ translateEra' ctxt $ utxosUtxo us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
         , utxosGovState = translateEra' ctxt $ utxosGovState us

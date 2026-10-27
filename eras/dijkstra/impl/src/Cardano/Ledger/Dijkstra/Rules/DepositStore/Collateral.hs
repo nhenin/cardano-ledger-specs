@@ -20,7 +20,8 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   CollateralDepositSettlement (..),
   collateralDepositSettlement,
  )
-import Cardano.Ledger.State (DepositStore, UTxO (..), sumAllAssets)
+import Cardano.Ledger.State (OutputStoreError, UTxOStore, sumAllAssets)
+import qualified Cardano.Ledger.State as Store
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Cardano.Ledger.Val as Val
 import Data.Bifunctor (first)
@@ -43,24 +44,29 @@ validateCollateralFunding ::
   ) =>
   PParams era ->
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
-  DepositStore ->
-  Validation (NonEmpty (EraRuleFailure rule era)) ()
-validateCollateralFunding pp body collateralInputs store =
-  let settlement = collateralDepositSettlement pp (UTxO collateralInputs) store body
-   in sequenceA_
-        [ first (fmap injectFailure) $ Alonzo.validateScriptsNotPaidUTxO collateralInputs
-        , first (fmap injectFailure) $ validateCollateralAssets body collateralInputs
-        , first (fmap injectFailure) $
-            Alonzo.validateInsufficientCollateral pp body $
-              toDeltaCoin $
-                collateralCoinFee settlement
-        , first (fmap injectFailure) $
-            Babbage.validateCollateralEqBalance
-              (collAdaBalance body collateralInputs)
-              (body ^. totalCollateralTxBodyL)
-        , failureUnless (not $ Map.null collateralInputs) (injectFailure $ Alonzo.NoCollateralInputs @era)
-        ]
+  UTxOStore era ->
+  Either OutputStoreError (Validation (NonEmpty (EraRuleFailure rule era)) ())
+validateCollateralFunding pp body store = do
+  settlement <- collateralDepositSettlement pp store body
+  let collateralInputs =
+        Map.map Store.allocationOutput $
+          Map.restrictKeys
+            (Store.unAllocations $ Store.allocations store)
+            (body ^. collateralInputsTxBodyL)
+  pure $
+    sequenceA_
+      [ first (fmap injectFailure) $ Alonzo.validateScriptsNotPaidUTxO collateralInputs
+      , first (fmap injectFailure) $ validateCollateralAssets body collateralInputs
+      , first (fmap injectFailure) $
+          Alonzo.validateInsufficientCollateral pp body $
+            toDeltaCoin $
+              collateralCoinFee settlement
+      , first (fmap injectFailure) $
+          Babbage.validateCollateralEqBalance
+            (collAdaBalance body collateralInputs)
+            (body ^. totalCollateralTxBodyL)
+      , failureUnless (not $ Map.null collateralInputs) (injectFailure $ Alonzo.NoCollateralInputs @era)
+      ]
 
 -- | Both output forms carry application assets. Every non-ADA asset consumed as
 -- collateral must be returned with its exact quantity, including when the

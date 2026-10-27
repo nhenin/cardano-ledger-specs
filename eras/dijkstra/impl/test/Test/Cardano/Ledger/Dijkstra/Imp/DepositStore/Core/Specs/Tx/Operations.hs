@@ -71,7 +71,7 @@ outputWithForm address StoreBackedOutput amount =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
 
 -- | Inspect every body's own ordinary inputs and outputs against the captured
--- UTxO. A StoreBackedTxOut requires presence regardless of its recorded amount.
+-- UTxO. A NewTxOut requires presence regardless of its recorded amount.
 -- This oracle does not call production presence predicates or read declarations.
 requiredDeclarationOwners :: UTxO DijkstraEra -> Tx TopTx DijkstraEra -> [DeclarationOwner]
 requiredDeclarationOwners utxo tx =
@@ -97,5 +97,5 @@ requiresDeclaration (UTxO outputs) tx =
     || any isStoreBacked (Map.restrictKeys outputs $ tx ^. bodyTxL . inputsTxBodyL)
 
 isStoreBacked :: TxOut DijkstraEra -> Bool
-isStoreBacked (StoreBackedTxOut _) = True
-isStoreBacked (ImplicitDepositTxOut _) = False
+isStoreBacked (NewTxOut _) = True
+isStoreBacked (LegacyTxOut _) = False

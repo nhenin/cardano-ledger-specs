@@ -95,7 +95,7 @@ instance (EraTxOut era, ToExpr (Value era)) => ToExpr (ShelleyTxOut era) where
   toExpr (ShelleyTxOut x y) = App "ShelleyTxOut" [toExpr x, toExpr y]
 
 instance ToExpr (TxOut ShelleyEra) where
-  toExpr (ImplicitDepositTxOut output) = App "ImplicitDepositTxOut" [toExpr output]
+  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
 
 -- TxBody
 instance ToExpr (ShelleyTxBodyRaw TopTx ShelleyEra) where
