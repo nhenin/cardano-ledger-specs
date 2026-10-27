@@ -59,7 +59,7 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
           LegacyTxOut _ -> do
             -- Imported legacy outputs use explicit compatibility metadata; their
             -- historical accepted size cannot be recovered from the Conway state.
-            unspentOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (allocationOutput entry)
+            sizedOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (allocationOutput entry)
             depositCalculation entry `shouldBe` DepositCalculationV1 (CoinPerByte $ CompactCoin 0)
           NewTxOut _ -> expectationFailure "Every translated Conway output must remain a LegacyTxOut"
         unspentOutputDepositsAmount (totalDepositAmount $ liveOutputStore utxoState)
