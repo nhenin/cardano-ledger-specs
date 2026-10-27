@@ -63,6 +63,7 @@ import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut (areAllAdaOnly)
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val (inject, isAdaOnly, pointwise)
 import Control.DeepSeq (NFData)

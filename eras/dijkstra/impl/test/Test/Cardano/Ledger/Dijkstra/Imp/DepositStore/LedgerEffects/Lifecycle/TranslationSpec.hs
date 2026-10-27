@@ -10,6 +10,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
@@ -55,14 +56,14 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
         recordedAmounts (liveOutputStore utxoState) `shouldBe` Map.empty
         let entries = unAllocations $ allocations $ liveOutputStore utxoState
         Map.keysSet entries `shouldBe` Map.keysSet outputs
-        forM_ (Map.elems entries) $ \entry -> case allocationOutput entry of
+        forM_ (Map.elems entries) $ \entry -> case UTxO.toTxOut entry of
           LegacyTxOut _ -> do
             -- Imported legacy outputs use explicit compatibility metadata; their
             -- historical accepted size cannot be recovered from the Conway state.
-            sizedOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (allocationOutput entry)
+            sizedOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (UTxO.toTxOut entry)
             depositCalculation entry `shouldBe` DepositCalculationV1 (CoinPerByte $ CompactCoin 0)
           NewTxOut _ -> expectationFailure "Every translated Conway output must remain a LegacyTxOut"
-        unspentOutputDepositsAmount (totalDepositAmount $ liveOutputStore utxoState)
+        toCoin (totalDepositAmount $ liveOutputStore utxoState)
           `shouldBe` expectedDepositTotal (liveOutputStore utxoState)
         -- Check each actual monetary pot, so a swapped or reset pot is visible.
         translatedState ^. treasuryL `shouldBe` previousState ^. treasuryL

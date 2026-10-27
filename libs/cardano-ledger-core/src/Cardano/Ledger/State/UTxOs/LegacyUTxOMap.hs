@@ -7,7 +7,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -17,7 +16,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 
-module Cardano.Ledger.State.UTxO.LegacyUTxOMap (
+module Cardano.Ledger.State.UTxOs.LegacyUTxOMap (
   CanGetUTxO (..),
   CanSetUTxO (..),
 
@@ -33,11 +32,6 @@ module Cardano.Ledger.State.UTxO.LegacyUTxOMap (
   txouts,
   sumUTxO,
   sumCoinUTxO,
-  sumAllAssets,
-  sumAllValue,
-  sumAllApplicationAssets,
-  sumAllCoin,
-  areAllAdaOnly,
   verifyWitVKey,
   getScriptHash,
 ) where
@@ -52,23 +46,22 @@ import Cardano.Ledger.Binary (
   decNoShareCBOR,
   decodeMap,
  )
-import Cardano.Ledger.Coin (Coin, CompactForm (CompactCoin))
-import Cardano.Ledger.Compactible (Compactible (..))
+import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Keys (verifySignedDSIGN)
 import Cardano.Ledger.Keys.WitVKey (WitVKey (..))
 import Cardano.Ledger.State.CertState (CertState)
 import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllAssets, sumAllCoin)
 import Control.DeepSeq (NFData)
 import Control.Monad ((<$!>))
 import Data.Aeson (ToJSON)
 import Data.Coerce (coerce)
 import Data.Default (Default)
-import Data.Foldable (foldMap', toList)
+import Data.Foldable (toList)
 import Data.Kind (Type)
 import qualified Data.Map.Strict as Map
-import Data.Monoid (Sum (..))
 import Data.Set (Set)
 import GHC.Generics (Generic)
 import Lens.Micro (Lens', SimpleGetter, (^.))
@@ -197,46 +190,6 @@ sumUTxO = sumAllAssets . unUTxO
 sumCoinUTxO :: EraTxOut era => UTxO era -> Coin
 sumCoinUTxO = sumAllCoin . unUTxO
 {-# INLINE sumCoinUTxO #-}
-
--- | Sum the assets held in outputs. Implicit deposits remain included;
--- deposits held in the separate store are not part of this balance.
-sumAllAssets ::
-  (EraTxOut era, Foldable f) => f (TxOut era) -> Assets era
-sumAllAssets = foldMap' $ \case
-  LegacyTxOut txOut -> Assets (txOut ^. valueTxOutL)
-  NewTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
-{-# INLINE sumAllAssets #-}
-
--- | Sum all the value in any Foldable with 'TxOut's
-sumAllValue ::
-  (EraLegacyTxOut era, Foldable f) => f (LegacyTxOut era) -> Value era
-sumAllValue = foldMap' (^. valueTxOutL)
-{-# INLINE sumAllValue #-}
-
--- | Sum the application assets of store-backed outputs.
-sumAllApplicationAssets ::
-  (EraNewTxOut era, Monoid (ApplicationAssets era), Foldable f) =>
-  f (NewTxOut era) -> ApplicationAssets era
-sumAllApplicationAssets = foldMap' (^. applicationAssetsTxOutL)
-{-# INLINE sumAllApplicationAssets #-}
-
--- | Sum all the 'Coin's in any Foldable with with 'TxOut's.
---
--- /Warning/ - Care should be taken since it is susceptible to integer overflow, therefore make sure
--- this function is not applied to unvalidated 'TxOut's
-sumAllCoin :: (EraTxOut era, Foldable f) => f (TxOut era) -> Coin
-sumAllCoin = fromCompact . CompactCoin . getSum . foldMap' getCoinWord64
-  where
-    getCoinWord64 txOut =
-      case txOut ^. compactCoinTxOutL of
-        CompactCoin w64 -> Sum w64
-{-# INLINE sumAllCoin #-}
-
--- | Check whether any of the supplied 'TxOut's contain any MultiAssets. Returns
--- True if non of them do.
-areAllAdaOnly :: (EraTxOut era, Foldable f) => f (TxOut era) -> Bool
-areAllAdaOnly = all (^. isAdaOnlyTxOutF)
-{-# INLINE areAllAdaOnly #-}
 
 -- | Extract script hash from value address with script.
 getScriptHash :: Addr -> Maybe ScriptHash

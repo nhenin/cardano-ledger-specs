@@ -28,6 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Conduit
 import Control.Exception (throwIO)
 import Control.Foldl (Fold (..))

@@ -69,11 +69,38 @@ legacy and Store-backed outputs. Both retain supplied accepted metadata, while
 legacy external refunds remain zero. Legacy imports without that metadata use
 provisional compatibility size and zero-rate V1 values, not recovered history.
 The `UTxOStore` type uses the `UTxOStore` record constructor and
-`UnspentOutputDepositsAmount` total. The `UTxO` type is retained in
-`Cardano.Ledger.State.UTxO.LegacyUTxOMap`; the wrapper and Store model are in
-`Cardano.Ledger.State.UTxO.Store`.
+`DepositAmount` total. The `UTxO` type is retained in
+`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`. The `UTxOs` wrapper and all operations
+on it are in `Cardano.Ledger.State.UTxOs`; the Store model remains in
+`Cardano.Ledger.State.UTxOs.Store`. The allocation collection and entry model are
+now separated into `Allocations` and `Allocations.UTxO` within that namespace;
+calculation and shared errors have their own modules.
 
-The core test-target build and formatting checks passed for the mechanical
+`Cardano.Ledger.TxOut` now owns `TxOut`, `NoNewTxOut`, the output classes,
+builders, lenses, value wrappers and collection queries. `Core` preserves its
+existing output exports. The five collection queries are imported directly from
+`TxOut`, rather than through `State` or `LegacyUTxOMap`.
+
+`calculateDeposit :: DepositCalculation -> ByteSize -> Coin` is now pure.
+V2 is accepted with provisional V1 formula parity; production still selects V1.
+Individual entry deposits return `Coin`; allocation sums and selected-input
+totals return `DepositAmount`, converted with `toCoin` for Coin arithmetic.
+Checked Store construction/update and entry decoding retain
+negative-size validation; amount reads do not validate raw metadata. Codecs reject
+unknown calculation versions.
+
+Current callers construct `Unspent` directly with its `sizedOutput` and
+`depositCalculation` fields and read Store totals as `toCoin (totalDepositAmount store)`;
+the output-only Store conversion is named `toUTxO`. The final consolidated build
+before the output-module extraction passed for the Dijkstra and core test targets
+and shared ledger-test library. That revision's runtime checks passed
+**145 examples with zero failures**: 18 properties
+with 100 trials each and 127 goldens. This covers the latest aggregate signatures,
+namespace, pure reads, provisional V2 parity and error cleanup. The full
+209-example business runtime and full State Types suite were not rerun.
+The subsequent `TxOut` extraction passed all six selected build targets and
+**134 targeted examples with zero failures**, as recorded below.
+The preceding core test-target build and formatting checks passed for the mechanical
 field/type-parameter rename. Runtime tests were not rerun, and the Dijkstra
 target was not rebuilt after this rename.
 The preceding checkpoint `52d2c835e` passed 165 targeted examples with zero
@@ -90,8 +117,8 @@ and the 26 October results remain separate evidence for their respective revisio
 **Unified Store revision on 26 October:** the live Dijkstra state now owns outputs
 and their historical deposit metadata in `UTxOStore`. A cached
 total equals the sum calculated from accepted output sizes and creation-time prices.
-Deposit and refund queries use the retained allocation metadata. V1 is operational;
-V2 is reserved and rejected. The integration revision changed the
+Deposit and refund queries used the retained allocation metadata. At that revision,
+V1 was operational and V2 was reserved and rejected. The integration revision changed the
 experimental Dijkstra snapshot schema; earlier-era bytes remain unchanged.
 Its executed checks are recorded separately below.
 
@@ -151,7 +178,9 @@ settlement. Store ADA is included once in the ledger total.
 
 The business suite contains Transaction rules and Ledger effects. The full Pricing,
 Stake and Voting matrices remain deferred; focused metadata and codec properties
-cover historical V1 pricing, unsupported V2, malformed sizes and cached totals. Grammar has 21 codec checks; the reusable positive
+cover historical pricing, malformed sizes and cached totals. All 13 current
+metadata properties passed, including provisional V1/V2 parity and unknown-version
+rejection. Grammar has 21 codec checks; the reusable positive
 amount type has five independent ledger-core checks. One technical fixture property
 remains outside the business specification. The old model-only release fixture checks
 have been replaced by real ledger submissions.
@@ -192,10 +221,142 @@ have been replaced by real ledger submissions.
 
 Explicit repricing, Plutus context projection and the unresolved stronger settlement
 guarantee remain deferred. Historical V1 pricing survives ordinary parameter changes;
-V2 remains unsupported. An agreed
+V2 provisionally shares V1's formula; version-selection policy and migration remain
+unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## TxOut module extraction on 27 October 2026
+
+`Cardano.Ledger.TxOut` contains the output definitions previously in `Core`
+and the five collection queries previously in `LegacyUTxOMap`. Signatures,
+implementations and INLINE pragmas are preserved, including the kind-polymorphic
+`NoNewTxOut`. `Core` retains its existing exports; collection queries now use
+direct imports. Formatting and `git diff --check` passed.
+
+The following build completed successfully, including the earlier-era callers,
+the ledger-state utility and its performance benchmark:
+
+```sh
+cabal build cardano-ledger-dijkstra:test:tests \
+  cardano-ledger-core:test:tests \
+  cardano-ledger-test:lib:cardano-ledger-test \
+  cardano-ledger-shelley-test:lib:cardano-ledger-shelley-test \
+  ledger-state:lib:ledger-state ledger-state:bench:performance \
+  --offline --enable-tests --enable-benchmarks --jobs=8
+```
+
+Fresh Dijkstra runtime checks used seed `739231514`, `--times`,
+`--print-cpu-time` and `--fail-on=empty`:
+
+| Filter | Result | Wall time | CPU time |
+| --- | --- | --- | --- |
+| `/Dijkstra/Era-specific spec/Golden/` | 127 examples, 0 failures | 0.3313 s | 0.6428 s |
+| `DS-COLLATERAL` | 7 properties × 100 trials, 0 failures | 20.9710 s | 32.5262 s |
+
+Logs: `/private/tmp/ds-txout-build.log`, `/private/tmp/ds-txout-golden.log`
+and `/private/tmp/ds-txout-collateral.log`. The full business suite was not rerun.
+Ctags were regenerated; output definitions now resolve to `TxOut.hs`.
+
+## UTxOs module extraction and deposit calculation on 27 October 2026
+
+The wrapper module is now
+`Cardano.Ledger.State.UTxOs`. Its `Store` child retains the Store model, cached
+total and checked updates. `Allocations` owns the collection and its
+`lookupUTxO`, `allocatedDepositTotalAmount` and `sumDepositAmounts` functions, which
+now accept `Allocations era`; callers pass the Store's `allocations` field.
+`Allocations.UTxO` owns `Unspent`, `toTxOut`, `depositAmount`, `encodeWith` and
+entry instances/codecs. Consumers import its operations qualified as `UTxO`;
+the `Cardano.Ledger.State` umbrella reexports only `Unspent(..)` from that module.
+`Deposit` owns `DepositAmount` with its `toCoin` accessor and
+instances, `ByteSize`, `DepositCalculation` and the pure calculation function.
+`Store` retains the `totalDepositAmount` field using that imported amount type;
+`Store.Error` now contains only `NegativeOutputSize Int64` and
+`MissingHistoricalAllocation TxIn`. `LegacyUTxOMap` retains the original `UTxO` type
+and implementation. All seven namespace modules are exposed for direct imports.
+
+The extraction changes ownership and query argument types. The additional
+calculation change introduces `ByteSize {unByteSize :: Int64}` and
+`calculateDeposit :: DepositCalculation -> ByteSize -> Coin`. V1 and V2 both use
+`(160 + size) × rate` provisionally; both are accepted by entry/store codecs.
+`UTxO.depositAmount` returns `Coin`; `sumDepositAmounts` and
+`allocatedDepositTotalAmount` return `DepositAmount`, all without an outer
+`Either`. Store construction consumes that aggregate directly, while Coin
+arithmetic callers explicitly use `toCoin`. Checked Store construction/update and
+entry decoding still reject negative sizes, and unknown
+encoded versions such as 3 are rejected. Production still creates V1 entries;
+this does not implement parameter-driven selection or policy migration.
+
+Unknown calculation versions and cached-total mismatches still fail decoding;
+their obsolete structured error variants are removed. The error codec keeps
+tags 0 and 2 and rejects retired tags 1, 3, 4 and 5.
+
+**Completed selected verification.** The final consolidated build passed:
+
+```sh
+cabal build cardano-ledger-dijkstra:test:tests cardano-ledger-core:test:tests cardano-ledger-test:lib:cardano-ledger-test --offline --enable-tests --jobs=8
+```
+
+Formatting passed for 26 Haskell files, and `git diff --check` passed. All runtime
+groups used seed `739231514` and completed with zero failures:
+
+| Current check | Result | Elapsed / CPU |
+| --- | --- | --- |
+| Historical metadata/store codecs | 13 properties, 100 trials each | 76.8720 s / 142.1084 s |
+| Dijkstra golden group | 127 examples | 0.3625 s / 0.6878 s |
+| TopTx net-change P01 | 1 property, 100 trials | 0.3206 s / 0.4958 s |
+| SubTx net-change P01 | 1 property, 100 trials | 0.3119 s / 0.4831 s |
+| Collateral funding | 3 properties, 100 trials each | 12.0713 s / 19.5155 s |
+
+The total is **145 executed examples, zero failures**: 18 properties with 100
+trials each plus 127 goldens. Some groups ran concurrently, so their elapsed times
+should not be summed. Evidence: `/private/tmp/ds-deposit-amount-build.log`,
+`/private/tmp/ds-deposit-amount-metadata.log`,
+`/private/tmp/ds-deposit-amount-golden.log`,
+`/private/tmp/ds-deposit-amount-toptx.log`,
+`/private/tmp/ds-deposit-amount-subtx.log` and
+`/private/tmp/ds-deposit-amount-collateral.log`.
+This run does not establish a full 209-example business or full State Types suite
+pass; earlier broader evidence remains separate below.
+
+The distinct ledger-state CLI module `Cardano.Ledger.State.UTxO` is
+unaffected. The namespace-only build was intentionally interrupted (exit 130)
+before completion because the extraction superseded it. The first extraction
+build exposed a hidden-module import issue and was interrupted (exit 130).
+Module exposure was corrected; the restarted extraction build in
+`/private/tmp/ds-allocations-modules-final-build.log` was superseded by the
+calculation change. These superseded builds and preceding successful split-build
+and golden results below remain separate from the final verification above.
+The ByteSize-only core build passed in `/private/tmp/ds-byte-size-core-build.log`,
+before the pure amount-read changes; it is not final verification of this revision.
+The subsequent `/private/tmp/ds-deposit-domain-build.log` run was interrupted
+(exit 130) because this error-type cleanup superseded it; it is not a passing build.
+
+## Pre-namespace Store API simplification and wrapper module on 27 October 2026
+
+At this revision, production accounting and metadata tests
+construct `Unspent {sizedOutput = acceptedOutput, depositCalculation = calculation}`
+directly. The redundant `allocationFromOutput` helper and export are removed.
+The `utxosTotalDeposit` wrapper helper is also removed: callers read
+`toCoin (totalDepositAmount store)` directly. The amount newtype now exposes
+`toCoin :: Coin` as its record accessor. Only callers
+supporting both branches, such as ADA-pot accounting and generic tests, distinguish
+`LegacyUTxOMap` from `UTxOs store`. The output-only conversion is now
+`toUTxO :: UTxOStore era -> UTxO era`, with the same behavior as the former
+`storeUTxO`. Validation and snapshot encoding are unchanged.
+
+`Cardano.Ledger.State.UTxO` owned `UTxOs`, its instances and all wrapper APIs:
+the access classes and projection, legacy initialization/update functions and
+`encodeUTxOs`. Its `Store` child retains the domain model and operations; its
+`LegacyUTxOMap` child retains the original legacy map API. The parent module name
+is reused for the wrapper's distinct responsibility.
+The combined build passed for the core test target, Dijkstra test target and shared
+ledger-test library. The golden runtime passed 127 examples with zero failures,
+seed `739231514`, in 0.3358 s elapsed and 0.6356 s CPU. Evidence:
+`/private/tmp/ds-utxos-module-build.log` and
+`/private/tmp/ds-utxos-module-golden.log`. These results precede the plural namespace
+rename.
 
 ## Unspent field naming on 27 October 2026
 
@@ -295,12 +456,12 @@ and `allocations :: Allocations era` fields. `Allocations` maps each `TxIn` to
 These variants carry `LegacyTxOut era` and `Sized (NewTxOut era)` respectively.
 The output APIs use `EraLegacyTxOut`, `EraNewTxOut` and the corresponding builders;
 their implicit/store-backed business meaning is unchanged.
-The amount selector is `unspentOutputDepositsAmount`; empty-store construction and
+At that revision the amount selector was `unspentOutputDepositsAmount`; empty-store construction and
 snapshot encoding use `emptyUTxOStore` and `encodeUTxOStore`.
 
 At that revision `Cardano.Ledger.State.UTxOStore` contained both the `UTxOs` wrapper
 and the concrete Store model. Its `LegacyUTxOMap` child retained the `UTxO` type
-and its operations. Wrapper helpers are `utxosUTxO`, `utxosTotalDeposit`, `fromLegacyUTxOs`
+and its operations. Wrapper helpers were `utxosUTxO`, `utxosTotalDeposit`, `fromLegacyUTxOs`
 and `encodeUTxOs`. Historical deposit calculations are unchanged.
 The metadata module is now `Binary/UTxOStoreSpec.hs`, registered as
 `UTxOStore historical metadata`; earlier dated runs below retain their original meaning.
@@ -508,7 +669,7 @@ The three bounded state-container round trips completed as one group: **3 exampl
 0 failures**, 723.3295 s elapsed and 1395.4262 s CPU. The generator bound was 10;
 this is distinct from the business stream’s default-sized 100-sample properties.
 
-**Implementation limitation:** Dijkstra's `storeUTxO` compatibility view currently
+**Implementation limitation:** Dijkstra's compatibility view, now named `toUTxO`,
 materializes an output-only map in O(number of live allocations). Selected-input
 deposit/refund queries restrict the allocations first. This is source-level behavior,
 not a measured performance regression; functional verification is not a performance

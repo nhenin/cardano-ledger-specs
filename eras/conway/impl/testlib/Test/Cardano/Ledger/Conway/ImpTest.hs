@@ -206,6 +206,7 @@ import Cardano.Ledger.Shelley.LedgerState (
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.TxIn (TxId (..))
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (Val (..), (<->))
 import Control.Monad (forM)
 import Control.Monad.Trans.Fail.String (errorFail)

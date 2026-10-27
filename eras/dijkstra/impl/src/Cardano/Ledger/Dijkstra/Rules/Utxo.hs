@@ -297,10 +297,10 @@ validateBatchCollateral ::
   PParams era ->
   Tx TopTx era ->
   UTxOStore era ->
-  Either OutputStoreError (Test (EraRuleFailure rule era))
+  Test (EraRuleFailure rule era)
 validateBatchCollateral pp tx store
   | hasBatchRedeemers tx = validateCollateralFunding pp (tx ^. bodyTxL) store
-  | otherwise = Right $ pure ()
+  | otherwise = pure ()
 
 -- | A SubTx's redeemers trigger collateral validation for the complete batch.
 hasBatchRedeemers :: (AlonzoEraTx era, DijkstraEraTxBody era) => Tx TopTx era -> Bool
@@ -396,11 +396,9 @@ dijkstraUtxoTransition = do
       utxoStore = case utxosUTxOs utxos of
         UTxOs store -> store
         LegacyUTxOMap _ -> invariantFailure "Dijkstra state must contain UTxOStore"
-      checkedStoreResult :: Either OutputStoreError a -> a
-      checkedStoreResult = either (invariantFailure . ("Historical allocation invariant violated: " <>) . show) id
   -- Accounting reads the original historical allocations even after children
   -- have updated the live store. Checked state construction excludes invalid metadata.
-  let originalUtxo = storeUTxO previousUTxOStore
+  let originalUtxo = toUTxO previousUTxOStore
   let tx = stAnnTx ^. txStAnnTxG
   let originalPState = originalCertState ^. certPStateL
 
@@ -445,14 +443,13 @@ dijkstraUtxoTransition = do
   -- SubTx changes have already been applied only to the live store.
   runTest $
     first (fmap DepositStoreFailure) $
-      checkedStoreResult $
-        DepositStore.validateOrdinaryDepositStore pp previousUTxOStore txBody
+      DepositStore.validateOrdinaryDepositStore pp previousUTxOStore txBody
 
   {- minfee pp txTop utxo₀ ≤ txfee txb -}
   runTest $ Shelley.validateFeeTooSmallUTxO pp tx originalUtxo
 
   {- (RedeemersOf txTop ≠ ∅ ⊎ Any (λ txSub → RedeemersOf txSub ≠ ∅) subtxs) → collateralCheck -}
-  validate $ checkedStoreResult $ validateBatchCollateral pp tx previousUTxOStore
+  validate $ validateBatchCollateral pp tx previousUTxOStore
 
   -- If the transaction is phase2-invalid, the `produced` value in legacy mode will
   -- wrongly include a deposit for a pool that a sub-transaction already registered,
@@ -542,8 +539,7 @@ dijkstraUtxoTransition = do
           invariantFailure $ "Collateral allocation invariant violated: " <> show err
         Right store ->
           let settlement =
-                checkedStoreResult $
-                  DepositStore.collateralDepositSettlement pp previousUTxOStore txBody
+                DepositStore.collateralDepositSettlement pp previousUTxOStore txBody
               removed = txInsFilter (utxosUtxo utxos) (txBody ^. collateralInputsTxBodyL)
               created = collOuts txBody
            in pure $

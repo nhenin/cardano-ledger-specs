@@ -34,7 +34,6 @@ import Cardano.Ledger.Dijkstra.Rules (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
-import Cardano.Ledger.State (OutputStoreError)
 import Cardano.Ledger.Val ((<->))
 import Data.List.NonEmpty (NonEmpty (..))
 import Lens.Micro
@@ -224,7 +223,7 @@ ownNetDeposit proposal =
 -- | Observe the production required transaction total for the supplied proposal.
 -- Tests compare this with independently priced outputs and recorded input deposits;
 -- the declaration's local/delegated form must not change the required amount.
-requiredNetChange :: ReleaseTx -> Either OutputStoreError Coin
+requiredNetChange :: ReleaseTx -> Coin
 requiredNetChange proposal =
   requiredTxTotalNetUTxODeposit
     (Standalone.protocolParameters $ ledgerState proposal)
@@ -234,7 +233,7 @@ requiredNetChange proposal =
 -- | Run only production TopTx exactness against the funded snapshot. Other
 -- ledger rules do not affect this result, including settlement and conservation.
 validateNetChange ::
-  ReleaseTx -> Either OutputStoreError (Validation (NonEmpty DepositStoreAccountingFailure) ())
+  ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
 validateNetChange proposal =
   validateTopTxExactness
     (Standalone.protocolParameters $ ledgerState proposal)

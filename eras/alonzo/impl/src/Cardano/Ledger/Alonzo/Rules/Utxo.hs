@@ -96,6 +96,7 @@ import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo.API (EpochInfo, epochInfoSlotToUTCTime)
 import Cardano.Slotting.EpochInfo.Extend (unsafeLinearExtendEpochInfo)

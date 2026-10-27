@@ -77,7 +77,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   ordinarySpendingInputs,
   submitTx,
  )
-import Test.Cardano.Ledger.Imp.Common (expectRight, shouldBe, shouldSatisfy)
+import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
 import Validation (Validation (..))
 
 -- | Keep each mathematical requirement beside its named example.
@@ -117,9 +117,9 @@ spec =
                 Nothing -> Success ()
                 Just failures -> Failure failures
             ledgerState = TopTx.ledgerState proposal
-        actual <- expectRight $ traverse (validateSubTxExactness (Ledger.protocolParameters ledgerState)
-          (liveOutputStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
-        traverse_ id actual `shouldBe` expected
+            actual = traverse_ (validateSubTxExactness (Ledger.protocolParameters ledgerState)
+              (liveOutputStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
+        actual `shouldBe` expected
 
     -- Exact own change, with any allocation and release combination.
     -- Exercise positive allocation, negative release and explicit zero with local accounting; N03/N04 cover the delegated forms.

@@ -55,8 +55,8 @@ instance ToExpr DepositCalculation
 
 instance ToExpr OutputStoreError
 
-instance ToExpr UnspentOutputDepositsAmount where
-  toExpr = toExpr . unspentOutputDepositsAmount
+instance ToExpr DepositAmount where
+  toExpr = toExpr . toCoin
 
 instance ToExpr a => ToExpr (Unspent a)
 

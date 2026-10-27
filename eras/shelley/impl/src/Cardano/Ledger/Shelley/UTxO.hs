@@ -49,10 +49,7 @@ import Cardano.Ledger.State as UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
   UTxO (..),
-  areAllAdaOnly,
   getScriptHash,
-  sumAllCoin,
-  sumAllValue,
   sumCoinUTxO,
   sumUTxO,
   txInsFilter,
@@ -62,6 +59,7 @@ import Cardano.Ledger.State as UTxO (
   verifyWitVKey,
  )
 import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val ((<+>))
 import qualified Cardano.Ledger.Val as Val
 import Data.Coerce (coerce)

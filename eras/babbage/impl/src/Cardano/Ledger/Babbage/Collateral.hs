@@ -19,6 +19,7 @@ import Cardano.Ledger.Coin (DeltaCoin, toDeltaCoin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<->))
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))

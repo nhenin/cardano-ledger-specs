@@ -161,17 +161,15 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 
 -- Only supported calculation versions belong in valid serialized stores.
 instance Arbitrary DepositCalculation where
-  arbitrary = DepositCalculationV1 <$> arbitrary
+  arbitrary = oneof [DepositCalculationV1 <$> arbitrary, DepositCalculationV2 <$> arbitrary]
   shrink (DepositCalculationV1 rate) = DepositCalculationV1 <$> shrink rate
-  shrink (DepositCalculationV2 _) = []
+  shrink (DepositCalculationV2 rate) = DepositCalculationV2 <$> shrink rate
 
 instance Arbitrary OutputStoreError where
   arbitrary =
     oneof
       [ NegativeOutputSize <$> arbitrary
-      , UnsupportedDepositCalculation <$> arbitrary
       , MissingHistoricalAllocation <$> arbitrary
-      , CachedDepositTotalMismatch <$> arbitrary <*> arbitrary
       ]
   shrink = genericShrink
 
@@ -620,7 +618,7 @@ instance Arbitrary DRepState where
   arbitrary = DRepState <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.UTxO.LegacyUTxOMap -------------------------------------------------------------
+-- Cardano.Ledger.State.UTxOs.LegacyUTxOMap -------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 deriving instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxO era)

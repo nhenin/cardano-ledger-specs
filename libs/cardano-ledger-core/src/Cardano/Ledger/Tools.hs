@@ -42,7 +42,7 @@ import Cardano.Ledger.Keys (
   asWitness,
  )
 import Cardano.Ledger.State (EraCertState)
-import Cardano.Ledger.State.UTxO.LegacyUTxOMap (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State.UTxOs.LegacyUTxOMap (EraUTxO (..), UTxO (..))
 import Cardano.Ledger.Val (coin, modifyCoin)
 import Data.Bits (Bits (..), shiftR)
 import Data.ByteString (ByteString)

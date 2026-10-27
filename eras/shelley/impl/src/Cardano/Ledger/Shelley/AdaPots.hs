@@ -63,7 +63,9 @@ totalAdaPotsES (EpochState (ChainAccountState {casTreasury, casReserves}) ls _ _
     , rewardsAdaPot = rewards_
     , utxoAdaPot = coins
     , feesAdaPot = fees_
-    , depositStoreAdaPot = utxosTotalDeposit storage
+    , depositStoreAdaPot = case storage of
+        LegacyUTxOMap _ -> Coin 0
+        UTxOs store -> toCoin $ totalDepositAmount store
     , obligationsPot = obligationCertState certState <> govStateObligations
     }
   where
