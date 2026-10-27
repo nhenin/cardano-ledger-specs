@@ -1,7 +1,6 @@
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.EpochSpec (spec) where
 
 import Cardano.Ledger.Shelley.LedgerState
-import Cardano.Ledger.State (depositStoreAllocations)
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
@@ -9,7 +8,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecy
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   assertDepositTotal,
   liveOutputStore,
-  recordedDepositStore,
+  recordedAmounts,
  )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting (
   fundAccountingScenario,
@@ -30,7 +29,7 @@ spec = describe "DS-STATE-EPOCH - Epoch" $
         previousState <- getsNES id
         let previousUTxOState = previousState ^. nesEsL . esLStateL . lsUTxOStateL
             previousStore = liveOutputStore previousUTxOState
-        Map.null (depositStoreAllocations $ recordedDepositStore previousUTxOState) `shouldBe` False
+        Map.null (recordedAmounts $ liveOutputStore previousUTxOState) `shouldBe` False
         assertDepositTotal previousUTxOState
         passEpoch
         state <- getsNES id

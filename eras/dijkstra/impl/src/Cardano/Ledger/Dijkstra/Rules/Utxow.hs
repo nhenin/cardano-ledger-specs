@@ -233,9 +233,9 @@ dijkstraUtxowTransition ::
   ) =>
   TransitionRule (EraRule "UTXOW" era)
 dijkstraUtxowTransition = do
-  TRC (UtxoEnv slot pp pState originalCertState previousInMemoryUnspentTxOutputStore, u, stAnnTx) <-
+  TRC (UtxoEnv slot pp pState originalCertState previousUTxOStore, u, stAnnTx) <-
     judgmentContext
-  let originalUtxo = storeUTxO previousInMemoryUnspentTxOutputStore
+  let originalUtxo = storeUTxO previousUTxOStore
       tx = stAnnTx ^. txStAnnTxG
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
 
@@ -324,7 +324,7 @@ dijkstraUtxowTransition = do
 
   -- Pass through to UTXO sub-rule, carrying the previous store.
   trans @(EraRule "UTXO" era) $
-    TRC (UtxoEnv slot pp pState originalCertState previousInMemoryUnspentTxOutputStore, u, stAnnTx)
+    TRC (UtxoEnv slot pp pState originalCertState previousUTxOStore, u, stAnnTx)
 
 instance
   forall era.

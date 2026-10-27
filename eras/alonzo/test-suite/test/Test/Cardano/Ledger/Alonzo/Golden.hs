@@ -76,7 +76,7 @@ coinsPerUTxOWordLocal = quot minUTxOValueShelleyMA utxoEntrySizeWithoutValLocal
     Coin minUTxOValueShelleyMA = minUTxO
 
 calcMinUTxO :: TxOut AlonzoEra -> Coin
-calcMinUTxO (ImplicitDepositTxOut output) = Coin (utxoEntrySize output * coinsPerUTxOWordLocal)
+calcMinUTxO (LegacyTxOut output) = Coin (utxoEntrySize output * coinsPerUTxOWordLocal)
 
 tests :: Spec
 tests =
@@ -179,7 +179,7 @@ goldenUTxOEntryMinAda =
       -- with the old parameter minUTxOValue.
       -- If we wish to keep the ada-only, no datum hash, minimum value nearly the same,
       -- we can divide minUTxOValue by 29 and round.
-      utxoEntrySize @AlonzoEra (mkBasicImplicitDepositTxOut aliceAddr mempty) `shouldBe` 29
+      utxoEntrySize @AlonzoEra (mkBasicLegacyTxOut aliceAddr mempty) `shouldBe` 29
 
 goldenCborSerialization :: Spec
 goldenCborSerialization =

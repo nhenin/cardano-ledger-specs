@@ -98,13 +98,13 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.State (
   CanSetAccounts (accountsL),
-  CanSetOutputStorage (outputStorageL),
+  CanSetUTxOs (utxosL),
   ConwayEraCertState (certVStateL),
   EraAccounts (accountsMapL),
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
-  OutputStorage (LegacyOutputs),
   UTxO (UTxO),
+  UTxOs (LegacyUTxOMap),
   csCommitteeCredsL,
   psFutureStakePoolParamsL,
   psRetiringL,
@@ -151,7 +151,7 @@ instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
     S.fold_
       (\utxos (ChunkEntry (UtxoKeyIn k) (UtxoOut v)) -> Map.insert k (getValue v) utxos)
       mempty
-      (\utxos -> nes & outputStorageL .~ LegacyOutputs (UTxO utxos))
+      (\utxos -> nes & utxosL .~ LegacyUTxOMap (UTxO utxos))
 
 instance ImportCanonicalNamespace ConwayEra "blocks/v0" where
   importNamespaceEntries nes =

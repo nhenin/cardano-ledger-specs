@@ -51,7 +51,7 @@ import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential
 import Cardano.Ledger.State.Account
-import Cardano.Ledger.State.UTxO
+import Cardano.Ledger.State.UTxO.LegacyUTxOMap
 import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON)
 import Data.Default (Default)

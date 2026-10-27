@@ -85,7 +85,7 @@ constructTxOutAlonzoBench count name mkAddr value !mdh =
       name
       [ env (pure (mkAddr <$> [1 .. count])) $
           bench "TxOut"
-            . nf (map (\addr -> ImplicitDepositTxOut (AlonzoTxOut addr value mdh) :: TxOut AlonzoEra))
+            . nf (map (\addr -> LegacyTxOut (AlonzoTxOut addr value mdh) :: TxOut AlonzoEra))
       , env (pure (compactAddr . mkAddr <$> [1 .. count])) $
           bench "TxOutCompact" . nf (map (\caddr -> mkTxOutCompact caddr cvalue :: TxOut AlonzoEra))
       ]
@@ -95,8 +95,8 @@ constructTxOutAlonzoBench count name mkAddr value !mdh =
       CompactAddr -> CompactForm MaryValue -> TxOut AlonzoEra
     mkTxOutCompact =
       case mdh of
-        SNothing -> \a v -> ImplicitDepositTxOut (TxOutCompact a v)
-        SJust dh -> \a v -> ImplicitDepositTxOut (TxOutCompactDH a v dh)
+        SNothing -> \a v -> LegacyTxOut (TxOutCompact a v)
+        SJust dh -> \a v -> LegacyTxOut (TxOutCompactDH a v dh)
 
 accessTxOutAlonzoBench :: Int -> String -> (Int -> TxOut AlonzoEra) -> Benchmark
 accessTxOutAlonzoBench count name mkTxOuts =
@@ -106,7 +106,7 @@ accessTxOutAlonzoBench count name mkTxOuts =
         bench "TxOut" $
           nf
             ( map
-                (\(ImplicitDepositTxOut (AlonzoTxOut addr vl dh)) -> addr `deepseq` vl `deepseq` dh)
+                (\(LegacyTxOut (AlonzoTxOut addr vl dh)) -> addr `deepseq` vl `deepseq` dh)
             )
             txOuts
     , env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
@@ -134,7 +134,7 @@ accessTxOutAlonzoBench count name mkTxOuts =
 
 -- | Private. Unwrap the only output variant supported by Alonzo.
 implicitAlonzoTxOut :: TxOut AlonzoEra -> AlonzoTxOut AlonzoEra
-implicitAlonzoTxOut (ImplicitDepositTxOut output) = output
+implicitAlonzoTxOut (LegacyTxOut output) = output
 
 serializeTxOutAlonzoBench :: Int -> String -> (Int -> TxOut AlonzoEra) -> Benchmark
 serializeTxOutAlonzoBench count name mkTxOuts =

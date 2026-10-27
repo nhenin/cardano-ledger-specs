@@ -325,23 +325,23 @@ instance HasSpec DataHash32
 -- deposit. Keep their existing field representation under the outer wrapper.
 instance
   ( AtMostEra "Conway" era
-  , HasSimpleRep (ImplicitDepositTxOut era)
-  , Typeable (SimpleRep (ImplicitDepositTxOut era))
+  , HasSimpleRep (LegacyTxOut era)
+  , Typeable (SimpleRep (LegacyTxOut era))
   ) =>
   HasSimpleRep (TxOut era)
   where
-  type TheSop (TxOut era) = TheSop (ImplicitDepositTxOut era)
-  type SimpleRep (TxOut era) = SimpleRep (ImplicitDepositTxOut era)
-  toSimpleRep (ImplicitDepositTxOut implicitOutput) = toSimpleRep implicitOutput
-  toSimpleRep (StoreBackedTxOut _) = error "toSimpleRep: unexpected store-backed output in legacy specifications"
-  fromSimpleRep = ImplicitDepositTxOut . fromSimpleRep
+  type TheSop (TxOut era) = TheSop (LegacyTxOut era)
+  type SimpleRep (TxOut era) = SimpleRep (LegacyTxOut era)
+  toSimpleRep (LegacyTxOut implicitOutput) = toSimpleRep implicitOutput
+  toSimpleRep (NewTxOut _) = error "toSimpleRep: unexpected store-backed output in legacy specifications"
+  fromSimpleRep = LegacyTxOut . fromSimpleRep
 
 instance
   ( EraTxOut era
   , AtMostEra "Conway" era
   , GenericallyInstantiated (TxOut era)
-  , HasSimpleRep (ImplicitDepositTxOut era)
-  , HasSpec (SimpleRep (ImplicitDepositTxOut era))
+  , HasSimpleRep (LegacyTxOut era)
+  , HasSpec (SimpleRep (LegacyTxOut era))
   ) =>
   HasSpec (TxOut era)
 
@@ -1548,7 +1548,7 @@ instance (Typeable (CertState era), EraTxOut era) => HasSimpleRep (LedgerState e
 
 instance
   ( EraTxOut era
-  , HasSpec (OutputStorage era)
+  , HasSpec (UTxOs era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1562,19 +1562,19 @@ instance
 
 -- This Conway generator represents legacy output storage directly as its UTxO.
 -- It never constructs store-backed allocations or invents historical metadata.
-instance HasSimpleRep (OutputStorage ConwayEra) where
-  type TheSop (OutputStorage ConwayEra) = '["LegacyOutputs" ::: '[UTxO ConwayEra]]
-  type SimpleRep (OutputStorage ConwayEra) = UTxO ConwayEra
-  toSimpleRep = outputStorageUTxO
-  fromSimpleRep = LegacyOutputs
+instance HasSimpleRep (UTxOs ConwayEra) where
+  type TheSop (UTxOs ConwayEra) = '["LegacyUTxOMap" ::: '[UTxO ConwayEra]]
+  type SimpleRep (UTxOs ConwayEra) = UTxO ConwayEra
+  toSimpleRep = utxosUTxO
+  fromSimpleRep = LegacyUTxOMap
 
-instance HasSpec (OutputStorage ConwayEra)
+instance HasSpec (UTxOs ConwayEra)
 
 instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
 
 instance
   ( EraTxOut era
-  , HasSpec (OutputStorage era)
+  , HasSpec (UTxOs era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1924,7 +1924,7 @@ instance Era era => HasSimpleRep (EpochState era)
 
 instance
   ( EraTxOut era
-  , HasSpec (OutputStorage era)
+  , HasSpec (UTxOs era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1976,7 +1976,7 @@ instance (Typeable (StashedAVVMAddresses era), Era era) => HasSimpleRep (NewEpoc
 
 instance
   ( EraTxOut era
-  , HasSpec (OutputStorage era)
+  , HasSpec (UTxOs era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)

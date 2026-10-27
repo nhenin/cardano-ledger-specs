@@ -123,14 +123,14 @@ injectFee :: EraTxOut era => Coin -> TxOut era -> TxOut era
 injectFee fee txOut = txOut & coinTxOutL %~ (<+> fee)
 
 -- | The legacy generators only produce outputs with implicit deposits.
-requireImplicitTxOut :: TxOut era -> ImplicitDepositTxOut era
-requireImplicitTxOut (ImplicitDepositTxOut output) = output
-requireImplicitTxOut (StoreBackedTxOut _) = error "requireImplicitTxOut: unexpected store-backed output"
+requireImplicitTxOut :: TxOut era -> LegacyTxOut era
+requireImplicitTxOut (LegacyTxOut output) = output
+requireImplicitTxOut (NewTxOut _) = error "requireImplicitTxOut: unexpected store-backed output"
 
 getTxOutRefScript :: Proof era -> TxOut era -> StrictMaybe (Script era)
-getTxOutRefScript _ (StoreBackedTxOut _) = error "getTxOutRefScript: unexpected store-backed output"
-getTxOutRefScript Conway (ImplicitDepositTxOut (BabbageTxOut _ _ _ ms)) = ms
-getTxOutRefScript Babbage (ImplicitDepositTxOut (BabbageTxOut _ _ _ ms)) = ms
+getTxOutRefScript _ (NewTxOut _) = error "getTxOutRefScript: unexpected store-backed output"
+getTxOutRefScript Conway (LegacyTxOut (BabbageTxOut _ _ _ ms)) = ms
+getTxOutRefScript Babbage (LegacyTxOut (BabbageTxOut _ _ _ ms)) = ms
 getTxOutRefScript _ _ = SNothing
 {-# NOINLINE getTxOutRefScript #-}
 
@@ -162,28 +162,28 @@ txoutEvidence ::
   Proof era ->
   TxOut era ->
   ([Credential Payment], Maybe DataHash)
-txoutEvidence _ (StoreBackedTxOut _) = error "txoutEvidence: unexpected store-backed output"
-txoutEvidence Alonzo (ImplicitDepositTxOut (AlonzoTxOut addr _ (SJust dh))) =
+txoutEvidence _ (NewTxOut _) = error "txoutEvidence: unexpected store-backed output"
+txoutEvidence Alonzo (LegacyTxOut (AlonzoTxOut addr _ (SJust dh))) =
   (addrCredentials addr, Just dh)
-txoutEvidence Alonzo (ImplicitDepositTxOut (AlonzoTxOut addr _ SNothing)) =
+txoutEvidence Alonzo (LegacyTxOut (AlonzoTxOut addr _ SNothing)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (ImplicitDepositTxOut (BabbageTxOut addr _ NoDatum _)) =
+txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (ImplicitDepositTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
+txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Conway (ImplicitDepositTxOut (BabbageTxOut addr _ (Datum _d) _)) =
+txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Babbage (ImplicitDepositTxOut (BabbageTxOut addr _ NoDatum _)) =
+txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Babbage (ImplicitDepositTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
+txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Babbage (ImplicitDepositTxOut (BabbageTxOut addr _ (Datum _d) _)) =
+txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Mary (ImplicitDepositTxOut (ShelleyTxOut addr _)) =
+txoutEvidence Mary (LegacyTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Allegra (ImplicitDepositTxOut (ShelleyTxOut addr _)) =
+txoutEvidence Allegra (LegacyTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Shelley (ImplicitDepositTxOut (ShelleyTxOut addr _)) =
+txoutEvidence Shelley (LegacyTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
 {-# NOINLINE txoutEvidence #-}
 
@@ -313,11 +313,11 @@ instance TotalAda ChainAccountState where
 
 instance Reflect era => TotalAda (UTxOState era) where
   totalAda (UTxOState storage _deposits fees gs _ donations) =
-    totalAda (outputStorageUTxO storage)
+    totalAda (utxosUTxO storage)
       <+> fees
       <+> govStateTotalAda gs
       <+> donations
-      <+> outputStorageTotalDeposit storage
+      <+> utxosTotalDeposit storage
 
 -- we don't add in the _deposits, because it is invariant that this
 -- is equal to the sum of the key deposit map and the pool deposit map

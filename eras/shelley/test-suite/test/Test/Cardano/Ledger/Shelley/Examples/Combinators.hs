@@ -176,7 +176,7 @@ newUTxO txb cs = cs {chainNes = nes'}
     utxoDel = UTxO utxoToDel
     utxo' = UTxO (utxoWithout `Map.union` unUTxO utxoAdd)
     is' = deleteInstantStake utxoDel (addInstantStake utxoAdd (utxoSt ^. instantStakeL))
-    utxoSt' = utxoSt {utxosOutputStorage = LegacyOutputs utxo', utxosInstantStake = is'}
+    utxoSt' = utxoSt {utxosUTxOs = LegacyUTxOMap utxo', utxosInstantStake = is'}
     ls' = ls {lsUTxOState = utxoSt'}
     es' = es {esLState = ls'}
     nes' = nes {nesEs = es'}

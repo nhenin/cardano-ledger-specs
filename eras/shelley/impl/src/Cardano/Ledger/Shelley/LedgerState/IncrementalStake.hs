@@ -60,7 +60,7 @@ smartUTxOState ::
   UTxOState era
 smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
-    (LegacyOutputs utxo)
+    (LegacyUTxOMap utxo)
     c1
     c2
     st

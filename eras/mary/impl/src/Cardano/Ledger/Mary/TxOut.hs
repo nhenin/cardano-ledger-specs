@@ -29,32 +29,32 @@ import Lens.Micro (lens, (^.))
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 instance EraTxOut MaryEra where
-  type ImplicitDepositTxOut MaryEra = ShelleyTxOut MaryEra
-  type StoreBackedTxOut MaryEra = NoStoreBackedTxOut MaryEra
+  type LegacyTxOut MaryEra = ShelleyTxOut MaryEra
+  type NewTxOut MaryEra = NoNewTxOut MaryEra
 
-  upgradeTxOut (ImplicitDepositTxOut (TxOutCompact addr cfval)) =
-    ImplicitDepositTxOut $ TxOutCompact (coerce addr) (injectCompact cfval)
+  upgradeTxOut (LegacyTxOut (TxOutCompact addr cfval)) =
+    LegacyTxOut $ TxOutCompact (coerce addr) (injectCompact cfval)
 
   addrEitherTxOutL =
-    lens maryTxOut (const ImplicitDepositTxOut) . addrEitherShelleyTxOutL
+    lens maryTxOut (const LegacyTxOut) . addrEitherShelleyTxOutL
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraImplicitDepositTxOut MaryEra where
-  mkBasicImplicitDepositTxOut = ShelleyTxOut
+instance EraLegacyTxOut MaryEra where
+  mkBasicLegacyTxOut = ShelleyTxOut
 
   valueEitherTxOutL = valueEitherShelleyTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinTxOut pp txOut = scaledMinDeposit (txOut ^. valueTxOutL) (pp ^. ppMinUTxOValueL)
 
-instance EraStoreBackedTxOut MaryEra where
-  mkBasicStoreBackedTxOut = notSupportedInThisEra
+instance EraNewTxOut MaryEra where
+  mkBasicNewTxOut = notSupportedInThisEra
 
   applicationAssetsTxOutL _ unavailable = case unavailable of {}
 
 -- | Private: recover the historical representation from Mary's only supported variant.
 maryTxOut :: TxOut MaryEra -> ShelleyTxOut MaryEra
-maryTxOut (ImplicitDepositTxOut output) = output
+maryTxOut (LegacyTxOut output) = output
 {-# INLINE maryTxOut #-}
 
 -- The wrapper retains the historical instances and encodings without a variant tag.
@@ -76,23 +76,23 @@ instance EncCBOR (TxOut MaryEra) where
   encCBOR = encCBOR . maryTxOut
 
 instance DecCBOR (TxOut MaryEra) where
-  decCBOR = ImplicitDepositTxOut <$> decCBOR
+  decCBOR = LegacyTxOut <$> decCBOR
 
 instance DecShareCBOR (TxOut MaryEra) where
   type Share (TxOut MaryEra) = Interns (Credential Staking)
-  decShareCBOR = fmap ImplicitDepositTxOut . decShareCBOR
+  decShareCBOR = fmap LegacyTxOut . decShareCBOR
 
 instance MemPack (TxOut MaryEra) where
   packedByteCount = packedByteCount . maryTxOut
   packM = packM . maryTxOut
-  unpackM = ImplicitDepositTxOut <$> unpackM
+  unpackM = LegacyTxOut <$> unpackM
 
 instance ToJSON (TxOut MaryEra) where
   toJSON = toJSON . maryTxOut
   toEncoding = toEncoding . maryTxOut
 
 instance FromJSON (TxOut MaryEra) where
-  parseJSON = fmap ImplicitDepositTxOut . parseJSON
+  parseJSON = fmap LegacyTxOut . parseJSON
 
 -- | The `scaledMinDeposit` calculation uses the minUTxOValue protocol parameter
 -- (passed to it as Coin mv) as a specification of "the cost of making a

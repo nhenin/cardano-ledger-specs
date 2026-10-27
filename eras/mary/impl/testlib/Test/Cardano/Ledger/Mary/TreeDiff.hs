@@ -32,7 +32,7 @@ deriving newtype instance ToExpr (CompactForm MaryValue)
 
 -- TxOut
 instance ToExpr (TxOut MaryEra) where
-  toExpr (ImplicitDepositTxOut output) = App "ImplicitDepositTxOut" [toExpr output]
+  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
 
 instance ToExpr (TxBody TopTx MaryEra)
 

@@ -219,32 +219,32 @@ instance
   {-# INLINE unpackM #-}
 
 instance EraTxOut BabbageEra where
-  type ImplicitDepositTxOut BabbageEra = BabbageTxOut BabbageEra
-  type StoreBackedTxOut BabbageEra = NoStoreBackedTxOut BabbageEra
+  type LegacyTxOut BabbageEra = BabbageTxOut BabbageEra
+  type NewTxOut BabbageEra = NoNewTxOut BabbageEra
 
-  upgradeTxOut (ImplicitDepositTxOut output) =
-    ImplicitDepositTxOut $ upgradeAlonzoTxOut output
+  upgradeTxOut (LegacyTxOut output) =
+    LegacyTxOut $ upgradeAlonzoTxOut output
 
   addrEitherTxOutL =
-    lens babbageTxOut (const ImplicitDepositTxOut) . addrEitherBabbageTxOutL
+    lens babbageTxOut (const LegacyTxOut) . addrEitherBabbageTxOutL
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraImplicitDepositTxOut BabbageEra where
-  mkBasicImplicitDepositTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
+instance EraLegacyTxOut BabbageEra where
+  mkBasicLegacyTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
 
   valueEitherTxOutL = valueEitherBabbageTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinSizedTxOut = babbageMinUTxOValue
 
-instance EraStoreBackedTxOut BabbageEra where
-  mkBasicStoreBackedTxOut = notSupportedInThisEra
+instance EraNewTxOut BabbageEra where
+  mkBasicNewTxOut = notSupportedInThisEra
 
   applicationAssetsTxOutL _ unavailable = case unavailable of {}
 
 -- | Private: recover the historical representation from Babbage's only supported variant.
 babbageTxOut :: TxOut BabbageEra -> BabbageTxOut BabbageEra
-babbageTxOut (ImplicitDepositTxOut output) = output
+babbageTxOut (LegacyTxOut output) = output
 {-# INLINE babbageTxOut #-}
 
 -- The wrapper retains the historical instances and encodings without a variant tag.
@@ -266,23 +266,23 @@ instance EncCBOR (TxOut BabbageEra) where
   encCBOR = encCBOR . babbageTxOut
 
 instance DecCBOR (TxOut BabbageEra) where
-  decCBOR = ImplicitDepositTxOut <$> decCBOR
+  decCBOR = LegacyTxOut <$> decCBOR
 
 instance DecShareCBOR (TxOut BabbageEra) where
   type Share (TxOut BabbageEra) = Interns (Credential Staking)
-  decShareCBOR = fmap ImplicitDepositTxOut . decShareCBOR
+  decShareCBOR = fmap LegacyTxOut . decShareCBOR
 
 instance MemPack (TxOut BabbageEra) where
   packedByteCount = packedByteCount . babbageTxOut
   packM = packM . babbageTxOut
-  unpackM = ImplicitDepositTxOut <$> unpackM
+  unpackM = LegacyTxOut <$> unpackM
 
 instance ToJSON (TxOut BabbageEra) where
   toJSON = toJSON . babbageTxOut
   toEncoding = toEncoding . babbageTxOut
 
 instance FromJSON (TxOut BabbageEra) where
-  parseJSON = fmap ImplicitDepositTxOut . parseJSON
+  parseJSON = fmap LegacyTxOut . parseJSON
 
 -- | Private: preserve Alonzo's compact representation when upgrading to Babbage.
 upgradeAlonzoTxOut :: Alonzo.AlonzoTxOut AlonzoEra -> BabbageTxOut BabbageEra
@@ -305,7 +305,7 @@ dataHashBabbageTxOutL =
 
 instance AlonzoEraTxOut BabbageEra where
   dataHashTxOutL =
-    lens babbageTxOut (const ImplicitDepositTxOut) . dataHashBabbageTxOutL
+    lens babbageTxOut (const LegacyTxOut) . dataHashBabbageTxOutL
   {-# INLINEABLE dataHashTxOutL #-}
 
   datumTxOutF = to $ getDatumBabbageTxOut . babbageTxOut
@@ -334,15 +334,15 @@ referenceScriptBabbageTxOutL =
 
 instance BabbageEraTxOut BabbageEra where
   dataTxOutL =
-    lens babbageTxOut (const ImplicitDepositTxOut) . dataBabbageTxOutL
+    lens babbageTxOut (const LegacyTxOut) . dataBabbageTxOutL
   {-# INLINEABLE dataTxOutL #-}
 
   datumTxOutL =
-    lens babbageTxOut (const ImplicitDepositTxOut) . datumBabbageTxOutL
+    lens babbageTxOut (const LegacyTxOut) . datumBabbageTxOutL
   {-# INLINEABLE datumTxOutL #-}
 
   referenceScriptTxOutL =
-    lens babbageTxOut (const ImplicitDepositTxOut) . referenceScriptBabbageTxOutL
+    lens babbageTxOut (const LegacyTxOut) . referenceScriptBabbageTxOutL
   {-# INLINEABLE referenceScriptTxOutL #-}
 
 addrEitherBabbageTxOutL ::

@@ -27,9 +27,9 @@ spec = describe "UTXO" $ do
       (_, rootTxOut) <- getImpRootTxOut
       let extra = Coin 3
           rootTxOutValue = case rootTxOut of
-            ImplicitDepositTxOut o -> o ^. valueTxOutL
-            StoreBackedTxOut _ ->
-              error "ValueNotConservedUTxO: unexpected StoreBackedTxOut for the root output"
+            LegacyTxOut o -> o ^. valueTxOutL
+            NewTxOut _ ->
+              error "ValueNotConservedUTxO: unexpected NewTxOut for the root output"
           txBody =
             mkBasicTxBody
               & inputsTxBodyL .~ [txIn]

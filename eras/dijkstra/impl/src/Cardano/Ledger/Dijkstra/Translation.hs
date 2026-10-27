@@ -217,8 +217,8 @@ instance TranslateEra DijkstraEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosOutputStorage =
-            StoredOutputs $
+        { utxosUTxOs =
+            UTxOs $
               Store.fromLegacyAllocations $
                 Map.map upgradeImplicit (unUTxO $ utxosUtxo us)
         , utxosDeposited = utxosDeposited us
@@ -228,10 +228,11 @@ instance TranslateEra DijkstraEra UTxOState where
         , utxosDonation = utxosDonation us
         }
     where
-      -- Conway cannot contain store-backed outputs. Translation therefore
-      -- creates legacy allocations without inventing a historical price/size.
-      upgradeImplicit :: TxOut ConwayEra -> ImplicitDepositTxOut DijkstraEra
-      upgradeImplicit (ImplicitDepositTxOut output) = upgradeBabbageTxOut output
+      -- Conway cannot contain store-backed outputs. The provisional legacy
+      -- conversion records a re-encoded size and zero rate, not recovered history.
+      -- These entries contribute no separately held deposit.
+      upgradeImplicit :: TxOut ConwayEra -> LegacyTxOut DijkstraEra
+      upgradeImplicit (LegacyTxOut output) = upgradeBabbageTxOut output
 
 instance TranslateEra DijkstraEra UTxO where
   translateEra _ctxt utxo =

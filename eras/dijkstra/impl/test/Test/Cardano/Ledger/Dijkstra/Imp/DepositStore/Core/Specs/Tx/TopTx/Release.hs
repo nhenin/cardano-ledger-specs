@@ -20,13 +20,15 @@ import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
-import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.Val (Val ((<->)))
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations (..))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (
   createdOrdinaryOutputs,
@@ -59,7 +61,7 @@ releasedDeposits :: ReleaseTx -> Coin
 releasedDeposits proposal =
   foldMap id $
     Map.restrictKeys
-      (depositStoreAllocations $ recordedDepositStore $ TopTx.utxoState $ ledgerState proposal)
+      (recordedAmounts $ liveOutputStore $ TopTx.utxoState $ ledgerState proposal)
       (ordinarySpendingInputs $ unsignedTx proposal)
 
 -- | Required net change: allocations minus releases. Positive allocates, negative

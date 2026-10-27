@@ -14,7 +14,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
   utxosDonation,
  )
-import Cardano.Ledger.State (depositStoreAllocations, reservesL)
+import Cardano.Ledger.State (reservesL)
 import Cardano.Ledger.Val ((<->))
 import Lens.Micro ((%~), (&))
 import Test.Cardano.Ledger.Common (Spec, chooseInteger, describe, forAll, forM_, prop)
@@ -22,7 +22,10 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (Fixt
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects as Effects
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.ADA (actualAda)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted, submitTx)
 import Test.Cardano.Ledger.Dijkstra.ImpTest (getsNES, modifyNES)
 import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
@@ -47,8 +50,8 @@ spec = describe "DS-STATE-CONSERVATION - ADA conservation" $ do
         after <- getsNES nesEsL
         forM_ [before, after] $ \epoch -> do
           let utxoState = lsUTxOState $ esLState epoch
-              store = recordedDepositStore utxoState
-              obligations = foldMap id $ depositStoreAllocations store
+              store = liveOutputStore utxoState
+              obligations = foldMap id $ recordedAmounts store
           obligations `shouldSatisfy` (> Coin 0)
           totalAdaES epoch <> utxosDonation utxoState `shouldBe` actualAda epoch
 

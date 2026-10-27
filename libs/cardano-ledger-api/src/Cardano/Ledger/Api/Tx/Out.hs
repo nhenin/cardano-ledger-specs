@@ -27,7 +27,7 @@
 -- >>> :{
 -- quickCheck $ \addr val ->
 --     case mkBasicTxOutWithImplicitDeposit @BabbageEra addr val of
---         txOut@(ImplicitDepositTxOut output) ->
+--         txOut@(LegacyTxOut output) ->
 --             txOut ^. addrTxOutL == addr && output ^. valueTxOutL == val
 -- :}
 -- +++ OK, passed 100 tests.
@@ -51,9 +51,9 @@ module Cardano.Ledger.Api.Tx.Out (
   bootAddrTxOutF,
 
   -- * Implicit-deposit outputs
-  EraImplicitDepositTxOut,
-  type ImplicitDepositTxOut,
-  mkBasicImplicitDepositTxOut,
+  EraLegacyTxOut,
+  type LegacyTxOut,
+  mkBasicLegacyTxOut,
   valueTxOutL,
 
   -- ** Minimum coin
@@ -65,9 +65,9 @@ module Cardano.Ledger.Api.Tx.Out (
   ensureMinCoinSizedTxOut,
 
   -- * Store-backed outputs
-  EraStoreBackedTxOut,
-  type StoreBackedTxOut,
-  mkBasicStoreBackedTxOut,
+  EraNewTxOut,
+  type NewTxOut,
+  mkBasicNewTxOut,
   ApplicationAssets (..),
   applicationAssetsTxOutL,
 
@@ -99,8 +99,8 @@ import Cardano.Ledger.Binary
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Core (
   ApplicationAssets (..),
-  EraImplicitDepositTxOut (..),
-  EraStoreBackedTxOut (..),
+  EraLegacyTxOut (..),
+  EraNewTxOut (..),
   EraTxOut (..),
   PParams,
   TxOut (..),
@@ -151,11 +151,11 @@ instance AnyEraTxOut DijkstraEra
 -- | Private. Adjust an implicit deposit while keeping the cached size current.
 setMinCoinSizedTxOutInternal ::
   forall era.
-  EraImplicitDepositTxOut era =>
+  EraLegacyTxOut era =>
   (Coin -> Coin -> Bool) ->
   PParams era ->
-  Sized (ImplicitDepositTxOut era) ->
-  Sized (ImplicitDepositTxOut era)
+  Sized (LegacyTxOut era) ->
+  Sized (LegacyTxOut era)
 setMinCoinSizedTxOutInternal f pp = go
   where
     version = eraProtVerLow @era
@@ -170,10 +170,10 @@ setMinCoinSizedTxOutInternal f pp = go
 -- allowed by the UTXO rule. Initial amount is not important.
 setMinCoinSizedTxOut ::
   forall era.
-  EraImplicitDepositTxOut era =>
+  EraLegacyTxOut era =>
   PParams era ->
-  Sized (ImplicitDepositTxOut era) ->
-  Sized (ImplicitDepositTxOut era)
+  Sized (LegacyTxOut era) ->
+  Sized (LegacyTxOut era)
 setMinCoinSizedTxOut = setMinCoinSizedTxOutInternal (==)
 
 -- | Similar to `setMinCoinSizedTxOut` it will guarantee that the minimum requirement for the
@@ -184,8 +184,8 @@ setMinCoinSizedTxOut = setMinCoinSizedTxOutInternal (==)
 -- `ensureMinCoinTxOut` relates to `setMinCoinTxOut`.
 ensureMinCoinSizedTxOut ::
   forall era.
-  EraImplicitDepositTxOut era =>
+  EraLegacyTxOut era =>
   PParams era ->
-  Sized (ImplicitDepositTxOut era) ->
-  Sized (ImplicitDepositTxOut era)
+  Sized (LegacyTxOut era) ->
+  Sized (LegacyTxOut era)
 ensureMinCoinSizedTxOut = setMinCoinSizedTxOutInternal (>=)

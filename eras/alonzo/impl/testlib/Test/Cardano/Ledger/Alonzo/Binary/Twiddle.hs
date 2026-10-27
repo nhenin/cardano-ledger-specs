@@ -29,7 +29,7 @@ instance (Era era, Val (Value era)) => Twiddle (AlonzoTxOut era) where
   twiddle v = twiddle v . toTerm v
 
 instance Twiddle (TxOut AlonzoEra) where
-  twiddle v (ImplicitDepositTxOut implicitOutput) = twiddle v implicitOutput
+  twiddle v (LegacyTxOut implicitOutput) = twiddle v implicitOutput
 
 instance Twiddle SlotNo where
   twiddle v = twiddle v . toTerm v

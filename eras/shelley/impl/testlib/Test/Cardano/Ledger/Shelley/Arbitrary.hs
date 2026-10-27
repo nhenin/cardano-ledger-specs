@@ -131,7 +131,7 @@ instance (EraTxOut era, Arbitrary (Value era)) => Arbitrary (ShelleyTxOut era) w
   arbitrary = ShelleyTxOut <$> arbitrary <*> scale (`div` 15) arbitrary
 
 instance Arbitrary (TxOut ShelleyEra) where
-  arbitrary = ImplicitDepositTxOut <$> arbitrary
+  arbitrary = LegacyTxOut <$> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.Shelley.LedgerState ----------------------------------------------------

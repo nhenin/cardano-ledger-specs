@@ -281,7 +281,7 @@ aliceGivesBobLovelace
 utxoState :: UTxOState ShelleyEra
 utxoState =
   UTxOState
-    ( LegacyOutputs $
+    ( LegacyUTxOMap $
         genesisCoins
           genesisId
           [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin

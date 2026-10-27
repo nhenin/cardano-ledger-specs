@@ -35,9 +35,9 @@ import Cardano.Ledger.Dijkstra.Core (
   BabbageEraTxOut (..),
   DijkstraBlockBody (..),
   Era,
+  EraNewTxOut (..),
   EraPParams (..),
   EraRule,
-  EraStoreBackedTxOut (..),
   EraTx (..),
   EraTxBody (..),
   EraTxCert (..),
@@ -91,9 +91,9 @@ instance ToExpr (DijkstraPParams StrictMaybe DijkstraEra)
 
 instance ToExpr (TxOut DijkstraEra) where
   toExpr = \case
-    ImplicitDepositTxOut output -> App "ImplicitDepositTxOut" [toExpr output]
-    txOut@(StoreBackedTxOut output) ->
-      Rec "StoreBackedTxOut" $
+    LegacyTxOut output -> App "LegacyTxOut" [toExpr output]
+    txOut@(NewTxOut output) ->
+      Rec "NewTxOut" $
         OMap.fromList
           [ ("address", toExpr $ txOut ^. addrTxOutL)
           , ("applicationAssets", toExpr . unApplicationAssets $ output ^. applicationAssetsTxOutL)

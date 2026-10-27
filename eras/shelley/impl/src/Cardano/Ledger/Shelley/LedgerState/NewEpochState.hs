@@ -63,7 +63,7 @@ genesisState ::
 genesisState genDelegs0 utxo0 =
   LedgerState
     ( UTxOState
-        (LegacyOutputs utxo0)
+        (LegacyUTxOMap utxo0)
         (Coin 0)
         (Coin 0)
         emptyGovState
@@ -140,5 +140,5 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
       acnt
         { casReserves = casReserves acnt <+> sumCoinUTxO utxoR
         }
-    us' = us {utxosOutputStorage = LegacyOutputs (UTxO nonredeemers :: UTxO era)}
+    us' = us {utxosUTxOs = LegacyUTxOMap (UTxO nonredeemers :: UTxO era)}
     ls' = ls {lsUTxOState = us'}

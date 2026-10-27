@@ -4,6 +4,8 @@
 -- obligation. The expected output fields come directly from the Conway state.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.TranslationSpec (spec) where
 
+import qualified Cardano.Ledger.Binary as Binary
+import Cardano.Ledger.Coin (CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState
@@ -25,7 +27,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecy
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   expectedDepositTotal,
   liveOutputStore,
-  recordedDepositStore,
+  recordedAmounts,
  )
 
 {- FOURMOLU_DISABLE -}
@@ -42,7 +44,7 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
         Map.keysSet outputs `shouldBe` Map.keysSet previousOutputs
         forM_ (Map.toList previousOutputs) $ \(input, previousOutput) ->
           case (previousOutput, Map.lookup input outputs) of
-            (ImplicitDepositTxOut previousImplicit, Just output@(ImplicitDepositTxOut implicit)) -> do
+            (LegacyTxOut previousImplicit, Just output@(LegacyTxOut implicit)) -> do
               output ^. addrTxOutL `shouldBe` previousOutput ^. addrTxOutL
               implicit ^. valueTxOutL `shouldBe` previousImplicit ^. valueTxOutL
               -- Compare datum semantics and script identity across their era types.
@@ -50,13 +52,17 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
               fmap hashScript (output ^. referenceScriptTxOutL)
                 `shouldBe` fmap hashScript (previousOutput ^. referenceScriptTxOutL)
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
-        recordedDepositStore utxoState `shouldBe` DepositStore Map.empty
+        recordedAmounts (liveOutputStore utxoState) `shouldBe` Map.empty
         let entries = unAllocations $ allocations $ liveOutputStore utxoState
         Map.keysSet entries `shouldBe` Map.keysSet outputs
-        forM_ (Map.elems entries) $ \entry -> do
-          allocationCalculation entry `shouldBe` Nothing
-          fmap (const ()) (allocationSizedOutput entry) `shouldBe` Nothing
-        unInMemoryOutputDepositAmount (totalDepositAmount $ liveOutputStore utxoState)
+        forM_ (Map.elems entries) $ \entry -> case allocationOutput entry of
+          LegacyTxOut _ -> do
+            -- Imported legacy outputs use explicit compatibility metadata; their
+            -- historical accepted size cannot be recovered from the Conway state.
+            unspentOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (allocationOutput entry)
+            depositCalculation entry `shouldBe` DepositCalculationV1 (CoinPerByte $ CompactCoin 0)
+          NewTxOut _ -> expectationFailure "Every translated Conway output must remain a LegacyTxOut"
+        unspentOutputDepositsAmount (totalDepositAmount $ liveOutputStore utxoState)
           `shouldBe` expectedDepositTotal (liveOutputStore utxoState)
         -- Check each actual monetary pot, so a swapped or reset pot is visible.
         translatedState ^. treasuryL `shouldBe` previousState ^. treasuryL

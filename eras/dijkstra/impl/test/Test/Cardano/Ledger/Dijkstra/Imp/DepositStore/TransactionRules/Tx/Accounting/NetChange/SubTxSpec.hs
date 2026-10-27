@@ -36,7 +36,6 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraUtxoPredFailure (..),
   validateSubTxExactness,
  )
-import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.Val ((<->))
 import Data.Foldable (traverse_)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -52,7 +51,10 @@ import Test.Cardano.Ledger.Common (
   forM_,
   prop,
  )
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -75,7 +77,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   ordinarySpendingInputs,
   submitTx,
  )
-import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
+import Test.Cardano.Ledger.Imp.Common (expectRight, shouldBe, shouldSatisfy)
 import Validation (Validation (..))
 
 -- | Keep each mathematical requirement beside its named example.
@@ -115,9 +117,9 @@ spec =
                 Nothing -> Success ()
                 Just failures -> Failure failures
             ledgerState = TopTx.ledgerState proposal
-        traverse_ (validateSubTxExactness (Ledger.protocolParameters ledgerState)
-          (recordedDepositStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
-          `shouldBe` expected
+        actual <- expectRight $ traverse (validateSubTxExactness (Ledger.protocolParameters ledgerState)
+          (liveOutputStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
+        traverse_ id actual `shouldBe` expected
 
     -- Exact own change, with any allocation and release combination.
     -- Exercise positive allocation, negative release and explicit zero with local accounting; N03/N04 cover the delegated forms.
@@ -385,7 +387,7 @@ spec =
         unrelatedProposal <- fundAccountingScenario unrelatedFunding
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
-            records = depositStoreAllocations $ recordedDepositStore $ Ledger.utxoState $ TopTx.ledgerState proposal
+            records = recordedAmounts $ liveOutputStore $ Ledger.utxoState $ TopTx.ledgerState proposal
             unspentRecords = Map.restrictKeys records $ ordinarySpendingInputs $ TopTx.unsignedTx unrelatedProposal
         Coin unrelatedRelease `shouldSatisfy` (\amount -> amount > Coin 0 && amount <= foldMap id unspentRecords)
         signedTx <- buildAndSignTx $ TopTx.addDeclaration

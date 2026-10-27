@@ -265,7 +265,7 @@ spec = describe "SUBUTXO" $ do
   it "a sub-transaction larger than maxTxSize is rejected only by the top level rule" $ do
     pp <- getsPParams id
     addr <- freshKeyAddr_
-    let txOut = ImplicitDepositTxOut . setMinCoinTxOut pp $ mkBasicImplicitDepositTxOut addr mempty
+    let txOut = LegacyTxOut . setMinCoinTxOut pp $ mkBasicLegacyTxOut addr mempty
         subTx :: Tx SubTx era
         subTx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (replicate 20 txOut)
         maxTxSize = subTx ^. sizeTxF - 1
@@ -296,10 +296,10 @@ spec = describe "SUBUTXO" $ do
         mainnetAddr <- freshMainnetKeyAddr_
         let badReferenceInput = neverSubmittedTxIn @era 0
             validityInterval = ValidityInterval (SJust (currentSlot + 1)) SNothing
-            tooBigTxOut = ImplicitDepositTxOut . setMinCoinTxOut pp $ implicitDepositOutput assetTxOut
+            tooBigTxOut = LegacyTxOut . setMinCoinTxOut pp $ implicitDepositOutput assetTxOut
             bootstrapAttrsTxOut =
-              ImplicitDepositTxOut . setMinCoinTxOut pp $
-                mkBasicImplicitDepositTxOut (AddrBootstrap bootAddr) mempty
+              LegacyTxOut . setMinCoinTxOut pp $
+                mkBasicLegacyTxOut (AddrBootstrap bootAddr) mempty
             tooSmallTxOut = mkBasicTxOutWithImplicitDeposit mainnetAddr . inject $ Coin 1
         submitFailingSubTx
           ( mkBasicTx $
@@ -347,7 +347,7 @@ spec = describe "SUBUTXO" $ do
       submitTx_ . mkTopTxWithSubTxs . pure . mkBasicTx $
         mkBasicTxBody
           & outputsTxBodyL
-            .~ [ImplicitDepositTxOut . setMinCoinTxOut pp $ mkBasicImplicitDepositTxOut addr mempty]
+            .~ [LegacyTxOut . setMinCoinTxOut pp $ mkBasicLegacyTxOut addr mempty]
 
     it "an output to a bootstrap address whose payload is the largest allowed size" $ do
       bootAddr <- freshBootstrapAddressWithPayloadSize $ Just largestBootstrapAddressAttrsSize
@@ -396,7 +396,7 @@ freshSubTxProducingOutput = do
           mkBasicTxBody
             & inputsTxBodyL .~ [spentTxIn]
             & outputsTxBodyL
-              .~ [ImplicitDepositTxOut . setMinCoinTxOut pp $ mkBasicImplicitDepositTxOut producedAddr mempty]
+              .~ [LegacyTxOut . setMinCoinTxOut pp $ mkBasicLegacyTxOut producedAddr mempty]
   pure (subTx, mkTxInPartial (txIdTx subTx) 0)
 
 subTxOutputs :: DijkstraEraImp era => Tx TopTx era -> ImpTestM era (NonEmpty (TxOut era))
@@ -445,7 +445,7 @@ outputTooBigEntry pp txOut =
   )
 
 -- | Private: these test fixtures exercise outputs with implicit deposits.
-implicitDepositOutput :: TxOut era -> ImplicitDepositTxOut era
-implicitDepositOutput (ImplicitDepositTxOut implicitOutput) = implicitOutput
-implicitDepositOutput (StoreBackedTxOut _) =
+implicitDepositOutput :: TxOut era -> LegacyTxOut era
+implicitDepositOutput (LegacyTxOut implicitOutput) = implicitOutput
+implicitDepositOutput (NewTxOut _) =
   error "SubUtxoSpec: expected an implicit-deposit output"

@@ -574,7 +574,7 @@ instance Arbitrary Vote where
   shrink = shrinkBoundedEnum
 
 instance Arbitrary (TxOut ConwayEra) where
-  arbitrary = ImplicitDepositTxOut <$> arbitrary
+  arbitrary = LegacyTxOut <$> arbitrary
 
 instance Arbitrary (TxBody TopTx ConwayEra) where
   arbitrary =

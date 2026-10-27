@@ -338,14 +338,14 @@ pattern AlonzoTxOut addr vl dh <-
 {-# COMPLETE AlonzoTxOut #-}
 
 instance EraTxOut AlonzoEra where
-  type ImplicitDepositTxOut AlonzoEra = AlonzoTxOut AlonzoEra
-  type StoreBackedTxOut AlonzoEra = NoStoreBackedTxOut AlonzoEra
+  type LegacyTxOut AlonzoEra = AlonzoTxOut AlonzoEra
+  type NewTxOut AlonzoEra = NoNewTxOut AlonzoEra
 
-  upgradeTxOut (ImplicitDepositTxOut (Shelley.TxOutCompact addr value)) =
-    ImplicitDepositTxOut $ TxOutCompact' addr value
+  upgradeTxOut (LegacyTxOut (Shelley.TxOutCompact addr value)) =
+    LegacyTxOut $ TxOutCompact' addr value
 
   addrEitherTxOutL =
-    lens alonzoTxOut (const ImplicitDepositTxOut)
+    lens alonzoTxOut (const LegacyTxOut)
       . lens
         getAlonzoTxOutEitherAddr
         ( \txOut eAddr ->
@@ -357,8 +357,8 @@ instance EraTxOut AlonzoEra where
         )
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraImplicitDepositTxOut AlonzoEra where
-  mkBasicImplicitDepositTxOut addr vl = AlonzoTxOut addr vl SNothing
+instance EraLegacyTxOut AlonzoEra where
+  mkBasicLegacyTxOut addr vl = AlonzoTxOut addr vl SNothing
 
   valueEitherTxOutL =
     lens
@@ -380,14 +380,14 @@ instance EraImplicitDepositTxOut AlonzoEra where
     case pp ^. ppCoinsPerUTxOWordL of
       CoinPerWord (Coin cpw) -> Coin $ utxoEntrySize txOut * cpw
 
-instance EraStoreBackedTxOut AlonzoEra where
-  mkBasicStoreBackedTxOut = notSupportedInThisEra
+instance EraNewTxOut AlonzoEra where
+  mkBasicNewTxOut = notSupportedInThisEra
 
   applicationAssetsTxOutL _ unavailable = case unavailable of {}
 
 -- | Private: recover the historical representation from Alonzo's only supported variant.
 alonzoTxOut :: TxOut AlonzoEra -> AlonzoTxOut AlonzoEra
-alonzoTxOut (ImplicitDepositTxOut output) = output
+alonzoTxOut (LegacyTxOut output) = output
 {-# INLINE alonzoTxOut #-}
 
 -- The wrapper retains the historical instances and encodings without a variant tag.
@@ -409,23 +409,23 @@ instance EncCBOR (TxOut AlonzoEra) where
   encCBOR = encCBOR . alonzoTxOut
 
 instance DecCBOR (TxOut AlonzoEra) where
-  decCBOR = ImplicitDepositTxOut <$> decCBOR
+  decCBOR = LegacyTxOut <$> decCBOR
 
 instance DecShareCBOR (TxOut AlonzoEra) where
   type Share (TxOut AlonzoEra) = Interns (Credential Staking)
-  decShareCBOR = fmap ImplicitDepositTxOut . decShareCBOR
+  decShareCBOR = fmap LegacyTxOut . decShareCBOR
 
 instance MemPack (TxOut AlonzoEra) where
   packedByteCount = packedByteCount . alonzoTxOut
   packM = packM . alonzoTxOut
-  unpackM = ImplicitDepositTxOut <$> unpackM
+  unpackM = LegacyTxOut <$> unpackM
 
 instance ToJSON (TxOut AlonzoEra) where
   toJSON = toJSON . alonzoTxOut
   toEncoding = toEncoding . alonzoTxOut
 
 instance FromJSON (TxOut AlonzoEra) where
-  parseJSON = fmap ImplicitDepositTxOut . parseJSON
+  parseJSON = fmap LegacyTxOut . parseJSON
 
 instance
   (Era era, Val (Value era)) =>
@@ -566,11 +566,11 @@ getAlonzoTxOutEitherAddr = \case
 
 -- | Compute an estimate of the size of storing one UTxO entry.
 -- This function implements the UTxO entry size estimate done by scaledMinDeposit in the ShelleyMA era
-utxoEntrySize :: AlonzoEraTxOut era => ImplicitDepositTxOut era -> Integer
+utxoEntrySize :: AlonzoEraTxOut era => LegacyTxOut era -> Integer
 utxoEntrySize txOut = utxoEntrySizeWithoutVal + size v + dataHashSize dh
   where
     v = txOut ^. valueTxOutL
-    dh = ImplicitDepositTxOut txOut ^. dataHashTxOutL
+    dh = LegacyTxOut txOut ^. dataHashTxOutL
     -- lengths obtained from tracing on HeapWords of inputs and outputs
     -- obtained experimentally, and number used here
     -- units are Word64s
@@ -581,7 +581,7 @@ utxoEntrySize txOut = utxoEntrySizeWithoutVal + size v + dataHashSize dh
 
 instance AlonzoEraTxOut AlonzoEra where
   dataHashTxOutL =
-    lens alonzoTxOut (const ImplicitDepositTxOut)
+    lens alonzoTxOut (const LegacyTxOut)
       . lens getAlonzoTxOutDataHash (\(AlonzoTxOut addr cv _) dh -> AlonzoTxOut addr cv dh)
   {-# INLINEABLE dataHashTxOutL #-}
 

@@ -108,7 +108,6 @@ import Data.Bifunctor
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
-import qualified Data.Map.Strict as Map
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
@@ -120,7 +119,7 @@ data UtxoEnv era = UtxoEnv
   , uePParams :: PParams era
   , uePState :: PState era
   , ueOriginalCertState :: CertState era
-  , uePreviousInMemoryUnspentTxOutputStore :: InMemoryUnspentTxOutputStore era
+  , uePreviousUTxOStore :: UTxOStore era
   }
 
 -- | Predicate failure for the Dijkstra Era
@@ -297,16 +296,11 @@ validateBatchCollateral ::
   ) =>
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
-  DepositStore ->
-  Test (EraRuleFailure rule era)
-validateBatchCollateral pp tx (UTxO utxo) store =
-  when (hasBatchRedeemers tx) $
-    validateCollateralFunding
-      pp
-      (tx ^. bodyTxL)
-      (Map.restrictKeys utxo $ tx ^. bodyTxL . collateralInputsTxBodyL)
-      store
+  UTxOStore era ->
+  Either OutputStoreError (Test (EraRuleFailure rule era))
+validateBatchCollateral pp tx store
+  | hasBatchRedeemers tx = validateCollateralFunding pp (tx ^. bodyTxL) store
+  | otherwise = Right $ pure ()
 
 -- | A SubTx's redeemers trigger collateral validation for the complete batch.
 hasBatchRedeemers :: (AlonzoEraTx era, DijkstraEraTxBody era) => Tx TopTx era -> Bool
@@ -383,7 +377,7 @@ dijkstraUtxoTransition ::
   TransitionRule (EraRule "UTXO" era)
 dijkstraUtxoTransition = do
   ctx@( TRC
-          ( UtxoEnv slot pp postSubsPState originalCertState previousInMemoryUnspentTxOutputStore
+          ( UtxoEnv slot pp postSubsPState originalCertState previousUTxOStore
             , utxos
             , stAnnTx
             )
@@ -399,175 +393,166 @@ dijkstraUtxoTransition = do
               , avCtx = ctx
               , avState = Nothing
               }
-      inMemoryUnspentTxOutputStore = case utxosOutputStorage utxos of
-        StoredOutputs store -> store
-        LegacyOutputs _ -> invariantFailure "Dijkstra state must contain InMemoryUnspentTxOutputStore"
+      utxoStore = case utxosUTxOs utxos of
+        UTxOs store -> store
+        LegacyUTxOMap _ -> invariantFailure "Dijkstra state must contain UTxOStore"
+      checkedStoreResult :: Either OutputStoreError a -> a
+      checkedStoreResult = either (invariantFailure . ("Historical allocation invariant violated: " <>) . show) id
   -- Accounting reads the original historical allocations even after children
   -- have updated the live store. Checked state construction excludes invalid metadata.
-  case DepositStore
-    <$> allocationDepositsForInputs
-      (stAnnTx ^. txStAnnTxG . bodyTxL . allInputsTxBodyF)
-      previousInMemoryUnspentTxOutputStore of
-    Left err ->
-      invariantFailure $ "Historical allocation invariant violated: " <> show err
-    Right originalDeposits -> do
-      let originalUtxo = storeUTxO previousInMemoryUnspentTxOutputStore
-      let tx = stAnnTx ^. txStAnnTxG
-      let originalPState = originalCertState ^. certPStateL
+  let originalUtxo = storeUTxO previousUTxOStore
+  let tx = stAnnTx ^. txStAnnTxG
+  let originalPState = originalCertState ^. certPStateL
 
-      let txBody = tx ^. bodyTxL
+  let txBody = tx ^. bodyTxL
 
-      runTestOnSignal $
-        first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-          validateTopTxAllocationDeclarationPresence txBody
+  runTestOnSignal $
+    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
+      validateTopTxAllocationDeclarationPresence txBody
 
-      runTestOnSignal $
-        first (fmap depositStoreDeclarationToUtxoPredFailure) $
-          validateTopTxNetUTxODepositDeclaration txBody
+  runTestOnSignal $
+    first (fmap depositStoreDeclarationToUtxoPredFailure) $
+      validateTopTxNetUTxODepositDeclaration txBody
 
-      {- inInterval (SlotOf Γ) (ValidIntervalOf txTop) -}
-      runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
+  {- inInterval (SlotOf Γ) (ValidIntervalOf txTop) -}
+  runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
-      sysSt <- liftSTS $ asks systemStart
-      ei <- liftSTS $ asks epochInfo
+  sysSt <- liftSTS $ asks systemStart
+  ei <- liftSTS $ asks epochInfo
 
-      runTest $ Alonzo.validateOutsideForecast ei slot sysSt tx
+  runTest $ Alonzo.validateOutsideForecast ei slot sysSt tx
 
-      {- SpendInputs ≠ ∅ -}
-      runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txBody
+  {- SpendInputs ≠ ∅ -}
+  runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txBody
 
-      let
-        -- allInputs finds all inputs in a transaction, including sub-transactions
-        allInputs = txBody ^. allInputsTxBodyF
-        inputs = txBody ^. inputsTxBodyL
+  let
+    -- allInputs finds all inputs in a transaction, including sub-transactions
+    allInputs = txBody ^. allInputsTxBodyF
+    inputs = txBody ^. inputsTxBodyL
 
-      {- SpendInputsOf txTop ∪ RefInputsOf txTop ∪ CollInputsOf txTop ⊆ dom(utxo₀) -}
-      runTest $ Shelley.validateBadInputsUTxO originalUtxo allInputs
+  {- SpendInputsOf txTop ∪ RefInputsOf txTop ∪ CollInputsOf txTop ⊆ dom(utxo₀) -}
+  runTest $ Shelley.validateBadInputsUTxO originalUtxo allInputs
 
-      {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
-      runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxos) inputs
+  {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
+  runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxos) inputs
 
-      -- Release declaration presence uses the original UTxO on both phase-2 paths.
-      runTest $
-        first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-          validateTopTxReleaseDeclarationPresence originalUtxo txBody
+  -- Release declaration presence uses the original UTxO on both phase-2 paths.
+  runTest $
+    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
+      validateTopTxReleaseDeclarationPresence originalUtxo txBody
 
-      -- Whole-batch exactness uses the original store on both phase-2 paths.
-      -- SubTx changes have already been applied only to the live store.
-      runTest $
-        first (fmap DepositStoreFailure) $
-          DepositStore.validateOrdinaryDepositStore pp originalUtxo originalDeposits txBody
+  -- Whole-batch exactness uses the original store on both phase-2 paths.
+  -- SubTx changes have already been applied only to the live store.
+  runTest $
+    first (fmap DepositStoreFailure) $
+      checkedStoreResult $
+        DepositStore.validateOrdinaryDepositStore pp previousUTxOStore txBody
 
-      {- minfee pp txTop utxo₀ ≤ txfee txb -}
-      runTest $ Shelley.validateFeeTooSmallUTxO pp tx originalUtxo
+  {- minfee pp txTop utxo₀ ≤ txfee txb -}
+  runTest $ Shelley.validateFeeTooSmallUTxO pp tx originalUtxo
 
-      {- (RedeemersOf txTop ≠ ∅ ⊎ Any (λ txSub → RedeemersOf txSub ≠ ∅) subtxs) → collateralCheck -}
-      validate $ validateBatchCollateral pp tx originalUtxo originalDeposits
-      when (hasBatchRedeemers tx) $
-        runTest $
-          first (fmap DepositStoreFailure) $
-            DepositStore.validateDepositStoreInputs
-              originalUtxo
-              originalDeposits
-              (txBody ^. collateralInputsTxBodyL)
+  {- (RedeemersOf txTop ≠ ∅ ⊎ Any (λ txSub → RedeemersOf txSub ≠ ∅) subtxs) → collateralCheck -}
+  validate $ checkedStoreResult $ validateBatchCollateral pp tx previousUTxOStore
 
-      -- If the transaction is phase2-invalid, the `produced` value in legacy mode will
-      -- wrongly include a deposit for a pool that a sub-transaction already registered,
-      -- because the Phase2Invalid flag prevents `postSubsPState` from being updated.
-      -- It is safe to skip the value conservation check here, because we know
-      -- that none of the modifications to the ledger state will happen
-      -- that affect conservation of value when a transaction is phase-2 invalid.
-      -- For consistency, we're skipping the check in both normal and legacy mode.
-      when (tx ^. isPhase2ValidTxL == Phase2Valid) $ do
-        {- consumed pp utxo₀ txb = produced pp certState txb -}
-        runTest $
-          first (fmap Shelley.ValueNotConservedUTxO) $
-            validateValueNotConservedUTxO
-              pp
-              originalUtxo
-              originalPState
-              txBody
-
-        {- legacyMode ≡ true → consumedLegacy ≡ producedLegacy -}
-        when (stAnnTx ^. plutusLegacyModeStAnnTxG) $
-          runTest $
-            first (fmap ValueNotConservedInLegacyMode) $
-              validateLegacyValueNotConservedUTxO
-                pp
-                originalUtxo
-                postSubsPState
-                txBody
-
-      -- Apply the byte-based minimum only to implicit-deposit outputs, preserving their cached size.
-      let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
-      runTest $
-        Babbage.validateImplicitDeposits
+  -- If the transaction is phase2-invalid, the `produced` value in legacy mode will
+  -- wrongly include a deposit for a pool that a sub-transaction already registered,
+  -- because the Phase2Invalid flag prevents `postSubsPState` from being updated.
+  -- It is safe to skip the value conservation check here, because we know
+  -- that none of the modifications to the ledger state will happen
+  -- that affect conservation of value when a transaction is phase-2 invalid.
+  -- For consistency, we're skipping the check in both normal and legacy mode.
+  when (tx ^. isPhase2ValidTxL == Phase2Valid) $ do
+    {- consumed pp utxo₀ txb = produced pp certState txb -}
+    runTest $
+      first (fmap Shelley.ValueNotConservedUTxO) $
+        validateValueNotConservedUTxO
           pp
-          [Sized output size | Sized (ImplicitDepositTxOut output) size <- toList allSizedOutputs]
+          originalUtxo
+          originalPState
+          txBody
 
-      let allOutputs = fmap sizedValue allSizedOutputs
-      {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}
-      runTest $ Alonzo.validateOutputTooBigUTxO pp allOutputs
+    {- legacyMode ≡ true → consumedLegacy ≡ producedLegacy -}
+    when (stAnnTx ^. plutusLegacyModeStAnnTxG) $
+      runTest $
+        first (fmap ValueNotConservedInLegacyMode) $
+          validateLegacyValueNotConservedUTxO
+            pp
+            originalUtxo
+            postSubsPState
+            txBody
 
-      {- ∀ ( _ ↦ (a,_)) ∈ allOuts txb, a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
-      runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
+  -- Apply the byte-based minimum only to implicit-deposit outputs, preserving their cached size.
+  let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
+  runTest $
+    Babbage.validateImplicitDeposits
+      pp
+      [Sized output size | Sized (LegacyTxOut output) size <- toList allSizedOutputs]
 
-      netId <- liftSTS $ asks networkId
+  let allOutputs = fmap sizedValue allSizedOutputs
+  {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}
+  runTest $ Alonzo.validateOutputTooBigUTxO pp allOutputs
 
-      {- ∀(_ → (a, _)) ∈ allOuts txb, netId a = NetworkId -}
-      runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs
+  {- ∀ ( _ ↦ (a,_)) ∈ allOuts txb, a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
+  runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
-      {- (txnetworkid txb = NetworkId) ∨ (txnetworkid txb = ◇) -}
-      runTestOnSignal $ Alonzo.validateWrongNetworkInTxBody netId txBody
+  netId <- liftSTS $ asks networkId
 
-      {- no Ptr in collateral return -}
-      validateNoPtrInCollateralReturn txBody
+  {- ∀(_ → (a, _)) ∈ allOuts txb, netId a = NetworkId -}
+  runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs
 
-      {- txsize tx ≤ maxTxSize pp -}
-      runTest $ Shelley.validateMaxTxSizeUTxO pp tx
+  {- (txnetworkid txb = NetworkId) ∨ (txnetworkid txb = ◇) -}
+  runTestOnSignal $ Alonzo.validateWrongNetworkInTxBody netId txBody
 
-      {- totExunits tx ≤ maxTxExUnits pp -}
-      runTest $ Alonzo.validateExUnitsTooBigUTxO pp tx
+  {- no Ptr in collateral return -}
+  validateNoPtrInCollateralReturn txBody
 
-      {- ‖collateral tx‖ ≤ maxCollInputs pp -}
-      runTest $ Alonzo.validateTooManyCollateralInputs pp txBody
+  {- txsize tx ≤ maxTxSize pp -}
+  runTest $ Shelley.validateMaxTxSizeUTxO pp tx
 
-      () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-      case tx ^. isPhase2ValidTxL of
-        Phase2Valid ->
-          case DepositStore.applyBodyAllocations pp txBody inMemoryUnspentTxOutputStore of
-            Left err ->
-              invariantFailure $ "Ordinary allocation invariant violated: " <> show err
-            Right store -> do
-              withDeposits <-
-                Shelley.updateUTxOStateDeposits
-                  pp
-                  originalCertState
-                  txBody
-                  (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-                  (Conway.updateTreasuryDonation tx utxos)
-              withOutputs <-
-                Shelley.updateUTxOAndInstantStakeWithStorage
-                  (StoredOutputs store)
-                  txBody
-                  (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
-                  withDeposits
-              pure $ withOutputs & utxosFeesL <>~ txBody ^. feeTxBodyL
-        Phase2Invalid ->
-          case DepositStore.applyCollateralAllocations pp txBody inMemoryUnspentTxOutputStore of
-            Left err ->
-              invariantFailure $ "Collateral allocation invariant violated: " <> show err
-            Right store ->
-              let settlement = DepositStore.collateralDepositSettlement pp originalUtxo originalDeposits txBody
-                  removed = txInsFilter (utxosUtxo utxos) (txBody ^. collateralInputsTxBodyL)
-                  created = collOuts txBody
-               in pure $
-                    utxos
-                      { utxosOutputStorage = StoredOutputs store
-                      , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
-                      , utxosInstantStake =
-                          deleteInstantStake removed $ addInstantStake created (utxosInstantStake utxos)
-                      }
+  {- totExunits tx ≤ maxTxExUnits pp -}
+  runTest $ Alonzo.validateExUnitsTooBigUTxO pp tx
+
+  {- ‖collateral tx‖ ≤ maxCollInputs pp -}
+  runTest $ Alonzo.validateTooManyCollateralInputs pp txBody
+
+  () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
+  case tx ^. isPhase2ValidTxL of
+    Phase2Valid ->
+      case DepositStore.applyBodyAllocations pp txBody utxoStore of
+        Left err ->
+          invariantFailure $ "Ordinary allocation invariant violated: " <> show err
+        Right store -> do
+          withDeposits <-
+            Shelley.updateUTxOStateDeposits
+              pp
+              originalCertState
+              txBody
+              (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
+              (Conway.updateTreasuryDonation tx utxos)
+          withOutputs <-
+            Shelley.updateUTxOAndInstantStakeWithStorage
+              (UTxOs store)
+              txBody
+              (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
+              withDeposits
+          pure $ withOutputs & utxosFeesL <>~ txBody ^. feeTxBodyL
+    Phase2Invalid ->
+      case DepositStore.applyCollateralAllocations pp txBody utxoStore of
+        Left err ->
+          invariantFailure $ "Collateral allocation invariant violated: " <> show err
+        Right store ->
+          let settlement =
+                checkedStoreResult $
+                  DepositStore.collateralDepositSettlement pp previousUTxOStore txBody
+              removed = txInsFilter (utxosUtxo utxos) (txBody ^. collateralInputsTxBodyL)
+              created = collOuts txBody
+           in pure $
+                utxos
+                  { utxosUTxOs = UTxOs store
+                  , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
+                  , utxosInstantStake =
+                      deleteInstantStake removed $ addInstantStake created (utxosInstantStake utxos)
+                  }
 
 --------------------------------------------------------------------------------
 -- UTXO STS

@@ -159,11 +159,6 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 -- Cardano.Ledger.BaseTypes --------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
--- State serialization generators need not satisfy transition invariants.
-instance Arbitrary DepositStore where
-  arbitrary = DepositStore <$> arbitrary
-  shrink = genericShrink
-
 -- Only supported calculation versions belong in valid serialized stores.
 instance Arbitrary DepositCalculation where
   arbitrary = DepositCalculationV1 <$> arbitrary
@@ -177,17 +172,13 @@ instance Arbitrary OutputStoreError where
       , UnsupportedDepositCalculation <$> arbitrary
       , MissingHistoricalAllocation <$> arbitrary
       , CachedDepositTotalMismatch <$> arbitrary <*> arbitrary
-      , pure ExpectedStoredOutputs
-      , pure ExpectedLegacyOutputs
       ]
   shrink = genericShrink
 
-instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (Allocation era) where
-  arbitrary =
-    suchThatMap ((,) <$> arbitrary <*> arbitrary) $ \(rate, output) ->
-      either (const Nothing) Just $ mkV1Allocation rate $ mkSized (eraProtVerLow @era) output
+instance Arbitrary (Sized a) => Arbitrary (Unspent a) where
+  arbitrary = Unspent <$> arbitrary <*> arbitrary
 
-instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (InMemoryUnspentTxOutputStore era) where
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) where
   arbitrary = suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations
   shrink store =
     mapMaybe (either (const Nothing) Just . fromAllocations . Map.fromList) $
@@ -196,12 +187,12 @@ instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (InMemoryUnspentTxOu
           unAllocations $
             allocations store
 
-instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (OutputStorage era) where
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOs era) where
   arbitrary
-    | eraProtVerLow @era >= natVersion @12 = StoredOutputs <$> arbitrary
-    | otherwise = LegacyOutputs <$> arbitrary
-  shrink (LegacyOutputs outputs) = LegacyOutputs <$> shrink outputs
-  shrink (StoredOutputs store) = StoredOutputs <$> shrink store
+    | eraProtVerLow @era >= natVersion @12 = UTxOs <$> arbitrary
+    | otherwise = LegacyUTxOMap <$> arbitrary
+  shrink (LegacyUTxOMap outputs) = LegacyUTxOMap <$> shrink outputs
+  shrink (UTxOs store) = UTxOs <$> shrink store
 
 instance Arbitrary ActiveSlotCoeff where
   arbitrary = mkActiveSlotCoeff <$> arbitrary
@@ -629,7 +620,7 @@ instance Arbitrary DRepState where
   arbitrary = DRepState <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.UTxO -------------------------------------------------------------
+-- Cardano.Ledger.State.UTxO.LegacyUTxOMap -------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 deriving instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxO era)

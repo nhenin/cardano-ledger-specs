@@ -212,7 +212,7 @@ utxoTransition = do
 
   let outputs = txouts txBody
       -- This legacy rule, also used by Mary, has only implicit-deposit outputs.
-      implicitOutputs = [output | ImplicitDepositTxOut output <- Map.elems (unUTxO outputs)]
+      implicitOutputs = [output | LegacyTxOut output <- Map.elems (unUTxO outputs)]
   {- ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp)) -}
   runTest $ validateImplicitDeposits pp implicitOutputs
 
@@ -250,12 +250,12 @@ validateOutsideValidityIntervalUTxO slot txb =
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ MaxValSize
 validateOutputTooBigUTxO ::
-  (EraImplicitDepositTxOut era, Foldable f) =>
+  (EraLegacyTxOut era, Foldable f) =>
   PParams era ->
-  f (ImplicitDepositTxOut era) ->
+  f (LegacyTxOut era) ->
   Test (AllegraUtxoPredFailure era)
 validateOutputTooBigUTxO pp outputs =
-  failureOnNonEmpty outputsTooBig (OutputTooBigUTxO . fmap ImplicitDepositTxOut)
+  failureOnNonEmpty outputsTooBig (OutputTooBigUTxO . fmap LegacyTxOut)
   where
     version = pvMajor (pp ^. ppProtocolVersionL)
     maxValSize = 4000 :: Int64
@@ -271,12 +271,12 @@ validateOutputTooBigUTxO pp outputs =
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp))
 validateImplicitDeposits ::
-  (EraImplicitDepositTxOut era, Foldable f) =>
+  (EraLegacyTxOut era, Foldable f) =>
   PParams era ->
-  f (ImplicitDepositTxOut era) ->
+  f (LegacyTxOut era) ->
   Test (AllegraUtxoPredFailure era)
 validateImplicitDeposits pp outputs =
-  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap ImplicitDepositTxOut)
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap LegacyTxOut)
   where
     outputsTooSmall =
       filter

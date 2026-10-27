@@ -23,7 +23,6 @@ import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), PolicyID (..),
 import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
 import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
-import Cardano.Ledger.State (depositStoreAllocations)
 import Cardano.Ledger.Val (Val (coin, isAdaOnly, (<->)), inject)
 import qualified Data.ByteString as BS
 import Data.List (find)
@@ -34,7 +33,10 @@ import qualified Data.Set as Set
 import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Core.Utils (txInAt)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (recordedDepositStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  liveOutputStore,
+  recordedAmounts,
+ )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Balance as Balance
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
@@ -162,7 +164,7 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
             .~ SSeq.fromList [implicitFunding, source]
   state <- Release.readLedger
   impGetUTxO (txInAt (1 :: Int) funding) >>= (`shouldBe` source)
-  Map.lookup (txInAt (1 :: Int) funding) (depositStoreAllocations $ recordedDepositStore state)
+  Map.lookup (txInAt (1 :: Int) funding) (recordedAmounts $ liveOutputStore state)
     `shouldBe` Just (Coin 2_000_000)
   let child :: Tx SubTx DijkstraEra
       child =

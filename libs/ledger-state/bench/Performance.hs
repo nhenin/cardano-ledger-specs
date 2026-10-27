@@ -70,7 +70,7 @@ main = do
 
   let newEpochState = case mUtxo of
         Nothing -> nesFromFile
-        Just utxoFromFile -> nesFromFile & outputStorageL .~ LegacyOutputs utxoFromFile
+        Just utxoFromFile -> nesFromFile & utxosL .~ LegacyUTxOMap utxoFromFile
       utxo = newEpochState ^. utxoG
       utxoMap = unUTxO utxo
       utxoSize = Map.size utxoMap

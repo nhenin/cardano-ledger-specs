@@ -129,7 +129,7 @@ instance
       <*> arbitrary
 
 instance Arbitrary (TxOut BabbageEra) where
-  arbitrary = ImplicitDepositTxOut <$> arbitrary
+  arbitrary = LegacyTxOut <$> arbitrary
 
 instance Arbitrary (TxBody TopTx BabbageEra) where
   arbitrary =

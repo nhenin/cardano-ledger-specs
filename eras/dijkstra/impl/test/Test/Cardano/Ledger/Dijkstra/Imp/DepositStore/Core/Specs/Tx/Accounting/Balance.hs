@@ -86,8 +86,8 @@ outputsValue tx = foldMap outputValue $ tx ^. bodyTxL . outputsTxBodyL
 -- | Read application assets from either output form. A recorded Store deposit
 -- is external to these values and enters the equation through TopTx's total.
 outputValue :: TxOut DijkstraEra -> MaryValue
-outputValue (ImplicitDepositTxOut output) = output ^. valueTxOutL
-outputValue (StoreBackedTxOut output) =
+outputValue (LegacyTxOut output) = output ^. valueTxOutL
+outputValue (NewTxOut output) =
   case output ^. applicationAssetsTxOutL of
     ApplicationAssets assets -> assets
 
@@ -177,7 +177,7 @@ changeSubTxOutputCoins index difference tx =
 changeFirstImplicitCoins ::
   Coin -> SSeq.StrictSeq (TxOut DijkstraEra) -> SSeq.StrictSeq (TxOut DijkstraEra)
 changeFirstImplicitCoins difference outputs = case toList outputs of
-  first@(ImplicitDepositTxOut _) : rest -> SSeq.fromList ((first & coinTxOutL <>~ difference) : rest)
+  first@(LegacyTxOut _) : rest -> SSeq.fromList ((first & coinTxOutL <>~ difference) : rest)
   _ -> error "Balance mutation requires an implicit output at index zero"
 
 -- | Child zero exports the amount to child one. The complete transaction value
@@ -211,8 +211,8 @@ changeImplicitNativeAssets :: (MaryValue -> MaryValue) -> TxOut DijkstraEra -> T
 changeImplicitNativeAssets change output
   | isAdaOnly (outputValue output) = output
   | otherwise = case output of
-      ImplicitDepositTxOut implicit -> ImplicitDepositTxOut $ implicit & valueTxOutL %~ change
-      StoreBackedTxOut _ -> error "Native-asset balance mutation requires an implicit output"
+      LegacyTxOut implicit -> LegacyTxOut $ implicit & valueTxOutL %~ change
+      NewTxOut _ -> error "Native-asset balance mutation requires an implicit output"
 
 -- | Preserve the policy and quantity while changing only the asset name to
 -- another equal-width name. This isolates asset identity from ADA and encoded size.
