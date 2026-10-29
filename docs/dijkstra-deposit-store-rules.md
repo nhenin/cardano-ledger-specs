@@ -6569,19 +6569,22 @@ This open question does not change the agreed destination bound or the existing 
 
 > **Retain each accepted output and its original calculation together in the ledger state.**
 
-**Current representation:** shared `UTxOState` contains this storage:
+**Current representation:** every era stores a complete `UTxOStore` in
+`UTxOState.utxosUTxOStore`. There is no `UTxOs` sum type.
 
 ```haskell
-data UTxOs era
-  = LegacyUTxOMap !(UTxO era)
-  | UTxOs !(UTxOStore era)
+class CanGetUTxOStore t where
+  utxoStoreG :: SimpleGetter (t era) (UTxOStore era)
+
+class CanGetUTxOStore t => CanSetUTxOStore t where
+  utxoStoreL :: Lens' (t era) (UTxOStore era)
 ```
 
-Earlier eras use `LegacyUTxOMap`; Dijkstra uses the `UTxOs` constructor.
 [`Cardano.Ledger.State.UTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs.hs)
-owns the `UTxOs` wrapper, its instances and every operation on that wrapper:
-`CanGetUTxOs`, `CanSetUTxOs`, `utxosUTxO`, `fromLegacyAllocationStorage`,
-`fromLegacyUTxOs`, `applyLegacyOutputDelta` and `encodeUTxOs`.
+owns these accessors. `UTxOStore`, `UTxOState`, `LedgerState`, `EpochState` and
+`NewEpochState` expose the same complete Store. The old map and wrapper accessor
+classes are removed. `utxoG` remains a read-only compatibility projection for
+validators that consume an output map; it has no matching map setter.
 
 [`Cardano.Ledger.State.UTxOs.Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store.hs)
 contains the `UTxOStore` model, whose record constructor is also named `UTxOStore`,
@@ -6596,7 +6599,7 @@ compatibility initialization. The other model modules separate the following res
 | [`Store.Error`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store/Error.hs) | `OutputStoreError`: `NegativeOutputSize Int64` and `MissingHistoricalAllocation TxIn`, with their instances. |
 
 [`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/LegacyUTxOMap.hs)
-owns the `UTxO` newtype, instances, `CanGetUTxO`, `CanSetUTxO`,
+owns the compatibility `UTxO` newtype, instances,
 `EraUTxO` and the remaining map API previously defined in `Cardano.Ledger.State.UTxO`.
 The original `UTxO` type name is retained. All seven modules in the plural
 `Cardano.Ledger.State.UTxOs` namespace are exposed for direct imports.
@@ -6612,13 +6615,15 @@ API. Queries over output collections also belong here: `sumAllAssets`,
 They depend on the output forms, independently of how the ledger stores them;
 consumers import these queries directly from `TxOut`.
 
-`toUTxO :: UTxOStore era -> UTxO era` projects a Store into an output-only UTxO;
-`utxosUTxO` provides the corresponding projection for either storage branch.
-Read a Store's external-deposit total directly
-with `toCoin (totalDepositAmount store)`. Callers that support
-both storage branches distinguish `LegacyUTxOMap`, which has no external total,
-from `UTxOs store`. `fromLegacyUTxOs` constructs the wrapper from legacy outputs, and
-`encodeUTxOs` encodes its snapshot representation.
+`toUTxO :: UTxOStore era -> UTxO era` projects the Store into an output-only map.
+`utxosUtxo` and `utxoG` provide this view from ledger state. This projection traverses
+all allocations; it is no longer constant-time for legacy eras. Direct allocation
+queries avoid that cost. Migrating the remaining map-based validators is separate work.
+
+Read the external-deposit total with `toCoin (totalDepositAmount store)`.
+Legacy allocations contribute zero. `fromLegacyUTxO` checks legacy-only imports;
+`fromLegacyAllocations` accepts typed legacy outputs. `applyLegacyOutputDelta`
+changes only the selected entries and preserves all unaffected metadata.
 
 The Store owns the allocation map and a checked cached total.
 The output-only projection is read-only; deposit queries use the
@@ -6636,19 +6641,18 @@ selected inputs.
 updates use `applyAllocationDelta` to replace complete allocations and maintain
 their cached total. Dijkstra's
 transaction environment and allocation-update APIs use `UTxOStore`
-directly; the compatibility wrapper is confined to the shared ledger-state boundary.
-The environment retains the previous store while processing child transactions, so
-batch validation can still recover the consumed inputs' original allocations. The
-bridge connects Dijkstra’s Store to shared ledger state;
-later refinements to the shared representation remain separate changes.
+directly. The environment retains the previous store while processing child
+transactions, so batch validation can still recover consumed inputs' original allocations.
 
-Store CBOR encodes `[cachedTotal, allocationMap]`. Each `Unspent` entry uniformly
+Dijkstra Store CBOR encodes `[cachedTotal, allocationMap]`. Each `Unspent` entry uniformly
 encodes `[output, acceptedSize, calculation]`; the output already carries its
 legacy/new variant, so no second variant tag is stored. The snapshot encoder
 retains MemPack output payloads and persists the size and calculation explicitly
 for both forms. Decoding validates nonnegative size, supported calculation and
 exact cached total. The external JSON key `"outputStorage"` used by `UTxOState`
-for the Store branch remains unchanged.
+in Dijkstra remains unchanged. Earlier eras retain their output-map CBOR and JSON
+formats, including the `"utxo"` state key. Their decoder reconstructs canonical
+legacy metadata with zero external deposits; it does not recover historical pricing.
 
 Unknown calculation versions and cached-total mismatches are ordinary decoder
 failures, without separate `OutputStoreError` variants. The structured error codec

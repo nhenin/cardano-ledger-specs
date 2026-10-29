@@ -14,7 +14,7 @@ import Cardano.Ledger.Binary (sizedSize)
 import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core (TxOut (..))
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosUTxOs)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosUTxOStore)
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.TxIn (TxIn)
@@ -23,9 +23,7 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM)
 import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
 
 liveOutputStore :: UTxOState DijkstraEra -> UTxOStore DijkstraEra
-liveOutputStore state = case utxosUTxOs state of
-  UTxOs store -> store
-  LegacyUTxOMap _ -> error "Dijkstra test state must use allocation-bearing output storage"
+liveOutputStore = utxosUTxOStore
 
 -- | Independent specification formula for both calculation versions. V2 uses
 -- the same formula as V1 for now. This does not call the production calculation

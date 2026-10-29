@@ -174,9 +174,14 @@ newUTxO txb cs = cs {chainNes = nes'}
     utxoToDel = Map.restrictKeys utxo (txins @era txb)
     utxoWithout = Map.withoutKeys utxo (txins @era txb)
     utxoDel = UTxO utxoToDel
-    utxo' = UTxO (utxoWithout `Map.union` unUTxO utxoAdd)
+    store' =
+      either (error . ("Shelley example output update: " <>) . show) id $
+        applyLegacyOutputDelta
+          (txins @era txb)
+          (UTxO $ Map.withoutKeys (unUTxO utxoAdd) $ Map.keysSet utxoWithout)
+          (utxosUTxOStore utxoSt)
     is' = deleteInstantStake utxoDel (addInstantStake utxoAdd (utxoSt ^. instantStakeL))
-    utxoSt' = utxoSt {utxosUTxOs = LegacyUTxOMap utxo', utxosInstantStake = is'}
+    utxoSt' = utxoSt {utxosUTxOStore = store', utxosInstantStake = is'}
     ls' = ls {lsUTxOState = utxoSt'}
     es' = es {esLState = ls'}
     nes' = nes {nesEs = es'}

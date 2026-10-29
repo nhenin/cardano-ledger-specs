@@ -334,7 +334,7 @@ utxoDepositsIncreaseByFeesWithdrawals SourceSignalTarget {source, signal, target
   where
     us = lsUTxOState . esLState . nesEs . chainNes
     circulation chainSt =
-      let UTxOState {utxosUTxOs = (utxosUTxO -> u), utxosDeposited = d} = us chainSt
+      let UTxOState {utxosUTxOStore = (toUTxO -> u), utxosDeposited = d} = us chainSt
        in sumCoinUTxO u <+> d
     (_, ledgerTr) = ledgerTraceFromBlock @era source signal
 
@@ -351,7 +351,7 @@ potsSumIncreaseWithdrawalsPerBlock SourceSignalTarget {source, signal, target} =
   where
     potsSum chainSt =
       let UTxOState
-            { utxosUTxOs = (utxosUTxO -> u)
+            { utxosUTxOStore = (toUTxO -> u)
             , utxosDeposited = d
             , utxosFees = f
             } =
@@ -386,7 +386,7 @@ potsSumIncreaseWithdrawalsPerTx SourceSignalTarget {source = chainSt, signal = b
         { source =
           LedgerState
             UTxOState
-              { utxosUTxOs = (utxosUTxO -> u)
+              { utxosUTxOStore = (toUTxO -> u)
               , utxosDeposited = d
               , utxosFees = f
               }
@@ -395,7 +395,7 @@ potsSumIncreaseWithdrawalsPerTx SourceSignalTarget {source = chainSt, signal = b
         , target =
           LedgerState
             UTxOState
-              { utxosUTxOs = (utxosUTxO -> u')
+              { utxosUTxOStore = (toUTxO -> u')
               , utxosDeposited = d'
               , utxosFees = f'
               }
@@ -432,7 +432,7 @@ potsSumIncreaseByRewardsPerTx SourceSignalTarget {source = chainSt, signal = blo
         { source =
           LedgerState
             UTxOState
-              { utxosUTxOs = (utxosUTxO -> u)
+              { utxosUTxOStore = (toUTxO -> u)
               , utxosDeposited = d
               , utxosFees = f
               }
@@ -440,7 +440,7 @@ potsSumIncreaseByRewardsPerTx SourceSignalTarget {source = chainSt, signal = blo
         , target =
           LedgerState
             UTxOState
-              { utxosUTxOs = (utxosUTxO -> u')
+              { utxosUTxOStore = (toUTxO -> u')
               , utxosDeposited = d'
               , utxosFees = f'
               }
@@ -523,8 +523,8 @@ preserveBalance SourceSignalTarget {source = chainSt, signal = block} =
       where
         tx = stAnnTx ^. txStAnnTxG
         failedScripts = property $ hasFailedScripts tx
-        LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> u)}) certState = ledgerSt
-        LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> u')}) _ = ledgerSt'
+        LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> u)}) certState = ledgerSt
+        LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> u')}) _ = ledgerSt'
         txb = tx ^. bodyTxL
         created =
           sumCoinUTxO u'
@@ -561,7 +561,7 @@ preserveBalanceRestricted SourceSignalTarget {source = chainSt, signal = block} 
     createdIsConsumed
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> utxo)}) certState
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> utxo)}) certState
         , signal = stAnnTx
         } =
         inps === outs
@@ -600,7 +600,7 @@ preserveOutputsTx SourceSignalTarget {source = chainSt, signal = block} =
     outputPreserved
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> UTxO utxo)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO utxo)}) _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -635,11 +635,11 @@ canRestrictUTxO SourceSignalTarget {source = chainSt, signal = block} =
     outputPreserved
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> UTxO uFull)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO uFull)}) _
         }
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> UTxO uRestr)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO uRestr)}) _
         } =
         counterexample
           (unlines ["non-disjoint:", show uRestr, show irrelevantUTxO])

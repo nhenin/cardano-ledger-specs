@@ -217,10 +217,9 @@ instance TranslateEra DijkstraEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosUTxOs =
-            UTxOs $
-              Store.fromLegacyAllocations $
-                Map.map upgradeImplicit (unUTxO $ utxosUtxo us)
+        { utxosUTxOStore =
+            Store.fromLegacyAllocations $
+              Map.map upgradeImplicit (unUTxO $ utxosUtxo us)
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
         , utxosGovState = translateEra' ctxt $ utxosGovState us

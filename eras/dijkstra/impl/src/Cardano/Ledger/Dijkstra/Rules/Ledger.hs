@@ -81,13 +81,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   UTxOState (..),
   lsCertState,
-  lsUTxOStateL,
   utxosGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
 import Control.DeepSeq (NFData)
-import Control.Exception (throw)
 import Control.State.Transition.Extended
 import Data.Word (Word32)
 import GHC.Generics (Generic (..))
@@ -389,26 +387,15 @@ dijkstraLedgerTransition ::
   ) =>
   TransitionRule (LEDGER era)
 dijkstraLedgerTransition = do
-  ctx@(TRC (Shelley.LedgerEnv slot mbCurEpochNo _txIx pp chainAccountState, ledgerState, stAnnTx)) <-
+  TRC (Shelley.LedgerEnv slot mbCurEpochNo _txIx pp chainAccountState, ledgerState, stAnnTx) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
   -- Retain the previous store before SubTxs consume any entries.
   -- Witness checks use their output view; whole-batch accounting also needs
   -- each allocation's historical calculation and accepted size.
-  previousUTxOStore <-
-    case utxosUTxOs (ledgerState ^. lsUTxOStateL) of
-      UTxOs store -> pure store
-      LegacyUTxOMap _ ->
-        throw $
-          AssertionException $
-            AssertionViolation
-              { avSTS = "Dijkstra LEDGER"
-              , avMsg = "Dijkstra ledger state must contain an UTxOStore"
-              , avCtx = ctx
-              , avState = Nothing
-              }
-  let originalUtxo = toUTxO previousUTxOStore
+  let previousUTxOStore = ledgerState ^. utxoStoreG
+      originalUtxo = toUTxO previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 

@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -17,9 +16,6 @@
 {-# LANGUAGE UndecidableSuperClasses #-}
 
 module Cardano.Ledger.State.UTxOs.LegacyUTxOMap (
-  CanGetUTxO (..),
-  CanSetUTxO (..),
-
   -- * Primitives
   UTxO (..),
   EraUTxO (..),
@@ -64,25 +60,11 @@ import Data.Kind (Type)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import GHC.Generics (Generic)
-import Lens.Micro (Lens', SimpleGetter, (^.))
+import Lens.Micro ((^.))
 import NoThunks.Class (NoThunks (..))
 import Quiet (Quiet (Quiet))
 
 -- ===============================================
-
-class CanGetUTxO t where
-  utxoG :: SimpleGetter (t era) (UTxO era)
-  default utxoG :: CanSetUTxO t => SimpleGetter (t era) (UTxO era)
-  utxoG = utxoL
-  {-# INLINE utxoG #-}
-
-class CanGetUTxO t => CanSetUTxO t where
-  utxoL :: Lens' (t era) (UTxO era)
-
-instance CanGetUTxO UTxO
-
-instance CanSetUTxO UTxO where
-  utxoL = id
 
 -- | The unspent transaction outputs.
 newtype UTxO era = UTxO {unUTxO :: Map.Map TxIn (TxOut era)}

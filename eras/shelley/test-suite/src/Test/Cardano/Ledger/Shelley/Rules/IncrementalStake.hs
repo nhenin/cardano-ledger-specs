@@ -116,12 +116,12 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
       SourceSignalTarget
         { source =
           LedgerState
-            UTxOState {utxosUTxOs = (utxosUTxO -> u), utxosInstantStake = is}
+            UTxOState {utxosUTxOStore = (toUTxO -> u), utxosInstantStake = is}
             dp
         , signal = stAnnTx
         , target =
           LedgerState
-            UTxOState {utxosUTxOs = (utxosUTxO -> u'), utxosInstantStake = is'}
+            UTxOState {utxosUTxOStore = (toUTxO -> u'), utxosInstantStake = is'}
             dp'
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -181,7 +181,7 @@ checkIncrementalStake ::
   Property
 checkIncrementalStake es =
   let
-    LedgerState (UTxOState (utxosUTxO -> utxo) _ _ _ instantStake _) certState = esLState es
+    LedgerState (UTxOState (toUTxO -> utxo) _ _ _ instantStake _) certState = esLState es
     dstate = certState ^. certDStateL
     pstate = certState ^. certPStateL
     stake = stakeDistr @era utxo dstate pstate

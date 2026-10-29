@@ -26,7 +26,7 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   updateUTxOState,
   updateUTxOStateDeposits,
   updateUTxOAndInstantStake,
-  updateUTxOAndInstantStakeWithStorage,
+  updateUTxOAndInstantStakeWithStore,
 
   -- * Validations
   validateImplicitDeposit,
@@ -621,8 +621,9 @@ updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState =
   withUtxo <- updateUTxOAndInstantStake txBody utxoDiffEvent withDeposits
   pure $ withUtxo & utxosFeesL <>~ (txBody ^. feeTxBodyL)
 
--- | Update a legacy-era output map and instant stake. Dijkstra prepares its
--- allocation delta explicitly and calls 'updateUTxOAndInstantStakeWithStorage'.
+-- | Apply a legacy-era output delta and update instant stake, preserving the
+-- metadata of all unaffected allocations. Dijkstra prepares its allocation
+-- delta explicitly and calls 'updateUTxOAndInstantStakeWithStore'.
 updateUTxOAndInstantStake ::
   (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
@@ -630,22 +631,32 @@ updateUTxOAndInstantStake ::
   UTxOState era ->
   m (UTxOState era)
 updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
-  let UTxO previous = utxosUtxo utxoState
+  let consumed = txBody ^. inputsTxBodyL
+      previousStore = utxosUTxOStore utxoState
+      remaining = Map.withoutKeys (unAllocations $ allocations previousStore) consumed
       UTxO created = txouts txBody
-      remaining = Map.withoutKeys previous $ txBody ^. inputsTxBodyL
-      storage = LegacyUTxOMap $ UTxO $ Map.union remaining created
-   in updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState
+      -- Preserve the legacy union's existing-entry bias on colliding keys.
+      createdWithoutCollisions = UTxO $ Map.difference created remaining
+      store =
+        either
+          (error . ("updateUTxOAndInstantStake: expected legacy created outputs: " <>) . show)
+          id
+          $ applyLegacyOutputDelta
+            consumed
+            createdWithoutCollisions
+            previousStore
+   in updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState
 
 -- | Apply caller-prepared output storage while updating stake and emitting the
 -- output difference. The caller retains or validates all allocation metadata.
-updateUTxOAndInstantStakeWithStorage ::
+updateUTxOAndInstantStakeWithStore ::
   (EraTxBody era, EraStake era, Monad m) =>
-  UTxOs era ->
+  UTxOStore era ->
   TxBody l era ->
   (UTxO era -> UTxO era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
-updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState = do
+updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState = do
   let !utxoAdd = txouts txBody
       !utxoDel = Map.restrictKeys (unUTxO $ utxosUtxo utxoState) (txBody ^. inputsTxBodyL)
       deletedUtxo = UTxO utxoDel
@@ -656,7 +667,7 @@ updateUTxOAndInstantStakeWithStorage storage txBody utxoDiffEvent utxoState = do
   utxoDiffEvent deletedUtxo utxoAdd
   pure $!
     utxoState
-      & utxosUTxOsL .~ storage
+      & utxosUTxOStoreL .~ store
       & instantStakeL .~ newInstantStake
 
 updateUTxOStateDeposits ::

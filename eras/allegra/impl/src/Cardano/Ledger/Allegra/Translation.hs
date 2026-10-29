@@ -29,6 +29,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 
@@ -114,7 +115,11 @@ instance TranslateEra AllegraEra UTxOState where
   translateEra ctxt us =
     return
       UTxOState
-        { utxosUTxOs = LegacyUTxOMap $ translateEra' ctxt $ utxosUtxo us
+        { utxosUTxOStore =
+            either (error . ("Allegra UTxOState translation: " <>) . show) id $
+              Store.fromLegacyUTxO $
+                translateEra' ctxt $
+                  utxosUtxo us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
         , utxosGovState = translateEra' ctxt $ utxosGovState us

@@ -793,10 +793,16 @@ updateUTxOState pp certState tx utxoState =
         Phase2Invalid ->
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let !(utxoKeep, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
+          let !(_, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
+              store =
+                either (error . ("Alonzo collateral release: " <>) . show) id $
+                  applyLegacyOutputDelta
+                    (txBody ^. collateralInputsTxBodyL)
+                    mempty
+                    (utxosUTxOStore utxoState)
            in pure $!
                 utxoState
-                  { utxosUTxOs = LegacyUTxOMap $ UTxO utxoKeep
+                  { utxosUTxOStore = store
                   , utxosFees = utxosFees utxoState <> sumAllCoin utxoDel
                   , utxosInstantStake = deleteInstantStake (UTxO utxoDel) (utxoState ^. instantStakeL)
                   }

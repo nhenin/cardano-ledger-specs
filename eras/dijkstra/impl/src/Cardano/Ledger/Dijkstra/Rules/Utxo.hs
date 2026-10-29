@@ -393,9 +393,7 @@ dijkstraUtxoTransition = do
               , avCtx = ctx
               , avState = Nothing
               }
-      utxoStore = case utxosUTxOs utxos of
-        UTxOs store -> store
-        LegacyUTxOMap _ -> invariantFailure "Dijkstra state must contain UTxOStore"
+      utxoStore = utxosUTxOStore utxos
   -- Accounting reads the original historical allocations even after children
   -- have updated the live store. Checked state construction excludes invalid metadata.
   let originalUtxo = toUTxO previousUTxOStore
@@ -527,8 +525,8 @@ dijkstraUtxoTransition = do
               (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
               (Conway.updateTreasuryDonation tx utxos)
           withOutputs <-
-            Shelley.updateUTxOAndInstantStakeWithStorage
-              (UTxOs store)
+            Shelley.updateUTxOAndInstantStakeWithStore
+              store
               txBody
               (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
               withDeposits
@@ -544,7 +542,7 @@ dijkstraUtxoTransition = do
               created = collOuts txBody
            in pure $
                 utxos
-                  { utxosUTxOs = UTxOs store
+                  { utxosUTxOStore = store
                   , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
                   , utxosInstantStake =
                       deleteInstantStake removed $ addInstantStake created (utxosInstantStake utxos)

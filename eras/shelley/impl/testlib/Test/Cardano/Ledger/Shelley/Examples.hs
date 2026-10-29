@@ -234,8 +234,8 @@ exampleNewEpochState value ppp pp =
             LedgerState
               { lsUTxOState =
                   UTxOState
-                    { utxosUTxOs =
-                        fromLegacyAllocationStorage $
+                    { utxosUTxOStore =
+                        fromLegacyAllocations $
                           Map.singleton
                             (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
                             (mkBasicLegacyTxOut addr value)

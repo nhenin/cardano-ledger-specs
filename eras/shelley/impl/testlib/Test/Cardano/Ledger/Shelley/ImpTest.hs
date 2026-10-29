@@ -322,7 +322,7 @@ import Data.Functor.Identity (Identity (..))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, isNothing, mapMaybe)
+import Data.Maybe (catMaybes, isJust, isNothing, mapMaybe)
 import Data.Ratio (denominator, numerator, (%))
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
@@ -715,14 +715,14 @@ defaultInitImpTestState nes = do
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
-    existingStorage = nes ^. utxosG
-  rootStorage <-
-    if Map.member rootTxIn (unUTxO $ utxosUTxO existingStorage)
-      then pure existingStorage
+    existingStore = nes ^. utxoStoreG
+  rootStore <-
+    if isJust $ lookupUTxO rootTxIn $ allocations existingStore
+      then pure existingStore
       else
         either (fail . show) pure $
-          applyLegacyOutputDelta mempty (UTxO $ Map.singleton rootTxIn rootTxOut) existingStorage
-  let nesWithRoot = nes & utxosL .~ rootStorage
+          applyLegacyOutputDelta mempty (UTxO $ Map.singleton rootTxIn rootTxOut) existingStore
+  let nesWithRoot = nes & utxoStoreL .~ rootStore
   prepState <- get
   let epochInfoE =
         fixedEpochInfo

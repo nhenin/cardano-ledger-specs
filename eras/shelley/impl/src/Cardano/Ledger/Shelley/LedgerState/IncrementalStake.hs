@@ -50,7 +50,7 @@ import Lens.Micro
 -- Use this for legacy-era tests and initialization. Dijkstra callers construct
 -- explicit storage so historical allocation metadata cannot be reconstructed.
 smartUTxOState ::
-  EraStake era =>
+  (EraTxOut era, EraStake era) =>
   PParams era ->
   UTxO era ->
   Coin ->
@@ -60,7 +60,11 @@ smartUTxOState ::
   UTxOState era
 smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
-    (LegacyUTxOMap utxo)
+    ( either
+        (error . ("smartUTxOState: expected legacy outputs: " <>) . show)
+        id
+        $ fromLegacyUTxO utxo
+    )
     c1
     c2
     st

@@ -45,6 +45,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsCertStateL,
   lsUTxOStateL,
  )
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import Data.Default (Default (def))
 import qualified Data.Map.Strict as Map
@@ -181,7 +182,11 @@ instance TranslateEra ConwayEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { API.utxosUTxOs = LegacyUTxOMap $ translateEra' ctxt $ API.utxosUtxo us
+        { API.utxosUTxOStore =
+            either (error . ("Conway UTxOState translation: " <>) . show) id $
+              Store.fromLegacyUTxO $
+                translateEra' ctxt $
+                  API.utxosUtxo us
         , API.utxosDeposited = API.utxosDeposited us
         , API.utxosFees = API.utxosFees us
         , API.utxosGovState = translateGovState ctxt $ API.utxosGovState us
