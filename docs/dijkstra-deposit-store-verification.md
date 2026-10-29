@@ -236,6 +236,8 @@ Verified the working-tree migration based on `2bafe7223`. Shared state now owns
 `UTxOStore` directly through `CanGetUTxOStore` / `CanSetUTxOStore`. Earlier-era
 initialization, updates and translations retain legacy output formats; Dijkstra
 retains complete historical allocations. The `UTxO` type name remains unchanged.
+The proposed `txouts` / `Allocations` API revision is deferred in
+[State representation](dijkstra-deposit-store-rules.md#ds-state-representation).
 
 All 12 build targets passed:
 
