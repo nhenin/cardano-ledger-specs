@@ -9,7 +9,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Operations 
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   esLStateL,

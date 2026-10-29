@@ -21,8 +21,8 @@ import Cardano.Ledger.BaseTypes (StrictMaybe (..))
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import qualified Data.OMap.Strict as OMap

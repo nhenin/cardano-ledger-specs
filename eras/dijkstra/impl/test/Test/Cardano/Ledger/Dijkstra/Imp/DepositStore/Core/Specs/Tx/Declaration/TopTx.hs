@@ -6,7 +6,7 @@
 -- and raw decoder inputs. Generated samples retain every required form or defect;
 -- local indices describe representation and do not require transaction outputs.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.TopTx (
-  module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx,
+  module Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx,
   allDeclarations,
   onlyExplicitDeclarations,
   localReleaseSettlementWithIndex,
@@ -23,8 +23,8 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.T
 import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin)
 import qualified Data.Aeson as Aeson
 import Data.Word (Word64)

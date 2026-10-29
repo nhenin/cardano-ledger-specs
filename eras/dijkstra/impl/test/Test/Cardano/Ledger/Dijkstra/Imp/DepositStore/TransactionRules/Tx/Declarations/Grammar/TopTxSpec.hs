@@ -6,7 +6,7 @@
 -- Shared Codecs assertions cover both CBOR and JSON.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.TopTxSpec (spec) where
 
-import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx (NetUTxODepositChange, TopTxReleaseSettlement)
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx (NetUTxODepositChange, TopTxReleaseSettlement)
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin)
 import Data.Either (isLeft)
 import Test.Cardano.Ledger.Common (

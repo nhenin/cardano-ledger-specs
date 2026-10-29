@@ -27,7 +27,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Ba
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), MultiAsset (..))
 import Cardano.Ledger.Shelley.LedgerState (UTxO (..))
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)

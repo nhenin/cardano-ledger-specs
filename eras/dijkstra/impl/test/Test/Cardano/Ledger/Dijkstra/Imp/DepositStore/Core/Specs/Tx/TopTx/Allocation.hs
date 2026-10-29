@@ -4,7 +4,7 @@
 -- | Allocation scenarios with no Store deposits to release.
 -- The spec supplies the declaration; preparation supplies implicit funding inputs.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Allocation (
-  module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx,
+  module Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx,
   AllocationScenario (..),
   AllocationBatchScenario (..),
   AllocationTx (..),
@@ -19,7 +19,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Allocat
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
 import Cardano.Ledger.Val (inject)
 import qualified Data.OMap.Strict as OMap
 import Lens.Micro
