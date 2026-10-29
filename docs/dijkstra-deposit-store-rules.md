@@ -6590,7 +6590,7 @@ compatibility initialization. The other model modules separate the following res
 
 | Module under `Cardano.Ledger.State.UTxOs` | Responsibility |
 | --- | --- |
-| [`Allocations`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Allocations.hs) | Allocation collection, lookup and deposit/refund sums. |
+| [`Allocations`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Allocations.hs) | Lookup, input selection, complete unspent entries and deposit sums. |
 | [`Allocations.UTxO`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Allocations/UTxO.hs) | Generic `Unspent` record, `toTxOut`, `depositAmount`, `encodeWith`, and entry instances/codecs. |
 | [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Deposit.hs) | `DepositAmount` and `toCoin`, `ByteSize`, `DepositCalculation`, and pure `calculateDeposit`. |
 | [`Store.Error`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store/Error.hs) | `OutputStoreError`: `NegativeOutputSize Int64` and `MissingHistoricalAllocation TxIn`, with their instances. |
@@ -6622,7 +6622,15 @@ from `UTxOs store`. `fromLegacyUTxOs` constructs the wrapper from legacy outputs
 
 The Store owns the allocation map and a checked cached total.
 The output-only projection is read-only; deposit queries use the
-allocations directly. `totalDepositAmount`, `allocations`,
+allocations directly. `restrictToInputs` selects complete `Unspent` entries;
+`unspentOutputs` exposes them with their accepted size and historical calculation.
+Release declaration checks use the allocations from before any body executes,
+including for SubTxs. Collateral accounting selects those entries before summing
+their output coins and historical deposits. Inherited SubTx witness and datum
+checks, and collateral validators, receive an output-only projection of their
+selected inputs.
+
+`totalDepositAmount`, `allocations`,
 `toCoin`, `unAllocations`, `sizedOutput` and
 `depositCalculation` are record selectors. Ledger
 updates use `applyAllocationDelta` to replace complete allocations and maintain

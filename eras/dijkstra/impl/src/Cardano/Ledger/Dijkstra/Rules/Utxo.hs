@@ -434,10 +434,10 @@ dijkstraUtxoTransition = do
   {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
   runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxos) inputs
 
-  -- Release declaration presence uses the original UTxO on both phase-2 paths.
+  -- Release declaration presence uses the original allocations on both phase-2 paths.
   runTest $
     first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-      validateTopTxReleaseDeclarationPresence originalUtxo txBody
+      validateTopTxReleaseDeclarationPresence (allocations previousUTxOStore) txBody
 
   -- Whole-batch exactness uses the original store on both phase-2 paths.
   -- SubTx changes have already been applied only to the live store.

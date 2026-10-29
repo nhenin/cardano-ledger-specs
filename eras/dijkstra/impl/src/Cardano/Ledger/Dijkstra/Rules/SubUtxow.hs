@@ -60,6 +60,9 @@ import Cardano.Ledger.Rules.ValidationMode
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraUTxO (..))
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.State.UTxOs.LegacyUTxOMap (UTxO (..))
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
@@ -229,12 +232,20 @@ dijkstraSubUtxowTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXOW" era)
 dijkstraSubUtxowTransition = do
-  TRC (env@(SubUtxoEnv _ pp certState originalUtxo _), utxoState, stAnnTx) <-
+  TRC (env@(SubUtxoEnv _ pp certState originalAllocations _), utxoState, stAnnTx) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       txBody = tx ^. bodyTxL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
+      -- Inherited witness and datum checks read only this body's spending and reference inputs.
+      originalUtxo =
+        UTxO $
+          Map.map UTxO.toTxOut $
+            Allocations.unAllocations $
+              Allocations.restrictToInputs
+                ((txBody ^. spendableInputsTxBodyF) <> (txBody ^. referenceInputsTxBodyL))
+                originalAllocations
 
   {- ∀[ (vk , σ) ∈ vKeySigs ] isSigned vk (txidBytes txId) σ -}
   runTestOnSignal $ Shelley.validateVerifiedWits tx

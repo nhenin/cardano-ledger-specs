@@ -1,6 +1,6 @@
 # Dijkstra DepositStore verification record
 
-**Updated:** 27 October 2026
+**Updated:** 29 October 2026
 
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -226,6 +226,53 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Allocation reads on 29 October 2026
+
+Verified the working-tree changes based on `2fbf552c0`. Release declaration checks
+now receive `Allocations` captured before any body executes. Collateral accounting
+selects complete entries before reading coins and historical deposits. Inherited
+SubTx witness/datum checks project only spending and reference inputs; collateral
+validators retain a keyed projection for their failure payloads. Shared storage,
+accessor classes, codecs and earlier-era sources are unchanged in this pass.
+
+Both test targets built successfully:
+
+```sh
+cabal build cardano-ledger-dijkstra:test:tests cardano-ledger-core:test:tests \
+  --offline --enable-tests --jobs=8
+```
+
+The targeted Dijkstra runtime passed **57 examples with zero failures**. The 44
+DepositStore properties each passed 100 generated trials. Runs were sequential,
+using seed `739231514`, `--fail-on=empty`, `--times` and `--print-cpu-time`.
+
+| Check | Examples | Wall time |
+| --- | ---: | ---: |
+| Release requirements | 16 | 4.1598 s |
+| Zero-net-change requirements | 14 | 3.2389 s |
+| Operations P01: zero-priced allocations/releases still require declarations | 1 | 0.7770 s |
+| Collateral | 7 | 21.2777 s |
+| Authorization | 2 | 1.0095 s |
+| Balance P05: mixed historical prices after snapshot restore | 1 | 56.1499 s |
+| Balance P06: historical SubTx refund after snapshot restore | 1 | 56.5490 s |
+| Balance P07: historical collateral-return refund after snapshot restore | 1 | 55.8707 s |
+| Allocations N01: zero-priced new outputs | 1 | 0.3163 s |
+| SUBUTXOW missing-key-witness cases | 9 | 0.1938 s |
+| SUBUTXOW supplemental datums, including a reference input | 2 | 0.1830 s |
+| SUBUTXOW PlutusV4 missing required datums | 1 | 0.1894 s |
+| SUBUTXOW PlutusV4 disallowed supplemental datums | 1 | 0.1871 s |
+
+Total measured test time: **200.1021 s**. These are generated-suite timings,
+including setup and snapshot restoration, not per-transaction benchmarks.
+The full Dijkstra suite was not rerun; its previously documented upstream
+child-script failures remain outside this verification.
+
+Formatting and `git diff --check` passed; ctags were regenerated. Evidence:
+`/private/tmp/ds-allocation-reads-build.log`, the individual
+`/private/tmp/ds-allocation-reads-*.log` files, and
+`/private/tmp/ds-allocation-reads-results.json`, which records the exact runtime
+filters and exit codes.
 
 ## TxOut module extraction on 27 October 2026
 

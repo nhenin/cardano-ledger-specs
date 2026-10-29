@@ -9,6 +9,8 @@
 module Cardano.Ledger.State.UTxOs.Allocations (
   Allocations (..),
   lookupUTxO,
+  restrictToInputs,
+  unspentOutputs,
   allocatedDepositTotalAmount,
   sumDepositAmounts,
 ) where
@@ -33,11 +35,20 @@ newtype Allocations era = Allocations
 lookupUTxO :: TxIn -> Allocations era -> Maybe (Unspent (TxOut era))
 lookupUTxO input = Map.lookup input . unAllocations
 
+-- | Select existing inputs, retaining each output's accepted size and historical
+-- deposit calculation. Unknown inputs are left to the ledger's BadInputs check.
+restrictToInputs :: Set TxIn -> Allocations era -> Allocations era
+restrictToInputs inputs = Allocations . (`Map.restrictKeys` inputs) . unAllocations
+
+-- | Read the complete unspent entries without discarding their deposit metadata.
+unspentOutputs :: Allocations era -> [Unspent (TxOut era)]
+unspentOutputs = Map.elems . unAllocations
+
 -- | Refund using each selected output's recorded calculation and accepted size.
 -- Legacy outputs contribute zero; inputs absent from the collection contribute nothing.
 allocatedDepositTotalAmount :: Set TxIn -> Allocations era -> DepositAmount
 allocatedDepositTotalAmount inputs =
-  sumDepositAmounts . Allocations . (`Map.restrictKeys` inputs) . unAllocations
+  sumDepositAmounts . restrictToInputs inputs
 
 sumDepositAmounts :: Allocations era -> DepositAmount
 sumDepositAmounts entries = DepositAmount {toCoin = foldMap' UTxO.depositAmount $ unAllocations entries}

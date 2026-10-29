@@ -30,7 +30,9 @@ import Cardano.Ledger.Dijkstra.Core (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.State (UTxO (..), txInsFilter)
+import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Data.List.NonEmpty (NonEmpty)
 import Lens.Micro ((^.))
 import Validation (Validation, failureUnless)
@@ -70,31 +72,37 @@ validateSubTxAllocationDeclarationPresence txBody =
     (txBody ^. outputsTxBodyL)
 
 -- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE: require TopTx's declaration for releases
--- proposed by its own ordinary inputs, resolved against the original UTxO.
+-- proposed by its own ordinary inputs, resolved against the original allocations.
 -- Reference and collateral inputs do not count. No recorded amount is needed.
 -- Missing inputs remain the responsibility of the existing BadInputs check.
 validateTopTxReleaseDeclarationPresence ::
   DijkstraEraTxBody era =>
-  UTxO era ->
+  Allocations era ->
   TxBody TopTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
-validateTopTxReleaseDeclarationPresence originalUtxo txBody =
+validateTopTxReleaseDeclarationPresence originalAllocations txBody =
   validateStoreBackedOutputsDeclaration
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
-    (unUTxO $ txInsFilter originalUtxo (txBody ^. inputsTxBodyL))
+    ( UTxO.toTxOut
+        <$> Allocations.unspentOutputs
+          (Allocations.restrictToInputs (txBody ^. inputsTxBodyL) originalAllocations)
+    )
 
 -- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE: require SubTx's own declaration for releases
 -- proposed by its ordinary inputs, even when its new outputs are all implicit.
 -- Allocations do not remove this requirement. No recorded amount is needed.
 validateSubTxReleaseDeclarationPresence ::
   DijkstraEraTxBody era =>
-  UTxO era ->
+  Allocations era ->
   TxBody SubTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
-validateSubTxReleaseDeclarationPresence originalUtxo txBody =
+validateSubTxReleaseDeclarationPresence originalAllocations txBody =
   validateStoreBackedOutputsDeclaration
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
-    (unUTxO $ txInsFilter originalUtxo (txBody ^. inputsTxBodyL))
+    ( UTxO.toTxOut
+        <$> Allocations.unspentOutputs
+          (Allocations.restrictToInputs (txBody ^. inputsTxBodyL) originalAllocations)
+    )
 
 -- | Shared structural presence check over proposed outputs or resolved inputs.
 -- Any store-backed output requires a declaration, regardless of deposit amount.

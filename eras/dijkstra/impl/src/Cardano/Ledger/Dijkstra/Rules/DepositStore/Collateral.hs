@@ -22,6 +22,7 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
  )
 import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
@@ -50,11 +51,12 @@ validateCollateralFunding ::
   Validation (NonEmpty (EraRuleFailure rule era)) ()
 validateCollateralFunding pp body store =
   let settlement = collateralDepositSettlement pp store body
+      collateralAllocations =
+        Allocations.restrictToInputs (body ^. collateralInputsTxBodyL) $ Store.allocations store
+      -- The inherited collateral validators require a keyed output map, including
+      -- the offending inputs in predicate failures. Project only selected entries.
       collateralInputs =
-        Map.map UTxO.toTxOut $
-          Map.restrictKeys
-            (Store.unAllocations $ Store.allocations store)
-            (body ^. collateralInputsTxBodyL)
+        Map.map UTxO.toTxOut $ Allocations.unAllocations collateralAllocations
    in sequenceA_
         [ first (fmap injectFailure) $ Alonzo.validateScriptsNotPaidUTxO collateralInputs
         , first (fmap injectFailure) $ validateCollateralAssets body collateralInputs

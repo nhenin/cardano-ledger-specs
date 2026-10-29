@@ -364,10 +364,9 @@ collateralDepositSettlement ::
   CollateralDepositSettlement
 collateralDepositSettlement pp store body =
   let consumed = body ^. collateralInputsTxBodyL
-      collateralOutputs =
-        Map.map UTxO.toTxOut $
-          Map.restrictKeys (Store.unAllocations $ Store.allocations store) consumed
-      released = Store.toCoin $ Allocations.allocatedDepositTotalAmount consumed $ Store.allocations store
+      consumedAllocations = Allocations.restrictToInputs consumed $ Store.allocations store
+      collateralOutputs = UTxO.toTxOut <$> Allocations.unspentOutputs consumedAllocations
+      released = Store.toCoin $ Allocations.sumDepositAmounts consumedAllocations
       returnDeposit = foldMap (requiredUTxODeposit pp) (body ^. sizedCollateralReturnTxBodyL)
       inputCoins = sumAllCoin collateralOutputs
       returnCoins = foldMap (^. coinTxOutL) (body ^. collateralReturnTxBodyL)
