@@ -421,7 +421,7 @@ dijkstraLedgerTransition = do
             mbCurEpochNo
             pp
             chainAccountState
-            originalUtxo
+            (allocations previousUTxOStore)
             originalAccounts
             (tx ^. isPhase2ValidTxL)
         , ledgerState

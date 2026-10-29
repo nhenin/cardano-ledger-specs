@@ -76,7 +76,7 @@ data SubUtxoEnv era = SubUtxoEnv
   { sueSlot :: SlotNo
   , suePParams :: PParams era
   , sueCertState :: CertState era
-  , sueOriginalUtxo :: UTxO era
+  , sueOriginalAllocations :: Allocations era
   , sueTopTxIsPhase2Valid :: IsPhase2Valid
   }
 
@@ -243,7 +243,7 @@ dijkstraSubUtxoTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXO" era)
 dijkstraSubUtxoTransition = do
-  ctx@(TRC (SubUtxoEnv slot pp _ originalUtxo topTxIsPhase2Valid, utxoState, stAnnTx)) <-
+  ctx@(TRC (SubUtxoEnv slot pp _ originalAllocations topTxIsPhase2Valid, utxoState, stAnnTx)) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
@@ -267,9 +267,9 @@ dijkstraSubUtxoTransition = do
   let inputs = txBody ^. inputsTxBodyL
   runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxoState) inputs
 
-  -- Check proposed releases against the original UTxO before choosing execution effects.
+  -- Check releases against the allocations from before any SubTx executed.
   validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $
-    validateSubTxReleaseDeclarationPresence originalUtxo txBody
+    validateSubTxReleaseDeclarationPresence originalAllocations txBody
 
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
