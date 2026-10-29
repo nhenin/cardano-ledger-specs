@@ -1548,7 +1548,7 @@ instance (Typeable (CertState era), EraTxOut era) => HasSimpleRep (LedgerState e
 
 instance
   ( EraTxOut era
-  , HasSpec (UTxOs era)
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1560,21 +1560,24 @@ instance
   ) =>
   HasSpec (LedgerState era)
 
--- This Conway generator represents legacy output storage directly as its UTxO.
--- It never constructs store-backed allocations or invents historical metadata.
-instance HasSimpleRep (UTxOs ConwayEra) where
-  type TheSop (UTxOs ConwayEra) = '["LegacyUTxOMap" ::: '[UTxO ConwayEra]]
-  type SimpleRep (UTxOs ConwayEra) = UTxO ConwayEra
-  toSimpleRep = utxosUTxO
-  fromSimpleRep = LegacyUTxOMap
+-- Conway generators use the canonical legacy Store representation: zero external
+-- deposits and the compatibility metadata supplied by 'fromLegacyUTxO'.
+-- They do not generate new outputs or arbitrary historical deposit metadata.
+instance HasSimpleRep (UTxOStore ConwayEra) where
+  type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[UTxO ConwayEra]]
+  type SimpleRep (UTxOStore ConwayEra) = UTxO ConwayEra
+  toSimpleRep = toUTxO
+  fromSimpleRep =
+    either (error . ("fromSimpleRep: invalid Conway outputs: " <>) . show) id
+      . fromLegacyUTxO
 
-instance HasSpec (UTxOs ConwayEra)
+instance HasSpec (UTxOStore ConwayEra)
 
 instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
 
 instance
   ( EraTxOut era
-  , HasSpec (UTxOs era)
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1924,7 +1927,7 @@ instance Era era => HasSimpleRep (EpochState era)
 
 instance
   ( EraTxOut era
-  , HasSpec (UTxOs era)
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1976,7 +1979,7 @@ instance (Typeable (StashedAVVMAddresses era), Era era) => HasSimpleRep (NewEpoc
 
 instance
   ( EraTxOut era
-  , HasSpec (UTxOs era)
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)

@@ -15,6 +15,9 @@ import Cardano.Ledger.BaseTypes (EpochInterval, NonNegativeInterval, NonZero, Un
 import Cardano.Ledger.CanonicalState.BasicTypes (CanonicalExUnits (..))
 import Cardano.Ledger.CanonicalState.CDDL.Validate (invalidSpecs, validSpecs)
 import Cardano.Ledger.CanonicalState.Conway (CanonicalGovActionState)
+import Cardano.Ledger.CanonicalState.Conway.Import ()
+import Cardano.Ledger.CanonicalState.Export (canonicalNamespaceEntries)
+import Cardano.Ledger.CanonicalState.Import (importNamespaceEntries)
 import qualified Cardano.Ledger.CanonicalState.Namespace.Blocks.V0 as Blocks.V0
 import Cardano.Ledger.CanonicalState.Namespace.CDDL (namespaceSymbolFromText)
 import qualified Cardano.Ledger.CanonicalState.Namespace.EntitiesAccounts.V0 as EntitiesAccounts.V0
@@ -28,6 +31,7 @@ import qualified Cardano.Ledger.CanonicalState.Namespace.GovPParams.V0 as GovPPa
 import qualified Cardano.Ledger.CanonicalState.Namespace.GovProposals.Roots.V0 as GovProposals.Roots.V0
 import qualified Cardano.Ledger.CanonicalState.Namespace.GovProposals.V0 as GovProposals.V0
 import qualified Cardano.Ledger.CanonicalState.Namespace.UTxO.V0 as UTxO.V0
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Core (
   AccountAddress,
@@ -41,15 +45,26 @@ import Cardano.Ledger.Core (
  )
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.DRep (DRep)
-import Cardano.Ledger.State (PoolMetadata, StakePoolRelay)
+import Cardano.Ledger.State (
+  PoolMetadata,
+  StakePoolRelay,
+  UTxO,
+  fromLegacyUTxO,
+  toCoin,
+  totalDepositAmount,
+  utxoStoreG,
+  utxoStoreL,
+ )
 import Cardano.Ledger.TxIn (TxId)
 import Cardano.SCLS.CBOR.Canonical.Encoder (ToCanonicalCBOR (..))
 import Codec.CBOR.Cuddle.CDDL.CTree (CTreeRoot)
 import Codec.CBOR.Cuddle.CDDL.Resolve (MonoReferenced)
+import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import Data.Typeable
 import Data.Word (Word64)
+import Lens.Micro ((&), (.~), (^.))
 import Test.Cardano.Ledger.CanonicalState.Arbitrary ()
 import Test.Cardano.Ledger.CanonicalState.Conformance (Direction (..), propReferenceAcceptsCBOR)
 import Test.Cardano.Ledger.CanonicalState.Reference (LoadError)
@@ -71,6 +86,19 @@ spec mReferenceCDDLs sampleCount = do
           pendingWith "REFERENCE_CDDL_DIR environment variable is not set"
       Just referenceCDDLs ->
         forM_ referenceCDDLs runConformanceTest
+
+  describe "Conway UTxO namespace" $
+    prop "import(export(outputs)) preserves allocations and zero external deposits" $
+      forAll (resize 5 arbitrary) $ \(outputs :: UTxO ConwayEra) -> do
+        -- Conway's namespace contains outputs only. Import reconstructs their
+        -- canonical legacy metadata, with no separately held deposit.
+        store <- expectRight $ fromLegacyUTxO outputs
+        let source = def & utxoStoreL .~ store
+        restored <-
+          importNamespaceEntries @ConwayEra @"utxo/v0" def $
+            canonicalNamespaceEntries @ConwayEra @"utxo/v0" source
+        restored ^. utxoStoreG `shouldBe` store
+        toCoin (totalDepositAmount $ restored ^. utxoStoreG) `shouldBe` Coin 0
 
   describe "types" $ do
     describe "blocks/v0" $ do

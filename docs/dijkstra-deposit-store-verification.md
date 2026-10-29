@@ -57,10 +57,13 @@ source links follow the current modules. Previous documentation anchors still re
 
 ## Current implementation status
 
-The integration checkpoint `04ae12ff5` retains its original commit title,
-“Integrate era-aware OutputStorage into ledger state”. The current declaration is
-`UTxOs`, with `LegacyUTxOMap (UTxO era)` and
-`UTxOs (UTxOStore era)`.
+The working tree migrates shared `UTxOState` to a direct
+`utxosUTxOStore :: UTxOStore era` field. `CanGetUTxOStore` / `CanSetUTxOStore`
+replace both old accessor-class pairs. The `UTxOs` sum type is removed;
+`utxoG` remains a read-only map projection. Earlier-era codecs retain their
+existing map formats; Dijkstra persists the complete Store. Verification of
+this migration is recorded separately from the earlier checkpoints below.
+
 Accounting reads historical allocations directly; the retired map-only `DepositStore` type
 and compatibility getters remain removed. The allocation map now contains
 `Unspent (TxOut era)` values. Each retains `sizedOutput :: Sized (TxOut era)`
@@ -70,8 +73,8 @@ legacy external refunds remain zero. Legacy imports without that metadata use
 provisional compatibility size and zero-rate V1 values, not recovered history.
 The `UTxOStore` type uses the `UTxOStore` record constructor and
 `DepositAmount` total. The `UTxO` type is retained in
-`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`. The `UTxOs` wrapper and all operations
-on it are in `Cardano.Ledger.State.UTxOs`; the Store model remains in
+`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`. The complete-Store accessors are in
+`Cardano.Ledger.State.UTxOs`; the Store model remains in
 `Cardano.Ledger.State.UTxOs.Store`. The allocation collection and entry model are
 now separated into `Allocations` and `Allocations.UTxO` within that namespace;
 calculation and shared errors have their own modules.
@@ -226,6 +229,70 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Shared Store access on 29 October 2026
+
+Verified the working-tree migration based on `2bafe7223`. Shared state now owns
+`UTxOStore` directly through `CanGetUTxOStore` / `CanSetUTxOStore`. Earlier-era
+initialization, updates and translations retain legacy output formats; Dijkstra
+retains complete historical allocations. The `UTxO` type name remains unchanged.
+
+All 12 build targets passed:
+
+```sh
+cabal build \
+  cardano-ledger-dijkstra:test:tests \
+  cardano-ledger-core:test:tests \
+  cardano-ledger-shelley:test:tests \
+  cardano-ledger-conway:test:tests \
+  cardano-ledger-babbage:test:tests \
+  cardano-ledger-test:lib:cardano-ledger-test \
+  cardano-ledger-canonical-state:lib:conway \
+  ledger-state:bench:performance \
+  cardano-ledger-shelley-test:test:cardano-ledger-shelley-test \
+  cardano-ledger-shelley-ma-test:test:cardano-ledger-shelley-ma-test \
+  cardano-ledger-alonzo-test:test:cardano-ledger-alonzo-test \
+  cardano-ledger-canonical-state:test:tests \
+  --offline --enable-tests --enable-benchmarks --jobs=8
+```
+
+The selected runtime checks passed **382 examples with zero failures**:
+
+| Check | Examples | Wall time |
+| --- | ---: | ---: |
+| Dijkstra: complete DepositStore suite | 209 | 435.1501 s |
+| Dijkstra: historical Store metadata | 13 | 72.5013 s |
+| Dijkstra: era-specific goldens | 127 | 0.3549 s |
+| Dijkstra: UTxOState round trip | 1 | 48.8787 s |
+| Shelley: state codecs, six-field snapshot, ordinary transaction | 4 | 0.0953 s |
+| Babbage: state codecs, six-field snapshot, collateral rejection/total | 9 | 188.9581 s |
+| Conway: state codecs, six-field snapshot, collateral/reference-script outputs | 15 | 562.9836 s |
+| Shelley-MA: state translation and spending a translated script | 3 | 0.0271 s |
+| Canonical Conway UTxO namespace: export/import into an empty state | 1 | 0.0266 s |
+
+Runs used seed `739231514`, `--fail-on=empty`, `--times` and
+`--print-cpu-time`. The 197 generated DepositStore properties and 13 metadata
+properties each passed 100 trials. Dijkstra's state round trip used 25 trials
+with maximum size 3. The inherited state properties used 100 trials with maximum
+size 20 for Shelley/Babbage and 5 for Conway; Shelley-MA used maximum size 10.
+The canonical namespace property used 100 trials with its generator resized to 5.
+Some checks ran concurrently with compilation or other suites: these durations
+are test-run observations, not performance benchmarks. Building the performance
+target does not constitute running a benchmark. The full upstream Dijkstra suite
+was not rerun.
+
+New regressions compare legacy Store CBOR/JSON against the previous output-map
+encoding and verify canonical Conway namespace import/export. Pre-Dijkstra
+formats reconstruct canonical legacy size/zero-rate metadata; they cannot retain
+arbitrary hand-built metadata absent from the old format. Also, `utxoG` now
+projects the allocation map in O(n), rather than reading the old map field in
+constant time. This migration is not performance-neutral.
+
+Fourmolu checked all 50 changed Haskell files; `git diff --check` passed.
+Evidence: `/private/tmp/ds-store-access-build.log`, the individual
+`/private/tmp/ds-store-access-*.log` files, and six
+`/private/tmp/ds-store-access-*-results.json` reports containing exact runtime
+filters, bounds and exit codes.
 
 ## Allocation reads on 29 October 2026
 

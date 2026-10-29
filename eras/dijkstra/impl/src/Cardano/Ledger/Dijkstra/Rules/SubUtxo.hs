@@ -55,7 +55,7 @@ import Cardano.Ledger.Rules.ValidationMode
 import Cardano.Ledger.Shelley.LedgerState (
   UTxOState,
   utxosDonationL,
-  utxosUTxOs,
+  utxosUTxOStore,
   utxosUtxo,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
@@ -294,14 +294,12 @@ dijkstraSubUtxoTransition = do
                   , avCtx = ctx
                   , avState = Nothing
                   }
-          utxoStore = case utxosUTxOs utxoState of
-            UTxOs store -> store
-            LegacyUTxOMap _ -> invariantFailure "Dijkstra state must contain UTxOStore"
+          utxoStore = utxosUTxOStore utxoState
       case applyBodyAllocations pp txBody utxoStore of
         Left err -> invariantFailure $ "SubTx allocation invariant violated: " <> show err
         Right store ->
-          Shelley.updateUTxOAndInstantStakeWithStorage
-            (UTxOs store)
+          Shelley.updateUTxOAndInstantStakeWithStore
+            store
             txBody
             (\a b -> tellEvent $ TxUTxODiff a b)
             (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)

@@ -67,10 +67,6 @@ instance ToExpr (TxOut era) => ToExpr (UTxOStore era) where
   toExpr store =
     App "UTxOStore" [toExpr $ totalDepositAmount store, toExpr $ allocations store]
 
-instance ToExpr (TxOut era) => ToExpr (UTxOs era) where
-  toExpr (LegacyUTxOMap outputs) = App "LegacyUTxOMap" [toExpr outputs]
-  toExpr (UTxOs store) = App "UTxOs" [toExpr store]
-
 instance ToExpr StrictlyPositiveCoin where
   toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]
 

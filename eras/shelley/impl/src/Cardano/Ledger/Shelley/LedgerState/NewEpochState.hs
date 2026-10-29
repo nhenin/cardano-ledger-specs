@@ -56,14 +56,18 @@ getGKeys nes = Map.keysSet $ unGenDelegs (ls ^. lsCertStateL . certDStateL . dsG
 --  contains the specified transaction outputs.
 genesisState ::
   forall era.
-  (EraGov era, EraCertState era, EraStake era) =>
+  (EraTxOut era, EraGov era, EraCertState era, EraStake era) =>
   Map (KeyHash GenesisRole) GenDelegPair ->
   UTxO era ->
   LedgerState era
 genesisState genDelegs0 utxo0 =
   LedgerState
     ( UTxOState
-        (LegacyUTxOMap utxo0)
+        ( either
+            (error . ("genesisState: expected legacy outputs: " <>) . show)
+            id
+            $ fromLegacyUTxO utxo0
+        )
         (Coin 0)
         (Coin 0)
         emptyGovState
@@ -132,13 +136,19 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
     ls = esLState es
     us = lsUTxOState ls
     UTxO utxo = utxosUtxo us
-    (redeemers, nonredeemers) =
-      Map.partition (maybe False isBootstrapRedeemer . view bootAddrTxOutF) utxo
+    redeemers = Map.filter (maybe False isBootstrapRedeemer . view bootAddrTxOutF) utxo
     acnt = esChainAccountState es
     utxoR = UTxO redeemers :: UTxO era
     acnt' =
       acnt
         { casReserves = casReserves acnt <+> sumCoinUTxO utxoR
         }
-    us' = us {utxosUTxOs = LegacyUTxOMap (UTxO nonredeemers :: UTxO era)}
+    us' =
+      us
+        { utxosUTxOStore =
+            either
+              (error . ("returnRedeemAddrsToReserves: invalid allocation removal: " <>) . show)
+              id
+              $ applyLegacyOutputDelta (Map.keysSet redeemers) mempty (utxosUTxOStore us)
+        }
     ls' = ls {lsUTxOState = us'}

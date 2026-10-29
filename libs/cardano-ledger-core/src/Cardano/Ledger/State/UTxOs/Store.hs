@@ -27,6 +27,7 @@ module Cardano.Ledger.State.UTxOs.Store (
   -- * Legacy compatibility
   fromLegacyUTxO,
   fromLegacyAllocations,
+  applyLegacyOutputDelta,
   toUTxO,
 
   -- * Serialization
@@ -117,6 +118,18 @@ applyAllocationDelta consumed created previous = do
 
 -- Legacy compatibility
 
+-- | Replace legacy outputs while retaining the metadata of every unaffected entry.
+-- Newly inserted outputs must use implicit deposits.
+applyLegacyOutputDelta ::
+  EraTxOut era =>
+  Set TxIn ->
+  UTxO era ->
+  UTxOStore era ->
+  Either OutputStoreError (UTxOStore era)
+applyLegacyOutputDelta consumed created previous = do
+  newStore <- fromLegacyUTxO created
+  applyAllocationDelta consumed (unAllocations $ allocations newStore) previous
+
 -- | This conversion is only for legacy outputs. It cannot reconstruct the
 -- accepted size or historical rate of an existing store-backed output.
 fromLegacyUTxO :: EraTxOut era => UTxO era -> Either OutputStoreError (UTxOStore era)
@@ -169,26 +182,35 @@ deriving via
 
 -- Serialization
 
-instance ToJSON (TxOut era) => ToJSON (UTxOStore era) where
-  toJSON store = object ["totalDepositAmount" .= totalDepositAmount store, "allocations" .= allocations store]
+instance (Era era, ToJSON (TxOut era)) => ToJSON (UTxOStore era) where
+  toJSON store
+    | eraProtVerLow @era < natVersion @12 = toJSON $ toUTxO store
+    | otherwise =
+        object ["totalDepositAmount" .= totalDepositAmount store, "allocations" .= allocations store]
 
 instance EraTxOut era => EncCBOR (UTxOStore era) where
-  encCBOR = encodeStoreWith encCBOR encCBOR
+  encCBOR store
+    | eraProtVerLow @era < natVersion @12 = encCBOR $ toUTxO store
+    | otherwise = encodeStoreWith encCBOR encCBOR store
 
 instance EraTxOut era => DecCBOR (UTxOStore era) where
   decCBOR = decNoShareCBOR
 
 instance EraTxOut era => DecShareCBOR (UTxOStore era) where
   type Share (UTxOStore era) = Interns (Credential Staking)
-  decShareCBOR credentials = decodeRecordNamed "UTxOStore" (const 2) $ do
-    supplied <- Coin <$> decCBOR
-    entries <- decodeMap decNoShareCBOR (decShareCBOR credentials)
-    store <- either (fail . show) pure $ fromAllocations entries
-    let expected = toCoin $ totalDepositAmount store
-    unless (supplied == expected) $
-      fail $
-        "UTxOStore deposit total mismatch: supplied " <> show supplied <> ", expected " <> show expected
-    pure store
+  decShareCBOR credentials
+    | eraProtVerLow @era < natVersion @12 = do
+        outputs <- decShareCBOR credentials
+        either (fail . show) pure $ fromLegacyUTxO outputs
+    | otherwise = decodeRecordNamed "UTxOStore" (const 2) $ do
+        supplied <- Coin <$> decCBOR
+        entries <- decodeMap decNoShareCBOR (decShareCBOR credentials)
+        store <- either (fail . show) pure $ fromAllocations entries
+        let expected = toCoin $ totalDepositAmount store
+        unless (supplied == expected) $
+          fail $
+            "UTxOStore deposit total mismatch: supplied " <> show supplied <> ", expected " <> show expected
+        pure store
 
 instance EraTxOut era => ToCBOR (UTxOStore era) where
   toCBOR = toEraCBOR @era
@@ -198,8 +220,11 @@ instance EraTxOut era => FromCBOR (UTxOStore era) where
 
 -- | Ledger snapshots retain the usual MemPack output representation and encode
 -- the original charged size separately. The ordinary Sized codec discards it.
-encodeUTxOStore :: EraTxOut era => UTxOStore era -> Encoding
-encodeUTxOStore = encodeStoreWith encodeMemPack encodeMemPack
+encodeUTxOStore :: forall era. EraTxOut era => UTxOStore era -> Encoding
+encodeUTxOStore store
+  | eraProtVerLow @era < natVersion @12 =
+      encodeMap encodeMemPack encodeMemPack $ unUTxO $ toUTxO store
+  | otherwise = encodeStoreWith encodeMemPack encodeMemPack store
 
 encodeStoreWith ::
   (TxIn -> Encoding) ->

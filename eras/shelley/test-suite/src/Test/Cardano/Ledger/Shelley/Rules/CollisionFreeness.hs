@@ -113,7 +113,7 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
     inputsEliminated
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> UTxO u')}) _
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO u')}) _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -146,10 +146,10 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
     newEntryPresent
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> UTxO u)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO u)}) _
         , signal = stAnnTx
         , target =
-          LedgerState (UTxOState {utxosUTxOs = (utxosUTxO -> UTxO u')}) _
+          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO u')}) _
         } =
         let tx = stAnnTx ^. txStAnnTxG
             UTxO outs = txouts @era (tx ^. bodyTxL)

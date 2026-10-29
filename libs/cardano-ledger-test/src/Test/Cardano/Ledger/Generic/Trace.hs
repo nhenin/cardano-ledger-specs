@@ -193,7 +193,7 @@ snaps ::
   (EraTxOut era, EraCertState era, ShelleyEraAccounts era) => LedgerState era -> SnapShots era
 snaps
   ( LedgerState
-      UTxOState {utxosUTxOs = (utxosUTxO -> u), utxosFees = f}
+      UTxOState {utxosUTxOStore = (toUTxO -> u), utxosFees = f}
       certState
     ) =
     SnapShots mark set (mkGoSnapShot set) f

@@ -12,10 +12,9 @@
 module Cardano.Ledger.Shelley.LedgerState (
   -- * UTxO
   UTxO (..),
-  CanGetUTxO (..),
-  CanSetUTxO (..),
-  CanGetUTxOs (..),
-  CanSetUTxOs (..),
+  CanGetUTxOStore (..),
+  CanSetUTxOStore (..),
+  utxoG,
 
   -- * Others to organize
   AccountState,
@@ -91,7 +90,7 @@ module Cardano.Ledger.Shelley.LedgerState (
   utxosFeesL,
   utxosGovStateL,
   utxosDonationL,
-  utxosUTxOsL,
+  utxosUTxOStoreL,
   epochStateGovStateL,
   epochStateStakeDistrL,
   epochStateStakePoolsL,

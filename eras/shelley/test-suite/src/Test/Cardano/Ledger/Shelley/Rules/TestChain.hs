@@ -194,10 +194,18 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
     txIns = neededTxInsForBlock block
     LedgerState utxoSt delegationSt = ledgerSt0
     utxo = unUTxO . utxosUtxo $ utxoSt
-    (relevantUTxO, irrelevantUTxO) = Map.partitionWithKey (const . (`Set.member` txIns)) utxo
+    (_, irrelevantUTxO) = Map.partitionWithKey (const . (`Set.member` txIns)) utxo
     restrictedSt0 =
       LedgerState
-        (utxoSt {utxosUTxOs = LegacyUTxOMap $ UTxO relevantUTxO})
+        ( utxoSt
+            { utxosUTxOStore =
+                either (error . ("Restricted ledger trace allocations: " <>) . show) id $
+                  applyAllocationDelta
+                    (Map.keysSet irrelevantUTxO)
+                    Map.empty
+                    (utxosUTxOStore utxoSt)
+            }
+        )
         delegationSt
 
 -- | Reconstruct a POOL trace from the transactions in a Block and ChainState

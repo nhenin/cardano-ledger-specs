@@ -503,12 +503,18 @@ updateUTxOState pp certState tx utxoState =
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
           let !(utxoKeep, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
               UTxO collouts = collOuts txBody
+              store =
+                either (error . ("Babbage collateral update: " <>) . show) id $
+                  applyLegacyOutputDelta
+                    (txBody ^. collateralInputsTxBodyL)
+                    (UTxO $ Map.withoutKeys collouts $ Map.keysSet utxoKeep)
+                    (utxosUTxOStore utxoState)
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { utxosUTxOs = LegacyUTxOMap $ UTxO (Map.union utxoKeep collouts) -- NEW to Babbage
-                  {- fees + collateralFees -}
-                  , utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
+                  { utxosUTxOStore = store
+                  , {- fees + collateralFees -}
+                    utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , utxosInstantStake =
                       deleteInstantStake (UTxO utxoDel) (addInstantStake (UTxO collouts) (utxoState ^. instantStakeL))
                   }

@@ -177,20 +177,17 @@ instance Arbitrary (Sized a) => Arbitrary (Unspent a) where
   arbitrary = Unspent <$> arbitrary <*> arbitrary
 
 instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) where
-  arbitrary = suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations
+  arbitrary
+    | eraProtVerLow @era >= natVersion @12 =
+        suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations
+    | otherwise =
+        suchThatMap arbitrary $ either (const Nothing) Just . fromLegacyUTxO
   shrink store =
     mapMaybe (either (const Nothing) Just . fromAllocations . Map.fromList) $
       shrinkList (const []) $
         Map.toList $
           unAllocations $
             allocations store
-
-instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOs era) where
-  arbitrary
-    | eraProtVerLow @era >= natVersion @12 = UTxOs <$> arbitrary
-    | otherwise = LegacyUTxOMap <$> arbitrary
-  shrink (LegacyUTxOMap outputs) = LegacyUTxOMap <$> shrink outputs
-  shrink (UTxOs store) = UTxOs <$> shrink store
 
 instance Arbitrary ActiveSlotCoeff where
   arbitrary = mkActiveSlotCoeff <$> arbitrary

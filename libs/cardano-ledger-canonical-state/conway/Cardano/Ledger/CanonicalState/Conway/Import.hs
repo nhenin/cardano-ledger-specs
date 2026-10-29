@@ -98,14 +98,14 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.State (
   CanSetAccounts (accountsL),
-  CanSetUTxOs (utxosL),
+  CanSetUTxOStore (utxoStoreL),
   ConwayEraCertState (certVStateL),
   EraAccounts (accountsMapL),
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
   UTxO (UTxO),
-  UTxOs (LegacyUTxOMap),
   csCommitteeCredsL,
+  fromLegacyUTxO,
   psFutureStakePoolParamsL,
   psRetiringL,
   psStakePoolsL,
@@ -151,7 +151,11 @@ instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
     S.fold_
       (\utxos (ChunkEntry (UtxoKeyIn k) (UtxoOut v)) -> Map.insert k (getValue v) utxos)
       mempty
-      (\utxos -> nes & utxosL .~ LegacyUTxOMap (UTxO utxos))
+      ( \utxos ->
+          case fromLegacyUTxO (UTxO utxos) of
+            Left err -> error $ "importNamespaceEntries: invalid Conway outputs: " <> show err
+            Right store -> nes & utxoStoreL .~ store
+      )
 
 instance ImportCanonicalNamespace ConwayEra "blocks/v0" where
   importNamespaceEntries nes =

@@ -64,7 +64,12 @@ testScriptPostTranslation =
               minBound
               emptyPParams
               (ChainAccountState (S.Coin 0) (S.Coin 0))
-          utxoStShelley = def {S.utxosUTxOs = LegacyUTxOMap utxo}
+          utxoStShelley =
+            def
+              { S.utxosUTxOStore =
+                  either (error . ("Script translation fixture: " <>) . show) id $
+                    fromLegacyUTxO utxo
+              }
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =
             mkBasicTxBody @ShelleyEra @TopTx

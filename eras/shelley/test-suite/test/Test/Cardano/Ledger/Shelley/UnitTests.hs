@@ -281,12 +281,13 @@ aliceGivesBobLovelace
 utxoState :: UTxOState ShelleyEra
 utxoState =
   UTxOState
-    ( LegacyUTxOMap $
-        genesisCoins
-          genesisId
-          [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin
-          , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 1000)
-          ]
+    ( either (error . ("Shelley unit-test genesis outputs: " <>) . show) id $
+        fromLegacyUTxO $
+          genesisCoins
+            genesisId
+            [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin
+            , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 1000)
+            ]
     )
     (Coin 0)
     (Coin 0)

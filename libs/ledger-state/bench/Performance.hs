@@ -69,10 +69,12 @@ main = do
 
   genesis <- either error id <$> eitherDecodeFileStrict' genesisFilePath
 
-  let newEpochState = case mUtxo of
-        Nothing -> nesFromFile
-        Just utxoFromFile -> nesFromFile & utxosL .~ LegacyUTxOMap utxoFromFile
-      utxo = newEpochState ^. utxoG
+  newEpochState <- case mUtxo of
+    Nothing -> pure nesFromFile
+    Just utxoFromFile -> do
+      store <- either (fail . show) pure $ fromLegacyUTxO utxoFromFile
+      pure $ nesFromFile & utxoStoreL .~ store
+  let utxo = newEpochState ^. utxoG
       utxoMap = unUTxO utxo
       utxoSize = Map.size utxoMap
       largeKeysNum = 100000

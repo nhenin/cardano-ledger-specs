@@ -144,13 +144,13 @@ utxoStateSpec ::
 utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState} =
   constrained $ \utxoState ->
     match utxoState $
-      \utxosUTxOs
+      \utxosUTxOStore
        _utxosDeposited
        _utxosFees
        utxosGovState
        _utxosStakeDistr
        _utxosDonation ->
-          [ assert $ utxosUTxOs ==. lit (LegacyUTxOMap uecUTxO)
+          [ assert $ utxosUTxOStore ==. lit initialStore
           , match utxosGovState $ \props _ constitution _ _ _ _ ->
               match constitution $ \_ policy ->
                 satisfies props $
@@ -162,6 +162,9 @@ utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState}
           ]
   where
     curEpoch = runReader (epochFromSlot ueSlot) testGlobals
+    initialStore =
+      either (error . ("utxoStateSpec: invalid Conway outputs: " <>) . show) id $
+        fromLegacyUTxO uecUTxO
 
 data UtxoExecContext era = UtxoExecContext
   { uecTx :: !(Tx TopTx era)

@@ -179,9 +179,11 @@ test-suite tests
     cborg,
     containers,
     cuddle,
+    data-default,
     directory,
     filepath,
     megaparsec,
+    microlens,
     scls-cbor,
     text,
 

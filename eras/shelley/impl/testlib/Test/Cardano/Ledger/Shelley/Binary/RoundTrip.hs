@@ -16,6 +16,7 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Metadata (Metadatum (I))
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.State
+import qualified Data.Aeson as Aeson
 import qualified Data.Text as T
 import Test.Cardano.Base.Bytes (genByteString)
 import Test.Cardano.Ledger.Binary.RoundTrip (
@@ -62,10 +63,16 @@ roundTripStateEraTypesSpec = do
     roundTripShareEraSpec @era @(GovState era)
   describe "State Types" $ do
     roundTripShareEraTypeSpec @era @UTxOState
-    when (eraProtVerLow @era < natVersion @12) $
+    when (eraProtVerLow @era < natVersion @12) $ do
       prop "preserves the six-field UTxOState snapshot encoding before Dijkstra" $ \(state :: UTxOState era) ->
         forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
           serialize version state `shouldBe` serialize version (legacyUTxOStateEncoding state)
+      prop "preserves legacy output-map CBOR and JSON encodings" $ \(state :: UTxOState era) -> do
+        let store = utxosUTxOStore state
+            outputs = utxosUtxo state
+        forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
+          serialize version store `shouldBe` serialize version outputs
+        Aeson.toJSON store `shouldBe` Aeson.toJSON outputs
     roundTripEraTypeSpec @era @EpochState
     roundTripEraTypeSpec @era @NewEpochState
 

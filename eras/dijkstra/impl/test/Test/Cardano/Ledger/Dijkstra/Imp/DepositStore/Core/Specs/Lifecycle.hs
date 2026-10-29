@@ -48,11 +48,14 @@ conwayStates = do
       outputMap =
         Map.fromList $
           zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (head outputs : outputs)
+      outputStore =
+        either (error . ("Conway lifecycle fixture: " <>) . show) id $
+          fromLegacyUTxO (UTxO outputMap)
       utxoStateL = nesEsL . esLStateL . lsUTxOStateL
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =
         previousState
-          & utxoStateL . utxosUTxOsL .~ LegacyUTxOMap (UTxO outputMap)
+          & utxoStateL . utxosUTxOStoreL .~ outputStore
           & treasuryL .~ Coin (factor * amount)
           & reservesL .~ Coin (factor * (amount + 1))
           & utxoStateL . utxosDepositedL .~ Coin (factor * (amount + 2))

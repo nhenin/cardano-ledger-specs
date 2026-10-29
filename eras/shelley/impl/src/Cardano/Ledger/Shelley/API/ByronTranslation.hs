@@ -160,7 +160,11 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       LedgerState
         { lsUTxOState =
             UTxOState
-              { utxosUTxOs = LegacyUTxOMap utxoShelley
+              { utxosUTxOStore =
+                  either
+                    (error . ("translateToShelleyLedgerStateFromUtxo: expected legacy outputs: " <>) . show)
+                    id
+                    $ fromLegacyUTxO utxoShelley
               , utxosDeposited = Coin 0
               , utxosFees = Coin 0
               , utxosGovState = emptyGovState

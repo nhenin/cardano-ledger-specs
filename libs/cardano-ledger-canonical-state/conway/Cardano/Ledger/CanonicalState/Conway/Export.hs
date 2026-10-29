@@ -84,7 +84,6 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.Rules (updateDormantDRepExpiry)
 import Cardano.Ledger.Conway.State (
-  CanGetUTxO (utxoG),
   CanSetAccounts (accountsL),
   ConwayEraCertState (certVStateL),
   EraAccounts (accountsMapL),
@@ -96,6 +95,7 @@ import Cardano.Ledger.Conway.State (
   psRetiringL,
   psStakePoolsL,
   psVRFKeyHashesL,
+  utxoG,
   vsCommitteeStateL,
   vsDRepsL,
  )
