@@ -6620,6 +6620,16 @@ consumers import these queries directly from `TxOut`.
 all allocations; it is no longer constant-time for legacy eras. Direct allocation
 queries avoid that cost. Migrating the remaining map-based validators is separate work.
 
+**Deferred: proposed outputs and allocations**
+
+- [ ] Review `txouts :: EraTxBody era => TxBody l era -> UTxO era` and
+  `createdOutputAllocations`: use `Allocations era` when constructing entries to
+  add to the Store, retaining each output's accepted size and supplying its
+  `DepositCalculation` explicitly. Distinguish this construction from merely
+  indexing proposed outputs by `TxIn`; constructing allocations does not itself
+  accept the transaction or insert them into ledger state. Revisit the associated
+  names and signatures together. No API or type rename is applied for this item yet.
+
 Read the external-deposit total with `toCoin (totalDepositAmount store)`.
 Legacy allocations contribute zero. `fromLegacyUTxO` checks legacy-only imports;
 `fromLegacyAllocations` accepts typed legacy outputs. `applyLegacyOutputDelta`
