@@ -4,7 +4,7 @@
 -- Accounting queries use the real recorded deposits and pricing parameters;
 -- the calling spec supplies the declaration before building and signing.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (
-  module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx,
+  module Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx,
   ReleaseTx (..),
   standaloneTopTxAnyOutputForm,
   standaloneTopTxOnlyImplicitOutputs,
@@ -19,7 +19,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
 import Cardano.Ledger.Val (Val ((<->)))
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap

@@ -6,7 +6,7 @@
 -- Releases describe the proposed ordinary transaction. Rejection and accepted
 -- phase-2 failure do not apply these ordinary releases.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx (
-  module Cardano.Ledger.Dijkstra.UTxODeposit.SubTx,
+  module Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx,
   Source (..),
   SingleSourceScenario (..),
   ReleaseScenario (..),
@@ -31,7 +31,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.UTxODeposit.SubTx
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)))

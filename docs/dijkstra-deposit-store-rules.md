@@ -7057,8 +7057,8 @@ Production domain types remain in the ledger modules. A pure helper may move the
 when it acquires a protocol responsibility; generators and independent test
 expectations remain specification support.
 
-- [TopTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxODeposit/TopTx.hs)
-- [SubTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxODeposit/SubTx.hs)
+- [TopTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/TopTx.hs)
+- [SubTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/SubTx.hs)
 - [Transaction fields, operations and lenses](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
 - [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut.hs)
 - [Dijkstra output representations](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
@@ -7075,8 +7075,8 @@ The API uses `UTxODeposit` for the domain term **UTxO capacity deposit**. Domain
 uses two qualified modules:
 
 ```haskell
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 ```
 
 `TopTx.TopTxUTxODepositDeclaration` and `SubTx.SubTxUTxODepositDeclaration` are distinct

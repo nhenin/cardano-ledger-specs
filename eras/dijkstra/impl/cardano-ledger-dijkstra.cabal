@@ -52,8 +52,8 @@ library
     Cardano.Ledger.Dijkstra.TxOut
     Cardano.Ledger.Dijkstra.TxWits
     Cardano.Ledger.Dijkstra.UTxO
-    Cardano.Ledger.Dijkstra.UTxODeposit.SubTx
-    Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
 
   other-modules:
     Cardano.Ledger.Dijkstra.Rules.Bbody

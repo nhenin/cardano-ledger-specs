@@ -10,7 +10,7 @@
 
 * Require each TopTx and SubTx creating or spending store-backed outputs to carry its own UTxO capacity deposit declaration. Resolve each body's ordinary spending inputs against the original UTxO on both phase-2 outcomes. Use `MissingUTxODepositDeclaration` in UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` in SUBUTXO at tag `11`.
 
-* Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxODeposit.TopTx` and `UTxODeposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
+* Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxOs.Deposit.TopTx` and `UTxOs.Deposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
 
 * Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.
 * Isolate declaration validation in `Rules.DepositStore.Declaration`, reexported through `Cardano.Ledger.Dijkstra.Rules`. The validator returns `DepositStoreDeclarationFailure`, which UTXO maps to its predicate failure.

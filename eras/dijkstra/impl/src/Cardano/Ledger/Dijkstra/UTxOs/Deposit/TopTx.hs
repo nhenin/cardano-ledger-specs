@@ -8,7 +8,7 @@
 
 -- | Explicit UTxO capacity deposit declarations for the top-level transaction.
 -- Import qualified to distinguish these constructors from SubTx declarations.
-module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx (
+module Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx (
   TopTxUTxODepositDeclaration (
     NoUTxODepositDeclaration,
     DeclaresZeroNetUTxODeposit,

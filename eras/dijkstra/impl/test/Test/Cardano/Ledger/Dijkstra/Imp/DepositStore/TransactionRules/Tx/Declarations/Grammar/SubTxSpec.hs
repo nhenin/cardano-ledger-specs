@@ -6,7 +6,7 @@
 -- Shared Codecs assertions cover both CBOR and JSON.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.SubTxSpec (spec) where
 
-import Cardano.Ledger.Dijkstra.UTxODeposit.SubTx (SubTxNetUTxODepositChange, SubTxReleaseTarget)
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx (SubTxNetUTxODepositChange, SubTxReleaseTarget)
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin)
 import Data.Either (isLeft)
 import Test.Cardano.Ledger.Common (

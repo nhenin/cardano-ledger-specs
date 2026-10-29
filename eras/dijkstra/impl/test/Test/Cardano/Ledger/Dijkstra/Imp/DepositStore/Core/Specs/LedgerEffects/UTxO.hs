@@ -13,7 +13,7 @@ import Cardano.Ledger.Alonzo.TxWits (unRedeemersL)
 import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
 import Cardano.Ledger.State (unUTxO)
 import Cardano.Ledger.StrictlyPositiveCoin (mkStrictlyPositiveCoin)

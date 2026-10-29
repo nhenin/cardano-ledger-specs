@@ -78,7 +78,7 @@ import Cardano.Ledger.Dijkstra.UTxO (
   dijkstraConsumed,
   plutusLegacyModeStAnnTxG,
  )
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (OrdExUnits)
 import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosFeesL, utxosUtxo)

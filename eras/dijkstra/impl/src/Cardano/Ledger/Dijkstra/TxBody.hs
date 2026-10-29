@@ -146,18 +146,18 @@ import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Scripts (AccountBalanceIntervals (..), DijkstraPlutusPurpose (..))
 import Cardano.Ledger.Dijkstra.TxOut ()
-import Cardano.Ledger.Dijkstra.UTxODeposit.SubTx (
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx (
   SubTxNetUTxODepositChange (..),
   SubTxReleaseTarget (..),
   SubTxUTxODepositDeclaration,
  )
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.SubTx as SubTx
-import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx (
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx (
   NetUTxODepositChange (..),
   TopTxReleaseSettlement (..),
   TopTxUTxODepositDeclaration,
  )
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Keys (HasKeyRole (..))
 import Cardano.Ledger.Mary.Value (MultiAsset)
 import Cardano.Ledger.MemoBytes (

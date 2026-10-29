@@ -7,7 +7,7 @@
 -- inputs through ordinary ledger transactions before any release is calculated.
 -- Proposed releases take effect only if ordinary ledger execution succeeds.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (
-  module Cardano.Ledger.Dijkstra.UTxODeposit.TopTx,
+  module Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx,
   ReleaseScenario (..),
   OutputForms (..),
   LedgerState (..),
@@ -33,8 +33,8 @@ import Cardano.Ledger.Binary (Sized (..), mkSized)
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.UTxODeposit.TopTx
-import qualified Cardano.Ledger.Dijkstra.UTxODeposit.TopTx as TopTx
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
