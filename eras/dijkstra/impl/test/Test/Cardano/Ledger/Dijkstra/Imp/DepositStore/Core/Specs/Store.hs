@@ -1,6 +1,7 @@
 -- | Queries over reachable test state. Historical metadata comes from the live
 -- allocation, never from current parameters or canonical output re-encoding.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  outputs,
   recordedAmounts,
   storedDepositTotal,
   liveOutputStore,
@@ -16,6 +17,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core (TxOut (..))
 import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosUTxOStore)
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Data.Map.Strict as Map
@@ -24,6 +26,11 @@ import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
 
 liveOutputStore :: UTxOState DijkstraEra -> UTxOStore DijkstraEra
 liveOutputStore = utxosUTxOStore
+
+-- | Complete output observation for ledger-effect assertions. This projection
+-- belongs to the test oracle; production reads use allocations directly.
+outputs :: UTxOState era -> Map.Map TxIn (TxOut era)
+outputs = Allocations.toTxOutMap . allocations . utxosUTxOStore
 
 -- | Independent specification formula for both calculation versions. V2 uses
 -- the same formula as V1 for now. This does not call the production calculation

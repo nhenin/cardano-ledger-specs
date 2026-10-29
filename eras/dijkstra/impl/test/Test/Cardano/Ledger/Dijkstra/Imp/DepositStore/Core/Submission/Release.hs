@@ -52,9 +52,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   esLStateL,
   lsUTxOStateL,
   nesEsL,
-  utxosUtxo,
  )
-import Cardano.Ledger.State (UTxO (..))
+import Cardano.Ledger.State (UTxO (..), allocations, lookupUTxO)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -221,9 +222,9 @@ forAllSubTxZeroNetChangeTx scenarios check =
 recreateFundedInputs ::
   Standalone.LedgerState -> Tx l DijkstraEra -> ImpTestM DijkstraEra (Tx l DijkstraEra)
 recreateFundedInputs ledgerState tx = do
-  let sourceOutputs = unUTxO $ utxosUtxo $ Standalone.utxoState ledgerState
+  let sourceAllocations = allocations . liveOutputStore . Standalone.utxoState $ ledgerState
   outputs <-
-    traverse (expectJust . (`Map.lookup` sourceOutputs)) $
+    traverse (fmap UTxO.toTxOut . expectJust . (`lookupUTxO` sourceAllocations)) $
       Set.toList (tx ^. bodyTxL . inputsTxBodyL)
   pure $ tx & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
 
@@ -332,12 +333,12 @@ checkPreservedReleaseProposal ledgerState tx fixed = do
     `shouldBe` Set.empty
   checkAddedOrdinaryInputsUseImplicitDeposits tx fixed
   currentUTxOState <- readLedger
-  Map.restrictKeys (unUTxO $ utxosUtxo currentUTxOState) suppliedInputs
-    `shouldBe` Map.restrictKeys (unUTxO $ utxosUtxo $ Standalone.utxoState ledgerState) suppliedInputs
-  Map.restrictKeys (recordedAmounts $ liveOutputStore currentUTxOState) suppliedInputs
-    `shouldBe` Map.restrictKeys
-      (recordedAmounts $ liveOutputStore $ Standalone.utxoState ledgerState)
-      suppliedInputs
+  let currentStore = liveOutputStore currentUTxOState
+      originalStore = liveOutputStore . Standalone.utxoState $ ledgerState
+  Allocations.txOutsForInputs suppliedInputs (allocations currentStore)
+    `shouldBe` Allocations.txOutsForInputs suppliedInputs (allocations originalStore)
+  Map.restrictKeys (recordedAmounts currentStore) suppliedInputs
+    `shouldBe` Map.restrictKeys (recordedAmounts originalStore) suppliedInputs
 
 -- | Submit the declared transaction through the real ledger. Preparation may add
 -- implicit fee funding and change, but preserves the supplied outputs/declaration.
@@ -357,7 +358,7 @@ submitTxAndExpectSuccess ledgerState tx = do
           , not $ isImplicitOutput output
           ]
       released = foldMap id $ Map.restrictKeys (recordedAmounts before) consumed
-      retainedOutputs = Map.withoutKeys (unUTxO $ utxosUtxo previousUTxOState) consumed
+      retainedOutputs = Allocations.toTxOutMap . Allocations.withoutInputs consumed . allocations $ before
   withNoFixup $ submitTx_ fixed
   afterState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
   UTxO outputsAfter <- getUTxO
@@ -703,7 +704,7 @@ forAllReferenceOnlyStoreTx scenarios check =
         proposal =
           mkBasicTx mkBasicTxBody
             & bodyTxL . referenceInputsTxBodyL .~ references
-        records = recordedAmounts $ liveOutputStore $ Standalone.utxoState ledgerState
+        records = recordedAmounts . liveOutputStore . Standalone.utxoState $ ledgerState
         context = Context.ReleaseTx ledgerState proposal
     Set.null references `shouldBe` False
     forM_ references $ \input -> do
@@ -774,7 +775,7 @@ buildAndSignCollateralOnlyTx scenario declarations = do
       . totalCollateralTxBodyL
       `shouldBe` SJust (Release.collateralInputCoins scenario <-> Release.collateralReturnCoins scenario)
   let context = Context.ReleaseTx ledgerState signed
-      records = recordedAmounts $ liveOutputStore $ Standalone.utxoState ledgerState
+      records = recordedAmounts . liveOutputStore . Standalone.utxoState $ ledgerState
   Map.lookup collateralInput records
     `shouldBe` if inputHasStoreDeposit then Just allocation else Nothing
   (Context.allocatedDeposits context, Context.releasedDeposits context) `shouldBe` (Coin 0, Coin 0)

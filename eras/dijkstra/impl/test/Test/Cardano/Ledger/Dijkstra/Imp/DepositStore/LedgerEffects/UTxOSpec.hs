@@ -6,8 +6,6 @@
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.UTxOSpec (spec) where
 
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
-import Cardano.Ledger.State (UTxO (..))
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
@@ -16,6 +14,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (Fixt
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects as Effects
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO as InputRoles
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store as Store
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted, submitTx)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
@@ -39,9 +38,9 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
           previousUTxOState <- readLedger
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
-          unUTxO (utxosUtxo utxoState)
+          Store.outputs utxoState
             `shouldBe` createdOrdinaryOutputs signedTx
-              <> Map.withoutKeys (unUTxO $ utxosUtxo previousUTxOState) (ordinarySpendingInputs signedTx)
+              <> Map.withoutKeys (Store.outputs previousUTxOState) (ordinarySpendingInputs signedTx)
 
     -- Actual successful scripts activate the ordinary path even when collateral
     -- proposes Store allocations or releases. Its sources remain unspent and its
@@ -52,9 +51,9 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
           Fixture{signedTx, previousUTxOState} <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
-          unUTxO (utxosUtxo utxoState)
+          Store.outputs utxoState
             `shouldBe` createdOrdinaryOutputs signedTx
-              <> Map.withoutKeys (unUTxO $ utxosUtxo previousUTxOState) (ordinarySpendingInputs signedTx)
+              <> Map.withoutKeys (Store.outputs previousUTxOState) (ordinarySpendingInputs signedTx)
 
   describe "Phase-2 failure: consume only collateral and create only its return" $ do
     -- Real failing scripts cover absent, implicit and Store-backed returns.
@@ -68,9 +67,9 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
               returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
-          unUTxO (utxosUtxo utxoState)
+          Store.outputs utxoState
             `shouldBe` foldMap (Map.singleton returnInput) collateralReturn
-              <> Map.withoutKeys (unUTxO $ utxosUtxo previousUTxOState) collateralInputs
+              <> Map.withoutKeys (Store.outputs previousUTxOState) collateralInputs
 
     -- A failing TopTx script suppresses all ordinary effects, including several
     -- children with real Store allocations and releases. This does not assume
@@ -85,9 +84,9 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
               returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
-          unUTxO (utxosUtxo utxoState)
+          Store.outputs utxoState
             `shouldBe` foldMap (Map.singleton returnInput) collateralReturn
-              <> Map.withoutKeys (unUTxO $ utxosUtxo previousUTxOState) collateralInputs
+              <> Map.withoutKeys (Store.outputs previousUTxOState) collateralInputs
 
   describe "Shared input: the selected path consumes it exactly once" $
     -- A real Store-backed source serves both roles. Its ordinary settlement is
@@ -102,14 +101,14 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
               >>= InputRoles.withReferenceOnlyInput
           submitTx signedTx >>= isAccepted
           utxoState <- readLedger
-          let previousOutputs = unUTxO $ utxosUtxo previousUTxOState
+          let previousOutputs = Store.outputs previousUTxOState
           case phase2 of
             Phase2Valid ->
-              unUTxO (utxosUtxo utxoState)
+              Store.outputs utxoState
                 `shouldBe` createdOrdinaryOutputs signedTx <> Map.withoutKeys previousOutputs (ordinarySpendingInputs signedTx)
             Phase2Invalid -> do
               let collateralReturn = signedTx ^. bodyTxL . collateralReturnTxBodyL
                   returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
-              unUTxO (utxosUtxo utxoState)
+              Store.outputs utxoState
                 `shouldBe` foldMap (Map.singleton returnInput) collateralReturn <> Map.withoutKeys previousOutputs collateralInputs
 {- FOURMOLU_ENABLE -}

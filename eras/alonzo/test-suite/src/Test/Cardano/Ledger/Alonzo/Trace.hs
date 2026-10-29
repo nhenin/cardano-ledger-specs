@@ -18,15 +18,18 @@ import Cardano.Ledger.Alonzo.Core
 import Cardano.Ledger.Alonzo.Rules (LEDGER, LEDGERS)
 import Cardano.Ledger.BaseTypes (Globals, epochInfo, systemStart)
 import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, lsUTxOState, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState, lsUTxOState, utxosUTxOStore)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Protocol.Crypto (Crypto)
 import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..))
 import Control.Monad.Trans.Reader (runReaderT)
 import Control.State.Transition
 import Data.Functor.Identity (runIdentity)
 import Data.Sequence (Seq)
+import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Alonzo.AlonzoEraGen ()
 import Test.Cardano.Ledger.Shelley.Generator.Core (GenEnv (..))
 import Test.Cardano.Ledger.Shelley.Generator.EraGen (EraGen (..), MinLEDGER_STS)
@@ -83,7 +86,13 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        (utxosUtxo (lsUTxOState ls))
+        ( UTxO
+            . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+            . Store.allocations
+            . utxosUTxOStore
+            . lsUTxOState
+            $ ls
+        )
         mempty
         tx
 

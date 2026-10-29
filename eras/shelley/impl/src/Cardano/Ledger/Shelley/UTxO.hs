@@ -56,7 +56,6 @@ import Cardano.Ledger.State as UTxO (
   txinLookup,
   txins,
   txouts,
-  utxoG,
   verifyWitVKey,
  )
 import Cardano.Ledger.TxIn (TxIn (..))

@@ -118,6 +118,7 @@ import Cardano.Ledger.Shelley.TxCert (
  )
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits (..))
+import Cardano.Ledger.State.UTxOs.Allocations qualified as Allocations
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val (Val)
 import Constrained.API.Extend hiding (Sized)
@@ -1566,7 +1567,7 @@ instance
 instance HasSimpleRep (UTxOStore ConwayEra) where
   type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[UTxO ConwayEra]]
   type SimpleRep (UTxOStore ConwayEra) = UTxO ConwayEra
-  toSimpleRep = toUTxO
+  toSimpleRep = UTxO . Allocations.toTxOutMap . allocations
   fromSimpleRep =
     either (error . ("fromSimpleRep: invalid Conway outputs: " <>) . show) id
       . fromLegacyUTxO

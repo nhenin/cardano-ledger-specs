@@ -14,8 +14,8 @@ import Cardano.Ledger.BaseTypes (TxIx (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
-import Cardano.Ledger.State (unUTxO)
+import Cardano.Ledger.State (allocations, lookupUTxO)
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.StrictlyPositiveCoin (mkStrictlyPositiveCoin)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -54,10 +54,11 @@ withReferenceOnlyInput fixture@Fixture {signedTx, previousUTxOState, collateralI
 withSharedOrdinaryInput :: Fixture -> ImpTestM DijkstraEra Fixture
 withSharedOrdinaryInput fixture@Fixture {signedTx, previousUTxOState, collateralInputs} = do
   let records = recordedAmounts $ liveOutputStore previousUTxOState
-      sourceOutputs = unUTxO $ utxosUtxo previousUTxOState
       originalInputs = signedTx ^. bodyTxL . inputsTxBodyL
   sharedInput <- expectJust $ Set.lookupMin $ collateralInputs `Set.intersection` Map.keysSet records
-  source <- expectJust $ Map.lookup sharedInput sourceOutputs
+  source <-
+    expectJust $
+      UTxO.toTxOut <$> lookupUTxO sharedInput (allocations . liveOutputStore $ previousUTxOState)
   recordedDeposit <- expectJust $ Map.lookup sharedInput records
   positiveDeposit <- expectJust $ mkStrictlyPositiveCoin recordedDeposit
   let inputs = Set.insert sharedInput originalInputs

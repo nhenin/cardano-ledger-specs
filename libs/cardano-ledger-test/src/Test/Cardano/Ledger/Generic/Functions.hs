@@ -38,6 +38,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Scripts (pattern RequireAllOf, pattern RequireAnyOf)
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.Val (Val ((<+>), (<->)))
 import Cardano.Slotting.EpochInfo.API (epochInfoSize)
@@ -313,7 +314,7 @@ instance TotalAda ChainAccountState where
 
 instance Reflect era => TotalAda (UTxOState era) where
   totalAda (UTxOState store _deposits fees gs _ donations) =
-    totalAda (toUTxO store)
+    (foldMap (^. coinTxOutL) . Allocations.txOuts . allocations $ store)
       <+> fees
       <+> govStateTotalAda gs
       <+> donations

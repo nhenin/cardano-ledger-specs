@@ -26,9 +26,9 @@ import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
-  utxosUtxo,
  )
-import Cardano.Ledger.State (unUTxO)
+import Cardano.Ledger.State (allocations, restrictToInputs)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -196,8 +196,13 @@ balanceChild :: Pricing.LedgerState -> Tx SubTx DijkstraEra -> Tx SubTx Dijkstra
 balanceChild state child =
   case toList $ child ^. bodyTxL . outputsTxBodyL of
     first : rest ->
-      let sources = unUTxO $ utxosUtxo $ Pricing.utxoState state
-          inputCoins = foldMap (^. coinTxOutL) $ Map.restrictKeys sources (child ^. bodyTxL . inputsTxBodyL)
+      let sources =
+            restrictToInputs (child ^. bodyTxL . inputsTxBodyL)
+              . allocations
+              . liveOutputStore
+              . Pricing.utxoState
+              $ state
+          inputCoins = foldMap (^. coinTxOutL) . Allocations.txOuts $ sources
           outputCoins = foldMap (^. coinTxOutL) rest
           localDeposit = localDeclaredAmount $ child ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL
           settlementCoins = (inputCoins <-> outputCoins) <-> localDeposit

@@ -44,7 +44,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
   lsCertStateL,
   lsUTxOStateL,
-  utxosUtxo,
  )
 import qualified Cardano.Ledger.State as Store
 import Data.Coerce (coerce)
@@ -217,15 +216,17 @@ instance TranslateEra DijkstraEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosUTxOStore =
-            Store.fromLegacyAllocations $
-              Map.map upgradeImplicit (unUTxO $ utxosUtxo us)
+        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt $ utxosGovState us
-        , utxosInstantStake = coerce $ utxosInstantStake us
+        , utxosGovState = translateEra' ctxt . utxosGovState $ us
+        , utxosInstantStake = coerce . utxosInstantStake $ us
         , utxosDonation = utxosDonation us
         }
+
+instance TranslateEra DijkstraEra UTxOStore where
+  translateEra _ =
+    pure . Store.translateLegacyStore upgradeImplicit
     where
       -- Conway cannot contain store-backed outputs. The provisional legacy
       -- conversion records a re-encoded size and zero rate, not recovered history.

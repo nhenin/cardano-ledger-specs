@@ -53,7 +53,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   UTxOState (..),
   utxosDepositedL,
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.LedgerState.Types (allObligations, potEqualsObligation)
 import Cardano.Ledger.Shelley.Rules.Deleg (AccountAlreadyRegistered, ShelleyDelegPredFailure)
@@ -71,6 +70,8 @@ import Cardano.Ledger.Shelley.Rules.Utxo (ShelleyUtxoPredFailure (..), UtxoEnv (
 import Cardano.Ledger.Shelley.Rules.Utxow (ShelleyUtxowPredFailure, UTXOW)
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo, epochFromSlot)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData (..))
 import Control.Monad (guard)
 import Control.Monad.Trans.Reader (asks)
@@ -416,7 +417,12 @@ renderDepositEqualsObligationViolation
             | avMsg == "Deposit pot must equal obligation (LEDGER)" ->
                 let certstate = lsCertState lstate
                     utxoSt = lsUTxOState lstate
-                    utxo = utxosUtxo utxoSt
+                    utxo =
+                      UTxO
+                        . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                        . Store.allocations
+                        . utxosUTxOStore
+                        $ utxoSt
                     txb = tx ^. bodyTxL
                     pot = utxoSt ^. utxosDepositedL
                  in "\n\nAssertionViolation ("

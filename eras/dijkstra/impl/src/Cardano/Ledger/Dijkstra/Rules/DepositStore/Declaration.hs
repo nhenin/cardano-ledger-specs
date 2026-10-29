@@ -32,7 +32,6 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Data.List.NonEmpty (NonEmpty)
 import Lens.Micro ((^.))
 import Validation (Validation, failureUnless)
@@ -83,10 +82,7 @@ validateTopTxReleaseDeclarationPresence ::
 validateTopTxReleaseDeclarationPresence originalAllocations txBody =
   validateStoreBackedOutputsDeclaration
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
-    ( UTxO.toTxOut
-        <$> Allocations.unspentOutputs
-          (Allocations.restrictToInputs (txBody ^. inputsTxBodyL) originalAllocations)
-    )
+    (Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
 
 -- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE: require SubTx's own declaration for releases
 -- proposed by its ordinary inputs, even when its new outputs are all implicit.
@@ -99,10 +95,7 @@ validateSubTxReleaseDeclarationPresence ::
 validateSubTxReleaseDeclarationPresence originalAllocations txBody =
   validateStoreBackedOutputsDeclaration
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
-    ( UTxO.toTxOut
-        <$> Allocations.unspentOutputs
-          (Allocations.restrictToInputs (txBody ^. inputsTxBodyL) originalAllocations)
-    )
+    (Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
 
 -- | Shared structural presence check over proposed outputs or resolved inputs.
 -- Any store-backed output requires a declaration, regardless of deposit amount.

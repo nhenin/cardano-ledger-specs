@@ -22,6 +22,7 @@ import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Conway.TxCert
 import Cardano.Ledger.Rewards (rewardAmount)
 import Cardano.Ledger.Shelley.LedgerState
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Data.Foldable (Foldable (..))
 import qualified Data.Foldable as Set
 import Data.Map.Strict (Map, keysSet)
@@ -107,14 +108,14 @@ instance SpecTranslate ConwayEra (UTxOState ConwayEra) where
   type SpecRep ConwayEra (UTxOState ConwayEra) = Agda.UTxOState
   type SpecContext ConwayEra (UTxOState ConwayEra) = CertState ConwayEra
 
-  toSpecRep state@UTxOState {..} = do
+  toSpecRep UTxOState {..} = do
     certState <- askSpecTransM
     let
       props = utxosGovState ^. cgsProposalsL
       deposits = depositsMap certState props
     withCtxSpecTransM () $
       Agda.MkUTxOState
-        <$> toSpecRep (utxosUtxo state)
+        <$> (toSpecRep . UTxO . Allocations.toTxOutMap . allocations $ utxosUTxOStore)
         <*> toSpecRep utxosFees
         <*> deposits
         <*> toSpecRep utxosDonation

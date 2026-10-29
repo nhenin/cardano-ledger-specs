@@ -23,7 +23,6 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
 import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.Val as Val
@@ -56,7 +55,7 @@ validateCollateralFunding pp body store =
       -- The inherited collateral validators require a keyed output map, including
       -- the offending inputs in predicate failures. Project only selected entries.
       collateralInputs =
-        Map.map UTxO.toTxOut $ Allocations.unAllocations collateralAllocations
+        Allocations.toTxOutMap collateralAllocations
    in sequenceA_
         [ first (fmap injectFailure) $ Alonzo.validateScriptsNotPaidUTxO collateralInputs
         , first (fmap injectFailure) $ validateCollateralAssets body collateralInputs

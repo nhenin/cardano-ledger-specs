@@ -24,7 +24,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   UTxOState (..),
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..))
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
@@ -134,19 +133,22 @@ instance TranslateEra BabbageEra LedgerState where
         , lsCertState = translateEra' ctxt $ lsCertState ls
         }
 
+instance TranslateEra BabbageEra Store.UTxOStore where
+  translateEra _ = pure . Store.translateLegacyStore translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra BabbageEra) -> LegacyTxOut BabbageEra
+      translateOutput output = case upgradeTxOut output of
+        LegacyTxOut translated -> translated
+
 instance TranslateEra BabbageEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosUTxOStore =
-            either (error . ("Babbage UTxOState translation: " <>) . show) id $
-              Store.fromLegacyUTxO $
-                translateEra' ctxt $
-                  utxosUtxo us
+        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt $ utxosGovState us
-        , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
+        , utxosGovState = translateEra' ctxt . utxosGovState $ us
+        , utxosInstantStake = translateEra' ctxt . utxosInstantStake $ us
         , utxosDonation = utxosDonation us
         }
 

@@ -178,19 +178,22 @@ translateGovState ctxt@ConwayGenesis {..} sgov =
         & cgsCommitteeL .~ SJust cgCommittee
         & cgsConstitutionL .~ cgConstitution
 
+instance TranslateEra ConwayEra Store.UTxOStore where
+  translateEra _ = pure . Store.translateLegacyStore translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra ConwayEra) -> LegacyTxOut ConwayEra
+      translateOutput output = case upgradeTxOut output of
+        LegacyTxOut translated -> translated
+
 instance TranslateEra ConwayEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { API.utxosUTxOStore =
-            either (error . ("Conway UTxOState translation: " <>) . show) id $
-              Store.fromLegacyUTxO $
-                translateEra' ctxt $
-                  API.utxosUtxo us
+        { API.utxosUTxOStore = translateEra' ctxt . API.utxosUTxOStore $ us
         , API.utxosDeposited = API.utxosDeposited us
         , API.utxosFees = API.utxosFees us
-        , API.utxosGovState = translateGovState ctxt $ API.utxosGovState us
-        , API.utxosInstantStake = ConwayInstantStake . sisCredentialStake $ API.utxosInstantStake us
+        , API.utxosGovState = translateGovState ctxt . API.utxosGovState $ us
+        , API.utxosInstantStake = ConwayInstantStake . sisCredentialStake . API.utxosInstantStake $ us
         , API.utxosDonation = API.utxosDonation us
         }
 

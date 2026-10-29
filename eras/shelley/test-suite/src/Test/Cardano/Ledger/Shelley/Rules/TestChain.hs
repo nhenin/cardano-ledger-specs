@@ -39,11 +39,12 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
   curPParamsEpochStateL,
   lsCertStateL,
-  lsUTxOStateL,
-  utxosUtxo,
+  utxosUTxOStore,
  )
 import Cardano.Ledger.Shelley.Rules
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Protocol.TPraos.BlockHeader (
   BHeader (..),
   bhbody,
@@ -56,7 +57,6 @@ import Data.Functor.Identity (Identity)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Data.Proxy
-import qualified Data.Set as Set
 import Data.Word (Word64)
 import Lens.Micro ((^.))
 import Lens.Micro.Extras (view)
@@ -144,13 +144,16 @@ ledgerTraceFromBlock chainSt block =
       Trace.closureWith @(EraRule "LEDGER" era)
         ledgerEnv
         ledgerSt0
-        ( \ls ->
+        ( \ls tx ->
             mkStAnnTx
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              (ls ^. lsUTxOStateL . utxoG)
+              ( UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+                  ls ^. Store.utxoStoreG
+              )
               mempty
+              tx
         )
         txs
   )
@@ -179,13 +182,16 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
       Trace.closureWith @(EraRule "LEDGER" era)
         ledgerEnv
         restrictedSt0
-        ( \ls ->
+        ( \ls tx ->
             mkStAnnTx
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              (ls ^. lsUTxOStateL . utxoG)
+              ( UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+                  ls ^. Store.utxoStoreG
+              )
               mempty
+              tx
         )
         txs
   )
@@ -193,8 +199,8 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
     (_tickedChainSt, ledgerEnv, ledgerSt0, txs) = ledgerTraceBase chainSt block
     txIns = neededTxInsForBlock block
     LedgerState utxoSt delegationSt = ledgerSt0
-    utxo = unUTxO . utxosUtxo $ utxoSt
-    (_, irrelevantUTxO) = Map.partitionWithKey (const . (`Set.member` txIns)) utxo
+    entries = Store.unAllocations . Store.allocations . utxosUTxOStore $ utxoSt
+    irrelevantUTxO = Allocations.toTxOutMap . Allocations.Allocations $ Map.withoutKeys entries txIns
     restrictedSt0 =
       LedgerState
         ( utxoSt

@@ -62,6 +62,8 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly)
 import Cardano.Ledger.Val ((<->))
@@ -74,7 +76,6 @@ import Data.Bifunctor (first)
 import Data.Foldable (foldMap', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
-import Data.MapExtras (extractKeys)
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -366,7 +367,8 @@ babbageUtxoValidation ::
 babbageUtxoValidation = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = utxosUtxo utxos
+      storedAllocations = Store.allocations . utxosUTxOStore $ utxos
+      utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -396,7 +398,7 @@ babbageUtxoValidation = do
 
   {- allInputs = spendInputs txb ∪ collInputs txb ∪ refInputs txb -}
   {- (spendInputs txb ∪ collInputs txb ∪ refInputs txb) ⊆ dom utxo   -}
-  runTest $ Shelley.validateBadInputsUTxO utxo allInputs
+  runTest $ Shelley.validateBadInputsUTxO storedAllocations allInputs
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
   runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
@@ -488,7 +490,6 @@ updateUTxOState ::
   Rule (EraRule "UTXO" era) 'Transition (UTxOState era)
 updateUTxOState pp certState tx utxoState =
   let txBody = tx ^. bodyTxL
-      utxo = utxosUtxo utxoState
    in case tx ^. isPhase2ValidTxL of
         Phase2Valid ->
           Shelley.updateUTxOState
@@ -501,13 +502,15 @@ updateUTxOState pp certState tx utxoState =
         Phase2Invalid ->
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let !(utxoKeep, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
+          let existingAllocations = Store.allocations . utxosUTxOStore $ utxoState
+              !(allocationsKeep, allocationsDel) = Allocations.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
+              utxoDel = Allocations.toTxOutMap allocationsDel
               UTxO collouts = collOuts txBody
               store =
                 either (error . ("Babbage collateral update: " <>) . show) id $
                   applyLegacyOutputDelta
                     (txBody ^. collateralInputsTxBodyL)
-                    (UTxO $ Map.withoutKeys collouts $ Map.keysSet utxoKeep)
+                    (UTxO . Allocations.excludeAllocatedInputs allocationsKeep $ collouts)
                     (utxosUTxOStore utxoState)
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!

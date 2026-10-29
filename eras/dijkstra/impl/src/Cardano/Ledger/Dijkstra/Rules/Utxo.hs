@@ -81,9 +81,10 @@ import Cardano.Ledger.Dijkstra.UTxO (
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (OrdExUnits)
 import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosFeesL, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosFeesL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
@@ -396,7 +397,6 @@ dijkstraUtxoTransition = do
       utxoStore = utxosUTxOStore utxos
   -- Accounting reads the original historical allocations even after children
   -- have updated the live store. Checked state construction excludes invalid metadata.
-  let originalUtxo = toUTxO previousUTxOStore
   let tx = stAnnTx ^. txStAnnTxG
   let originalPState = originalCertState ^. certPStateL
 
@@ -425,12 +425,15 @@ dijkstraUtxoTransition = do
     -- allInputs finds all inputs in a transaction, including sub-transactions
     allInputs = txBody ^. allInputsTxBodyF
     inputs = txBody ^. inputsTxBodyL
+    originalAllocations = allocations previousUTxOStore
+    -- Inherited fee/value validators receive only inputs belonging to this batch.
+    originalUtxo = UTxO . Allocations.txOutsForInputs allInputs $ originalAllocations
 
   {- SpendInputsOf txTop ∪ RefInputsOf txTop ∪ CollInputsOf txTop ⊆ dom(utxo₀) -}
-  runTest $ Shelley.validateBadInputsUTxO originalUtxo allInputs
+  runTest $ Shelley.validateBadInputsUTxO originalAllocations allInputs
 
   {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
-  runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxos) inputs
+  runTest $ Shelley.validateBadInputsUTxO (allocations utxoStore) inputs
 
   -- Release declaration presence uses the original allocations on both phase-2 paths.
   runTest $
@@ -538,7 +541,8 @@ dijkstraUtxoTransition = do
         Right store ->
           let settlement =
                 DepositStore.collateralDepositSettlement pp previousUTxOStore txBody
-              removed = txInsFilter (utxosUtxo utxos) (txBody ^. collateralInputsTxBodyL)
+              removed =
+                UTxO . Allocations.txOutsForInputs (txBody ^. collateralInputsTxBodyL) . allocations $ utxoStore
               created = collOuts txBody
            in pure $
                 utxos

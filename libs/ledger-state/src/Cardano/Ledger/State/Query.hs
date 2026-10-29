@@ -24,6 +24,7 @@ import Cardano.Ledger.State.Orphans
 import Cardano.Ledger.State.Schema
 import Cardano.Ledger.State.Transform
 import Cardano.Ledger.State.UTxO
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.State.Vector
 import qualified Cardano.Ledger.TxIn as TxIn
 import Conduit
@@ -74,11 +75,12 @@ insertUTxOState Shelley.UTxOState {..} = do
 
 insertUTxO ::
   MonadIO m =>
-  Shelley.UTxO CurrentEra ->
+  State.Allocations CurrentEra ->
   Key UtxoState ->
   ReaderT SqlBackend m ()
-insertUTxO utxo stateKey = do
-  mapM_ insertTxOut $ Map.toList (Shelley.unUTxO utxo)
+insertUTxO entries stateKey = do
+  forM_ (Map.toList . State.unAllocations $ entries) $ \(input, entry) ->
+    insertTxOut (input, UTxO.toTxOut entry)
   where
     insertTxOut (TxIn.TxIn txId txIx, LegacyTxOut output) = do
       txKey <-
@@ -127,7 +129,7 @@ insertLedgerState ::
   MonadIO m => EpochStateId -> Shelley.LedgerState CurrentEra -> ReaderT SqlBackend m ()
 insertLedgerState epochStateKey Shelley.LedgerState {..} = do
   stateKey <- insertUTxOState lsUTxOState
-  insertUTxO (Shelley.utxosUtxo lsUTxOState) stateKey
+  insertUTxO (State.allocations . Shelley.utxosUTxOStore $ lsUTxOState) stateKey
   dstateKey <- insertDState $ lsCertState ^. Shelley.certDStateL
   insert_
     LedgerState

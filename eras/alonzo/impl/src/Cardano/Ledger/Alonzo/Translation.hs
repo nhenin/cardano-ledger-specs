@@ -24,7 +24,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   UTxOState (..),
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..))
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
@@ -135,19 +134,22 @@ instance TranslateEra AlonzoEra LedgerState where
         , lsCertState = translateEra' ctxt $ lsCertState ls
         }
 
+instance TranslateEra AlonzoEra Store.UTxOStore where
+  translateEra _ = pure . Store.translateLegacyStore translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra AlonzoEra) -> LegacyTxOut AlonzoEra
+      translateOutput output = case upgradeTxOut output of
+        LegacyTxOut translated -> translated
+
 instance TranslateEra AlonzoEra UTxOState where
   translateEra ctxt us =
     return
       UTxOState
-        { utxosUTxOStore =
-            either (error . ("Alonzo UTxOState translation: " <>) . show) id $
-              Store.fromLegacyUTxO $
-                translateEra' ctxt $
-                  utxosUtxo us
+        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt $ utxosGovState us
-        , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
+        , utxosGovState = translateEra' ctxt . utxosGovState $ us
+        , utxosInstantStake = translateEra' ctxt . utxosInstantStake $ us
         , utxosDonation = utxosDonation us
         }
 

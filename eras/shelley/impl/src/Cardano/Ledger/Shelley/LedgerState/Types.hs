@@ -201,11 +201,6 @@ data UTxOState era = UTxOState
   }
   deriving (Generic)
 
--- | Read-only transaction-output projection. Allocation metadata remains in the Store.
-utxosUtxo :: UTxOState era -> UTxO era
-utxosUtxo = toUTxO . utxosUTxOStore
-{-# INLINE utxosUtxo #-}
-
 instance CanGetUTxOStore UTxOState
 
 instance CanSetUTxOStore UTxOState where
@@ -289,7 +284,7 @@ instance (EraTxOut era, EraGov era, EraStake era) => ToKeyValuePairs (UTxOState 
   toKeyValuePairs utxoState@(UTxOState _ _ _ _ _ _) =
     let UTxOState {..} = utxoState
         outputs
-          | eraProtVerLow @era < natVersion @12 = ["utxo" .= utxosUtxo utxoState]
+          | eraProtVerLow @era < natVersion @12 = ["utxo" .= utxosUTxOStore]
           | otherwise = ["outputStorage" .= utxosUTxOStore]
      in outputs
           <> [ "deposited" .= utxosDeposited

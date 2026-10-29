@@ -26,7 +26,9 @@ import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Slot
 import Cardano.Ledger.State
 import Cardano.Ledger.State.UTxO (CurrentEra, readHexUTxO, readNewEpochState)
-import Cardano.Ledger.TxOut (areAllAdaOnly)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.DeepSeq
@@ -74,8 +76,8 @@ main = do
     Just utxoFromFile -> do
       store <- either (fail . show) pure $ fromLegacyUTxO utxoFromFile
       pure $ nesFromFile & utxoStoreL .~ store
-  let utxo = newEpochState ^. utxoG
-      utxoMap = unUTxO utxo
+  let storeAllocations = allocations (newEpochState ^. utxoStoreG)
+      utxoMap = unAllocations storeAllocations
       utxoSize = Map.size utxoMap
       largeKeysNum = 100000
       stdGen = mkStdGen 2022
@@ -165,20 +167,20 @@ main = do
                            -- TODO: revert this to `foldl'` without `fmap` after tx's are fixed
                            . whnf (F.foldlM (\ms -> fmap fst . applyTx' mempoolEnv ms) mempoolState)
                      ]
-             , env (pure utxo) $ \utxo' ->
+             , env (pure storeAllocations) $ \entries ->
                  bgroup
                    "UTxO"
-                   [ bench "sumUTxO" $ nf sumUTxO utxo'
-                   , bench "sumCoinUTxO" $ nf sumCoinUTxO utxo'
+                   [ bench "sumAllAssets" $ nf (sumAllAssets . Allocations.txOuts) entries
+                   , bench "sumAllCoin" $ nf (sumAllCoin . Allocations.txOuts) entries
                    , -- We need to filter out all multi-assets to prevent `areAllAdaOnly`
                      -- from short circuiting and producing results that are way better
                      -- than the worst case
-                     env (pure $ Map.filter (^. isAdaOnlyTxOutF) $ unUTxO utxo') $
-                       bench "areAllAdaOnly" . nf areAllAdaOnly
+                     env (pure . filter ((^. isAdaOnlyTxOutF) . UTxO.toTxOut) . unspentOutputs $ entries) $
+                       bench "areAllAdaOnly" . nf (areAllAdaOnly . fmap UTxO.toTxOut)
                    ]
              , env (pure newEpochState) $ \nes ->
-                 let (_, minTxOut) = Map.findMin utxoMap
-                     (_, maxTxOut) = Map.findMax utxoMap
+                 let minTxOut = UTxO.toTxOut . snd . Map.findMin $ utxoMap
+                     maxTxOut = UTxO.toTxOut . snd . Map.findMax $ utxoMap
                      setAddr =
                        Set.fromList [minTxOut ^. addrTxOutL, maxTxOut ^. addrTxOutL]
                   in bgroup
@@ -302,6 +304,7 @@ mkGlobals genesis =
         (sgEpochLength genesis)
         (mkSlotLength . fromNominalDiffTimeMicro . sgSlotLength $ genesis)
 
+-- Keep the original output-map filter as the benchmark's comparison baseline.
 getFilteredOldUTxO ::
   EraTxOut era =>
   NewEpochState era ->

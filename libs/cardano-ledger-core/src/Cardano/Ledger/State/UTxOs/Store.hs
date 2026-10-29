@@ -27,8 +27,8 @@ module Cardano.Ledger.State.UTxOs.Store (
   -- * Legacy compatibility
   fromLegacyUTxO,
   fromLegacyAllocations,
+  translateLegacyStore,
   applyLegacyOutputDelta,
-  toUTxO,
 
   -- * Serialization
   encodeUTxOStore,
@@ -49,7 +49,7 @@ import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val ((<->))
 import Control.DeepSeq (NFData (..))
 import Control.Monad (unless, when)
-import Data.Aeson (ToJSON (..), object, (.=))
+import Data.Aeson (ToJSON (..), ToJSON1 (liftToJSON), object, (.=))
 import Data.Default (Default (def))
 import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
@@ -134,9 +134,9 @@ applyLegacyOutputDelta consumed created previous = do
 -- accepted size or historical rate of an existing store-backed output.
 fromLegacyUTxO :: EraTxOut era => UTxO era -> Either OutputStoreError (UTxOStore era)
 fromLegacyUTxO (UTxO outputs) =
-  fromLegacyAllocations <$> Map.traverseWithKey legacyOutput outputs
+  fromLegacyAllocations <$> Map.traverseWithKey requireLegacyOutput outputs
   where
-    legacyOutput input = \case
+    requireLegacyOutput input = \case
       LegacyTxOut output -> Right output
       NewTxOut _ -> Left $ MissingHistoricalAllocation input
 
@@ -151,17 +151,31 @@ fromLegacyAllocations outputs =
     { totalDepositAmount = DepositAmount {toCoin = mempty}
     , allocations = Allocations {unAllocations = Map.map legacyOutput outputs}
     }
-  where
-    legacyOutput output =
-      let sized = mkSized (eraProtVerLow @era) $ LegacyTxOut output
-       in sizedSize sized `seq`
-            Unspent
-              { sizedOutput = sized
-              , depositCalculation = DepositCalculationV1 $ CoinPerByte $ CompactCoin 0
-              }
 
-toUTxO :: UTxOStore era -> UTxO era
-toUTxO = UTxO . Map.map UTxO.toTxOut . unAllocations . allocations
+-- | Translate legacy entries using the era's output conversion. The callback
+-- must produce legacy outputs. As with legacy decoding, the target size is
+-- canonical and the deposit rate is zero; neither is historical pricing metadata.
+-- This operation is for legacy-era transitions, not existing Dijkstra allocations.
+translateLegacyStore ::
+  EraTxOut target =>
+  (TxOut source -> LegacyTxOut target) ->
+  UTxOStore source ->
+  UTxOStore target
+translateLegacyStore translateOutput store =
+  UTxOStore
+    { totalDepositAmount = DepositAmount {toCoin = mempty}
+    , allocations =
+        Allocations . Allocations.mapTxOuts (legacyOutput . translateOutput) . allocations $ store
+    }
+
+legacyOutput :: forall era. EraTxOut era => LegacyTxOut era -> Unspent (TxOut era)
+legacyOutput output =
+  let sized = mkSized (eraProtVerLow @era) . LegacyTxOut $ output
+   in sizedSize sized `seq`
+        Unspent
+          { sizedOutput = sized
+          , depositCalculation = DepositCalculationV1 . CoinPerByte . CompactCoin $ 0
+          }
 
 -- Instances
 
@@ -184,13 +198,19 @@ deriving via
 
 instance (Era era, ToJSON (TxOut era)) => ToJSON (UTxOStore era) where
   toJSON store
-    | eraProtVerLow @era < natVersion @12 = toJSON $ toUTxO store
+    | eraProtVerLow @era < natVersion @12 =
+        liftToJSON
+          (omitField . UTxO.toTxOut)
+          (toJSON . UTxO.toTxOut)
+          (toJSONList . map UTxO.toTxOut)
+          (unAllocations . allocations $ store)
     | otherwise =
         object ["totalDepositAmount" .= totalDepositAmount store, "allocations" .= allocations store]
 
 instance EraTxOut era => EncCBOR (UTxOStore era) where
   encCBOR store
-    | eraProtVerLow @era < natVersion @12 = encCBOR $ toUTxO store
+    | eraProtVerLow @era < natVersion @12 =
+        encodeMap encCBOR (encCBOR . UTxO.toTxOut) . unAllocations . allocations $ store
     | otherwise = encodeStoreWith encCBOR encCBOR store
 
 instance EraTxOut era => DecCBOR (UTxOStore era) where
@@ -223,7 +243,7 @@ instance EraTxOut era => FromCBOR (UTxOStore era) where
 encodeUTxOStore :: forall era. EraTxOut era => UTxOStore era -> Encoding
 encodeUTxOStore store
   | eraProtVerLow @era < natVersion @12 =
-      encodeMap encodeMemPack encodeMemPack $ unUTxO $ toUTxO store
+      encodeMap encodeMemPack (encodeMemPack . UTxO.toTxOut) . unAllocations . allocations $ store
   | otherwise = encodeStoreWith encodeMemPack encodeMemPack store
 
 encodeStoreWith ::

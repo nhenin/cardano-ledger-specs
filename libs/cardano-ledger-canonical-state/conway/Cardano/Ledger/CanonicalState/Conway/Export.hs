@@ -84,18 +84,19 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.Rules (updateDormantDRepExpiry)
 import Cardano.Ledger.Conway.State (
+  CanGetUTxOStore (utxoStoreG),
   CanSetAccounts (accountsL),
   ConwayEraCertState (certVStateL),
   EraAccounts (accountsMapL),
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
-  UTxO (unUTxO),
+  allocations,
   csCommitteeCredsL,
   psFutureStakePoolParamsL,
   psRetiringL,
   psStakePoolsL,
   psVRFKeyHashesL,
-  utxoG,
+  unAllocations,
   vsCommitteeStateL,
   vsDRepsL,
  )
@@ -112,6 +113,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   newEpochStateGovStateL,
   prevPParamsEpochStateL,
  )
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.SCLS.Internal.Entry.ChunkEntry (ChunkEntry (ChunkEntry))
 import Cardano.SCLS.Internal.Serializer.Dump.Plan (
   defaultSerializationPlan,
@@ -124,9 +126,13 @@ import Lens.Micro ((%~), (&), (^.))
 import qualified Streaming.Prelude as S
 
 instance ExportCanonicalNamespace ConwayEra "utxo/v0" where
-  canonicalNamespaceEntries nes =
-    S.each (Map.toList $ unUTxO $ nes ^. utxoG)
-      & S.map (\(txIn, txOut) -> ChunkEntry (UtxoKeyIn txIn) (mkUtxo txOut))
+  canonicalNamespaceEntries =
+    S.map (\(txIn, entry) -> ChunkEntry (UtxoKeyIn txIn) (mkUtxo . UTxO.toTxOut $ entry))
+      . S.each
+      . Map.toList
+      . unAllocations
+      . allocations
+      . (^. utxoStoreG)
 
 instance ExportCanonicalNamespace ConwayEra "blocks/v0" where
   canonicalNamespaceEntries nes = blocks

@@ -24,7 +24,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState,
   genesisState,
   lsUTxOState,
-  utxosUtxo,
+  utxosUTxOStore,
  )
 import Cardano.Ledger.Shelley.Rules (
   DELPL,
@@ -39,6 +39,8 @@ import Cardano.Ledger.Shelley.Rules (
  )
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo (..))
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Protocol.Crypto (Crypto)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (runReaderT)
@@ -47,6 +49,7 @@ import Data.Functor.Identity (runIdentity)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import GHC.Stack
+import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Shelley.Constants (Constants (..))
 import Test.Cardano.Ledger.Shelley.Generator.Core (GenEnv (..), genCoin)
 import Test.Cardano.Ledger.Shelley.Generator.EraGen (
@@ -114,7 +117,13 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        (utxosUtxo (lsUTxOState ls))
+        ( UTxO
+            . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+            . Store.allocations
+            . utxosUTxOStore
+            . lsUTxOState
+            $ ls
+        )
         mempty
         tx
 
@@ -160,7 +169,13 @@ ledgersSigGen
         let ledgerEnv = LedgerEnv slotNo (Just epochNo) txIx pParams reserves
         tx <- genTx ge ledgerEnv ls'
 
-        let utxo = utxosUtxo (lsUTxOState ls')
+        let utxo =
+              UTxO
+                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . utxosUTxOStore
+                . lsUTxOState
+                $ ls'
             stAnnTx =
               mkStAnnTx
                 (epochInfo testGlobals)

@@ -63,7 +63,7 @@ import Cardano.Ledger.Rules.ValidationMode (
  )
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.Era (ShelleyEra, UTXOW)
-import Cardano.Ledger.Shelley.LedgerState.Types (UTxOState (..), utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState.Types (UTxOState (..))
 import Cardano.Ledger.Shelley.Rules.Ppup (ShelleyPpupPredFailure)
 import Cardano.Ledger.Shelley.Rules.Utxo (
   ShelleyUtxoPredFailure,
@@ -76,10 +76,12 @@ import Cardano.Ledger.Shelley.UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
   ShelleyScriptsNeeded (..),
-  UTxO,
+  UTxO (..),
   verifyWitVKey,
  )
 import Cardano.Ledger.State (EraCertState (..), dsGenDelegs)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition (
@@ -302,7 +304,12 @@ transitionRulesUTXOW = do
 
   {-  (utxo,_,_,_ ) := utxoSt  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo = utxosUtxo u
+  let utxo =
+        UTxO
+          . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          . Store.allocations
+          . utxosUTxOStore
+          $ u
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
       scriptsProvided = getScriptsProvided utxo tx
 

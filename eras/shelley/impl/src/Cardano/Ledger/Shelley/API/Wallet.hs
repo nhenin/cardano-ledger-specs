@@ -74,7 +74,6 @@ import Cardano.Ledger.Shelley.AdaPots (
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
-  LedgerState (..),
   NewEpochState (..),
   RewardUpdate,
   circulation,
@@ -83,7 +82,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   esLStateL,
   lsCertStateL,
   nesEsL,
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PoolRank (
   NonMyopic (..),
@@ -97,6 +95,8 @@ import Cardano.Ledger.Shelley.Rewards (StakeShare (..))
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (epochInfoSize)
 import qualified Cardano.Ledger.State as EB
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.Slot (EpochSize)
 import Control.DeepSeq (NFData)
@@ -117,11 +117,12 @@ import NoThunks.Class (NoThunks (..))
 -- UTxOs
 --------------------------------------------------------------------------------
 
--- | Get the full UTxO.
+-- | Get the full UTxO. This public query explicitly requests every output
+-- without its store metadata.
 getUTxO ::
   NewEpochState era ->
   UTxO era
-getUTxO = utxosUtxo . lsUTxOState . esLState . nesEs
+getUTxO = UTxO . Allocations.toTxOutMap . Store.allocations . (^. EB.utxoStoreG)
 
 -- | Get the UTxO filtered by address.
 getFilteredUTxO ::
@@ -130,9 +131,9 @@ getFilteredUTxO ::
   Set Addr ->
   UTxO era
 getFilteredUTxO ss addrSet =
-  UTxO $ Map.filter checkAddr fullUTxO
+  UTxO . Allocations.toTxOutMap . Allocations.filterByTxOut checkAddr $ storedAllocations
   where
-    UTxO fullUTxO = getUTxO ss
+    storedAllocations = Store.allocations . (^. EB.utxoStoreG) $ ss
     compactAddrSet = Set.map compactAddr addrSet
     checkAddr out =
       case out ^. addrEitherTxOutL of
@@ -144,7 +145,8 @@ getUTxOSubset ::
   NewEpochState era ->
   Set TxIn ->
   UTxO era
-getUTxOSubset nes = txInsFilter (getUTxO nes)
+getUTxOSubset nes inputs =
+  UTxO . Allocations.txOutsForInputs inputs . Store.allocations . (^. EB.utxoStoreG) $ nes
 
 --------------------------------------------------------------------------------
 -- Stake pools and pool rewards
