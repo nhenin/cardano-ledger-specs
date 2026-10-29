@@ -57,12 +57,14 @@ source links follow the current modules. Previous documentation anchors still re
 
 ## Current implementation status
 
-The working tree migrates shared `UTxOState` to a direct
-`utxosUTxOStore :: UTxOStore era` field. `CanGetUTxOStore` / `CanSetUTxOStore`
-replace both old accessor-class pairs. The `UTxOs` sum type is removed;
-`utxoG` remains a read-only map projection. Earlier-era codecs retain their
-existing map formats; Dijkstra persists the complete Store. Verification of
-this migration is recorded separately from the earlier checkpoints below.
+Shared `UTxOState` owns `utxosUTxOStore :: UTxOStore era` directly.
+`CanGetUTxOStore` / `CanSetUTxOStore` replace both old accessor-class pairs;
+the `UTxOs` sum type is removed. The current working tree also removes
+`toUTxO`, `utxoG` and `utxosUtxo`. Reads use allocations directly, selecting
+inputs before conversion at inherited validator boundaries. Earlier-era codecs
+retain their map formats and traverse stored entries directly; Dijkstra persists
+the complete Store. The dated results below distinguish these changes from
+earlier checkpoints.
 
 Accounting reads historical allocations directly; the retired map-only `DepositStore` type
 and compatibility getters remain removed. The allocation map now contains
@@ -93,9 +95,9 @@ negative-size validation; amount reads do not validate raw metadata. Codecs reje
 unknown calculation versions.
 
 Current callers construct `Unspent` directly with its `sizedOutput` and
-`depositCalculation` fields and read Store totals as `toCoin (totalDepositAmount store)`;
-the output-only Store conversion is named `toUTxO`. The final consolidated build
-before the output-module extraction passed for the Dijkstra and core test targets
+`depositCalculation` fields and read Store totals as `toCoin (totalDepositAmount store)`.
+The output-only Store conversion, previously named `toUTxO`, is now removed.
+The final consolidated build before the output-module extraction passed for the Dijkstra and core test targets
 and shared ledger-test library. That revision's runtime checks passed
 **145 examples with zero failures**: 18 properties
 with 100 trials each and 127 goldens. This covers the latest aggregate signatures,
@@ -229,6 +231,137 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Store translations and composed reads on 29 October 2026
+
+The six era translations now delegate `UTxOState.utxosUTxOStore` to a
+`TranslateEra` instance for `UTxOStore`. The Store builds canonical legacy
+entries in one traversal from each era's typed output translator. The previous
+`Store -> UTxO -> fromLegacyUTxO -> either error` chains are removed.
+
+Read pipelines use function composition. `Allocations.extractInputs` retains
+complete entries when splitting consumed and remaining inputs;
+`excludeAllocatedInputs` preserves the existing legacy collision precedence
+without exposing the internal map in the transaction rule. Output views and
+folds use the collection API.
+
+All [13 build targets](#direct-store-reads-on-29-october-2026) passed with
+`--offline --enable-tests --enable-benchmarks --jobs=8`.
+
+| Targeted checks | Examples | Failures | Reported time |
+| --- | ---: | ---: | ---: |
+| Dijkstra: release, zero net change, collateral, output/allocation effects, input and reference-script checks, supplemental datums, mempool, ADA conservation and Conway translation | 80 | 0 | 77.55 s |
+| Legacy: Shelley transaction, Babbage/Conway collateral, Conway reference scripts and mempool, canonical export, Shelley–Allegra–Mary translation, Babbage/Conway snapshot and output codecs | 42 | 0 | 151.77 s |
+| **Total** | **122** | **0** | **229.32 s** |
+
+These are sums of the reported test durations, not performance comparisons;
+some legacy checks ran alongside compilation. Generated properties use 100
+samples with seed `739231514`. The Shelley-MA translation checks additionally
+use `--qc-max-size 10`.
+
+After these runs, composed applications were restyled as `f . g $ value` and
+the allocation API was grouped and documented by responsibility. All 13 build
+targets passed again after that syntax/documentation-only pass; the 122 runtime
+examples above were not repeated. Final compilation evidence is in
+`/private/tmp/utxo-final-composition-build.log`.
+
+The full DepositStore suite and the three previously documented inherited
+`SubNotAllowedSupplementalDatums` expectation failures were not rerun in this
+pass. These targeted results do not resolve those failures or claim the full
+Dijkstra suite is green.
+
+Formatting passed for all 86 changed Haskell files; `git diff --check` passed.
+Source links and the local ctags index were refreshed. Evidence:
+
+- `/private/tmp/utxo-store-translation-build.log`
+- `/private/tmp/utxo-store-translation-dijkstra-results.json`
+- `/private/tmp/utxo-store-translation-legacy-results.json`
+- `/private/tmp/utxo-store-translation-*.log`
+
+## Direct Store reads on 29 October 2026
+
+Verified the working-tree changes based on `f6b7b5848`. The shared projections
+`toUTxO`, `utxoG` and `utxosUtxo` are removed. Lookup, membership, input selection
+and aggregate reads use allocations directly. Inherited output-only validators
+receive the selected transaction inputs; block checks select the union of block
+inputs and retain the existing handling of earlier transactions' outputs.
+Legacy CBOR, snapshot and JSON encoders traverse entries directly.
+
+The `UTxO` type, `txouts` contract and `LegacyUTxOMap` module remain. Inherited
+validator, script-context and stake APIs still require output-only representations;
+full projections remain local to explicit output APIs, initialization and test
+oracles. Retiring those interfaces is tracked in
+[State representation](dijkstra-deposit-store-rules.md#ds-state-representation).
+This pass does not change the agreed deferred output-construction API.
+
+All 13 build targets passed (the Shelley benchmark was built separately):
+
+```sh
+cabal build \
+  cardano-ledger-dijkstra:test:tests \
+  cardano-ledger-core:test:tests \
+  cardano-ledger-shelley:test:tests \
+  cardano-ledger-babbage:test:tests \
+  cardano-ledger-conway:test:tests \
+  cardano-ledger-canonical-state:test:tests \
+  ledger-state:bench:performance \
+  cardano-ledger-test:lib:cardano-ledger-test \
+  cardano-ledger-shelley-test:test:cardano-ledger-shelley-test \
+  cardano-ledger-shelley-ma-test:test:cardano-ledger-shelley-ma-test \
+  cardano-ledger-alonzo-test:test:cardano-ledger-alonzo-test \
+  cardano-ledger-conformance:lib:cardano-ledger-conformance \
+  --offline --enable-tests --enable-benchmarks --jobs=8
+
+cabal build cardano-ledger-shelley-test:bench:mainbench \
+  --offline --enable-tests --enable-benchmarks --jobs=8
+```
+
+The selected runtime checks executed **306 examples: 303 passed, three failed**.
+All 209 DepositStore business contracts and all 13 historical-metadata properties
+passed. The failures are in inherited child-script expectations, described below;
+the selected runtime as a whole is not green.
+
+| Check | Examples | Failures | Wall time |
+| --- | ---: | ---: | ---: |
+| Dijkstra: complete DepositStore suite | 209 | 0 | 404.8118 s |
+| Dijkstra: historical Store metadata | 13 | 0 | 69.0754 s |
+| Dijkstra: missing inputs and intra-batch spending/reference inputs | 8 | 0 | 0.3235 s |
+| Dijkstra: batch reference-script limits | 2 | 0 | 0.1667 s |
+| Dijkstra: supplemental datums, including legacy SubTx scripts | 15 | 3 | 0.2132 s |
+| Dijkstra: mempool and block reference scripts | 15 | 0 | 3.2965 s |
+| Shelley: legacy codecs, snapshot and ordinary transaction | 3 | 0 | 0.0364 s |
+| Babbage: legacy codecs, snapshot and collateral | 8 | 0 | 22.6292 s |
+| Conway: legacy codecs, snapshot, collateral, block references and mempool | 29 | 0 | 86.1960 s |
+| Canonical Conway namespace export/import | 1 | 0 | 0.0263 s |
+| Shelley-MA: state and script translation | 3 | 0 | 0.0248 s |
+
+The three failures are `SUBUTXOW/PlutusV1`, `PlutusV2` and `PlutusV3` /
+`SubNotAllowedSupplementalDatums`. Their expected datum rejection is present;
+the additionally expected `CollectErrors (BadTranslation (UnsupportedScriptInSubTx …))`
+is absent. `submitFailingLegacySubTx` adds that expected error, while
+`plutusScriptsWithContextDijkstraStAnnTx` still reads only the parent's collected
+scripts. Both functions are unchanged from the pre-pass `f6b7b5848` checkpoint.
+The latter retains the behavior introduced by upstream revert `d93c65469`,
+discussed in [Upstream batch script failures](#upstream-batch-script-failures).
+This attribution is from source/history comparison; a pristine pre-pass executable
+was not rerun. Neither script behavior nor the assertions were changed to make
+these checks pass. The full upstream suite was not run.
+
+All runs used seed `739231514`, `--fail-on=empty`, `--times` and
+`--print-cpu-time`. The 197 generated DepositStore contracts and 13 metadata
+properties each passed 100 trials. Legacy CBOR/JSON and six-field snapshot
+properties used 100 trials at maximum size 5; Shelley-MA translation properties
+used maximum size 10. The canonical namespace property used 100 trials with its
+generator resized to 5. Some runs overlapped compilation; the durations are
+observations, not benchmark results. Both benchmark targets were compiled only.
+
+Fourmolu checked all 80 changed Haskell files, and `git diff --check` passed.
+The three removed identifiers have no remaining Haskell references. Documentation
+source links and ctags were refreshed. Local evidence:
+`/private/tmp/utxo-read-build.log`, `/private/tmp/utxo-read-bench-build.log`,
+`/private/tmp/utxo-read-dijkstra-results.json`,
+`/private/tmp/utxo-read-dijkstra-rest-results.json`,
+`/private/tmp/utxo-read-legacy-results.json` and their per-filter logs.
 
 ## Shared Store access on 29 October 2026
 
