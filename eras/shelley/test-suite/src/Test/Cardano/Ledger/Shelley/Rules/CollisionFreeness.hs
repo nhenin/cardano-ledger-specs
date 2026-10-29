@@ -24,6 +24,8 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.TxIn (TxIn (..))
 import Control.State.Transition.Extended (BaseM, Environment, STS, Signal, State)
 import Data.Foldable (toList)
@@ -113,7 +115,7 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
     inputsEliminated
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO u')}) _
+          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u')}) _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -146,10 +148,10 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
     newEntryPresent
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO u)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u)}) _
         , signal = stAnnTx
         , target =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO u')}) _
+          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u')}) _
         } =
         let tx = stAnnTx ^. txStAnnTxG
             UTxO outs = txouts @era (tx ^. bodyTxL)
@@ -157,7 +159,9 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
             oldIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet u)
          in property $
               hasFailedScripts tx
-                || ((outIds `Set.disjoint` oldIds) && (outs `Map.isSubmapOf` u'))
+                || ( (outIds `Set.disjoint` oldIds)
+                       && (Map.isSubmapOfBy (\output entry -> output == UTxO.toTxOut entry) outs u')
+                   )
 
 -- | Check for required signatures in case of Multi-Sig. There has to be one set
 -- of possible signatures for a multi-sig script which is a sub-set of the

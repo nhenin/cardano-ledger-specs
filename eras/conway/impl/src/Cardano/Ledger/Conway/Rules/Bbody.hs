@@ -74,9 +74,12 @@ import Cardano.Ledger.Conway.Rules.Utxos (ConwayUtxosPredFailure)
 import Cardano.Ledger.Conway.Rules.Utxow (ConwayUtxowPredFailure)
 import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), utxoG)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (UTxO (..), txouts, unUTxO)
+import Cardano.Ledger.State (utxoStoreG)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (guard, when)
 import Control.Monad.Trans.Reader (asks)
@@ -327,7 +330,10 @@ bbodyTransition = do
     failOnJust checkHeaderProtVerTooHigh $
       injectFailure . HeaderProtVerTooHigh @era
 
-  validateBodyRefScriptsSizeTooBig @era pp blockBody (ls ^. utxoG)
+  let blockInputs = foldMap (\tx -> tx ^. bodyTxL . allInputsTxBodyF) (blockBody ^. txSeqBlockBodyL)
+      utxo =
+        UTxO . Allocations.txOutsForInputs blockInputs . Store.allocations . (^. utxoStoreG) $ ls
+  validateBodyRefScriptsSizeTooBig @era pp blockBody utxo
 
 instance
   ( Era era

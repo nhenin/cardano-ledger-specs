@@ -11,7 +11,6 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Test.Cardano.Ledger.Generic.Trace where
@@ -39,6 +38,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..))
 import Control.Monad (forM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -193,13 +193,14 @@ snaps ::
   (EraTxOut era, EraCertState era, ShelleyEraAccounts era) => LedgerState era -> SnapShots era
 snaps
   ( LedgerState
-      UTxOState {utxosUTxOStore = (toUTxO -> u), utxosFees = f}
+      UTxOState {utxosUTxOStore = store, utxosFees = f}
       certState
     ) =
     SnapShots mark set (mkGoSnapShot set) f
     where
       pstate = certState ^. certPStateL
       dstate = certState ^. certDStateL
+      u = UTxO . Allocations.toTxOutMap . allocations $ store
       snap = stakeDistr u dstate pstate
       mark = mkMarkSnapShot snap (EpochNo 0) 0 (EpochInterval 0)
       set = mkSetSnapShot mark

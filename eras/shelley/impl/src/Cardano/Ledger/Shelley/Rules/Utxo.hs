@@ -71,7 +71,9 @@ import Cardano.Ledger.Shelley.Rules.Reports (showTxCerts)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq
@@ -316,7 +318,17 @@ instance
             <> "\n Deposits\n"
             <> show utxosDeposited
             <> "\n Consumed\n"
-            <> show (consumedTxBody (tx ^. bodyTxL) pp certState (utxosUtxo utxoState))
+            <> show
+              ( consumedTxBody
+                  (tx ^. bodyTxL)
+                  pp
+                  certState
+                  ( UTxO $
+                      Allocations.txOutsForInputs
+                        (tx ^. bodyTxL . inputsTxBodyL)
+                        (allocations . utxosUTxOStore $ utxoState)
+                  )
+              )
             <> "\n Produced\n"
             <> show (producedTxBody (tx ^. bodyTxL) pp certState)
 
@@ -330,9 +342,11 @@ instance
     , PostCondition
         "Deposit pot must not be negative (post)"
         (\_ st' -> utxosDeposited st' >= mempty)
-    , let utxoBalance us = Val.inject (utxosDeposited us <> utxosFees us) <> coerce sumUTxO (utxosUtxo us)
+    , let utxoBalance us =
+            Val.inject (utxosDeposited us <> utxosFees us)
+              <> coerce (sumAllAssets . Allocations.txOuts . allocations . utxosUTxOStore $ us)
           withdrawals :: TxBody TopTx era -> Value era
-          withdrawals txb = Val.inject $ F.foldl' (<>) mempty $ unWithdrawals $ txb ^. withdrawalsTxBodyL
+          withdrawals txb = Val.inject . F.foldl' (<>) mempty . unWithdrawals $ txb ^. withdrawalsTxBodyL
        in PostCondition
             "Should preserve value in the UTxO state"
             ( \(TRC (_, us, stAnnTx)) us' ->
@@ -366,7 +380,8 @@ utxoInductive ::
 utxoInductive = do
   TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = utxoState ^. utxoG
+      entries = allocations . utxosUTxOStore $ utxoState
+      utxo = UTxO . Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) $ entries
       UTxOState _ _ _ ppup _ _ = utxoState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
@@ -382,7 +397,7 @@ utxoInductive = do
   runTest $ validateFeeTooSmallUTxO pp tx utxo
 
   {- txins txb ⊆ dom utxo -}
-  runTest $ validateBadInputsUTxO utxo $ txBody ^. inputsTxBodyL
+  runTest $ validateBadInputsUTxO entries $ txBody ^. inputsTxBodyL
 
   netId <- liftSTS $ asks networkId
 
@@ -468,18 +483,18 @@ validateFeeTooSmallUTxO pp tx utxo =
     txFee = txb ^. feeTxBodyL
     txb = tx ^. bodyTxL
 
--- | Ensure all transaction inputs are present in `UTxO`
+-- | Ensure all transaction inputs name existing allocations.
 --
 -- > inputs ⊆ dom utxo
 validateBadInputsUTxO ::
-  UTxO era ->
+  Allocations era ->
   Set TxIn ->
   Test (ShelleyUtxoPredFailure era)
-validateBadInputsUTxO utxo inputs =
+validateBadInputsUTxO entries inputs =
   failureOnNonEmptySet badInputs BadInputsUTxO
   where
     {- inputs ➖ dom utxo -}
-    badInputs = Set.filter (`Map.notMember` unUTxO utxo) inputs
+    badInputs = Set.filter (`Map.notMember` unAllocations entries) inputs
 
 -- | Make sure all addresses match the supplied NetworkId
 --
@@ -633,10 +648,10 @@ updateUTxOAndInstantStake ::
 updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
   let consumed = txBody ^. inputsTxBodyL
       previousStore = utxosUTxOStore utxoState
-      remaining = Map.withoutKeys (unAllocations $ allocations previousStore) consumed
+      remaining = Allocations.withoutInputs consumed . allocations $ previousStore
       UTxO created = txouts txBody
       -- Preserve the legacy union's existing-entry bias on colliding keys.
-      createdWithoutCollisions = UTxO $ Map.difference created remaining
+      createdWithoutCollisions = UTxO . Allocations.excludeAllocatedInputs remaining $ created
       store =
         either
           (error . ("updateUTxOAndInstantStake: expected legacy created outputs: " <>) . show)
@@ -658,7 +673,8 @@ updateUTxOAndInstantStakeWithStore ::
   m (UTxOState era)
 updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState = do
   let !utxoAdd = txouts txBody
-      !utxoDel = Map.restrictKeys (unUTxO $ utxosUtxo utxoState) (txBody ^. inputsTxBodyL)
+      !utxoDel =
+        Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) (allocations . utxosUTxOStore $ utxoState)
       deletedUtxo = UTxO utxoDel
       newInstantStake =
         deleteInstantStake

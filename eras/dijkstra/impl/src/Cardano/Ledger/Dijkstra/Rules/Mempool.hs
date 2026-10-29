@@ -197,8 +197,8 @@ mempoolTransition = do
   -- Detect whether the transaction is probably a duplicate
   let
     inputs = tx ^. bodyTxL . inputsTxBodyL
-    UTxO utxo = ledgerState ^. utxoG
-    notAllSpent = any (`Map.member` utxo) inputs
+    entries = unAllocations . allocations $ ledgerState ^. utxoStoreG
+    notAllSpent = any (`Map.member` entries) inputs
   notAllSpent
     ?! AllInputsAreSpent
 

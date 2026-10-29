@@ -22,6 +22,9 @@ import Cardano.Ledger.Keys (GenDelegPair (..), GenDelegs (..))
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState.Types
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<+>), (<->))
 import Data.Default (def)
 import Data.Foldable (fold)
@@ -135,13 +138,16 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
   where
     ls = esLState es
     us = lsUTxOState ls
-    UTxO utxo = utxosUtxo us
-    redeemers = Map.filter (maybe False isBootstrapRedeemer . view bootAddrTxOutF) utxo
+    redeemers =
+      Allocations.filterByTxOut (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
+        . Store.allocations
+        . utxosUTxOStore
+        $ us
     acnt = esChainAccountState es
-    utxoR = UTxO redeemers :: UTxO era
     acnt' =
       acnt
-        { casReserves = casReserves acnt <+> sumCoinUTxO utxoR
+        { casReserves =
+            casReserves acnt <+> (sumAllCoin . Allocations.txOuts $ redeemers)
         }
     us' =
       us
@@ -149,6 +155,9 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
             either
               (error . ("returnRedeemAddrsToReserves: invalid allocation removal: " <>) . show)
               id
-              $ applyLegacyOutputDelta (Map.keysSet redeemers) mempty (utxosUTxOStore us)
+              $ applyLegacyOutputDelta
+                (Map.keysSet . Allocations.unAllocations $ redeemers)
+                mempty
+                (utxosUTxOStore us)
         }
     ls' = ls {lsUTxOState = us'}

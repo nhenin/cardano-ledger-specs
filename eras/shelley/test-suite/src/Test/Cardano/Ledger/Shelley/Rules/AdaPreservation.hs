@@ -48,6 +48,9 @@ import Cardano.Ledger.Shelley.Rules.Reports (
   showWithdrawal,
  )
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.Val ((<+>), (<->))
 import Cardano.Protocol.TPraos.BlockHeader (BHeader (..))
 import Control.State.Transition.Extended (BaseM, Environment, STS, Signal, State)
@@ -334,8 +337,8 @@ utxoDepositsIncreaseByFeesWithdrawals SourceSignalTarget {source, signal, target
   where
     us = lsUTxOState . esLState . nesEs . chainNes
     circulation chainSt =
-      let UTxOState {utxosUTxOStore = (toUTxO -> u), utxosDeposited = d} = us chainSt
-       in sumCoinUTxO u <+> d
+      let UTxOState {utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u), utxosDeposited = d} = us chainSt
+       in foldMap ((^. coinTxOutL) . UTxO.toTxOut) u <+> d
     (_, ledgerTr) = ledgerTraceFromBlock @era source signal
 
 -- | If we are not at an Epoch Boundary, then (Utxo + Deposits + Fees)
@@ -351,12 +354,12 @@ potsSumIncreaseWithdrawalsPerBlock SourceSignalTarget {source, signal, target} =
   where
     potsSum chainSt =
       let UTxOState
-            { utxosUTxOStore = (toUTxO -> u)
+            { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
             , utxosDeposited = d
             , utxosFees = f
             } =
               lsUTxOState . esLState . nesEs . chainNes $ chainSt
-       in sumCoinUTxO u <+> d <+> f
+       in foldMap ((^. coinTxOutL) . UTxO.toTxOut) u <+> d <+> f
 
 -- | If we are not at an Epoch Boundary, then (Utxo + Deposits + Fees)
 -- increases by sum of withdrawals in a transaction
@@ -386,7 +389,7 @@ potsSumIncreaseWithdrawalsPerTx SourceSignalTarget {source = chainSt, signal = b
         { source =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (toUTxO -> u)
+              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
               , utxosDeposited = d
               , utxosFees = f
               }
@@ -395,7 +398,7 @@ potsSumIncreaseWithdrawalsPerTx SourceSignalTarget {source = chainSt, signal = b
         , target =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (toUTxO -> u')
+              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u')
               , utxosDeposited = d'
               , utxosFees = f'
               }
@@ -403,8 +406,8 @@ potsSumIncreaseWithdrawalsPerTx SourceSignalTarget {source = chainSt, signal = b
         } =
         let tx = stAnnTx ^. txStAnnTxG
          in property (hasFailedScripts tx)
-              .||. (sumCoinUTxO u' <+> d' <+> f')
-                <-> (sumCoinUTxO u <+> d <+> f)
+              .||. (foldMap ((^. coinTxOutL) . UTxO.toTxOut) u' <+> d' <+> f')
+                <-> (foldMap ((^. coinTxOutL) . UTxO.toTxOut) u <+> d <+> f)
                 === fold (unWithdrawals (tx ^. bodyTxL . withdrawalsTxBodyL))
 
 -- | (Utxo + Deposits + Fees) increases by the reward delta
@@ -432,7 +435,7 @@ potsSumIncreaseByRewardsPerTx SourceSignalTarget {source = chainSt, signal = blo
         { source =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (toUTxO -> u)
+              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
               , utxosDeposited = d
               , utxosFees = f
               }
@@ -440,13 +443,14 @@ potsSumIncreaseByRewardsPerTx SourceSignalTarget {source = chainSt, signal = blo
         , target =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (toUTxO -> u')
+              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u')
               , utxosDeposited = d'
               , utxosFees = f'
               }
             cState2
         } =
-        (sumCoinUTxO u' <+> d' <+> f') <-> (sumCoinUTxO u <+> d <+> f)
+        (foldMap ((^. coinTxOutL) . UTxO.toTxOut) u' <+> d' <+> f')
+          <-> (foldMap ((^. coinTxOutL) . UTxO.toTxOut) u <+> d <+> f)
           === sumAccountsBalances cState1 <-> sumAccountsBalances cState2
 
 -- | The Rewards pot decreases by the sum of withdrawals in a transaction
@@ -523,16 +527,16 @@ preserveBalance SourceSignalTarget {source = chainSt, signal = block} =
       where
         tx = stAnnTx ^. txStAnnTxG
         failedScripts = property $ hasFailedScripts tx
-        LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> u)}) certState = ledgerSt
-        LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> u')}) _ = ledgerSt'
+        LedgerState (UTxOState {utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)}) certState = ledgerSt
+        LedgerState (UTxOState {utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u')}) _ = ledgerSt'
         txb = tx ^. bodyTxL
         created =
-          sumCoinUTxO u'
+          foldMap ((^. coinTxOutL) . UTxO.toTxOut) u'
             <+> (txb ^. feeTxBodyL)
             <+> certsTotalDepositsTxBody pp_ certState txb
         accounts = certState ^. certDStateL . accountsL
         consumed_ =
-          sumCoinUTxO u
+          foldMap ((^. coinTxOutL) . UTxO.toTxOut) u
             <+> certsTotalRefundsTxBody pp_ accounts txb
             <+> fold (unWithdrawals (txb ^. withdrawalsTxBodyL))
 
@@ -561,7 +565,7 @@ preserveBalanceRestricted SourceSignalTarget {source = chainSt, signal = block} 
     createdIsConsumed
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> utxo)}) certState
+          LedgerState (UTxOState {utxosUTxOStore = (Store.allocations -> entries)}) certState
         , signal = stAnnTx
         } =
         inps === outs
@@ -569,7 +573,11 @@ preserveBalanceRestricted SourceSignalTarget {source = chainSt, signal = block} 
           txb = stAnnTx ^. txStAnnTxG . bodyTxL
           accounts = certState ^. certDStateL . accountsL
           inps =
-            sumCoinUTxO @era (txInsFilter utxo (txb ^. inputsTxBodyL))
+            ( foldMap ((^. coinTxOutL) . UTxO.toTxOut)
+                . Store.unspentOutputs
+                . Store.restrictToInputs (txb ^. inputsTxBodyL)
+                $ entries
+            )
               <> certsTotalRefundsTxBody pp_ accounts txb
               <> fold (unWithdrawals (txb ^. withdrawalsTxBodyL))
           outs =
@@ -600,14 +608,16 @@ preserveOutputsTx SourceSignalTarget {source = chainSt, signal = block} =
     outputPreserved
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO utxo)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> entries)}) _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
             UTxO outs = txouts @era (tx ^. bodyTxL)
          in property $
               hasFailedScripts tx
-                .||. counterexample "TxOuts are not a subset of UTxO" (outs `Map.isSubmapOf` utxo)
+                .||. counterexample
+                  "TxOuts are not a subset of UTxO"
+                  (Map.isSubmapOfBy (\output entry -> output == UTxO.toTxOut entry) outs entries)
 
 canRestrictUTxO ::
   forall era.
@@ -635,11 +645,21 @@ canRestrictUTxO SourceSignalTarget {source = chainSt, signal = block} =
     outputPreserved
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO uFull)}) _
+          LedgerState
+            ( UTxOState
+                { utxosUTxOStore = (Allocations.toTxOutMap . Store.allocations -> uFull)
+                }
+              )
+            _
         }
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOStore = (toUTxO -> UTxO uRestr)}) _
+          LedgerState
+            ( UTxOState
+                { utxosUTxOStore = (Allocations.toTxOutMap . Store.allocations -> uRestr)
+                }
+              )
+            _
         } =
         counterexample
           (unlines ["non-disjoint:", show uRestr, show irrelevantUTxO])
@@ -673,7 +693,13 @@ txFees ::
 txFees ledgerTr =
   foldMap
     ( \sst ->
-        feeOrCollateral @era (signal sst ^. txStAnnTxG :: Tx TopTx era) (source sst ^. utxoG :: UTxO era)
+        feeOrCollateral @era
+          (signal sst ^. txStAnnTxG :: Tx TopTx era)
+          ( UTxO
+              . Allocations.txOutsForInputs (signal sst ^. txStAnnTxG . bodyTxL . allInputsTxBodyF)
+              . Store.allocations
+              $ source sst ^. Store.utxoStoreG
+          )
     )
     (sourceSignalTargets ledgerTr)
 

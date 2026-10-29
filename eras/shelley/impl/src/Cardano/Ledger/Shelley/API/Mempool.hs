@@ -61,6 +61,8 @@ import Cardano.Ledger.Shelley.Rules.Ledger (
   ledgerSlotNoL,
  )
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
 import Control.DeepSeq (NFData)
@@ -143,7 +145,12 @@ unsafeMakeValidatedTx globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          (state ^. utxoG)
+          ( UTxO
+              . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              . Store.allocations
+              . (^. utxoStoreG)
+              $ state
+          )
           mempty
           tx
     , vtProtocolVersion = env ^. ledgerPpL . ppProtocolVersionL
@@ -286,7 +293,12 @@ defaultApplyTxWithValidation wrap validationPolicy globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          (state ^. utxoG)
+          ( UTxO
+              . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              . Store.allocations
+              . (^. utxoStoreG)
+              $ state
+          )
           mempty
           tx
    in first wrap $
@@ -335,7 +347,12 @@ instance ApplyTx ShelleyEra where
             (epochInfo globals)
             (systemStart globals)
             (env ^. ledgerPpL)
-            (state ^. utxoG)
+            ( UTxO
+                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . (^. utxoStoreG)
+                $ state
+            )
             mempty
             tx
      in first ShelleyApplyTxError $

@@ -56,7 +56,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState,
   utxosDonationL,
   utxosUTxOStore,
-  utxosUtxo,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
@@ -265,7 +264,7 @@ dijkstraSubUtxoTransition = do
   runTest $ Shelley.validateInputSetEmptyUTxO txBody
 
   let inputs = txBody ^. inputsTxBodyL
-  runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxoState) inputs
+  runTest $ Shelley.validateBadInputsUTxO (allocations . utxosUTxOStore $ utxoState) inputs
 
   -- Check releases against the allocations from before any SubTx executed.
   validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $

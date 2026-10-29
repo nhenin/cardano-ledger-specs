@@ -25,6 +25,8 @@ import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition (
@@ -129,7 +131,12 @@ ledgersTransition = do
     foldM -- cache is lazy on purpose, since it is unused when validation is off
       ( \(!curLedgerState, stAnnTxCache) (ix, tx) -> do
           let
-            utxo = curLedgerState ^. utxoG
+            utxo =
+              UTxO
+                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . (^. utxoStoreG)
+                $ curLedgerState
             stAnnTx = mkStAnnTx ei sysStart pp utxo stAnnTxCache tx
           newLedgerState <-
             trans @(EraRule "LEDGER" era) $

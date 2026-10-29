@@ -69,6 +69,8 @@ import Cardano.Ledger.Shelley.Translation (
   FromByronTranslationContext (..),
   toFromByronTranslationContext,
  )
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.Val
 import Control.Monad (unless, when)
 import Control.Monad.Class.MonadST (MonadST)
@@ -606,7 +608,10 @@ resetStakeDistribution nes =
     -- we don't have a previous epoch when starting out
     initSnapShot :: SnapShot
     initSnapShot =
-      snapShotFromInstantStake (addInstantStake (nes ^. utxoG) mempty) dState pState
+      snapShotFromInstantStake (addInstantStake allOutputs mempty) dState pState
+    -- Initial stake reconstruction needs the complete output collection.
+    allOutputs =
+      UTxO . Allocations.toTxOutMap . Store.allocations . (^. utxoStoreG) $ nes
     markSnapShot :: MarkSnapShot
     markSnapShot = nes ^. nesEsL . esSnapshotsL . ssStakeMarkL & msSnapShotL .~ initSnapShot
     setSnapShot :: SetSnapShot
@@ -669,7 +674,9 @@ registerInitialFunds hasFS tc newEpochState = do
     accountState = esChainAccountState epochState
     ledgerState = esLState epochState
     utxoState = lsUTxOState ledgerState
-    utxo = utxosUtxo utxoState
+    -- The stake reconstruction below deliberately rebuilds from every output.
+    utxo =
+      UTxO . Allocations.toTxOutMap . Store.allocations . utxosUTxOStore $ utxoState
 
     applyFunds utxos newUtxoEntries totalCoins =
       newEpochState

@@ -29,6 +29,8 @@ import Cardano.Ledger.Shelley.LedgerState.Types (curPParamsEpochStateL, prevPPar
 import Cardano.Ledger.Shelley.Rules ()
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (FromByronTranslationContext (..))
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.Val (zero, (<->))
 import qualified Data.ByteString.Short as SBS
 import Data.Default (def)
@@ -111,10 +113,13 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       -- to do a linear scan of the UTxO, and stash them away for use at the
       -- Shelley/Allegra boundary.
       stashedAVVMAddresses =
-        let UTxO utxo = utxosUtxo . lsUTxOState . esLState $ epochState
+        let storedAllocations =
+              Store.allocations . utxosUTxOStore . lsUTxOState . esLState $ epochState
             redeemers =
-              Map.filter (maybe False isBootstrapRedeemer . view bootAddrTxOutF) utxo
-         in UTxO redeemers
+              Allocations.filterByTxOut
+                (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
+                storedAllocations
+         in UTxO . Allocations.toTxOutMap $ redeemers
     }
   where
     pparams :: PParams ShelleyEra

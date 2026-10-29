@@ -11,7 +11,9 @@
 module Test.Cardano.Ledger.Conformance.SpecTranslate.Dijkstra.Utxo () where
 
 import Cardano.Ledger.Dijkstra (DijkstraEra)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
+import Cardano.Ledger.State (UTxO (..), allocations)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified MAlonzo.Code.Ledger.Dijkstra.Foreign.API as Agda
 import Test.Cardano.Ledger.Conformance.SpecTranslate.Base (
   SpecTranslate (..),
@@ -21,8 +23,8 @@ import Test.Cardano.Ledger.Conformance.SpecTranslate.Dijkstra.Base ()
 instance SpecTranslate DijkstraEra (UTxOState DijkstraEra) where
   type SpecRep DijkstraEra (UTxOState DijkstraEra) = Agda.UTxOState
 
-  toSpecRep state@UTxOState {..} =
+  toSpecRep UTxOState {..} =
     Agda.MkUTxOState
-      <$> toSpecRep (utxosUtxo state)
+      <$> (toSpecRep . UTxO . Allocations.toTxOutMap . allocations $ utxosUTxOStore)
       <*> toSpecRep utxosFees
       <*> toSpecRep utxosDonation

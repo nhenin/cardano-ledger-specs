@@ -5,14 +5,10 @@
 module Cardano.Ledger.State.UTxOs (
   CanGetUTxOStore (..),
   CanSetUTxOStore (..),
-
-  -- * Read-only compatibility projection
-  utxoG,
 ) where
 
-import Cardano.Ledger.State.UTxOs.LegacyUTxOMap (UTxO)
-import Cardano.Ledger.State.UTxOs.Store (UTxOStore, toUTxO)
-import Lens.Micro (Lens', SimpleGetter, to)
+import Cardano.Ledger.State.UTxOs.Store (UTxOStore)
+import Lens.Micro (Lens', SimpleGetter)
 
 class CanGetUTxOStore t where
   utxoStoreG :: SimpleGetter (t era) (UTxOStore era)
@@ -27,10 +23,3 @@ instance CanGetUTxOStore UTxOStore
 
 instance CanSetUTxOStore UTxOStore where
   utxoStoreL = id
-
--- | Compatibility view for validators that still consume an output-only map.
--- This projects all allocations; Store queries should read allocations directly.
--- There is deliberately no setter: an output map lacks historical deposit metadata.
-utxoG :: CanGetUTxOStore t => SimpleGetter (t era) (UTxO era)
-utxoG = utxoStoreG . to toUTxO
-{-# INLINE utxoG #-}

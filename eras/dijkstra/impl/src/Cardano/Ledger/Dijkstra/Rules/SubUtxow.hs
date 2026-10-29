@@ -61,7 +61,6 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraUTxO (..))
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.State.UTxOs.LegacyUTxOMap (UTxO (..))
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
@@ -240,12 +239,10 @@ dijkstraSubUtxowTransition = do
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
       -- Inherited witness and datum checks read only this body's spending and reference inputs.
       originalUtxo =
-        UTxO $
-          Map.map UTxO.toTxOut $
-            Allocations.unAllocations $
-              Allocations.restrictToInputs
-                ((txBody ^. spendableInputsTxBodyF) <> (txBody ^. referenceInputsTxBodyL))
-                originalAllocations
+        UTxO
+          . Allocations.txOutsForInputs
+            ((txBody ^. spendableInputsTxBodyF) <> (txBody ^. referenceInputsTxBodyL))
+          $ originalAllocations
 
   {- ∀[ (vk , σ) ∈ vKeySigs ] isSigned vk (txidBytes txId) σ -}
   runTestOnSignal $ Shelley.validateVerifiedWits tx

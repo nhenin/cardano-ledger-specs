@@ -30,6 +30,8 @@ import Cardano.Ledger.Shelley.LedgerState.Types (
   utxosGovStateL,
  )
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Control.DeepSeq (NFData)
 import Data.Foldable (fold)
 import GHC.Generics (Generic)
@@ -70,7 +72,7 @@ totalAdaPotsES (EpochState (ChainAccountState {casTreasury, casReserves}) ls _ _
     UTxOState store _ fees_ _ _ _ = lsUTxOState ls
     certState = ls ^. lsCertStateL
     rewards_ = sumBalancesAccounts (certState ^. certDStateL . accountsL)
-    coins = sumCoinUTxO $ toUTxO store
+    coins = sumAllCoin . Allocations.txOuts . allocations $ store
     govStateObligations = obligationGovState (ls ^. lsUTxOStateL . utxosGovStateL)
 
 sumAdaPots :: AdaPots -> Coin

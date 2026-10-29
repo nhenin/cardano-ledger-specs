@@ -27,6 +27,7 @@ import Cardano.Ledger.Mary.Value
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Conduit
@@ -140,7 +141,8 @@ readBinUTxO ::
   IO (UTxO CurrentEra)
 readBinUTxO fp = do
   ls <- readNewEpochState fp
-  pure $! utxosUtxo $ lsUTxOState $ esLState $ nesEs ls
+  -- This output-only file API intentionally omits the Store's deposit metadata.
+  pure $! UTxO . Allocations.toTxOutMap . allocations $ ls ^. utxoStoreG
 
 newtype Count = Count Int
   deriving (Eq, Ord, Enum, Real, Integral, Num, Pretty)
@@ -540,7 +542,7 @@ instance AggregateStat LedgerStateStats where
 countLedgerStateStats :: LedgerState CurrentEra -> LedgerStateStats
 countLedgerStateStats LedgerState {..} =
   LedgerStateStats
-    { lssUTxOStats = countUTxOStats (utxosUtxo lsUTxOState)
+    { lssUTxOStats = countUTxOStats . allocations . utxosUTxOStore $ lsUTxOState
     , lssDStateStats = countDStateStats (lsCertState ^. certDStateL)
     , lssPStateStats = countPStateStats (lsCertState ^. certPStateL)
     }
@@ -660,11 +662,11 @@ instance Pretty UTxOStats where
 instance AggregateStat UTxOStats where
   aggregateStat = aggregateStat . usTxOutStats
 
-countUTxOStats :: UTxO CurrentEra -> UTxOStats
-countUTxOStats (UTxO m) =
+countUTxOStats :: Allocations CurrentEra -> UTxOStats
+countUTxOStats entries =
   UTxOStats
-    { usTxInStats = countTxInStats (Map.keys m)
-    , usTxOutStats = countTxOutStats (Map.elems m)
+    { usTxInStats = countTxInStats . Map.keys . unAllocations $ entries
+    , usTxOutStats = countTxOutStats . Allocations.txOuts $ entries
     }
 
 data AggregateStats = AggregateStats

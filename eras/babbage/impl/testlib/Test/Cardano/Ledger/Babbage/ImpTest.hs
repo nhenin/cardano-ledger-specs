@@ -37,7 +37,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxO (..),
   curPParamsEpochStateL,
   nesEsL,
-  utxoG,
  )
 import Cardano.Ledger.Tools (ensureMinCoinTxOut, setMinCoinTxOut)
 import Cardano.Ledger.TxIn (TxIn, mkTxInPartial)
@@ -119,7 +118,7 @@ impBabbageExpectTxSuccess tx = do
   impAlonzoExpectTxSuccess tx
   -- Check that the balance of the collateral was returned
   let returns = Map.toList . unUTxO . collOuts $ tx ^. bodyTxL
-  utxo <- getsNES utxoG
+  utxo <- getUTxO
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Collateral return should not be in UTxO" $

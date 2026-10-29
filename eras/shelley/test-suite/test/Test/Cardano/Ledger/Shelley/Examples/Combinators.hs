@@ -76,11 +76,13 @@ import Cardano.Ledger.Shelley.LedgerState (
   prevPParamsEpochStateL,
   utxosDepositedL,
   utxosFeesL,
-  utxosUtxo,
+  utxosUTxOStore,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates)
 import Cardano.Ledger.Shelley.Rules (emptyInstantaneousRewards, votedFuturePParams)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.Val ((<+>), (<->))
 import Cardano.Protocol.TPraos.BlockHeader (
   BHBody (..),
@@ -169,9 +171,10 @@ newUTxO txb cs = cs {chainNes = nes'}
     es = nesEs nes
     ls = esLState es
     utxoSt = lsUTxOState ls
-    utxo = unUTxO $ utxosUtxo utxoSt
+    entries = Store.allocations . utxosUTxOStore $ utxoSt
+    utxo = Store.unAllocations entries
     utxoAdd = txouts @era txb
-    utxoToDel = Map.restrictKeys utxo (txins @era txb)
+    utxoToDel = Allocations.txOutsForInputs (txins @era txb) entries
     utxoWithout = Map.withoutKeys utxo (txins @era txb)
     utxoDel = UTxO utxoToDel
     store' =

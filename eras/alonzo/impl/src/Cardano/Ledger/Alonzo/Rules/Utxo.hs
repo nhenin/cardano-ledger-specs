@@ -95,6 +95,8 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import qualified Cardano.Ledger.Val as Val
@@ -113,7 +115,6 @@ import Data.Foldable as F (foldl', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
 import qualified Data.Map.Strict as Map
-import Data.MapExtras (extractKeys)
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
@@ -521,7 +522,8 @@ utxoTransition ::
 utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = utxosUtxo utxos
+      storedAllocations = Store.allocations . utxosUTxOStore $ utxos
+      utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -548,7 +550,8 @@ utxoTransition = do
 
   {- inputsAndCollateral = txins txb ∪ collateral txb -}
   {- (txins txb) ∪ (collateral txb) ⊆ dom utxo   -}
-  runTest $ Shelley.validateBadInputsUTxO utxo inputsAndCollateral
+  runTest $
+    Shelley.validateBadInputsUTxO storedAllocations inputsAndCollateral
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
   runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
@@ -780,7 +783,6 @@ updateUTxOState ::
   Rule (EraRule "UTXO" era) 'Transition (UTxOState era)
 updateUTxOState pp certState tx utxoState =
   let txBody = tx ^. bodyTxL
-      utxo = utxosUtxo utxoState
    in case tx ^. isPhase2ValidTxL of
         Phase2Valid ->
           Shelley.updateUTxOState
@@ -793,7 +795,10 @@ updateUTxOState pp certState tx utxoState =
         Phase2Invalid ->
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let !(_, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
+          let !utxoDel =
+                Allocations.txOutsForInputs
+                  (txBody ^. collateralInputsTxBodyL)
+                  (Store.allocations . utxosUTxOStore $ utxoState)
               store =
                 either (error . ("Alonzo collateral release: " <>) . show) id $
                   applyLegacyOutputDelta

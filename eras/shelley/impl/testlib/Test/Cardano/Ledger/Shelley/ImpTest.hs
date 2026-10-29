@@ -259,13 +259,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   esLStateL,
   lsCertStateL,
-  lsUTxOState,
   lsUTxOStateL,
   nesELL,
   nesEsL,
   prevPParamsEpochStateL,
   utxosDonationL,
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.Rules (
   AccountAlreadyRegistered,
@@ -290,6 +288,8 @@ import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (toFromByronTranslationContext)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (epochFromSlot, epochInfoFirst, getTheSlotOfNoReturn)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.Tools (
   calcMinFeeTxNativeScriptWits,
   ensureMinCoinTxOut,
@@ -966,14 +966,15 @@ impWitsVKeyNeeded ::
     )
 impWitsVKeyNeeded txBody = do
   ls <- getsNES (nesEsL . esLStateL)
-  utxo <- getUTxO
-  let toBootAddr txIn = do
-        txOut <- txinLookup txIn utxo
-        txOut ^. bootAddrTxOutF
+  let entries = allocations . (^. utxoStoreG) $ ls
+      utxo = UTxO . Allocations.txOutsForInputs (txBody ^. spendableInputsTxBodyF) $ entries
+      toBootAddr txIn = do
+        entry <- lookupUTxO txIn entries
+        UTxO.toTxOut entry ^. bootAddrTxOutF
       bootAddrs = Set.fromList $ mapMaybe toBootAddr $ Set.toList (txBody ^. spendableInputsTxBodyF)
       bootKeyHashes = Set.map (coerceKeyRole . bootstrapKeyHash) bootAddrs
       allKeyHashes =
-        getWitsVKeyNeeded (ls ^. lsCertStateL) (ls ^. utxoG) txBody
+        getWitsVKeyNeeded (ls ^. lsCertStateL) utxo txBody
   pure (bootAddrs, allKeyHashes Set.\\ bootKeyHashes)
 
 data ImpTestEnv era = ImpTestEnv
@@ -1328,7 +1329,7 @@ impShelleyExpectTxSuccess ::
   Tx TopTx era ->
   ImpTestM era ()
 impShelleyExpectTxSuccess tx = do
-  utxo <- getsNES utxoG
+  utxo <- getUTxO
   let inputs = tx ^. bodyTxL . inputsTxBodyL
       outputs = Map.toList . unUTxO . txouts $ tx ^. bodyTxL
   impAnn "Inputs should be gone from UTxO" $
@@ -1339,8 +1340,9 @@ impShelleyExpectTxSuccess tx = do
 logFeeMismatch :: (EraGov era, EraUTxO era, HasCallStack) => Tx TopTx era -> ImpTestM era ()
 logFeeMismatch tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getsNES utxoG
-  let Coin feeUsed = tx ^. bodyTxL . feeTxBodyL
+  entries <- allocations <$> getsNES utxoStoreG
+  let utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ entries
+      Coin feeUsed = tx ^. bodyTxL . feeTxBodyL
       Coin feeMin = getMinFeeTxUtxo pp tx utxo
   when (feeUsed /= feeMin) $ do
     logDoc $
@@ -1376,7 +1378,12 @@ trySubmitTx tx = do
           (epochInfo globals)
           (systemStart globals)
           (lEnv ^. ledgerPpL)
-          (utxosUtxo (lsUTxOState lState))
+          ( UTxO
+              . Allocations.txOutsForInputs (txFixed ^. bodyTxL . allInputsTxBodyF)
+              . allocations
+              . (^. utxoStoreG)
+              $ lState
+          )
           mempty
           txFixed
   res <- tryRunImpRule @"LEDGER" lEnv lState stAnnTx
@@ -2140,7 +2147,7 @@ getsNES :: SimpleGetter (NewEpochState era) a -> ImpTestM era a
 getsNES l = gets . view $ impNESL . l
 
 getUTxO :: ImpTestM era (UTxO era)
-getUTxO = getsNES utxoG
+getUTxO = UTxO . Allocations.toTxOutMap . allocations <$> getsNES utxoStoreG
 
 getProtVer :: EraGov era => ImpTestM era ProtVer
 getProtVer = getsNES $ nesEsL . curPParamsEpochStateL . ppProtocolVersionL
@@ -2437,9 +2444,9 @@ impLookupNativeScript sh = Map.lookup sh <$> gets impNativeScripts
 
 impGetUTxO :: ShelleyEraImp era => TxIn -> ImpTestM era (TxOut era)
 impGetUTxO txIn = impAnn "Looking up TxOut" $ do
-  utxo <- getUTxO
-  case txinLookup txIn utxo of
-    Just txOut -> pure txOut
+  entries <- allocations <$> getsNES utxoStoreG
+  case lookupUTxO txIn entries of
+    Just entry -> pure . UTxO.toTxOut $ entry
     Nothing -> error $ "Failed to get TxOut for " <> show txIn
 
 produceScript ::

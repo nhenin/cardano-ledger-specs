@@ -1831,7 +1831,7 @@ logConwayTxBalance ::
 logConwayTxBalance tx = do
   pp <- getsPParams id
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-  utxo <- getsNES utxoG
+  utxo <- getUTxO
   logString $ showConwayTxBalance pp certState utxo tx
 
 submitBootstrapAwareFailingVote ::

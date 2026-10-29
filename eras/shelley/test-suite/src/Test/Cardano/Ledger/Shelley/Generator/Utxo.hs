@@ -31,7 +31,9 @@ import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
 import Cardano.Ledger.Keys (asWitness)
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..))
 import Cardano.Ledger.Shelley.Rules (DelplEnv, LedgerEnv (..))
-import Cardano.Ledger.Shelley.State
+import Cardano.Ledger.Shelley.State hiding (txOuts)
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllValue)
 import Cardano.Ledger.Val (Val (..), sumVal, (<+>), (<->), (<×>))
@@ -136,7 +138,17 @@ genTx
          constants
        )
   (LedgerEnv slot _ txIx pparams reserves)
-  (LedgerState utxoSt@(UTxOState (toUTxO -> utxo) _ _ _ _ _) dpState) =
+  ( LedgerState
+      utxoSt@( UTxOState
+                 ((UTxO . Allocations.toTxOutMap . Store.allocations) -> utxo)
+                 _
+                 _
+                 _
+                 _
+                 _
+               )
+      dpState
+    ) =
     do
       -------------------------------------------------------------------------
       -- Generate the building blocks of a TxBody

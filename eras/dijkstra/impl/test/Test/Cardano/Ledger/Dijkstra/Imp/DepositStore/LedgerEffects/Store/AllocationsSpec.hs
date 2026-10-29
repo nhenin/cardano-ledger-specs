@@ -14,9 +14,10 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
-  utxosUtxo,
  )
-import Cardano.Ledger.State (unUTxO)
+import Cardano.Ledger.State (allocations, lookupUTxO, unAllocations)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -76,7 +77,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
           let recordsAfter = recordedAmounts $ liveOutputStore utxoState
           recordsAfter `shouldBe` newAllocations <> Map.withoutKeys recordsBefore (ordinarySpendingInputs signedTx)
           Map.keysSet recordsAfter `shouldBe` Map.keysSet
-            (Map.filter (not . isImplicitOutput) $ unUTxO $ utxosUtxo utxoState)
+            (unAllocations . Allocations.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ utxoState)
 
   -- Both real script outcomes cover mixed collateral, absent/implicit/Store returns,
   -- equal deposits and changed prices. Shared ordinary/collateral sources are removed
@@ -101,7 +102,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
             Phase2Valid -> Map.withoutKeys recordsBefore $ ordinarySpendingInputs signedTx
             Phase2Invalid -> returnAllocation <> Map.withoutKeys recordsBefore collateralInputs
           Map.keysSet recordsAfter `shouldBe` Map.keysSet
-            (Map.filter (not . isImplicitOutput) $ unUTxO $ utxosUtxo utxoState)
+            (unAllocations . Allocations.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ utxoState)
 
   -- The accepted wire output has one more byte than its canonical re-encoding.
   -- Its measured allocation survives a real state-codec restore, changed prices
@@ -118,7 +119,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       let records = recordedAmounts $ liveOutputStore allocatedState
       Map.lookup source records `shouldBe` Just creationDeposit
       canonicalOutput <- expectJust $
-        Map.lookup source $ unUTxO $ utxosUtxo allocatedState
+        UTxO.toTxOut <$> lookupUTxO source (allocations . liveOutputStore $ allocatedState)
       fromIntegral (Binary.sizedSize $ Binary.mkSized version canonicalOutput) `shouldBe` acceptedBytes - 1
       Effects.restoreUTxOState allocatedState
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2000)

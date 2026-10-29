@@ -28,6 +28,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecy
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   expectedDepositTotal,
   liveOutputStore,
+  outputs,
   recordedAmounts,
  )
 
@@ -40,11 +41,11 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
         let translatedState = translateEra' @DijkstraEra exampleDijkstraGenesis previousState
             previousUTxOState = previousState ^. nesEsL . esLStateL . lsUTxOStateL
             utxoState = translatedState ^. nesEsL . esLStateL . lsUTxOStateL
-            previousOutputs = unUTxO $ utxosUtxo previousUTxOState
-            outputs = unUTxO $ utxosUtxo utxoState
-        Map.keysSet outputs `shouldBe` Map.keysSet previousOutputs
+            previousOutputs = outputs previousUTxOState
+            translatedOutputs = outputs utxoState
+        Map.keysSet translatedOutputs `shouldBe` Map.keysSet previousOutputs
         forM_ (Map.toList previousOutputs) $ \(input, previousOutput) ->
-          case (previousOutput, Map.lookup input outputs) of
+          case (previousOutput, Map.lookup input translatedOutputs) of
             (LegacyTxOut previousImplicit, Just output@(LegacyTxOut implicit)) -> do
               output ^. addrTxOutL `shouldBe` previousOutput ^. addrTxOutL
               implicit ^. valueTxOutL `shouldBe` previousImplicit ^. valueTxOutL
@@ -55,7 +56,7 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
         recordedAmounts (liveOutputStore utxoState) `shouldBe` Map.empty
         let entries = unAllocations $ allocations $ liveOutputStore utxoState
-        Map.keysSet entries `shouldBe` Map.keysSet outputs
+        Map.keysSet entries `shouldBe` Map.keysSet translatedOutputs
         forM_ (Map.elems entries) $ \entry -> case UTxO.toTxOut entry of
           LegacyTxOut _ -> do
             -- Imported legacy outputs use explicit compatibility metadata; their

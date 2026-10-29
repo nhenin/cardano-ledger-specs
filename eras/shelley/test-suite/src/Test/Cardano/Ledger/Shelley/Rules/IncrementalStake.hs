@@ -32,6 +32,9 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Control.Monad.Reader (ReaderT)
 import Control.State.Transition (STS (..))
 import Data.Foldable (fold)
@@ -116,12 +119,15 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
       SourceSignalTarget
         { source =
           LedgerState
-            UTxOState {utxosUTxOStore = (toUTxO -> u), utxosInstantStake = is}
+            UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u), utxosInstantStake = is}
             dp
         , signal = stAnnTx
         , target =
           LedgerState
-            UTxOState {utxosUTxOStore = (toUTxO -> u'), utxosInstantStake = is'}
+            UTxOState
+              { utxosUTxOStore = (Store.unAllocations . Store.allocations -> u')
+              , utxosInstantStake = is'
+              }
             dp'
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -131,7 +137,7 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
                   , "\ntx"
                   , show tx
                   , "size original utxo"
-                  , show (Map.size $ unUTxO u)
+                  , show (Map.size u)
                   , "original utxo"
                   , show u
                   , "original instantStake"
@@ -148,7 +154,7 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
               )
               $ utxoBalanace === fromCompact instantStakeBalanace
         where
-          utxoBalanace = sumCoinUTxO u'
+          utxoBalanace = foldMap ((^. coinTxOutL) . UTxO.toTxOut) u'
           instantStakeBalanace = fold (sisCredentialStake is') <> fold (sisPtrStake is')
           ptrs = dp ^. certDStateL . accountsL . accountsPtrsMapG
           ptrs' = dp' ^. certDStateL . accountsL . accountsPtrsMapG
@@ -181,7 +187,16 @@ checkIncrementalStake ::
   Property
 checkIncrementalStake es =
   let
-    LedgerState (UTxOState (toUTxO -> utxo) _ _ _ instantStake _) certState = esLState es
+    LedgerState
+      ( UTxOState
+          ((UTxO . Allocations.toTxOutMap . Store.allocations) -> utxo)
+          _
+          _
+          _
+          instantStake
+          _
+        )
+      certState = esLState es
     dstate = certState ^. certDStateL
     pstate = certState ^. certPStateL
     stake = stakeDistr @era utxo dstate pstate

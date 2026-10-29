@@ -85,6 +85,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
 import Data.Word (Word32)
@@ -395,7 +396,9 @@ dijkstraLedgerTransition = do
   -- Witness checks use their output view; whole-batch accounting also needs
   -- each allocation's historical calculation and accepted size.
   let previousUTxOStore = ledgerState ^. utxoStoreG
-      originalUtxo = toUTxO previousUTxOStore
+      originalUtxo =
+        UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
+          previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 

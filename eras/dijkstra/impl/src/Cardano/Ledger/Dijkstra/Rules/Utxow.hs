@@ -65,7 +65,13 @@ import Cardano.Ledger.Keys (VKey)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..), toUTxO)
+import Cardano.Ledger.State (
+  EraUTxO (..),
+  ScriptsProvided (..),
+  UTxO (..),
+  allocations,
+ )
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
@@ -235,11 +241,13 @@ dijkstraUtxowTransition ::
 dijkstraUtxowTransition = do
   TRC (UtxoEnv slot pp pState originalCertState previousUTxOStore, u, stAnnTx) <-
     judgmentContext
-  let originalUtxo = toUTxO previousUTxOStore
-      tx = stAnnTx ^. txStAnnTxG
+  let tx = stAnnTx ^. txStAnnTxG
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
 
   let txBody = tx ^. bodyTxL
+      -- Preserve pre-batch inputs for inherited datum, script and witness checks.
+      originalUtxo =
+        UTxO . Allocations.txOutsForInputs (txBody ^. allInputsTxBodyF) . allocations $ previousUTxOStore
       subTxs = OMap.elems $ txBody ^. subTransactionsTxBodyL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
 

@@ -64,7 +64,9 @@ import Cardano.Ledger.Rules.ValidationMode (lblStatic)
 import Cardano.Ledger.Shelley.API
 import Cardano.Ledger.Shelley.Rules (ledgerPpL, ledgerSlotNoL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..), utxoG)
+import Cardano.Ledger.State (EraUTxO (..), utxoStoreG)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.EpochInfo.Extend (unsafeLinearExtendEpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -90,7 +92,12 @@ instance ApplyTx AlonzoEra where
             (unsafeLinearExtendEpochInfo (env ^. ledgerSlotNoL) (epochInfo globals))
             (systemStart globals)
             (env ^. ledgerPpL)
-            (state ^. utxoG)
+            ( UTxO
+                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . (^. utxoStoreG)
+                $ state
+            )
             mempty
             tx
      in first AlonzoApplyTxError $

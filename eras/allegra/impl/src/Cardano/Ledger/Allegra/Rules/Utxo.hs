@@ -44,6 +44,8 @@ import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.Shelley.PParams (Update)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.Slot (SlotNo)
@@ -175,7 +177,8 @@ utxoTransition ::
 utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = Shelley.utxosUtxo utxos
+      storedAllocations = Store.allocations . Shelley.utxosUTxOStore $ utxos
+      utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
       ppup = Shelley.utxosGovState utxos
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
@@ -190,7 +193,9 @@ utxoTransition = do
   runTest $ Shelley.validateFeeTooSmallUTxO pp tx utxo
 
   {- txins txb ⊆ dom utxo -}
-  runTest $ Shelley.validateBadInputsUTxO utxo $ txBody ^. inputsTxBodyL
+  runTest $
+    Shelley.validateBadInputsUTxO storedAllocations $
+      txBody ^. inputsTxBodyL
 
   netId <- liftSTS $ asks networkId
 

@@ -47,7 +47,6 @@ import Cardano.Ledger.State (
  )
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn (..))
 import Cardano.Ledger.TxOut (sumAllCoin)
@@ -365,7 +364,7 @@ collateralDepositSettlement ::
 collateralDepositSettlement pp store body =
   let consumed = body ^. collateralInputsTxBodyL
       consumedAllocations = Allocations.restrictToInputs consumed $ Store.allocations store
-      collateralOutputs = UTxO.toTxOut <$> Allocations.unspentOutputs consumedAllocations
+      collateralOutputs = Allocations.txOuts consumedAllocations
       released = Store.toCoin $ Allocations.sumDepositAmounts consumedAllocations
       returnDeposit = foldMap (requiredUTxODeposit pp) (body ^. sizedCollateralReturnTxBodyL)
       inputCoins = sumAllCoin collateralOutputs

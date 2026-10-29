@@ -102,6 +102,8 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (unless)
 import Control.State.Transition.Extended
@@ -377,7 +379,16 @@ conwayLedgerTransitionTRC
         then do
           let txBody = tx ^. bodyTxL
           runTest $ validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
-          runTest $ validateRefScriptSize pp (utxoState ^. utxoG) tx
+          runTest $
+            validateRefScriptSize
+              pp
+              ( UTxO
+                  . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                  . Store.allocations
+                  . (^. utxoStoreG)
+                  $ utxoState
+              )
+              tx
 
           let govState = utxoState ^. utxosGovStateL
               committee = govState ^. committeeGovStateL

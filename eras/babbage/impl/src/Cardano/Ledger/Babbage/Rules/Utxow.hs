@@ -50,9 +50,11 @@ import Cardano.Ledger.Binary.Coders (
   (<!),
  )
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..))
+import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..), UTxO (..))
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended (
@@ -348,7 +350,12 @@ babbageUtxowTransition = do
   {-  txb := txbody tx  -}
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo = utxosUtxo u
+  let utxo =
+        UTxO
+          . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          . Store.allocations
+          . utxosUTxOStore
+          $ u
       txBody = tx ^. bodyTxL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
       inputs = (txBody ^. referenceInputsTxBodyL) `Set.union` (txBody ^. inputsTxBodyL)

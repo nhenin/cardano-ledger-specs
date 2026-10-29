@@ -28,7 +28,8 @@ import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..), ScriptResult (..)
 import Cardano.Ledger.Plutus.Language (plutusFromRunnable)
 import Cardano.Ledger.Shelley.LedgerState hiding (circulation)
 import Cardano.Ledger.Slot (EpochSize (..))
-import Cardano.Ledger.State (toUTxO)
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Control.State.Transition
@@ -87,7 +88,7 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
         { source =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (toUTxO -> UTxO u)
+              { utxosUTxOStore = (Allocations.toTxOutMap . Store.allocations -> u)
               , utxosDeposited = dp
               , utxosFees = f
               }
@@ -96,7 +97,8 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
         , target =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (toUTxO -> UTxO u')
+              { utxosUTxOStore =
+                (Allocations.toTxOutMap . Store.allocations -> u')
               , utxosDeposited = dp'
               , utxosFees = f'
               }

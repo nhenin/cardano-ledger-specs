@@ -53,11 +53,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesStakePoolDistrG,
   prevPParamsEpochStateL,
   smartUTxOState,
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.PoolRank (NonMyopic (..))
 import Cardano.Ledger.Shelley.RewardUpdate (PulsingRewUpdate (..), RewardUpdate (..))
 import Cardano.Ledger.Slot (EpochNo (..))
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Control.Monad.Trans ()
 import Data.Default (Default (def))
@@ -327,7 +327,7 @@ abstract x =
         )
           x
     , mAccounts = (dsAccounts . certDState . lsCertState . esLState . nesEs) x
-    , mUTxO = (unUTxO . utxosUtxo . lsUTxOState . esLState . nesEs) x
+    , mUTxO = Allocations.toTxOutMap . allocations $ x ^. utxoStoreG
     , mMutFee = Map.empty
     , mChainAccountState = (esChainAccountState . nesEs) x
     , mPoolDistr = (unPoolDistr . view nesStakePoolDistrG) x

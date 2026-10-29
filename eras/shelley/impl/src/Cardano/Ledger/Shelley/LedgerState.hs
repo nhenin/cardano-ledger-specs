@@ -14,7 +14,6 @@ module Cardano.Ledger.Shelley.LedgerState (
   UTxO (..),
   CanGetUTxOStore (..),
   CanSetUTxOStore (..),
-  utxoG,
 
   -- * Others to organize
   AccountState,
@@ -30,7 +29,6 @@ module Cardano.Ledger.Shelley.LedgerState (
   RewardUpdate (..),
   RewardSnapShot (..),
   UTxOState (..),
-  utxosUtxo,
   smartUTxOState,
   mkShelleyCertState,
   ShelleyCertState (..),

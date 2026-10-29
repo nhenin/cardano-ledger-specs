@@ -30,6 +30,8 @@ import Cardano.Ledger.Conway.Governance
 import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
+import Cardano.Ledger.State (allocations)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Control.State.Transition.Extended (TRC (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Functor.Identity (Identity)
@@ -137,7 +139,7 @@ instance ExecSpecTopLevelRule "LEDGER" ConwayEra where
       , clecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
-            , uecUTxO = state ^. utxoG
+            , uecUTxO = UTxO . Allocations.toTxOutMap . allocations $ state ^. utxoStoreG
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL
