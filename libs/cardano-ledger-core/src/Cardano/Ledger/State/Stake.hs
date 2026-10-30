@@ -51,7 +51,6 @@ import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential
 import Cardano.Ledger.State.Account
-import Cardano.Ledger.State.UTxOs.LegacyUTxOMap
 import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON)
 import Data.Default (Default)
@@ -190,13 +189,13 @@ class
 
   instantStakeCredentialsL :: Lens' (InstantStake era) (Map (Credential Staking) (CompactForm Coin))
 
-  -- | Add new UTxO to the `InstantStake`. This is invoked for every new TxOut that is added to the
+  -- | Add outputs to the `InstantStake`. This is invoked for every new TxOut that is added to the
   -- ledger state
-  addInstantStake :: UTxO era -> InstantStake era -> InstantStake era
+  addInstantStake :: Foldable f => f (TxOut era) -> InstantStake era -> InstantStake era
 
-  -- | Delete spent UTxO from the `InstantStake`. This is invoked for every TxOut that is removed
+  -- | Delete spent outputs from the `InstantStake`. This is invoked for every TxOut that is removed
   -- from the ledger state
-  deleteInstantStake :: UTxO era -> InstantStake era -> InstantStake era
+  deleteInstantStake :: Foldable f => f (TxOut era) -> InstantStake era -> InstantStake era
 
   -- TODO: This functionality will be removed and switched to use a pulser
 

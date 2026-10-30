@@ -56,6 +56,7 @@ import Cardano.Ledger.Keys (
   bwKey,
   verifyBootstrapWit,
  )
+import Cardano.Ledger.Keys.WitVKey (verifyWitVKey)
 import Cardano.Ledger.Rules.ValidationMode (
   Test,
   runTest,
@@ -76,7 +77,6 @@ import Cardano.Ledger.Shelley.UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
   ShelleyScriptsNeeded (..),
-  verifyWitVKey,
  )
 import Cardano.Ledger.State (Allocations, EraCertState (..), dsGenDelegs)
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations

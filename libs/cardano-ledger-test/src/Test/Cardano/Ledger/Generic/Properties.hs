@@ -218,8 +218,8 @@ tracePreserveAda numTx gensize =
 -- | The incremental Stake invaraint is preserved over a trace of length 100=
 stakeInvariant :: EraStake era => MockChainState era -> MockChainState era -> Property
 stakeInvariant (MockChainState {}) (MockChainState nes _ _ _) =
-  let utxo = UTxO . Allocations.toTxOutMap . allocations $ nes ^. utxoStoreG
-   in nes ^. instantStakeL === addInstantStake utxo mempty
+  let outputs = Allocations.txOuts . allocations $ nes ^. utxoStoreG
+   in nes ^. instantStakeL === addInstantStake outputs mempty
 
 incrementStakeInvariant ::
   forall era.

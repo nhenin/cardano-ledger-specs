@@ -452,7 +452,7 @@ utxoStateSpec pp univ certstate =
         , assert $ lit (Coin 0) <=. fees
         , reify certstate getDelegs (\ [var|delegs|] -> satisfies utxo (utxoSpecWit univ delegs))
         , satisfies gov (conwayGovStateSpec pp (testGovEnv pp))
-        , reify utxo (`addInstantStake` mempty) (\ [var|i|] -> distr ==. i)
+        , reify utxo ((`addInstantStake` mempty) . unUTxO) (\ [var|i|] -> distr ==. i)
         ]
 
 getDelegs ::

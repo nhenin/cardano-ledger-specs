@@ -616,7 +616,7 @@ resetStakeDistribution nes =
       snapShotFromInstantStake (addInstantStake allOutputs mempty) dState pState
     -- Initial stake reconstruction needs the complete output collection.
     allOutputs =
-      UTxO . Allocations.toTxOutMap . Store.allocations . (^. utxoStoreG) $ nes
+      Allocations.txOuts . Store.allocations . (^. utxoStoreG) $ nes
     markSnapShot :: MarkSnapShot
     markSnapShot = nes ^. nesEsL . esSnapshotsL . ssStakeMarkL & msSnapShotL .~ initSnapShot
     setSnapShot :: SetSnapShot
@@ -709,7 +709,7 @@ registerInitialFunds hasFS tc newEpochState = do
                   , -- Normally we would incrementally update here. But since we pass
                     -- the full UTxO as "toAdd" rather than a delta, we simply
                     -- reinitialise the full instant stake.
-                    utxosInstantStake = addInstantStake utxo' mempty
+                    utxosInstantStake = addInstantStake (unUTxO utxo') mempty
                   }
             }
 

@@ -49,14 +49,12 @@ import Cardano.Ledger.State as UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
   UTxO (..),
-  getScriptHash,
   sumCoinUTxO,
   sumUTxO,
   txInsFilter,
   txinLookup,
   txins,
   txouts,
-  verifyWitVKey,
  )
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent

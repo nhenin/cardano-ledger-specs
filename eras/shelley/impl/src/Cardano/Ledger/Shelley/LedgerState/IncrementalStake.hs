@@ -68,7 +68,7 @@ smartUTxOState _pp utxo c1 c2 st donation =
     c1
     c2
     st
-    (addInstantStake utxo mempty)
+    (addInstantStake (unUTxO utxo) mempty)
     donation
 
 -- =====================================================

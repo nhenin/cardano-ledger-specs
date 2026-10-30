@@ -49,7 +49,7 @@ module Cardano.Ledger.Alonzo.UTxO (
   getAlonzoWitsVKeyNeeded,
 ) where
 
-import Cardano.Ledger.Address (accountAddressCredentialL)
+import Cardano.Ledger.Address (accountAddressCredentialL, getScriptHash)
 import Cardano.Ledger.Alonzo.Core
 import Cardano.Ledger.Alonzo.Era (AlonzoEra)
 import Cardano.Ledger.Alonzo.Plutus.Context (
@@ -83,7 +83,6 @@ import Cardano.Ledger.State (
   EraCertState (..),
   EraUTxO (..),
   ScriptsProvided (..),
-  getScriptHash,
  )
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
