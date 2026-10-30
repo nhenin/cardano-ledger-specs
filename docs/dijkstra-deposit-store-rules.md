@@ -756,10 +756,13 @@ $$
 Construct an allocation directly as
 `Unspent {sizedOutput = acceptedOutput, depositCalculation = calculation}`,
 preserving the accepted full-output size and explicit calculation. Construction is pure;
-`fromAllocations` accepts a current calculation and historical `IndexedUTxOs`, preserves the entries and derives the cached total. Persisted metadata is checked during decoding.
+`mkUTxOStore` accepts a current calculation and historical `IndexedUTxOs`, preserves the entries and derives the cached total. Persisted metadata is checked during decoding.
 `allocate` receives proposed `IndexedTxOs`, records the Store's `currentCalculation` on each new entry and adds their deposits; `release` removes
 selected entries and subtracts their historical deposits. Both preserve exact
 cached equality for a valid Store.
+`Store.update body` composes these operations for one body's regular inputs and
+outputs. The ledger invokes it separately for each successful SubTx and TopTx;
+phase-2 failure uses the explicit collateral update instead.
 Snapshot decoding validates both metadata and cached equality. The exported record
 selectors also support direct record updates, whose callers must preserve the
 relationship between the allocations and their total.
@@ -6147,7 +6150,7 @@ repricing policy remains a separate [design question](#ds-pricing-history).
 
 <a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
 **Exact cache invariant.** The former solvency comparison is replaced by equality:
-`fromAllocations` establishes the cached total, `allocate` and `release` preserve it for a valid store, and decoding rejects a total that differs from the historical record sum. Raw allocation construction is separate from these checks. Direct record updates must preserve the same equality.
+`mkUTxOStore` establishes the cached total, `allocate` and `release` preserve it for a valid store, and decoding rejects a total that differs from the historical record sum. Raw allocation construction is separate from these checks. Direct record updates must preserve the same equality.
 The nonnegative-record and live-output correspondence requirements remain in
 [Allocations](#ds-state-allocations).
 
@@ -6671,6 +6674,8 @@ Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and
 ```haskell
 outputsTxBody :: EraTxBody era => TxBody l era -> IndexedTxOs era
 
+update :: EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
+
 allocate ::
   EraTxOut era =>
   IndexedTxOs era -> UTxOStore era -> UTxOStore era
@@ -6689,12 +6694,16 @@ inputs are resolved through the previous Store and retain their own historical c
 The transition is explicit:
 
 ```haskell
-Store.allocate (outputsTxBody body)
-  . Store.release (body ^. inputsTxBodyL)
-  $ previousStore
+Store.update body previousStore
 ```
 
-Both operations maintain the invariant for a valid Store:
+`update` releases the body's regular inputs and allocates its regular outputs.
+It neither validates the body nor traverses nested SubTxs. The ledger selects the
+execution path; collateral failure continues to release only collateral inputs
+and allocate only the collateral return. Initialization and other operations
+without a body may still call `allocate` or `release` directly.
+
+These operations maintain the invariant for a valid Store:
 
 $$
 \text{totalDepositAmount}(S)
@@ -6717,7 +6726,7 @@ Releasing an absent input has no effect. Unaffected entries retain their metadat
   snapshot is rejected: its active policy cannot be recovered from historical entries,
   especially when the Store is empty.
 - `fromLegacyAllocations` accepts only typed legacy outputs. Complete stored entries
-  are restored with `fromAllocations`, preserving their recorded size and calculation.
+  are restored with `mkUTxOStore`, preserving their recorded size and calculation.
   Era translations retain their legacy output translators and introduce no new ADA transfers.
 
 Stake updates still fold output payloads directly. Address inspection and witness verification

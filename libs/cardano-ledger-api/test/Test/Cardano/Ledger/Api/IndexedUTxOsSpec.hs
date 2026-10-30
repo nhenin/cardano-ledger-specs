@@ -66,7 +66,7 @@ spec = describe "IndexedUTxOs metadata" $ do
           selected = IndexedUTxOs.singleton input1 entry1
           remaining = IndexedUTxOs.singleton input2 entry2
           inputs = Set.singleton input1
-          store = Store.fromAllocations (DepositCalculationV2 $ CoinPerByte $ CompactCoin 11) entries
+          store = Store.mkUTxOStore (DepositCalculationV2 $ CoinPerByte $ CompactCoin 11) entries
           state = def @(NewEpochState DijkstraEra) & utxoStoreL .~ store
       getIndexedUTxOs state `shouldBe` entries
       getIndexedUTxOsSubset state inputs `shouldBe` selected
@@ -87,7 +87,7 @@ spec = describe "IndexedUTxOs metadata" $ do
         let proposed = outputsTxBody body
         proposed `shouldBe` IndexedTxOs.singleton input accepted
         producedTxOuts (mkBasicTx body) `shouldBe` proposed
-        let store = Store.allocate proposed (Store.emptyUTxOStore calculation)
+        let store = Store.update body (Store.emptyUTxOStore calculation)
         Store.allocations store `shouldBe` expected
         IndexedUTxOs.toIndexedTxOs (Store.allocations store) `shouldBe` proposed
 

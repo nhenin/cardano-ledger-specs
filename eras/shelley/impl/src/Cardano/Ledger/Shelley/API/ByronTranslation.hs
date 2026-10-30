@@ -166,7 +166,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       LedgerState
         { lsUTxOState =
             UTxOState
-              { utxosUTxOStore = fromAllocations legacyDepositCalculation utxoShelley
+              { utxosUTxOStore = mkUTxOStore legacyDepositCalculation utxoShelley
               , utxosDeposited = Coin 0
               , utxosFees = Coin 0
               , utxosGovState = emptyGovState

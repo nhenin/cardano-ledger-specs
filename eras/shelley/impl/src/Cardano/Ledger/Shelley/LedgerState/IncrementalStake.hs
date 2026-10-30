@@ -60,7 +60,7 @@ smartUTxOState ::
   UTxOState era
 smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
-    (fromAllocations legacyDepositCalculation utxo)
+    (mkUTxOStore legacyDepositCalculation utxo)
     c1
     c2
     st

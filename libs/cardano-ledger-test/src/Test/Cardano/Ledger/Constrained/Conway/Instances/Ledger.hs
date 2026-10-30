@@ -1569,7 +1569,7 @@ instance HasSimpleRep (UTxOStore ConwayEra) where
   type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[IndexedUTxOs ConwayEra]]
   type SimpleRep (UTxOStore ConwayEra) = IndexedUTxOs ConwayEra
   toSimpleRep = allocations
-  fromSimpleRep = fromAllocations legacyDepositCalculation
+  fromSimpleRep = mkUTxOStore legacyDepositCalculation
 
 instance HasSpec (UTxOStore ConwayEra)
 

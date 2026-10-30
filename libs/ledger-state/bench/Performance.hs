@@ -74,7 +74,7 @@ main = do
   newEpochState <- case mUtxo of
     Nothing -> pure nesFromFile
     Just utxoFromFile ->
-      pure $ nesFromFile & utxoStoreL .~ fromAllocations legacyDepositCalculation utxoFromFile
+      pure $ nesFromFile & utxoStoreL .~ mkUTxOStore legacyDepositCalculation utxoFromFile
   let storeAllocations = allocations (newEpochState ^. utxoStoreG)
       utxoMap = unIndexedUTxOs storeAllocations
       utxoSize = Map.size utxoMap

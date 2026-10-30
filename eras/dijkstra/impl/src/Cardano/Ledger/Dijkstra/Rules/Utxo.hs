@@ -85,6 +85,7 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosFeesL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
 import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
@@ -500,7 +501,7 @@ dijkstraUtxoTransition = do
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
   case tx ^. isPhase2ValidTxL of
     Phase2Valid -> do
-      let store = DepositStore.applyBodyAllocations txBody utxoStore
+      let store = Store.update txBody utxoStore
       withDeposits <-
         Shelley.updateUTxOStateDeposits
           pp

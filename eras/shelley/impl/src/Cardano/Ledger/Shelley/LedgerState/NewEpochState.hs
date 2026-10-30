@@ -66,7 +66,7 @@ genesisState ::
 genesisState genDelegs0 utxo0 =
   LedgerState
     ( UTxOState
-        (fromAllocations legacyDepositCalculation utxo0)
+        (mkUTxOStore legacyDepositCalculation utxo0)
         (Coin 0)
         (Coin 0)
         emptyGovState

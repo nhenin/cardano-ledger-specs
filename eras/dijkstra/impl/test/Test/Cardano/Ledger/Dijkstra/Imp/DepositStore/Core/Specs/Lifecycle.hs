@@ -49,7 +49,7 @@ conwayStates = do
       outputMap =
         Map.fromList $
           zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (take 1 outputs <> outputs)
-      outputStore = fromAllocations legacyDepositCalculation . legacyIndexedUTxOs $ outputMap
+      outputStore = mkUTxOStore legacyDepositCalculation . legacyIndexedUTxOs $ outputMap
       utxoStateL = nesEsL . esLStateL . lsUTxOStateL
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =

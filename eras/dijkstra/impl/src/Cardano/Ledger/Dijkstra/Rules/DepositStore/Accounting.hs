@@ -25,7 +25,6 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   validateTopTxSettlement,
   validateSettlementOutput,
   validateOrdinaryDepositStore,
-  applyBodyAllocations,
   applyCollateralAllocations,
   CollateralDepositSettlement (..),
   collateralDepositSettlement,
@@ -282,18 +281,6 @@ validateSettlementOutput body index required =
        in failureUnless
             (supplied >= required)
             (InsufficientSettlementOutput (txIdTxBody body) index supplied required)
-
--- | Release this body's inputs and allocate its regular outputs. SubTxs and
--- TopTx each apply their own effects once; complete-batch validation reads the
--- original store. Every new allocation records its accepted size and current rate.
-applyBodyAllocations ::
-  DijkstraEraTxBody era =>
-  TxBody l era ->
-  UTxOStore era ->
-  UTxOStore era
-applyBodyAllocations body =
-  Store.allocate (outputsTxBody body)
-    . Store.release (body ^. inputsTxBodyL)
 
 -- | On phase-2 failure, release only the collateral inputs and allocate the
 -- collateral return. Ordinary TopTx/SubTx allocations remain untouched.

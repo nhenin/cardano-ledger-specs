@@ -40,7 +40,6 @@ import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   SUBUTXO,
  )
-import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (applyBodyAllocations)
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreOutputDeclarationFailure (..),
   validateSubTxAllocationDeclarationPresence,
@@ -59,6 +58,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
@@ -283,7 +283,7 @@ dijkstraSubUtxoTransition = do
   case topTxIsPhase2Valid of
     Phase2Valid ->
       Shelley.updateUTxOAndInstantStakeWithStore
-        (applyBodyAllocations txBody $ utxosUTxOStore utxoState)
+        (Store.update txBody $ utxosUTxOStore utxoState)
         txBody
         (\a b -> tellEvent $ TxUTxODiff a b)
         (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
