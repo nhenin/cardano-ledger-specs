@@ -62,10 +62,11 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val (inject, isAdaOnly, pointwise)
 import Control.DeepSeq (NFData)
@@ -191,13 +192,13 @@ feesOK ::
   ) =>
   PParams era ->
   Tx TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (EraRuleFailure rule era)
 feesOK pp tx entries =
   let txBody = tx ^. bodyTxL
       collateral = txBody ^. collateralInputsTxBodyL -- Inputs allocated to pay txfee
       -- Resolve only the collateral outputs used to pay fees.
-      collateralAllocations = Allocations.restrictToInputs collateral entries
+      collateralAllocations = IndexedUTxOs.restrictToInputs collateral entries
       theFee = txBody ^. feeTxBodyL -- Coin supplied to pay fees
       minFee = getMinFeeTxUtxo pp tx entries
    in sequenceA_
@@ -237,7 +238,7 @@ validateTotalCollateral ::
   ) =>
   PParams era ->
   TxBody TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (EraRuleFailure rule era)
 validateTotalCollateral pp txBody collateralAllocations =
   sequenceA_
@@ -252,10 +253,10 @@ validateTotalCollateral pp txBody collateralAllocations =
       first (fmap injectFailure) $ validateCollateralEqBalance bal (txBody ^. totalCollateralTxBodyL)
     , -- Part 7: collInputs tx ≠ ∅
       fromAlonzoValidation $
-        failureIf (null $ Allocations.unspentOutputs collateralAllocations) (Alonzo.NoCollateralInputs @era)
+        failureIf (IndexedUTxOs.null collateralAllocations) (Alonzo.NoCollateralInputs @era)
     ]
   where
-    bal = collAdaBalance txBody . Allocations.txOuts $ collateralAllocations
+    bal = collAdaBalance txBody . IndexedUTxOs.txOuts $ collateralAllocations
     fromAlonzoValidation = first (fmap injectFailure)
 
 -- | This validation produces the same failure as in Alonzo, but is slightly different
@@ -271,7 +272,7 @@ validateCollateralContainsNonADA ::
   forall era.
   BabbageEraTxBody era =>
   TxBody TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (Alonzo.AlonzoUtxoPredFailure era)
 validateCollateralContainsNonADA txBody collateralAllocations =
   failureUnless onlyAdaInCollateral $ Alonzo.CollateralContainsNonADA valueWithNonAda
@@ -283,7 +284,7 @@ validateCollateralContainsNonADA txBody collateralAllocations =
     -- computation of the full balance on the Value, not just the Coin.
     collateralAndReturnHaveOnlyAda =
       collateralHasOnlyAda && areAllAdaOnly (txBody ^. collateralReturnTxBodyL)
-    collateralHasOnlyAda = areAllAdaOnly . Allocations.txOuts $ collateralAllocations
+    collateralHasOnlyAda = areAllAdaOnly . IndexedUTxOs.txOuts $ collateralAllocations
     -- Whenever return TxOut consumes all of the NonAda value then the total collateral
     -- balance is considered valid.
     allNonAdaIsConsumedByReturn = Val.isAdaOnly totalCollateralBalance
@@ -300,7 +301,7 @@ validateCollateralContainsNonADA txBody collateralAllocations =
             then implicitCollateralValue retTxOut
             else collateralBalance
     -- This is the balance that is provided by the collateral inputs
-    collateralBalance = foldMap' implicitCollateralValue . Allocations.txOuts $ collateralAllocations
+    collateralBalance = foldMap' implicitCollateralValue . IndexedUTxOs.txOuts $ collateralAllocations
     -- This is the total amount that will be spent as collateral. This is where we account
     -- for the fact that we can remove Non-Ada assets from collateral inputs, by directing
     -- them to the return TxOut.
@@ -368,7 +369,7 @@ babbageUtxoValidation = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       storedAllocations = Store.allocations . utxosUTxOStore $ utxos
-      inputAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -503,15 +504,14 @@ updateUTxOState pp certState tx utxoState =
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
           let existingAllocations = Store.allocations . utxosUTxOStore $ utxoState
-              !(allocationsKeep, allocationsDel) = Allocations.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
-              utxoDel = Allocations.txOuts allocationsDel
-              TxOutMap collouts = collOuts txBody
+              !(allocationsKeep, allocationsDel) = IndexedUTxOs.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
+              utxoDel = IndexedUTxOs.txOuts allocationsDel
+              collouts = collOuts txBody
               store =
-                either (error . ("Babbage collateral update: " <>) . show) id $
-                  applyLegacyOutputDelta
-                    (txBody ^. collateralInputsTxBodyL)
-                    (TxOutMap . Allocations.excludeAllocatedInputs allocationsKeep $ collouts)
-                    (utxosUTxOStore utxoState)
+                Store.allocate
+                  (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds allocationsKeep) collouts)
+                  . Store.release (txBody ^. collateralInputsTxBodyL)
+                  $ utxosUTxOStore utxoState
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
@@ -519,7 +519,9 @@ updateUTxOState pp certState tx utxoState =
                   , {- fees + collateralFees -}
                     utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , utxosInstantStake =
-                      deleteInstantStake utxoDel (addInstantStake collouts (utxoState ^. instantStakeL))
+                      deleteInstantStake
+                        utxoDel
+                        (addInstantStake (IndexedTxOs.txOuts collouts) (utxoState ^. instantStakeL))
                   }
 
 --------------------------------------------------------------------------------

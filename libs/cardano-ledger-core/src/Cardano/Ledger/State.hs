@@ -3,10 +3,9 @@ module Cardano.Ledger.State (
   module Cardano.Ledger.State.ChainAccount,
   module Cardano.Ledger.State.CertState,
   module Cardano.Ledger.State.UTxOs,
-  module Cardano.Ledger.State.UTxOs.Allocations,
+  module Cardano.Ledger.State.UTxOs.IndexedUTxOs,
   Unspent (..),
   module Cardano.Ledger.State.UTxOs.Deposit,
-  module Cardano.Ledger.State.UTxOs.Store.Error,
   module Cardano.Ledger.State.UTxOs.Store,
   module Cardano.Ledger.State.LeiosCommittee,
   module Cardano.Ledger.State.PoolDistr,
@@ -26,8 +25,15 @@ import Cardano.Ledger.State.SnapShots
 import Cardano.Ledger.State.Stake
 import Cardano.Ledger.State.StakePool
 import Cardano.Ledger.State.UTxOs
-import Cardano.Ledger.State.UTxOs.Allocations
-import Cardano.Ledger.State.UTxOs.Allocations.UTxO (Unspent (..))
 import Cardano.Ledger.State.UTxOs.Deposit
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs hiding (
+  encodeWith,
+  fromList,
+  member,
+  null,
+  singleton,
+  size,
+  toList,
+ )
 import Cardano.Ledger.State.UTxOs.Store
-import Cardano.Ledger.State.UTxOs.Store.Error
+import Cardano.Ledger.State.UTxOs.Unspent (Unspent (..))

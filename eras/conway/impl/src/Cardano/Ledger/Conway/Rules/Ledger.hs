@@ -102,7 +102,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (unless)
@@ -382,7 +382,7 @@ conwayLedgerTransitionTRC
           runTest $
             validateRefScriptSize
               pp
-              ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                   . Store.allocations
                   . (^. utxoStoreG)
                   $ utxoState
@@ -479,7 +479,7 @@ validateRefScriptSize ::
   , BabbageEraTxBody era
   , ConwayEraPParams era
   ) =>
-  PParams era -> Allocations era -> Tx l era -> Test (ConwayLedgerPredFailure era)
+  PParams era -> IndexedUTxOs era -> Tx l era -> Test (ConwayLedgerPredFailure era)
 validateRefScriptSize pp inputAllocations tx =
   let totalRefScriptSize = txNonDistinctRefScriptsSize inputAllocations tx
       maxRefScriptSizePerTx = fromIntegral @Word32 @Int $ pp ^. ppMaxRefScriptSizePerTxG

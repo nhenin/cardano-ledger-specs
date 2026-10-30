@@ -57,8 +57,8 @@ import Cardano.Ledger.State (
   allocations,
   lookupUTxO,
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -227,7 +227,7 @@ recreateFundedInputs ::
 recreateFundedInputs ledgerState tx = do
   let sourceAllocations = allocations . liveOutputStore . Standalone.utxoState $ ledgerState
   outputs <-
-    traverse (fmap UTxO.toTxOut . expectJust . (`lookupUTxO` sourceAllocations)) $
+    traverse (fmap Unspent.toTxOut . expectJust . (`lookupUTxO` sourceAllocations)) $
       Set.toList (tx ^. bodyTxL . inputsTxBodyL)
   pure $ tx & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
 
@@ -338,8 +338,8 @@ checkPreservedReleaseProposal ledgerState tx fixed = do
   currentUTxOState <- readLedger
   let currentStore = liveOutputStore currentUTxOState
       originalStore = liveOutputStore . Standalone.utxoState $ ledgerState
-  Allocations.txOutsForInputs suppliedInputs (allocations currentStore)
-    `shouldBe` Allocations.txOutsForInputs suppliedInputs (allocations originalStore)
+  IndexedUTxOs.restrictToInputs suppliedInputs (allocations currentStore)
+    `shouldBe` IndexedUTxOs.restrictToInputs suppliedInputs (allocations originalStore)
   Map.restrictKeys (recordedAmounts currentStore) suppliedInputs
     `shouldBe` Map.restrictKeys (recordedAmounts originalStore) suppliedInputs
 
@@ -361,7 +361,7 @@ submitTxAndExpectSuccess ledgerState tx = do
           , not $ isImplicitOutput output
           ]
       released = foldMap id $ Map.restrictKeys (recordedAmounts before) consumed
-      retainedOutputs = Allocations.toTxOutMap . Allocations.withoutInputs consumed . allocations $ before
+      retainedOutputs = IndexedUTxOs.withoutInputs consumed . allocations $ before
   withNoFixup $ submitTx_ fixed
   afterState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
   let after = liveOutputStore afterState
@@ -371,11 +371,11 @@ submitTxAndExpectSuccess ledgerState tx = do
   storedDepositTotal after
     `shouldBe` (storedDepositTotal before <> foldMap id newAllocations)
     <-> released
-  Allocations.txOutsForInputs consumed allocationsAfter `shouldBe` mempty
-  Allocations.txOutsForInputs (Map.keysSet . unTxOutMap $ retainedOutputs) allocationsAfter
+  IndexedUTxOs.restrictToInputs consumed allocationsAfter `shouldBe` mempty
+  IndexedUTxOs.restrictToInputs (IndexedUTxOs.inputIds $ retainedOutputs) allocationsAfter
     `shouldBe` retainedOutputs
   forM_ (zip [0 ..] $ toList $ fixed ^. bodyTxL . outputsTxBodyL) $ \(index, output) ->
-    (UTxO.toTxOut <$> lookupUTxO (txInAt index fixed) allocationsAfter) `shouldBe` Just output
+    (Unspent.toTxOut <$> lookupUTxO (txInAt index fixed) allocationsAfter) `shouldBe` Just output
 
 -- | Fund the optional TopTx source, one to five ordered SubTx sources and one unrelated Store
 -- allocation through a real transaction. Each body proposes an implicit output

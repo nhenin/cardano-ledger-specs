@@ -30,8 +30,9 @@ import Cardano.Ledger.Shelley.LedgerState.Types (
   utxosGovStateL,
  )
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllCoin)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
 import Data.Foldable (fold)
 import GHC.Generics (Generic)
@@ -72,7 +73,7 @@ totalAdaPotsES (EpochState (ChainAccountState {casTreasury, casReserves}) ls _ _
     UTxOState store _ fees_ _ _ _ = lsUTxOState ls
     certState = ls ^. lsCertStateL
     rewards_ = sumBalancesAccounts (certState ^. certDStateL . accountsL)
-    coins = sumAllCoin . Allocations.txOuts . allocations $ store
+    coins = sumAllCoin . IndexedUTxOs.txOuts . allocations $ store
     govStateObligations = obligationGovState (ls ^. lsUTxOStateL . utxosGovStateL)
 
 sumAdaPots :: AdaPots -> Coin
@@ -143,12 +144,12 @@ consumedTxBody ::
   TxBody l era ->
   PParams era ->
   CertState era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Consumed
 consumedTxBody txBody pp certState entries =
   Consumed
     { conInputs =
-        sumAllCoin . Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
+        sumAllCoin . IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
     , conRefunds = certsTotalRefundsTxBody pp (certState ^. certDStateL . accountsL) txBody
     , conWithdrawals = fold . unWithdrawals $ txBody ^. withdrawalsTxBodyL
     }
@@ -162,7 +163,7 @@ producedTxBody ::
   Produced
 producedTxBody txBody pp dpstate =
   Produced
-    { proOutputs = sumAllCoin . unTxOutMap . txOutsTxBody $ txBody
+    { proOutputs = sumAllCoin . IndexedTxOs.txOuts . outputsTxBody $ txBody
     , proFees = txBody ^. feeTxBodyL
     , proDeposits = certsTotalDepositsTxBody pp dpstate txBody
     }

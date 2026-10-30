@@ -24,7 +24,7 @@ import Cardano.Ledger.Shelley.Genesis (
 import Cardano.Ledger.Shelley.LedgerState (NewEpochState)
 import Cardano.Ledger.Shelley.Transition (EraTransition (..), registerInitialFunds)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.Val (inject)
 import Data.Default (def)
@@ -65,10 +65,10 @@ spec = describe "Initial funds" $ do
               transitionConfig
                 & tcShelleyGenesisL %~ \genesis ->
                   genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
-        previousStore <-
-          expectRight . Store.fromAllocations . Allocations.Allocations $
-            Map.singleton existingInput existingAllocation
-        let previousState =
+            previousStore =
+              Store.fromAllocations legacyDepositCalculation $
+                IndexedUTxOs.singleton existingInput existingAllocation
+            previousState =
               def @(NewEpochState DijkstraEra)
                 & utxoStoreL .~ previousStore
                 & reservesL .~ Coin 100
@@ -76,7 +76,7 @@ spec = describe "Initial funds" $ do
         fs <- simHasFS' MockFS.empty
         fundedState <- registerInitialFunds fs fundingConfig previousState
         let fundedStore = fundedState ^. utxoStoreG
-        Allocations.lookupUTxO existingInput (Store.allocations fundedStore)
+        IndexedUTxOs.lookupUTxO existingInput (Store.allocations fundedStore)
           `shouldBe` Just existingAllocation
         Store.totalDepositAmount fundedStore `shouldBe` Store.totalDepositAmount previousStore
         fundedState ^. reservesL `shouldBe` Coin 93
@@ -108,13 +108,12 @@ initialFundsSpec = describe (eraName @era) $ do
       fs <- simHasFS' MockFS.empty
       fundedState <- registerInitialFunds fs fundingConfig previousState
       let fundedStore = fundedState ^. utxoStoreG
-      Allocations.toTxOutMap (Store.allocations fundedStore)
-        `shouldBe` TxOutMap
-          ( Map.fromList
-              [ (existingInput, LegacyTxOut existingOutput)
-              , (fundedInput, LegacyTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
-              ]
-          )
+      IndexedUTxOs.mapTxOuts id (Store.allocations fundedStore)
+        `shouldBe` ( Map.fromList
+                       [ (existingInput, LegacyTxOut existingOutput)
+                       , (fundedInput, LegacyTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
+                       ]
+                   )
       Store.totalDepositAmount fundedStore `shouldBe` Store.totalDepositAmount previousStore
       fundedState ^. reservesL `shouldBe` Coin 93
       fundedState ^. treasuryL `shouldBe` Coin 23
@@ -133,8 +132,8 @@ initialFundsSpec = describe (eraName @era) $ do
           previousState = def @(NewEpochState era) & reservesL .~ Coin 100
       fs <- simHasFS' MockFS.empty
       fundedState <- registerInitialFunds fs fundingConfig previousState
-      Allocations.toTxOutMap (Store.allocations $ fundedState ^. utxoStoreG)
-        `shouldBe` TxOutMap (Map.singleton fundedInput (LegacyTxOut $ mkCoinTxOut @era fundedAddress (Coin 7)))
+      IndexedUTxOs.mapTxOuts id (Store.allocations $ fundedState ^. utxoStoreG)
+        `shouldBe` Map.singleton fundedInput (LegacyTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
       fundedState ^. reservesL `shouldBe` Coin 90
       fundedState
         ^. instantStakeG

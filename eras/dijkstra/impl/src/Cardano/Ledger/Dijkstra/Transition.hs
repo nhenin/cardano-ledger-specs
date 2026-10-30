@@ -9,6 +9,7 @@ module Cardano.Ledger.Dijkstra.Transition (
 ) where
 
 import Cardano.Ledger.Alonzo.Transition (AlonzoEraTransition)
+import Cardano.Ledger.Babbage.Core (ppCoinsPerUTxOByteL)
 import Cardano.Ledger.Conway
 import Cardano.Ledger.Conway.Transition (
   ConwayEraTransition,
@@ -19,6 +20,7 @@ import Cardano.Ledger.Dijkstra.Genesis
 import Cardano.Ledger.Dijkstra.PParams (ppLeiosCommitteeSizeL)
 import Cardano.Ledger.Dijkstra.Rules.Snap (kesMaxKeyAgeEpochs)
 import Cardano.Ledger.Dijkstra.Translation ()
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Shelley.Genesis (ShelleyGenesis (..))
 import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState,
@@ -32,6 +34,8 @@ import Cardano.Ledger.Shelley.LedgerState (
 import Cardano.Ledger.Shelley.Transition
 import Cardano.Ledger.State (
   certPStateL,
+  DepositCalculation (..),
+  emptyUTxOStore,
   mkGoSnapShot,
   mkMarkSnapShot,
   mkSetSnapShot,
@@ -40,6 +44,7 @@ import Cardano.Ledger.State (
   ssStakeGoL,
   ssStakeMarkL,
   ssStakeSetL,
+  utxoStoreL,
  )
 import GHC.Generics
 import Lens.Micro
@@ -54,12 +59,17 @@ instance EraTransition DijkstraEra where
 
   mkTransitionConfig = DijkstraTransitionConfig
 
-  -- Stake pools from the genesis are registered without going through POOL, so the VRF
-  -- key hashes that POOL tracks have to be recomputed once those pools are in place.
-  injectIntoTestState hasFS cfg nes =
-    seatInitialLeiosCommittee cfg
-      . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
-      <$> conwayInjectIntoTestState hasFS cfg nes
+  initialUTxOStore pp = emptyUTxOStore $ DepositCalculationV1 (pp ^. ppCoinsPerUTxOByteL)
+
+  -- Genesis registrations bypass POOL, so restore their tracked VRF key hashes.
+  injectIntoTestState hasFS cfg nes = do
+    initialized <- conwayInjectIntoTestState hasFS cfg nes
+    let pp = initialized ^. nesEsL . curPParamsEpochStateL
+    pure $
+      seatInitialLeiosCommittee cfg
+        . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
+        . (utxoStoreL %~ activateDepositParameters pp)
+        $ initialized
 
   tcPreviousEraConfigL =
     lens dtcConwayTransitionConfig (\dtc pc -> dtc {dtcConwayTransitionConfig = pc})

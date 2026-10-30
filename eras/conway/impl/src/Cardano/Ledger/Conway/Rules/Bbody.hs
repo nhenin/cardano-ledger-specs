@@ -80,9 +80,10 @@ import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (Allocations, utxoStoreG)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.State (utxoStoreG)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
 import Control.Monad (guard, when)
 import Control.Monad.Trans.Reader (asks)
@@ -100,7 +101,6 @@ import Control.State.Transition (
  )
 import Data.Foldable (Foldable (foldMap'))
 import qualified Data.Foldable as F (foldl')
-import qualified Data.Map.Strict as Map
 import Data.Monoid (Sum (getSum))
 import qualified Data.Monoid as Monoid (Sum (..))
 import Data.Sequence (Seq)
@@ -358,7 +358,7 @@ validateBodyRefScriptsSizeTooBig ::
   ) =>
   PParams era ->
   BlockBody era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Rule (EraRule "BBODY" era) 'Transition ()
 validateBodyRefScriptsSizeTooBig pp blockBody utxo =
   let protVer = pp ^. ppProtocolVersionL
@@ -377,11 +377,11 @@ validateBodyRefScriptsSizeTooBig pp blockBody utxo =
 
 -- | Read accepted inputs from allocations. From protocol version 11, also
 -- account for outputs proposed by earlier transactions in the same block.
--- This local output map is not an allocation store: the LEDGERS rule validates
--- these transactions separately and records their historical metadata.
+-- This scan needs output payloads and sizes only. Project the selected accepted
+-- entries explicitly; the LEDGERS rule records metadata when it accepts new outputs.
 totalRefScriptSizeInBlock ::
   (AlonzoEraTx era, BabbageEraTxBody era) =>
-  ProtVer -> StrictSeq (Tx TopTx era) -> Allocations era -> Int
+  ProtVer -> StrictSeq (Tx TopTx era) -> IndexedUTxOs era -> Int
 totalRefScriptSizeInBlock protVer txs allocations
   | pvMajor protVer <= natVersion @10 =
       getSum $ foldMap' (Monoid.Sum . txNonDistinctRefScriptsSize allocations) txs
@@ -389,17 +389,17 @@ totalRefScriptSizeInBlock protVer txs allocations
       snd $ F.foldl' accum (initialOutputs, 0) txs
   where
     blockInputs = foldMap (^. bodyTxL . allInputsTxBodyF) txs
-    initialOutputs = unTxOutMap . Allocations.txOutsForInputs blockInputs $ allocations
+    initialOutputs = IndexedUTxOs.toIndexedTxOs . IndexedUTxOs.restrictToInputs blockInputs $ allocations
     accum (!outputs, !totalSize) tx =
-      let updatedOutputs = outputs `Map.union` unTxOutMap toAdd
+      let updatedOutputs = outputs <> toAdd
           toAdd
-            | Phase2Valid <- tx ^. isPhase2ValidTxL = txOutsTxBody $ tx ^. bodyTxL
+            | Phase2Valid <- tx ^. isPhase2ValidTxL = outputsTxBody $ tx ^. bodyTxL
             | otherwise = collOuts $ tx ^. bodyTxL
           inputs = (tx ^. bodyTxL . referenceInputsTxBodyL) `Set.union` (tx ^. bodyTxL . inputsTxBodyL)
           scriptSize =
             sum
               [ originalBytesSize script
-              | output <- Map.elems $ Map.restrictKeys outputs inputs
+              | output <- IndexedTxOs.txOuts $ IndexedTxOs.restrictToInputs inputs outputs
               , SJust script <- [output ^. referenceScriptTxOutL]
               ]
        in (updatedOutputs, totalSize + scriptSize)

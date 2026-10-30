@@ -24,10 +24,11 @@ import Cardano.Ledger.State.Orphans
 import Cardano.Ledger.State.Schema
 import Cardano.Ledger.State.Transform
 import Cardano.Ledger.State.UTxO
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as UTxO
 import Cardano.Ledger.State.Vector
 import qualified Cardano.Ledger.TxIn as TxIn
-import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Conduit
 import Control.Foldl (Fold (..))
 import Control.Monad
@@ -76,11 +77,11 @@ insertUTxOState Shelley.UTxOState {..} = do
 
 insertUTxO ::
   MonadIO m =>
-  State.Allocations CurrentEra ->
+  State.IndexedUTxOs CurrentEra ->
   Key UtxoState ->
   ReaderT SqlBackend m ()
 insertUTxO entries stateKey = do
-  forM_ (Map.toList . State.unAllocations $ entries) $ \(input, entry) ->
+  forM_ (IndexedUTxOs.toList entries) $ \(input, entry) ->
     insertTxOut (input, UTxO.toTxOut entry)
   where
     insertTxOut (TxIn.TxIn txId txIx, LegacyTxOut output) = do
@@ -587,18 +588,19 @@ lsId = LedgerStateKey (SqlBackendKey 1)
 
 getLedgerState ::
   MonadIO m =>
-  TxOutMap CurrentEra ->
+  Map.Map TxIn.TxIn (TxOut CurrentEra) ->
   LedgerState ->
   Shelley.DState CurrentEra ->
   ReaderT SqlBackend m (Shelley.LedgerState CurrentEra)
-getLedgerState utxo LedgerState {..} dstate = do
+getLedgerState outputs LedgerState {..} dstate = do
+  let entries = IndexedUTxOs.fromLegacyTxOuts . Map.map (\(LegacyTxOut output) -> output) $ outputs
   UtxoState {..} <- getJust ledgerStateUtxoId
   pure
     Shelley.LedgerState
       { Shelley.lsUTxOState =
           Shelley.smartUTxOState
             emptyPParams
-            utxo
+            entries
             utxoStateDeposited
             utxoStateFees
             utxoStateGovState -- Maintain invariant
@@ -707,10 +709,12 @@ loadDStateNoSharing :: MonadUnliftIO m => T.Text -> m (Shelley.DState CurrentEra
 loadDStateNoSharing fp =
   runSqlite fp $ getDStateNoSharing (DStateKey (SqlBackendKey 1))
 
-loadTxOutMapNoSharing ::
-  MonadUnliftIO m => T.Text -> m (TxOutMap CurrentEra)
-loadTxOutMapNoSharing fp =
-  runSqlite fp (TxOutMap <$> runConduitFold sourceUTxO noSharingMap)
+loadIndexedUTxOsNoSharing ::
+  MonadUnliftIO m => T.Text -> m (IndexedUTxOs CurrentEra)
+loadIndexedUTxOsNoSharing fp =
+  runSqlite fp $
+    IndexedUTxOs.fromLegacyTxOuts . Map.map (\(LegacyTxOut output) -> output)
+      <$> runConduitFold sourceUTxO noSharingMap
 
 loadLedgerStateNoSharing ::
   MonadUnliftIO m => T.Text -> m (Shelley.LedgerState CurrentEra)
@@ -719,7 +723,7 @@ loadLedgerStateNoSharing fp =
     ledgerState@LedgerState {..} <- getJust lsId
     dstate <- getDStateNoSharing ledgerStateDstateId
     m <- runConduitFold sourceUTxO noSharingMap
-    getLedgerState (TxOutMap m) ledgerState dstate
+    getLedgerState m ledgerState dstate
 
 loadLedgerStateDStateSharing ::
   MonadUnliftIO m => T.Text -> m (Shelley.LedgerState CurrentEra)
@@ -739,7 +743,7 @@ loadLedgerStateDStateTxIxSharing fp =
   runSqlite fp $ do
     ledgerState@LedgerState {..} <- getJust lsId
     dstate <- getDStateWithSharing ledgerStateDstateId
-    ls <- getLedgerState (TxOutMap mempty) ledgerState dstate
+    ls <- getLedgerState mempty ledgerState dstate
     m <- runConduitFold sourceUTxO txIxSharing
     pure (ls, m)
 
@@ -769,7 +773,7 @@ getLedgerStateWithSharing ese = do
       =<< selectFirst [LedgerStateEpochStateId ==. entityKey ese] []
   dstate <- getDStateWithSharing ledgerStateDstateId
   m <- runConduitFold sourceUTxO noSharingMap
-  getLedgerState (TxOutMap m) ledgerState dstate
+  getLedgerState m ledgerState dstate
 
 getLedgerStateNoSharing ::
   (MonadUnliftIO m, MonadResource m) =>
@@ -781,7 +785,7 @@ getLedgerStateNoSharing ese = do
       =<< selectFirst [LedgerStateEpochStateId ==. entityKey ese] []
   dstate <- getDStateNoSharing ledgerStateDstateId
   m <- runConduitFold sourceUTxO noSharingMap
-  getLedgerState (TxOutMap m) ledgerState dstate
+  getLedgerState m ledgerState dstate
 
 loadEpochState :: MonadUnliftIO m => T.Text -> m (Shelley.EpochState CurrentEra)
 loadEpochState fp = runSqlite fp $ do

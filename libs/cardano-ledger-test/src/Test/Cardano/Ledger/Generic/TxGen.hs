@@ -90,7 +90,7 @@ import GHC.Stack
 import Lens.Micro ((%~), (&), (.~), (<>~), (^.))
 import qualified Lens.Micro.Extras as L
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr, mkWitnessVKey)
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Examples.STSTestUtils (EraModel (..))
 import Test.Cardano.Ledger.Generic.ApplyTx (
   mkAlonzoPlutusPurposePointer,
@@ -812,7 +812,7 @@ minus m (Just (txin, _)) = Map.delete txin m
 genAlonzoTx ::
   forall era.
   EraGenericGen era =>
-  SlotNo -> GenRS era (TxOutMap era, Tx TopTx era)
+  SlotNo -> GenRS era (IndexedUTxOs era, Tx TopTx era)
 genAlonzoTx slot = do
   (utxo, tx, _fee, _old) <- genAlonzoTxAndInfo slot
   pure (utxo, tx)
@@ -832,7 +832,7 @@ genAlonzoTxAndInfo ::
   SlotNo ->
   GenRS
     era
-    ( TxOutMap era
+    ( IndexedUTxOs era
     , Tx TopTx era
     , UtxoEntry era -- The fee key
     , Maybe (UtxoEntry era) -- from oldUtxO
@@ -973,7 +973,7 @@ genAlonzoTxAndInfo slot = do
       bogusTxForFeeCalc =
         applyIsValid isValid $
           mkBasicTx txBodyNoFee & witsTxL .~ noFeeWits
-      fee = getMinFeeTxUtxo gePParams bogusTxForFeeCalc (legacyAllocations $ TxOutMap refInputsUtxo)
+      fee = getMinFeeTxUtxo gePParams bogusTxForFeeCalc (legacyIndexedUTxOs refInputsUtxo)
   -- traceM $ "noFeeWits:\n" <> showExpr noFeeWits
 
   accounts <- gets (mAccounts . gsModel)
@@ -992,7 +992,9 @@ genAlonzoTxAndInfo slot = do
 
   -- 10. Construct the correct Tx with valid fee and collaterals
   let sNeeded = scriptsNeeded' utxo txBodyNoFee
-      langs = Set.toList $ languagesUsed (reify @era) bogusTxForFeeCalc (TxOutMap utxoNoCollateral) sNeeded
+      langs =
+        Set.toList $
+          languagesUsed (reify @era) bogusTxForFeeCalc (legacyIndexedUTxOs utxoNoCollateral) sNeeded
       mIntegrityHash = mkScriptIntegrityHash gePParams langs redeemerDatumWits
       balance =
         case bogusCollReturn of
@@ -1021,7 +1023,7 @@ genAlonzoTxAndInfo slot = do
   modifyModelIndex (Map.insert count (TxId txBodyHash))
   modifyModelUTxO (const utxo)
 
-  pure (TxOutMap utxo, validTx, feepair, maybeoldpair)
+  pure (legacyIndexedUTxOs utxo, validTx, feepair, maybeoldpair)
 
 -- | Keep only Script witnesses that are neccessary in 'era',
 onlyNecessaryScripts ::

@@ -27,8 +27,9 @@ module Cardano.Ledger.Shelley.UTxO (
   getShelleyWitsVKeyNeeded,
   getShelleyWitsVKeyNeededNoGov,
   module UTxO,
-  TxOutMap (..),
-  txOutsTxBody,
+  IndexedUTxOs (..),
+  IndexedTxOs (..),
+  outputsTxBody,
 ) where
 
 import Cardano.Ledger.Address (accountAddressCredentialL, bootstrapKeyHash)
@@ -51,8 +52,8 @@ import Cardano.Ledger.State as UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllAssets, sumAllCoin)
 import Cardano.Ledger.Val ((<+>))
@@ -70,13 +71,13 @@ import Lens.Micro ((^.))
 txinsScriptHashes ::
   EraTxOut era =>
   Set TxIn ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Set ScriptHash
 txinsScriptHashes txInps inputAllocations = foldr add Set.empty txInps
   where
     -- to get subset, start with empty, and only insert those inputs in txInps
     -- that are locked in the accepted allocations
-    add input ans = case Allocations.lookupUTxO input inputAllocations of
+    add input ans = case IndexedUTxOs.lookupUTxO input inputAllocations of
       Just entry -> case Unspent.toTxOut entry ^. addrTxOutL of
         Addr _ (ScriptHashObj h) _ -> Set.insert h ans
         _ -> ans
@@ -84,7 +85,7 @@ txinsScriptHashes txInps inputAllocations = foldr add Set.empty txInps
 
 getShelleyScriptsNeeded ::
   EraTxBody era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   ShelleyScriptsNeeded era
 getShelleyScriptsNeeded inputAllocations txBody =
@@ -106,7 +107,7 @@ shelleyConsumed ::
   (EraUTxO era, EraCertState era) =>
   PParams era ->
   Accounts era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Value era
 shelleyConsumed pp accounts = getConsumedValue pp (`lookupAccountDeposit` accounts)
@@ -140,12 +141,12 @@ getConsumedCoin ::
   EraTxBody era =>
   PParams era ->
   (Credential Staking -> Maybe Coin) ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Coin
 getConsumedCoin pp lookupRefund inputAllocations txBody =
   {- balance (txins tx ◁ u) + wbalance (txwdrls tx) + keyRefunds dpstate tx -}
-  ( sumAllCoin . Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $
+  ( sumAllCoin . IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $
       inputAllocations
   )
     <> refunds
@@ -200,7 +201,7 @@ witsVKeyNeededGenDelegs txBody (GenDelegs genDelegs) =
 -- related Keys, i.e. `GenDelegs`
 getShelleyWitsVKeyNeededNoGov ::
   EraTx era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Set (KeyHash Witness)
 getShelleyWitsVKeyNeededNoGov inputAllocations txBody =
@@ -213,7 +214,7 @@ getShelleyWitsVKeyNeededNoGov inputAllocations txBody =
     inputAuthors = foldr' accum Set.empty (txBody ^. spendableInputsTxBodyF)
       where
         accum txin !ans =
-          case Allocations.lookupUTxO txin inputAllocations of
+          case IndexedUTxOs.lookupUTxO txin inputAllocations of
             Just entry ->
               case Unspent.toTxOut entry ^. addrTxOutL of
                 Addr _ (KeyHashObj pay) _ -> Set.insert (asWitness pay) ans
@@ -249,7 +250,7 @@ getShelleyWitsVKeyNeededNoGov inputAllocations txBody =
 getShelleyWitsVKeyNeeded ::
   (EraTx era, ShelleyEraTxBody era, EraCertState era, STxLevel l era ~ STxTopLevel l era) =>
   CertState era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Set (KeyHash Witness)
 getShelleyWitsVKeyNeeded certState inputAllocations txBody =

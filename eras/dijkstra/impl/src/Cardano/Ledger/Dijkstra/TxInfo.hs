@@ -125,7 +125,7 @@ import Cardano.Ledger.Plutus (
  )
 import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.Plutus.ToPlutusData (ToPlutusData (..))
-import Cardano.Ledger.State (Allocations, StakePoolParams (..))
+import Cardano.Ledger.State (StakePoolParams (..))
 import Cardano.Ledger.TxIn (TxId, TxIn (..), txIdToHex)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -640,7 +640,7 @@ transTxInInfoV4 ::
   , Inject (Babbage.BabbageContextError era) (ContextError era)
   , Inject (DijkstraContextError era) (ContextError era)
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV4.TxInInfo
 transTxInInfoV4 entries txIn = do

@@ -25,7 +25,7 @@ import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (asks)
@@ -132,7 +132,7 @@ ledgersTransition = do
       ( \(!curLedgerState, stAnnTxCache) (ix, tx) -> do
           let
             inputAllocations =
-              Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . (^. utxoStoreG)
                 $ curLedgerState

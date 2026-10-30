@@ -25,11 +25,10 @@ import Cardano.Ledger.Shelley.UTxO (
   shelleyProducedValue,
  )
 import Cardano.Ledger.State (
-  Allocations,
   EraUTxO (..),
   ScriptsProvided (..),
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (inject)
 import Data.Coerce (coerce)
@@ -67,7 +66,7 @@ getConsumedMaryValue ::
   (MaryEraTxBody era, Value era ~ MaryValue) =>
   PParams era ->
   (Credential Staking -> Maybe Coin) ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   MaryValue
 getConsumedMaryValue pp lookupStakingDeposit inputAllocations txBody =
@@ -76,8 +75,11 @@ getConsumedMaryValue pp lookupStakingDeposit inputAllocations txBody =
     mintedMultiAsset = filterMultiAsset (\_ _ -> (> 0)) $ txBody ^. mintTxBodyL
     {- balance (txins tx ◁ u) + wbalance (txwdrls tx) + keyRefunds pp tx -}
     consumedValue =
-      ( coerce . sumAllAssets . Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $
-          inputAllocations
+      ( coerce
+          . sumAllAssets
+          . IndexedUTxOs.txOuts
+          . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL)
+          $ inputAllocations
       )
         <> inject (refunds <> withdrawals)
     refunds = getTotalRefundsTxBody pp lookupStakingDeposit txBody
@@ -104,7 +106,7 @@ burnedMultiAssets txBody =
 -- for minting multi-assets in the transaction.
 getMaryScriptsNeeded ::
   (ShelleyEraTxBody era, MaryEraTxBody era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   ShelleyScriptsNeeded era
 getMaryScriptsNeeded inputAllocations txBody =

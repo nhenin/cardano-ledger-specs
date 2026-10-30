@@ -100,9 +100,9 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..))
-import Cardano.Ledger.State (Allocations)
-import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxIn (TxIn (..))
 import Control.Monad (forM)
+import Data.Foldable (toList)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -183,7 +183,7 @@ impGetPlutusContexts ::
   ImpTestM era [(PlutusPurpose AsIxItem era, ScriptHash, ScriptTestContext)]
 impGetPlutusContexts tx = do
   let txBody = tx ^. bodyTxL
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   let AlonzoScriptsNeeded asn = getScriptsNeeded entries txBody
   mbyContexts <- forM asn $ \(prp, sh) -> do
     pure $ (prp,sh,) <$> impLookupScriptContext @era sh
@@ -215,7 +215,7 @@ fixupRedeemers tx = impAnn "fixupRedeemers" $ do
   let oldRedeemers = tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL
   txWithMaxExUnits <- txWithMaxRedeemers tx
   let newMaxRedeemers = txWithMaxExUnits ^. witsTxL . rdmrsTxWitsL . unRedeemersL
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   Globals {systemStart, epochInfo} <- use impGlobalsL
   let reports = evalTxExUnits pp txWithMaxExUnits entries epochInfo systemStart
   exUnitsPerPurpose <-
@@ -265,7 +265,7 @@ fixupScriptWits ::
   ImpTestM era (Tx l era)
 fixupScriptWits tx = impAnn "fixupScriptWits" $ do
   contexts <- impGetPlutusContexts tx
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   let ScriptsProvided provided = getScriptsProvided entries tx
   let contextsToAdd = filter (\(_, sh, _) -> not (Map.member sh provided)) contexts
   scriptWits <- forM contextsToAdd $ \(_, sh, ScriptTestContext plutus _) ->
@@ -487,7 +487,7 @@ impPlutusWithContexts ::
 impPlutusWithContexts tx = do
   globals <- use impGlobalsL
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   let stAnnTx = mkStAnnTx (epochInfo globals) (systemStart globals) pp entries mempty tx
   case plutusScriptsWithContextStAnnTx stAnnTx of
     Left errs ->
@@ -547,10 +547,10 @@ impAlonzoExpectTxSuccess ::
   ) =>
   Tx TopTx era -> ImpTestM era ()
 impAlonzoExpectTxSuccess tx = do
-  currentAllocations <- getAllocations
+  currentAllocations <- getIndexedUTxOs
   let inputs = tx ^. bodyTxL . inputsTxBodyL
       collaterals = tx ^. bodyTxL . collateralInputsTxBodyL
-      outputs = Map.toList . unTxOutMap . txOutsTxBody $ tx ^. bodyTxL
+      outputs = zip (map (TxIn (txIdTx tx)) [minBound ..]) . toList $ tx ^. bodyTxL . outputsTxBodyL
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Inputs should be gone from UTxO" $
@@ -570,7 +570,7 @@ impAlonzoExpectTxSuccess tx = do
 computeScriptIntegrity ::
   AlonzoEraImp era =>
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx l era ->
   StrictMaybe (ScriptIntegrity era)
 computeScriptIntegrity pp entries tx = mkScriptIntegrity pp tx langs
@@ -585,7 +585,7 @@ impComputeScriptIntegrity ::
   Tx l era ->
   ImpTestM era (StrictMaybe (ScriptIntegrity era))
 impComputeScriptIntegrity tx =
-  computeScriptIntegrity <$> getsPParams id <*> getAllocations <*> pure tx
+  computeScriptIntegrity <$> getsPParams id <*> getIndexedUTxOs <*> pure tx
 
 computeScriptIntegrityHash ::
   AlonzoEraImp era => Tx l era -> ImpTestM era (StrictMaybe ScriptIntegrityHash)

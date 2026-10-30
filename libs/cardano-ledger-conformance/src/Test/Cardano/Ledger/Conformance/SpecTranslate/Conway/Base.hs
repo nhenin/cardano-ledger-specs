@@ -54,6 +54,7 @@ import Cardano.Ledger.Shelley.Scripts (
   pattern RequireMOf,
   pattern RequireSignature,
  )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val (Val (..))
 import Control.Monad.Except (MonadError (..))
@@ -190,12 +191,13 @@ instance SpecTranslate ConwayEra (BabbageTxOut ConwayEra) where
     script' <- toSpecRep script
     pure (addr', (val', (datum', script')))
 
-instance SpecTranslate ConwayEra (TxOutMap ConwayEra) where
+instance SpecTranslate ConwayEra (IndexedUTxOs ConwayEra) where
   type
-    SpecRep ConwayEra (TxOutMap ConwayEra) =
+    SpecRep ConwayEra (IndexedUTxOs ConwayEra) =
       Agda.HSMap (SpecRep ConwayEra TxIn) (SpecRep ConwayEra (TxOut ConwayEra))
 
-  toSpecRep (TxOutMap m) = toSpecRepMap m
+  -- The formal model carries output payloads, not historical deposit metadata.
+  toSpecRep = toSpecRepMap . IndexedUTxOs.mapTxOuts id
 
 deriving instance SpecTranslate ConwayEra OrdExUnits
 

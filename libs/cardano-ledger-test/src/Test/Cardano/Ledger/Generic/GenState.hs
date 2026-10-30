@@ -133,6 +133,7 @@ import Numeric.Natural
 import Test.Cardano.Ledger.Allegra.TreeDiff ()
 import Test.Cardano.Ledger.Alonzo.TreeDiff ()
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..))
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Era
 import Test.Cardano.Ledger.Examples.STSTestUtils (EraModel (..), PlutusPurposeTag (..))
 import Test.Cardano.Ledger.Generic.Functions (
@@ -653,7 +654,14 @@ instance (Reflect era, ShelleyEraTest era) => Show (GenState era) where
 initialLedgerState :: forall era. Reflect era => GenState era -> LedgerState era
 initialLedgerState gstate = LedgerState utxostate dpstate
   where
-    utxostate = smartUTxOState pp (TxOutMap (gsInitialUtxo gstate)) deposited (Coin 0) emptyGovState mempty
+    utxostate =
+      smartUTxOState
+        pp
+        (legacyIndexedUTxOs (gsInitialUtxo gstate))
+        deposited
+        (Coin 0)
+        emptyGovState
+        mempty
     dpstate =
       def
         & certPStateL .~ pstate

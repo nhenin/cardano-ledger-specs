@@ -15,9 +15,9 @@
 
 module Cardano.Ledger.Shelley.API.Wallet (
   -- * UTxOs
-  getTxOutMap,
-  getTxOutMapSubset,
-  getFilteredTxOutMap,
+  getIndexedUTxOs,
+  getIndexedUTxOsSubset,
+  getFilteredIndexedUTxOs,
 
   -- * Stake Pools
   getPools,
@@ -95,7 +95,7 @@ import Cardano.Ledger.Shelley.Rewards (StakeShare (..))
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (epochInfoSize)
 import qualified Cardano.Ledger.State as EB
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.Slot (EpochSize)
@@ -117,21 +117,20 @@ import NoThunks.Class (NoThunks (..))
 -- UTxOs
 --------------------------------------------------------------------------------
 
--- | Get the full output map. This public query explicitly requests every output
--- without its store metadata.
-getTxOutMap ::
+-- | Read all unspent outputs with their accepted sizes and deposit calculations.
+getIndexedUTxOs ::
   NewEpochState era ->
-  TxOutMap era
-getTxOutMap = Allocations.toTxOutMap . Store.allocations . (^. EB.utxoStoreG)
+  IndexedUTxOs era
+getIndexedUTxOs = Store.allocations . (^. EB.utxoStoreG)
 
--- | Get output payloads filtered by address.
-getFilteredTxOutMap ::
+-- | Select unspent outputs by address, retaining their metadata.
+getFilteredIndexedUTxOs ::
   EraTxOut era =>
   NewEpochState era ->
   Set Addr ->
-  TxOutMap era
-getFilteredTxOutMap ss addrSet =
-  Allocations.toTxOutMap . Allocations.filterByTxOut checkAddr $ storedAllocations
+  IndexedUTxOs era
+getFilteredIndexedUTxOs ss addrSet =
+  IndexedUTxOs.filterByTxOut checkAddr $ storedAllocations
   where
     storedAllocations = Store.allocations . (^. EB.utxoStoreG) $ ss
     compactAddrSet = Set.map compactAddr addrSet
@@ -139,14 +138,14 @@ getFilteredTxOutMap ss addrSet =
       case out ^. addrEitherTxOutL of
         Left addr -> addr `Set.member` addrSet
         Right cAddr -> cAddr `Set.member` compactAddrSet
-{-# INLINEABLE getFilteredTxOutMap #-}
+{-# INLINEABLE getFilteredIndexedUTxOs #-}
 
-getTxOutMapSubset ::
+getIndexedUTxOsSubset ::
   NewEpochState era ->
   Set TxIn ->
-  TxOutMap era
-getTxOutMapSubset nes inputs =
-  Allocations.txOutsForInputs inputs . Store.allocations . (^. EB.utxoStoreG) $ nes
+  IndexedUTxOs era
+getIndexedUTxOsSubset nes inputs =
+  IndexedUTxOs.restrictToInputs inputs . Store.allocations . (^. EB.utxoStoreG) $ nes
 
 --------------------------------------------------------------------------------
 -- Stake pools and pool rewards

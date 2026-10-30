@@ -136,7 +136,7 @@ spec = describe "BBODY" $ do
       let mkTxWithExpectedSize expectedSize txAction = do
             tx <- txAction
             totalRefScriptSizeInBlock protVer [tx]
-              <$> getAllocations `shouldReturn` expectedSize
+              <$> getIndexedUTxOs `shouldReturn` expectedSize
             pure (tx, expectedSize)
 
       -- submit reference scripts
@@ -181,7 +181,7 @@ spec = describe "BBODY" $ do
       -- so we can check that the same sum for the unapplied transactions matches
       let (txs, sizes) = unzip txsWithRefScriptSizes
       totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
-        <$> getAllocations `shouldReturn` sum sizes
+        <$> getIndexedUTxOs `shouldReturn` sum sizes
 
       pure txsWithRefScriptSizes
 
@@ -190,7 +190,7 @@ spec = describe "BBODY" $ do
       let (txs, sizes) = unzip prefix
           expectedSize = if isPostV10 protVer then sum sizes else 0
       totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
-        <$> getAllocations `shouldReturn` expectedSize
+        <$> getIndexedUTxOs `shouldReturn` expectedSize
 
   -- disabled in conformance because submiting phase2-invalid transactions are not supported atm
   -- https://github.com/IntersectMBO/formal-ledger-specifications/issues/910
@@ -230,17 +230,17 @@ spec = describe "BBODY" $ do
                 & collateralReturnTxBodyL .~ pure collRefScriptTxOut
             )
       totalRefScriptSizeInBlock protVer [createCollateralTx]
-        <$> getAllocations `shouldReturn` 0
+        <$> getIndexedUTxOs `shouldReturn` 0
 
       -- consume the script, passing the output from the previous collateral as reference input
       let refScriptTxIn = txInAt 1 createCollateralTx
       useCollateralTx <- submitTxWithRefInputs scriptTxIn [refScriptTxIn]
       totalRefScriptSizeInBlock protVer [createCollateralTx, useCollateralTx]
-        <$> getAllocations `shouldReturn` scriptSize
+        <$> getIndexedUTxOs `shouldReturn` scriptSize
       pure [createCollateralTx, useCollateralTx]
 
     totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
-      <$> getAllocations
+      <$> getIndexedUTxOs
         `shouldReturn` (if isPostV10 protVer then scriptSize else 0)
   where
     isPostV10 protVer = pvMajor protVer >= natVersion @11

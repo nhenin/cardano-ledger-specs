@@ -40,7 +40,7 @@ import Cardano.Ledger.Shelley.Rules (
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo (..))
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.Crypto (Crypto)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (runReaderT)
@@ -117,7 +117,7 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
             . Store.allocations
             . utxosUTxOStore
             . lsUTxOState
@@ -169,7 +169,7 @@ ledgersSigGen
         tx <- genTx ge ledgerEnv ls'
 
         let entries =
-              Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . utxosUTxOStore
                 . lsUTxOState

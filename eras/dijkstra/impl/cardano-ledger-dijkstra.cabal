@@ -52,6 +52,7 @@ library
     Cardano.Ledger.Dijkstra.TxOut
     Cardano.Ledger.Dijkstra.TxWits
     Cardano.Ledger.Dijkstra.UTxO
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit
     Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx
     Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
 

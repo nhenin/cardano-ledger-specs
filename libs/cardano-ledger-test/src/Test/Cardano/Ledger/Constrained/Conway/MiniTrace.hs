@@ -68,7 +68,7 @@ import Cardano.Ledger.State (
   EraCertState (..),
   allocations,
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Constrained.API
 import Control.State.Transition.Extended (STS (..))
 import Data.Foldable (Foldable (..))
@@ -585,7 +585,7 @@ constrainedUtxo =
             (epochInfo testGlobals)
             (systemStart testGlobals)
             (uePParams uecUtxoEnv)
-            (Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations . utxosUTxOStore $ st)
+            (IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations . utxosUTxOStore $ st)
             mempty
             tx
     )

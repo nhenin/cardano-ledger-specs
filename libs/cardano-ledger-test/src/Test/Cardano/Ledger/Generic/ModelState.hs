@@ -57,7 +57,7 @@ import Cardano.Ledger.Shelley.LedgerState (
 import Cardano.Ledger.Shelley.PoolRank (NonMyopic (..))
 import Cardano.Ledger.Shelley.RewardUpdate (PulsingRewUpdate (..), RewardUpdate (..))
 import Cardano.Ledger.Slot (EpochNo (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Control.Monad.Trans ()
 import Data.Default (Default (def))
@@ -69,6 +69,7 @@ import GHC.Generics (Generic)
 import GHC.Natural (Natural)
 import Lens.Micro ((%~), (&), (.~), (^.))
 import Lens.Micro.Extras (view)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Generic.Proof (
   BabbageEra,
   CertStateWit (..),
@@ -142,8 +143,8 @@ poolDistrZero = def
 accountStateZero :: ChainAccountState
 accountStateZero = ChainAccountState (Coin 0) (Coin 0)
 
-utxoZero :: TxOutMap era
-utxoZero = TxOutMap Map.empty
+utxoZero :: IndexedUTxOs era
+utxoZero = IndexedUTxOs Map.empty
 
 genDelegsZero :: GenDelegs
 genDelegsZero = GenDelegs Map.empty
@@ -270,7 +271,7 @@ instance Reflect era => Extract (UTxOState era) era where
   extract x =
     smartUTxOState
       (mPParams x)
-      (TxOutMap (mUTxO x))
+      (legacyIndexedUTxOs (mUTxO x))
       (mDeposited x)
       (mFees x)
       emptyGovState
@@ -327,7 +328,7 @@ abstract x =
         )
           x
     , mAccounts = (dsAccounts . certDState . lsCertState . esLState . nesEs) x
-    , mUTxO = unTxOutMap . Allocations.toTxOutMap . allocations $ x ^. utxoStoreG
+    , mUTxO = IndexedUTxOs.mapTxOuts id . allocations $ x ^. utxoStoreG
     , mMutFee = Map.empty
     , mChainAccountState = (esChainAccountState . nesEs) x
     , mPoolDistr = (unPoolDistr . view nesStakePoolDistrG) x

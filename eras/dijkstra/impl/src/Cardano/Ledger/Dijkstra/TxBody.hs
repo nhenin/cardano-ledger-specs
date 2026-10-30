@@ -1280,6 +1280,9 @@ instance
   inputsTxBodyL = memoRawTypeL @DijkstraEra . inputsDijkstraTxBodyRawL
   {-# INLINE inputsTxBodyL #-}
 
+  sizedOutputsTxBodyG = sizedOutputsTxBodyL
+  {-# INLINE sizedOutputsTxBodyG #-}
+
   outputsTxBodyL = memoRawTypeL @DijkstraEra . outputsDijkstraTxBodyRawL
   {-# INLINE outputsTxBodyL #-}
 

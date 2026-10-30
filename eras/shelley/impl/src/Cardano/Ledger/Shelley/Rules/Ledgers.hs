@@ -48,7 +48,7 @@ import Cardano.Ledger.Shelley.Rules.Utxo (ShelleyUtxoPredFailure)
 import Cardano.Ledger.Shelley.Rules.Utxow (ShelleyUtxowPredFailure)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (foldM)
@@ -215,7 +215,7 @@ ledgersTransition = do
     ( \ !curLedgerState (ix, tx) ->
         -- build the annotations against the same utxo snapshot that the rule will validate against
         let inputAllocations =
-              Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . (^. utxoStoreG)
                 $ curLedgerState

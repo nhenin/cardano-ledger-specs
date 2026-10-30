@@ -29,7 +29,7 @@ import qualified Cardano.Ledger.Shelley.LedgerState as LS
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.State (StakePoolParams (..))
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Protocol.Crypto (hashVerKeyVRF)
 import Cardano.Slotting.EpochInfo
 import Cardano.Slotting.Slot (EpochNo)
@@ -98,7 +98,7 @@ genChainInEpoch epoch = do
           $ genesisChainState
       initUtxoAddrs =
         Maybe.mapMaybe
-          (\entry -> case UTxO.toTxOut entry of LegacyTxOut (ShelleyTxOut addr _) -> addrToKeyHash addr)
+          (\entry -> case Unspent.toTxOut entry of LegacyTxOut (ShelleyTxOut addr _) -> addrToKeyHash addr)
           . Store.unspentOutputs
           $ initialAllocations
       stakeMap =

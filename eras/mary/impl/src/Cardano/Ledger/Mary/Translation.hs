@@ -28,6 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
@@ -160,8 +161,12 @@ instance TranslateEra MaryEra ShelleyInstantStake where
 instance TranslateEra MaryEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
-instance TranslateEra MaryEra TxOutMap where
-  translateEra ctxt = pure . TxOutMap . Map.map (translateEra' ctxt) . unTxOutMap
+instance TranslateEra MaryEra IndexedUTxOs where
+  translateEra ctxt = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra MaryEra) -> LegacyTxOut MaryEra
+      translateOutput output = case translateEra' ctxt output of
+        LegacyTxOut translated -> translated
 
 instance TranslateEra MaryEra ShelleyTxWits where
   type TranslationError MaryEra ShelleyTxWits = DecoderError

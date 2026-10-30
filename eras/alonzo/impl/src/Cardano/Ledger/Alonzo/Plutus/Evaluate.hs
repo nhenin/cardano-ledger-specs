@@ -59,7 +59,7 @@ import Cardano.Ledger.Plutus.Evaluate (
 import Cardano.Ledger.Plutus.ExUnits
 import Cardano.Ledger.Plutus.Language (Language (..), plutusLanguage)
 import Cardano.Ledger.Plutus.TxInfo (exBudgetToExUnits)
-import Cardano.Ledger.State (Allocations, EraUTxO (..), ScriptsProvided (..))
+import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..))
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -92,7 +92,7 @@ collectPlutusScriptsWithContext ::
   SystemStart ->
   PParams era ->
   Tx TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Either (NonEmpty (CollectError era)) [PlutusWithContext]
 collectPlutusScriptsWithContext epochInfo systemStart pp tx entries =
   scriptsWithContextFromLedgerTxInfo ledgerTxInfo (pp ^. ppCostModelsL)
@@ -288,7 +288,7 @@ evalTxExUnits ::
   -- | The transaction.
   Tx TopTx era ->
   -- | Accepted allocations (or the relevant portion for the transaction).
-  Allocations era ->
+  IndexedUTxOs era ->
   -- | The epoch info, used to translate slots to POSIX time for plutus.
   EpochInfo (Either Text) ->
   -- | The start time of the given block chain.
@@ -315,7 +315,7 @@ evalTxExUnitsWithLogs ::
   -- | The transaction.
   Tx TopTx era ->
   -- | Accepted allocations (or the relevant portion for the transaction).
-  Allocations era ->
+  IndexedUTxOs era ->
   -- | The epoch info, used to translate slots to POSIX time for plutus.
   EpochInfo (Either Text) ->
   -- | The start time of the given block chain.

@@ -53,19 +53,22 @@ instance ToExpr Coin
 
 instance ToExpr DepositCalculation
 
-instance ToExpr OutputStoreError
-
 instance ToExpr DepositAmount where
   toExpr = toExpr . toCoin
 
+instance ToExpr (TxOut era) => ToExpr (IndexedTxOs era) where
+  toExpr = toExpr . unIndexedTxOs
+
 instance ToExpr a => ToExpr (Unspent a)
 
-instance ToExpr (TxOut era) => ToExpr (Allocations era) where
-  toExpr = toExpr . unAllocations
+instance ToExpr (TxOut era) => ToExpr (IndexedUTxOs era) where
+  toExpr = toExpr . unIndexedUTxOs
 
 instance ToExpr (TxOut era) => ToExpr (UTxOStore era) where
   toExpr store =
-    App "UTxOStore" [toExpr $ totalDepositAmount store, toExpr $ allocations store]
+    App
+      "UTxOStore"
+      [toExpr $ currentCalculation store, toExpr $ totalDepositAmount store, toExpr $ allocations store]
 
 instance ToExpr StrictlyPositiveCoin where
   toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]
@@ -357,10 +360,8 @@ instance ToExpr CommitteeAuthorization
 
 instance ToExpr (CommitteeState era)
 
--- TxOutMap
+-- IndexedUTxOs
 deriving instance (Era era, ToExpr (Script era)) => ToExpr (ScriptsProvided era)
-
-instance ToExpr (TxOut era) => ToExpr (TxOutMap era)
 
 instance ToExpr TxOutSource
 

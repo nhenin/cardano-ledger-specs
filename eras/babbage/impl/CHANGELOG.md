@@ -2,7 +2,7 @@
 
 ## 1.15.0.1
 
-* Replace the output-only `UTxO` type with `TxOutMap` in era translation and the result of `collOuts`. Preserve collateral-return indexing, ledger behavior and serialized map formats.
+* Return proposed `IndexedTxOs` from `collOuts`, retaining the supplied collateral-return size and output index. `Store.allocate` records the calculation on acceptance; earlier eras retain canonical legacy metadata and encodings.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.15.0.0

@@ -43,9 +43,8 @@ import Cardano.Ledger.Keys (
  )
 import Cardano.Ledger.State (EraCertState)
 import Cardano.Ledger.State.UTxOs (EraUTxO (..))
-import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Val (coin, modifyCoin)
 import Data.Bits (Bits (..), shiftR)
 import Data.ByteString (ByteString)
@@ -76,7 +75,7 @@ setMinFeeTx ::
 setMinFeeTx pp tx refScriptsSize =
   setMinFeeTxInternal (\t -> getMinFeeTx pp t refScriptsSize) tx
 
-setMinFeeTxUtxo :: EraUTxO era => PParams era -> Tx TopTx era -> Allocations era -> Tx TopTx era
+setMinFeeTxUtxo :: EraUTxO era => PParams era -> Tx TopTx era -> IndexedUTxOs era -> Tx TopTx era
 setMinFeeTxUtxo pp tx inputAllocations =
   setMinFeeTxInternal (\t -> getMinFeeTxUtxo pp t inputAllocations) tx
 
@@ -115,7 +114,7 @@ calcMinFeeTxNativeScriptWits ::
   (EraUTxO era, EraCertState era) =>
   -- | All TxOuts available for this transaction. In other words `TxIn`s produced by
   -- `allInputsTxBodyF` should be present in these allocations, however this is not checked.
-  Allocations era ->
+  IndexedUTxOs era ->
   -- | The current protocol parameters.
   PParams era ->
   -- | The transaction.
@@ -144,14 +143,14 @@ calcMinFeeTxNativeScriptWits inputAllocations pp tx nativeScriptsKeyWitsHashes =
 --
 -- ====__Example__
 --
--- > let relevantAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) allocations
+-- > let relevantAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) allocations
 -- > calcMinFeeTx relevantAllocations pp tx 5
 calcMinFeeTx ::
   forall era.
   (EraUTxO era, EraCertState era) =>
   -- | All TxOuts available for this transaction. In other words `TxIn`s produced by
   -- `allInputsTxBodyF` should be present in these allocations, however this is not checked.
-  Allocations era ->
+  IndexedUTxOs era ->
   -- | The current protocol parameters.
   PParams era ->
   -- | The transaction.
@@ -174,7 +173,7 @@ calcMinFeeTxInternal ::
   (EraUTxO era, EraCertState era) =>
   -- | All TxOuts available for this transaction. In other words `TxIn`s produced by
   -- `allInputsTxBodyF` should be present in these allocations, however this is not checked.
-  Allocations era ->
+  IndexedUTxOs era ->
   -- | The current protocol parameters.
   PParams era ->
   -- | The transaction.
@@ -191,7 +190,7 @@ calcMinFeeTxInternal inputAllocations pp tx extraKeyWitsCount nativeScriptsKeyWi
     tx' = addDummyWitsTx pp tx numKeyWitsRequired $ Map.elems byronAttributes
     inputs = Set.toList $ txBody ^. spendableInputsTxBodyF
     getByronAttrs txIn = do
-      txOut <- Unspent.toTxOut <$> Allocations.lookupUTxO txIn inputAllocations
+      txOut <- Unspent.toTxOut <$> IndexedUTxOs.lookupUTxO txIn inputAllocations
       ba@(BootstrapAddress bootAddr) <- txOut ^. bootAddrTxOutF
       pure (asWitness (bootstrapKeyHash ba), Byron.addrAttributes bootAddr)
     byronAttributes = Map.fromList $ mapMaybe getByronAttrs inputs

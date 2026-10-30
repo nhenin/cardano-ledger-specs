@@ -60,7 +60,7 @@ import Cardano.Ledger.Rules.ValidationMode
 import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraUTxO (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
@@ -238,7 +238,7 @@ dijkstraSubUtxowTransition = do
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
       -- Inherited witness and datum checks read only this body's spending and reference inputs.
       inputAllocations =
-        Allocations.restrictToInputs
+        IndexedUTxOs.restrictToInputs
           ((txBody ^. spendableInputsTxBodyF) <> (txBody ^. referenceInputsTxBodyL))
           $ originalAllocations
 

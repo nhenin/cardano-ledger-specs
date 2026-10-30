@@ -16,7 +16,7 @@ import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.API.Mempool
 import Cardano.Ledger.Shelley.API.Validation
-import Cardano.Ledger.Shelley.API.Wallet (getFilteredTxOutMap, getTxOutMap)
+import Cardano.Ledger.Shelley.API.Wallet (getFilteredIndexedUTxOs, getIndexedUTxOs)
 import Cardano.Ledger.Shelley.Genesis (
   ShelleyGenesis (..),
   fromNominalDiffTimeMicro,
@@ -25,9 +25,9 @@ import Cardano.Ledger.Shelley.Genesis (
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Slot
 import Cardano.Ledger.State
-import Cardano.Ledger.State.UTxO (CurrentEra, readHexTxOutMap, readNewEpochState)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.State.UTxO (CurrentEra, readHexIndexedUTxOs, readNewEpochState)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as UTxO
 import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
@@ -66,18 +66,17 @@ main = do
 
   mUtxo <- forM mUtxoFilePath $ \utxoFilePath -> do
     putStrLn $ "Importing UTxO from: " ++ show utxoFilePath
-    utxo <- readHexTxOutMap utxoFilePath
+    utxo <- readHexIndexedUTxOs utxoFilePath
     utxo <$ putStrLn "Done importing UTxO"
 
   genesis <- either error id <$> eitherDecodeFileStrict' genesisFilePath
 
   newEpochState <- case mUtxo of
     Nothing -> pure nesFromFile
-    Just utxoFromFile -> do
-      store <- either (fail . show) pure $ fromLegacyTxOutMap utxoFromFile
-      pure $ nesFromFile & utxoStoreL .~ store
+    Just utxoFromFile ->
+      pure $ nesFromFile & utxoStoreL .~ fromAllocations legacyDepositCalculation utxoFromFile
   let storeAllocations = allocations (newEpochState ^. utxoStoreG)
-      utxoMap = unAllocations storeAllocations
+      utxoMap = unIndexedUTxOs storeAllocations
       utxoSize = Map.size utxoMap
       largeKeysNum = 100000
       stdGen = mkStdGen 2022
@@ -170,8 +169,8 @@ main = do
              , env (pure storeAllocations) $ \entries ->
                  bgroup
                    "UTxO"
-                   [ bench "sumAllAssets" $ nf (sumAllAssets . Allocations.txOuts) entries
-                   , bench "sumAllCoin" $ nf (sumAllCoin . Allocations.txOuts) entries
+                   [ bench "sumAllAssets" $ nf (sumAllAssets . IndexedUTxOs.txOuts) entries
+                   , bench "sumAllCoin" $ nf (sumAllCoin . IndexedUTxOs.txOuts) entries
                    , -- We need to filter out all multi-assets to prevent `areAllAdaOnly`
                      -- from short circuiting and producing results that are way better
                      -- than the worst case
@@ -185,8 +184,9 @@ main = do
                        Set.fromList [minTxOut ^. addrTxOutL, maxTxOut ^. addrTxOutL]
                   in bgroup
                        "MinMaxTxId"
-                       [ env (pure setAddr) $ bench "getFilteredTxOutMap" . nf (getFilteredTxOutMap nes)
-                       , env (pure setAddr) $ bench "getFilteredTxOutMapBaseline" . nf (getFilteredTxOutMapBaseline nes)
+                       [ env (pure setAddr) $ bench "getFilteredIndexedUTxOs" . nf (getFilteredIndexedUTxOs nes)
+                       , env (pure setAddr) $
+                           bench "getFilteredIndexedUTxOsBaseline" . nf (getFilteredIndexedUTxOsBaseline nes)
                        ]
              ]
          , utxoSize > 0
@@ -305,16 +305,16 @@ mkGlobals genesis =
         (mkSlotLength . fromNominalDiffTimeMicro . sgSlotLength $ genesis)
 
 -- Keep the original output-map filter as the benchmark's comparison baseline.
-getFilteredTxOutMapBaseline ::
+getFilteredIndexedUTxOsBaseline ::
   EraTxOut era =>
   NewEpochState era ->
   Set Addr ->
-  TxOutMap era
-getFilteredTxOutMapBaseline ss addrs =
-  TxOutMap $
-    Map.filter (\txOut -> (txOut ^. compactAddrTxOutL) `Set.member` addrSBSs) fullUTxO
+  IndexedUTxOs era
+getFilteredIndexedUTxOsBaseline ss addrs =
+  IndexedUTxOs $
+    Map.filter (\entry -> (UTxO.toTxOut entry ^. compactAddrTxOutL) `Set.member` addrSBSs) fullUTxO
   where
-    TxOutMap fullUTxO = getTxOutMap ss
+    IndexedUTxOs fullUTxO = getIndexedUTxOs ss
     addrSBSs = Set.map compactAddr addrs
 
 seqTuple :: (a, b) -> (a, b)

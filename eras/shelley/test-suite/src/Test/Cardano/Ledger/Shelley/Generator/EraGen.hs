@@ -181,7 +181,7 @@ class
   -- additional script witnessing.
   genEraTxBody ::
     GenEnv c era ->
-    TxOutMap era ->
+    IndexedUTxOs era ->
     PParams era ->
     SlotNo ->
     Set TxIn ->
@@ -198,7 +198,7 @@ class
 
   -- | Update an era-specific TxBody
   updateEraTxBody ::
-    TxOutMap era ->
+    IndexedUTxOs era ->
     PParams era ->
     TxWits era ->
     TxBody TopTx era ->
@@ -223,7 +223,7 @@ class
   -- use Test.Cardano.Ledger.Shelley.Generator.Update(genDecentralisationParam) in your instance.
 
   genEraTxWits ::
-    (TxOutMap era, TxBody TopTx era, ScriptInfo era) ->
+    (IndexedUTxOs era, TxBody TopTx era, ScriptInfo era) ->
     Set (WitVKey Witness) ->
     Map ScriptHash (Script era) ->
     TxWits era
@@ -247,7 +247,7 @@ class
 
   -- | A final opportunity to tweak things when the generator is done. Possible uses
   --   1) Add tracing when debugging on a per Era basis
-  genEraDone :: TxOutMap era -> PParams era -> Tx TopTx era -> Gen (Tx TopTx era)
+  genEraDone :: IndexedUTxOs era -> PParams era -> Tx TopTx era -> Gen (Tx TopTx era)
   genEraDone _utxo _pp x = pure x
 
   -- | A final opportunity to tweak things at the block level. Possible uses
@@ -258,7 +258,7 @@ class
   hasFailedScripts :: Tx TopTx era -> Bool
   hasFailedScripts = const False
 
-  feeOrCollateral :: Tx TopTx era -> TxOutMap era -> Coin
+  feeOrCollateral :: Tx TopTx era -> IndexedUTxOs era -> Coin
   feeOrCollateral tx _ = tx ^. bodyTxL . feeTxBodyL
 
 {------------------------------------------------------------------------------
@@ -269,7 +269,7 @@ class
 someKeyPairs :: Constants -> (Int, Int) -> Gen KeyPairs
 someKeyPairs c range = take <$> choose range <*> shuffle (keyPairs c)
 
-genUtxo0 :: forall era c. EraGen era => GenEnv c era -> Gen (TxOutMap era)
+genUtxo0 :: forall era c. EraGen era => GenEnv c era -> Gen (IndexedUTxOs era)
 genUtxo0 ge@(GenEnv _ _ c@Constants {minGenesisUTxOouts, maxGenesisUTxOouts}) = do
   let range = (minGenesisUTxOouts `div` 2, maxGenesisUTxOouts `div` 2)
   genesisKeys <- someKeyPairs c range

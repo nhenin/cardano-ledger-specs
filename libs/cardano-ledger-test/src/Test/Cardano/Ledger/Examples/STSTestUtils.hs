@@ -60,6 +60,7 @@ import Numeric.Natural (Natural)
 import qualified PlutusLedgerApi.V1 as PV1
 import Test.Cardano.Ledger.Common hiding (Result)
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), mkAddr)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Generic.Indexed (theKeyHash)
 import Test.Cardano.Ledger.Generic.ModelState (Model)
 import Test.Cardano.Ledger.Shelley.Era (EraTest)
@@ -154,9 +155,9 @@ initUTxO ::
   , AlonzoEraTxOut era
   , EraModel era
   ) =>
-  TxOutMap era
+  IndexedUTxOs era
 initUTxO =
-  TxOutMap $
+  legacyIndexedUTxOs $
     Map.fromList $
       [ (mkGenesisTxIn 1, alwaysSucceedsOutput)
       , (mkGenesisTxIn 2, alwaysFailsOutput)

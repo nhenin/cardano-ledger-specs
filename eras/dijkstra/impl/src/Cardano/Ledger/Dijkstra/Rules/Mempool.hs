@@ -54,6 +54,7 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.State
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData)
 import Control.State.Transition (
   BaseM,
@@ -71,7 +72,6 @@ import Control.State.Transition (
   (?!),
  )
 import Control.State.Transition.Extended (Embed (..), trans)
-import qualified Data.Map.Strict as Map
 import Data.Text (Text)
 import GHC.Generics (Generic (..))
 import Lens.Micro ((^.))
@@ -197,8 +197,8 @@ mempoolTransition = do
   -- Detect whether the transaction is probably a duplicate
   let
     inputs = tx ^. bodyTxL . inputsTxBodyL
-    entries = unAllocations . allocations $ ledgerState ^. utxoStoreG
-    notAllSpent = any (`Map.member` entries) inputs
+    entries = allocations . (^. utxoStoreG) $ ledgerState
+    notAllSpent = any (`IndexedUTxOs.member` entries) inputs
   notAllSpent
     ?! AllInputsAreSpent
 

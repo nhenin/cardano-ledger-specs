@@ -182,15 +182,14 @@ deriving stock instance
 -- | Creates a valid initial chain state
 initialShelleyState ::
   forall era.
-  ( EraTxOut era
-  , EraGov era
+  ( EraGov era
   , EraStake era
   , EraCertState era
   , Default (StashedAVVMAddresses era)
   ) =>
   WithOrigin LastAppliedBlock ->
   EpochNo ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   Coin ->
   Map (KeyHash GenesisRole) GenDelegPair ->
   PParams era ->

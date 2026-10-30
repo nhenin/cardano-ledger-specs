@@ -64,8 +64,8 @@ import Cardano.Ledger.Rules.ValidationMode (lblStatic)
 import Cardano.Ledger.Shelley.API
 import Cardano.Ledger.Shelley.Rules (ledgerPpL, ledgerSlotNoL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (Allocations, EraUTxO (..), utxoStoreG)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.State (EraUTxO (..), utxoStoreG)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.EpochInfo.Extend (unsafeLinearExtendEpochInfo)
@@ -92,7 +92,7 @@ instance ApplyTx AlonzoEra where
             (unsafeLinearExtendEpochInfo (env ^. ledgerSlotNoL) (epochInfo globals))
             (systemStart globals)
             (env ^. ledgerPpL)
-            ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+            ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . (^. utxoStoreG)
                 $ state
@@ -137,7 +137,7 @@ mkAlonzoStAnnTx ::
   EpochInfo (Either Text) ->
   SystemStart ->
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Map.Map ScriptHash (SupportedPlutusRunnable era) ->
   Tx TopTx era ->
   AlonzoStAnnTx TopTx era

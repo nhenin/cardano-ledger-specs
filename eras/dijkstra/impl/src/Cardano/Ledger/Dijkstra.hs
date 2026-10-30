@@ -73,7 +73,7 @@ import Cardano.Ledger.Shelley.API (
   defaultApplyTxWithValidation,
   defaultReapplyValidatedTx,
  )
-import Cardano.Ledger.State (Allocations, EraUTxO (..), ScriptsProvided)
+import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
 import Data.Foldable (toList)
@@ -118,7 +118,7 @@ mkDijkstraStAnnTopTx ::
   EpochInfo (Either Text) ->
   SystemStart ->
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Map.Map ScriptHash (SupportedPlutusRunnable era) ->
   Tx TopTx era ->
   DijkstraStAnnTx TopTx era
@@ -177,7 +177,7 @@ mkDijkstraStAnnSubTx ::
   EpochInfo (Either Text) ->
   SystemStart ->
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   ScriptsProvided era ->
   Map.Map ScriptHash (SupportedPlutusRunnable era) ->
   TxIx ->

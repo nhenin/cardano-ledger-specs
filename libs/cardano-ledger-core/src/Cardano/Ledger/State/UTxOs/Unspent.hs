@@ -4,16 +4,19 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Unspent outputs and the metadata retained for their deposit calculation.
-module Cardano.Ledger.State.UTxOs.Allocations.UTxO (
+module Cardano.Ledger.State.UTxOs.Unspent (
   Unspent (..),
   toTxOut,
   depositAmount,
   encodeWith,
+  fromLegacyTxOut,
 ) where
 
 import Cardano.Ledger.Binary (
@@ -25,15 +28,17 @@ import Cardano.Ledger.Binary (
   Sized (..),
   decodeRecordNamed,
   encodeListLen,
+  mkSized,
  )
 import Cardano.Ledger.Coin (Coin)
-import Cardano.Ledger.Core (TxOut (..))
+import Cardano.Ledger.Core.Era (eraProtVerLow)
 import Cardano.Ledger.State.UTxOs.Deposit (
   ByteSize (..),
   DepositCalculation,
   calculateDeposit,
+  legacyDepositCalculation,
  )
-import Cardano.Ledger.State.UTxOs.Store.Error (OutputStoreError (NegativeOutputSize))
+import Cardano.Ledger.TxOut (EraTxOut (..), TxOut (..))
 import Control.DeepSeq (NFData)
 import Control.Monad (when)
 import Data.Aeson (ToJSON (..), object, (.=))
@@ -48,6 +53,15 @@ data Unspent output = Unspent
   , depositCalculation :: !DepositCalculation
   }
   deriving (Eq, Show, Generic)
+
+-- | Import an output from a legacy format that did not store deposit metadata.
+-- The canonical size and zero-rate calculation are compatibility values; they
+-- are never used to reconstruct a store-backed output's historical deposit.
+fromLegacyTxOut :: forall era. EraTxOut era => LegacyTxOut era -> Unspent (TxOut era)
+fromLegacyTxOut output =
+  let sized = mkSized (eraProtVerLow @era) . LegacyTxOut $ output
+   in sizedSize sized `seq`
+        Unspent {sizedOutput = sized, depositCalculation = legacyDepositCalculation}
 
 toTxOut :: Unspent (TxOut era) -> TxOut era
 toTxOut = sizedValue . sizedOutput
@@ -88,7 +102,7 @@ decodeUnspent :: Decoder s a -> Decoder s (Unspent a)
 decodeUnspent decodeOutput = decodeRecordNamed "Unspent" (const 3) $ do
   output <- decodeOutput
   size <- decCBOR
-  when (size < 0) $ fail $ show $ NegativeOutputSize size
+  when (size < 0) $ fail $ "Unspent: negative output size " <> show size
   Unspent (Sized output size) <$> decCBOR
 
 encodeWith :: (a -> Encoding) -> Unspent a -> Encoding

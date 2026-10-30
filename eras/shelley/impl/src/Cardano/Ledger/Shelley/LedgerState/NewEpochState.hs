@@ -22,7 +22,7 @@ import Cardano.Ledger.Keys (GenDelegPair (..), GenDelegs (..))
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState.Types
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<+>), (<->))
@@ -59,18 +59,14 @@ getGKeys nes = Map.keysSet $ unGenDelegs (ls ^. lsCertStateL . certDStateL . dsG
 --  contains the specified transaction outputs.
 genesisState ::
   forall era.
-  (EraTxOut era, EraGov era, EraCertState era, EraStake era) =>
+  (EraGov era, EraCertState era, EraStake era) =>
   Map (KeyHash GenesisRole) GenDelegPair ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   LedgerState era
 genesisState genDelegs0 utxo0 =
   LedgerState
     ( UTxOState
-        ( either
-            (error . ("genesisState: expected legacy outputs: " <>) . show)
-            id
-            $ fromLegacyTxOutMap utxo0
-        )
+        (fromAllocations legacyDepositCalculation utxo0)
         (Coin 0)
         (Coin 0)
         emptyGovState
@@ -139,7 +135,7 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
     ls = esLState es
     us = lsUTxOState ls
     redeemers =
-      Allocations.filterByTxOut (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
+      IndexedUTxOs.filterByTxOut (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
         . Store.allocations
         . utxosUTxOStore
         $ us
@@ -147,17 +143,11 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
     acnt' =
       acnt
         { casReserves =
-            casReserves acnt <+> (sumAllCoin . Allocations.txOuts $ redeemers)
+            casReserves acnt <+> (sumAllCoin . IndexedUTxOs.txOuts $ redeemers)
         }
     us' =
       us
         { utxosUTxOStore =
-            either
-              (error . ("returnRedeemAddrsToReserves: invalid allocation removal: " <>) . show)
-              id
-              $ applyLegacyOutputDelta
-                (Map.keysSet . Allocations.unAllocations $ redeemers)
-                mempty
-                (utxosUTxOStore us)
+            Store.release (IndexedUTxOs.inputIds redeemers) $ utxosUTxOStore us
         }
     ls' = ls {lsUTxOState = us'}

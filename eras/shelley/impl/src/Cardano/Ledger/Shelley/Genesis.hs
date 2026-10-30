@@ -96,6 +96,7 @@ import Cardano.Ledger.Shelley.Era (ShelleyEra)
 import Cardano.Ledger.Shelley.PParams (ShelleyPParams (..))
 import Cardano.Ledger.Shelley.StabilityWindow
 import Cardano.Ledger.State (StakePoolParams (..))
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -638,14 +639,14 @@ genesisUTxO ::
   forall era.
   EraTxOut era =>
   ShelleyGenesis ->
-  TxOutMap era
+  IndexedUTxOs era
 genesisUTxO genesis =
-  TxOutMap $
+  IndexedUTxOs.fromLegacyTxOuts $
     Map.fromList
       [ (txIn, txOut)
       | (addr, amount) <- LM.unListMap (sgInitialFunds genesis)
       , let txIn = initialFundsPseudoTxIn addr
-            txOut = mkBasicTxOutWithImplicitDeposit addr (Val.inject amount)
+            txOut = mkBasicLegacyTxOut addr (Val.inject amount)
       ]
 
 -- | Compute the 'TxIn' of the initial UTxO pseudo-transaction corresponding

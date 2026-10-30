@@ -96,7 +96,6 @@ import Cardano.Ledger.Conway.State (
   psRetiringL,
   psStakePoolsL,
   psVRFKeyHashesL,
-  unAllocations,
   vsCommitteeStateL,
   vsDRepsL,
  )
@@ -113,7 +112,8 @@ import Cardano.Ledger.Shelley.LedgerState (
   newEpochStateGovStateL,
   prevPParamsEpochStateL,
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as UTxO
 import Cardano.SCLS.Internal.Entry.ChunkEntry (ChunkEntry (ChunkEntry))
 import Cardano.SCLS.Internal.Serializer.Dump.Plan (
   defaultSerializationPlan,
@@ -129,8 +129,7 @@ instance ExportCanonicalNamespace ConwayEra "utxo/v0" where
   canonicalNamespaceEntries =
     S.map (\(txIn, entry) -> ChunkEntry (UtxoKeyIn txIn) (mkUtxo . UTxO.toTxOut $ entry))
       . S.each
-      . Map.toList
-      . unAllocations
+      . IndexedUTxOs.toList
       . allocations
       . (^. utxoStoreG)
 

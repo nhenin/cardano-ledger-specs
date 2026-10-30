@@ -29,7 +29,7 @@ import Cardano.Ledger.Plutus.Language (plutusFromRunnable)
 import Cardano.Ledger.Shelley.LedgerState hiding (circulation)
 import Cardano.Ledger.Slot (EpochSize (..))
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Control.State.Transition
@@ -98,17 +98,17 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
           LedgerState
             UTxOState
               { utxosUTxOStore =
-                (unTxOutMap . Allocations.toTxOutMap . Store.allocations -> u')
+                (IndexedUTxOs.mapTxOuts id . Store.allocations -> u')
               , utxosDeposited = dp'
               , utxosFees = f'
               }
             ds'
         } =
-        let u = unTxOutMap . Allocations.toTxOutMap . Store.allocations $ store
+        let u = IndexedUTxOs.mapTxOuts id . Store.allocations $ store
             tx = stAnnTx ^. txStAnnTxG
             isValid' = tx ^. isPhase2ValidTxL
             noNewUTxO = u' `Map.isSubmapOf` u
-            collateralInFees = f <> sumCollateral tx (TxOutMap u) == f'
+            collateralInFees = f <> sumCollateral tx (Store.allocations store) == f'
             utxoConsumed = not $ u `Map.isSubmapOf` u'
             allScripts = tx ^. witsTxL . scriptTxWitsL
             hasPlutus = if all (isNativeScript @AlonzoEra) allScripts then NoPlutus else HasPlutus

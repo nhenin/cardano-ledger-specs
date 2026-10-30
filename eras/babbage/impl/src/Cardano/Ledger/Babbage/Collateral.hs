@@ -19,8 +19,8 @@ import Cardano.Ledger.Coin (DeltaCoin, toDeltaCoin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllCoin)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
-import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Word (Word16)
 import Lens.Micro
@@ -40,14 +40,16 @@ collAdaBalance txBody utxoCollateral = toDeltaCoin $
   where
     colbal = sumAllCoin utxoCollateral
 
+-- | Index the proposed collateral return, preserving its supplied size.
+-- The Store records its calculation only when the return is allocated.
 collOuts ::
   BabbageEraTxBody era =>
   TxBody TopTx era ->
-  TxOutMap era
+  IndexedTxOs era
 collOuts txBody =
-  case txBody ^. collateralReturnTxBodyL of
-    SNothing -> TxOutMap Map.empty
-    SJust txOut -> TxOutMap (Map.singleton (mkCollateralTxIn txBody) txOut)
+  case txBody ^. sizedCollateralReturnTxBodyL of
+    SNothing -> mempty
+    SJust output -> IndexedTxOs.singleton (mkCollateralTxIn txBody) output
 
 mkCollateralTxIn :: EraTxBody era => TxBody l era -> TxIn
 mkCollateralTxIn txBody = TxIn (txIdTxBody txBody) txIx

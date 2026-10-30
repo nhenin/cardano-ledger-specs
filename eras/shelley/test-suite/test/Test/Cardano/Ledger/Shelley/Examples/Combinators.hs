@@ -82,7 +82,8 @@ import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates)
 import Cardano.Ledger.Shelley.Rules (emptyInstantaneousRewards, votedFuturePParams)
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<+>), (<->))
 import Cardano.Protocol.TPraos.BlockHeader (
   BHBody (..),
@@ -172,18 +173,18 @@ newUTxO txb cs = cs {chainNes = nes'}
     ls = esLState es
     utxoSt = lsUTxOState ls
     entries = Store.allocations . utxosUTxOStore $ utxoSt
-    utxo = Store.unAllocations entries
-    utxoAdd = txOutsTxBody @era txb
+    utxoAdd = outputsTxBody @era txb
     inputs = txb ^. inputsTxBodyL
-    utxoToDel = Allocations.txOuts . Allocations.restrictToInputs inputs $ entries
-    utxoWithout = Map.withoutKeys utxo inputs
+    utxoToDel = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs inputs $ entries
+    remaining = IndexedUTxOs.withoutInputs inputs entries
     store' =
-      either (error . ("Shelley example output update: " <>) . show) id $
-        applyLegacyOutputDelta
-          inputs
-          (TxOutMap $ Map.withoutKeys (unTxOutMap utxoAdd) $ Map.keysSet utxoWithout)
-          (utxosUTxOStore utxoSt)
-    is' = deleteInstantStake utxoToDel (addInstantStake (unTxOutMap utxoAdd) (utxoSt ^. instantStakeL))
+      Store.allocate (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) utxoAdd)
+        . Store.release inputs
+        $ utxosUTxOStore utxoSt
+    is' =
+      deleteInstantStake
+        utxoToDel
+        (addInstantStake (IndexedTxOs.txOuts utxoAdd) (utxoSt ^. instantStakeL))
     utxoSt' = utxoSt {utxosUTxOStore = store', utxosInstantStake = is'}
     ls' = ls {lsUTxOState = utxoSt'}
     es' = es {esLState = ls'}

@@ -15,7 +15,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State (allocations, lookupUTxO)
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.StrictlyPositiveCoin (mkStrictlyPositiveCoin)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -58,7 +58,7 @@ withSharedOrdinaryInput fixture@Fixture {signedTx, previousUTxOState, collateral
   sharedInput <- expectJust $ Set.lookupMin $ collateralInputs `Set.intersection` Map.keysSet records
   source <-
     expectJust $
-      UTxO.toTxOut <$> lookupUTxO sharedInput (allocations . liveOutputStore $ previousUTxOState)
+      Unspent.toTxOut <$> lookupUTxO sharedInput (allocations . liveOutputStore $ previousUTxOState)
   recordedDeposit <- expectJust $ Map.lookup sharedInput records
   positiveDeposit <- expectJust $ mkStrictlyPositiveCoin recordedDeposit
   let inputs = Set.insert sharedInput originalInputs

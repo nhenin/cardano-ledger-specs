@@ -32,6 +32,7 @@ import Data.Proxy
 import Data.Word (Word64)
 import Test.Cardano.Ledger.Binary.Random (mkDummyHash)
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Rules.IncrementalStake (aggregateUtxoCoinByCredential)
 
 type TestEra = MaryEra
@@ -96,9 +97,9 @@ utxo ::
   Word64 ->
   Map Ptr c ->
   Int ->
-  TxOutMap TestEra
+  IndexedUTxOs TestEra
 utxo noUnstaked noBase ptrMap dupFactor =
-  TxOutMap . Map.fromList $
+  legacyIndexedUTxOs . Map.fromList $
     txIns
       `zip` ( genericReplicate noUnstaked txOutUnstaked
                 <> cycleTimes dupFactor stakedTxs
@@ -114,7 +115,7 @@ utxo noUnstaked noBase ptrMap dupFactor =
 
 data AggTestSetup = AggTestSetup
   { atsPtrMap :: !(Map Ptr (Credential Staking))
-  , atsUTxO :: !(TxOutMap TestEra)
+  , atsUTxO :: !(IndexedUTxOs TestEra)
   }
 
 instance NFData AggTestSetup where

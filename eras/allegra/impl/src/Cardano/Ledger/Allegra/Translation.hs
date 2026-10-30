@@ -28,6 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
@@ -52,7 +53,7 @@ import qualified Data.Map.Strict as Map
 -- _back_ to the translation functions as the UTxO, allowing these addresses to
 -- be removed. This is needed because we cannot do a full scan on the UTxO at
 -- this point, since it has been persisted to disk.
-shelleyToAllegraAVVMsToDelete :: NewEpochState ShelleyEra -> TxOutMap ShelleyEra
+shelleyToAllegraAVVMsToDelete :: NewEpochState ShelleyEra -> IndexedUTxOs ShelleyEra
 shelleyToAllegraAVVMsToDelete = stashedAVVMAddresses
 
 instance TranslateEra AllegraEra NewEpochState where
@@ -106,8 +107,12 @@ instance TranslateEra AllegraEra ShelleyGovState where
 instance TranslateEra AllegraEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
-instance TranslateEra AllegraEra TxOutMap where
-  translateEra ctxt = pure . TxOutMap . Map.map (translateEra' ctxt) . unTxOutMap
+instance TranslateEra AllegraEra IndexedUTxOs where
+  translateEra ctxt = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra AllegraEra) -> LegacyTxOut AllegraEra
+      translateOutput output = case translateEra' ctxt output of
+        LegacyTxOut translated -> translated
 
 instance TranslateEra AllegraEra Store.UTxOStore where
   translateEra ctxt = pure . Store.translateLegacyStore translateOutput

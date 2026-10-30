@@ -348,7 +348,7 @@ transTxInInfoV1 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV1.TxInInfo
 transTxInInfoV1 entries txIn = do
@@ -364,7 +364,7 @@ transTxInInfoV3 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV3.TxInInfo
 transTxInInfoV3 entries txIn = do

@@ -30,8 +30,8 @@ import Cardano.Ledger.Dijkstra.Core (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Data.List.NonEmpty (NonEmpty)
 import Lens.Micro ((^.))
 import Validation (Validation, failureUnless)
@@ -76,26 +76,26 @@ validateSubTxAllocationDeclarationPresence txBody =
 -- Missing inputs remain the responsibility of the existing BadInputs check.
 validateTopTxReleaseDeclarationPresence ::
   DijkstraEraTxBody era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody TopTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateTopTxReleaseDeclarationPresence originalAllocations txBody =
   validateStoreBackedOutputsDeclaration
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
-    (Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
+    (IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
 
 -- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE: require SubTx's own declaration for releases
 -- proposed by its ordinary inputs, even when its new outputs are all implicit.
 -- Allocations do not remove this requirement. No recorded amount is needed.
 validateSubTxReleaseDeclarationPresence ::
   DijkstraEraTxBody era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody SubTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateSubTxReleaseDeclarationPresence originalAllocations txBody =
   validateStoreBackedOutputsDeclaration
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
-    (Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
+    (IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
 
 -- | Shared structural presence check over proposed outputs or resolved inputs.
 -- Any store-backed output requires a declaration, regardless of deposit amount.

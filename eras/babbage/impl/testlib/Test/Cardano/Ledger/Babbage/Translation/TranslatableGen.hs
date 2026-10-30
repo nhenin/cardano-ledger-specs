@@ -31,6 +31,7 @@ import Test.Cardano.Ledger.Alonzo.Arbitrary (genScripts)
 import Test.Cardano.Ledger.Alonzo.Translation.TranslatableGen (TranslatableGen (..))
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Cardano.Ledger.Core.Arbitrary ()
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.QuickCheck (
   Arbitrary,
   Gen,
@@ -57,11 +58,11 @@ utxoWithTx ::
   ) =>
   SupportedLanguage era ->
   Tx TopTx era ->
-  Gen (TxOutMap era)
+  Gen (IndexedUTxOs era)
 utxoWithTx l tx = do
   let allIns = tx ^. bodyTxL ^. allInputsTxBodyF
   outs <- vectorOf (length allIns) (genTxOut @era l)
-  pure $ TxOutMap (Map.fromList $ Set.toList allIns `zip` outs)
+  pure $ legacyIndexedUTxOs (Map.fromList $ Set.toList allIns `zip` outs)
 
 genTx ::
   forall era.

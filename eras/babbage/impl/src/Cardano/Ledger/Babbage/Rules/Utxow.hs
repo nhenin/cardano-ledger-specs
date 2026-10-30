@@ -53,7 +53,7 @@ import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
@@ -351,7 +351,7 @@ babbageUtxowTransition = do
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
   let inputAllocations =
-        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
           . utxosUTxOStore
           $ u

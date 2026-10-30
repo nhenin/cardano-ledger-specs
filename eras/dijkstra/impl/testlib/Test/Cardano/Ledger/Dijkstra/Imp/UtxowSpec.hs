@@ -360,7 +360,7 @@ spec = describe "UTXOW" $ do
           logToExpr txBorked
 
           pp <- getsNES $ nesEsL . curPParamsEpochStateL
-          entries <- getAllocations
+          entries <- getIndexedUTxOs
           Globals {epochInfo, systemStart} <- use impGlobalsL
           let report = evalTxExUnits pp txBorked entries epochInfo systemStart
           logToExpr report

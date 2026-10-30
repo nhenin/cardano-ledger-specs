@@ -27,7 +27,7 @@ import Cardano.Ledger.Mary.Value
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Conduit
@@ -61,10 +61,10 @@ readEpochState ::
   IO (EpochState CurrentEra)
 readEpochState = readDecCBOR
 
-readHexTxOutMap ::
+readHexIndexedUTxOs ::
   FilePath ->
-  IO (TxOutMap CurrentEra)
-readHexTxOutMap = readDecCBORHex
+  IO (IndexedUTxOs CurrentEra)
+readHexIndexedUTxOs = readDecCBORHex
 
 readDecCBOR :: Binary.DecCBOR a => FilePath -> IO a
 readDecCBOR = either throwIO pure . Binary.decodeFull (eraProtVerHigh @CurrentEra) <=< LBS.readFile
@@ -136,13 +136,13 @@ txIxNestedInsert !im (TxIn !txId !txIx, !v) =
 totalADA :: Map.Map TxIn (TxOut CurrentEra) -> MaryValue
 totalADA = unAssets . sumAllAssets
 
-readBinTxOutMap ::
+readBinIndexedUTxOs ::
   FilePath ->
-  IO (TxOutMap CurrentEra)
-readBinTxOutMap fp = do
+  IO (IndexedUTxOs CurrentEra)
+readBinIndexedUTxOs fp = do
   ls <- readNewEpochState fp
-  -- This output-only file API intentionally omits the Store's deposit metadata.
-  pure $! Allocations.toTxOutMap . allocations $ ls ^. utxoStoreG
+  -- Retain each entry's accepted size and historical calculation.
+  pure $! allocations $ ls ^. utxoStoreG
 
 newtype Count = Count Int
   deriving (Eq, Ord, Enum, Real, Integral, Num, Pretty)
@@ -662,11 +662,11 @@ instance Pretty UTxOStats where
 instance AggregateStat UTxOStats where
   aggregateStat = aggregateStat . usTxOutStats
 
-countUTxOStats :: Allocations CurrentEra -> UTxOStats
+countUTxOStats :: IndexedUTxOs CurrentEra -> UTxOStats
 countUTxOStats entries =
   UTxOStats
-    { usTxInStats = countTxInStats . Map.keys . unAllocations $ entries
-    , usTxOutStats = countTxOutStats . Allocations.txOuts $ entries
+    { usTxInStats = countTxInStats . Set.toList . IndexedUTxOs.inputIds $ entries
+    , usTxOutStats = countTxOutStats . IndexedUTxOs.txOuts $ entries
     }
 
 data AggregateStats = AggregateStats

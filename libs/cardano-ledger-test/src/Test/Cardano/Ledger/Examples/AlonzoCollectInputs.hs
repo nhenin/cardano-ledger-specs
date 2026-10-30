@@ -49,7 +49,7 @@ import Cardano.Ledger.Plutus (
   decodePlutusRunnable,
   hashData,
  )
-import Cardano.Ledger.State (Allocations, EraUTxO (..))
+import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -63,7 +63,6 @@ import Test.Cardano.Ledger.Alonzo.Era (mkTestLedgerTxInfo)
 import Test.Cardano.Ledger.Alonzo.Scripts (alwaysSucceeds)
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.KeyPair (mkWitnessVKey)
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.Examples.AlonzoAPI (defaultPParams)
 import Test.Cardano.Ledger.Examples.STSTestUtils (
   EraModel (..),
@@ -96,7 +95,7 @@ collectTwoPhaseScriptInputsOutputOrdering = do
     testSystemStart
     defaultPParams
     validatingTx
-    (legacyAllocations initUTxO)
+    initUTxO
     `shouldBe` Right
       [ PlutusWithContext
           { pwcProtocolVersion = pvMajor protVer
@@ -121,7 +120,7 @@ collectTwoPhaseScriptInputsOutputOrdering = do
     plutusRunnable = decodePlutusRunnable (pvMajor protVer) plutus
     lti :: LedgerTxInfo TopTx AlonzoEra
     lti =
-      mkTestLedgerTxInfo protVer testEpochInfo testSystemStart (legacyAllocations initUTxO) validatingTx $
+      mkTestLedgerTxInfo protVer testEpochInfo testSystemStart initUTxO validatingTx $
         LedgerTopTxInfo mempty
 
 -- ============================== DATA ===============================
@@ -181,7 +180,7 @@ collectInputs ::
   SystemStart ->
   PParams era ->
   Tx TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Either (NonEmpty (CollectError era)) [PlutusWithContext]
 collectInputs = collectPlutusScriptsWithContext
 

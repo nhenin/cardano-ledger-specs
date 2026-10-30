@@ -55,6 +55,7 @@ import Cardano.Ledger.Dijkstra.Era (EPOCH, POOLREAP, SNAP)
 import Cardano.Ledger.Dijkstra.PParams (DijkstraEraPParams)
 import Cardano.Ledger.Dijkstra.Rules.PoolReap ()
 import Cardano.Ledger.Dijkstra.Rules.Snap ()
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
@@ -69,6 +70,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   utxosDepositedL,
   utxosDonationL,
   utxosGovStateL,
+  utxosUTxOStoreL,
  )
 import Cardano.Ledger.Shelley.Rewards ()
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
@@ -92,6 +94,7 @@ import Lens.Micro ((%~), (&), (.~), (<>~), (^.))
 
 instance
   ( EraTxOut era
+  , BabbageEraPParams era
   , RunConwayRatify era
   , ConwayEraCertState era
   , ConwayEraGov era
@@ -130,6 +133,7 @@ epochTransition ::
   ( RunConwayRatify era
   , ConwayEraCertState era
   , EraTxOut era
+  , BabbageEraPParams era
   , Environment (EraRule "SNAP" era) ~ Shelley.SnapEnv era
   , State (EraRule "SNAP" era) ~ SnapShots era
   , Signal (EraRule "SNAP" era) ~ EpochNo
@@ -217,6 +221,7 @@ epochTransition = do
         & utxosDepositedL .~ totalObligation certState2 govState1
         & utxosDonationL .~ zero
         & utxosGovStateL .~ govState1
+        & utxosUTxOStoreL %~ activateDepositParameters (govState1 ^. curPParamsGovStateL)
     ledgerState1 =
       ledgerState0
         & lsCertStateL .~ certState2

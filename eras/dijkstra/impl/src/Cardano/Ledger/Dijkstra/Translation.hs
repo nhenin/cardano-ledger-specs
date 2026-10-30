@@ -37,6 +37,7 @@ import Cardano.Ledger.Dijkstra.Tx ()
 import Cardano.Ledger.Dijkstra.TxAuxData ()
 import Cardano.Ledger.Dijkstra.TxBody (upgradeGovAction, upgradeProposals)
 import Cardano.Ledger.Dijkstra.TxWits ()
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
@@ -46,6 +47,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsUTxOStateL,
  )
 import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((&), (.~), (^.))
@@ -216,13 +218,19 @@ instance TranslateEra DijkstraEra UTxOState where
   translateEra ctxt us =
     pure
       UTxOState
-        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
+        { utxosUTxOStore =
+            activateDepositParameters (govState ^. curPParamsGovStateL)
+              . translateEra' ctxt
+              . utxosUTxOStore
+              $ us
         , utxosDeposited = utxosDeposited us
         , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt . utxosGovState $ us
+        , utxosGovState = govState
         , utxosInstantStake = coerce . utxosInstantStake $ us
         , utxosDonation = utxosDonation us
         }
+    where
+      govState = translateEra' ctxt . utxosGovState $ us
 
 instance TranslateEra DijkstraEra UTxOStore where
   translateEra _ =
@@ -234,5 +242,12 @@ instance TranslateEra DijkstraEra UTxOStore where
       upgradeImplicit :: TxOut ConwayEra -> LegacyTxOut DijkstraEra
       upgradeImplicit (LegacyTxOut output) = upgradeBabbageTxOut output
 
-instance TranslateEra DijkstraEra TxOutMap where
-  translateEra _ = pure . TxOutMap . Map.map upgradeTxOut . unTxOutMap
+instance TranslateEra DijkstraEra IndexedUTxOs where
+  translateEra _ =
+    pure . IndexedUTxOs.translateLegacyOutputs upgradeImplicit
+    where
+      -- Conway cannot contain store-backed outputs. The provisional legacy
+      -- conversion records a re-encoded size and zero rate, not recovered history.
+      -- These entries contribute no separately held deposit.
+      upgradeImplicit :: TxOut ConwayEra -> LegacyTxOut DijkstraEra
+      upgradeImplicit (LegacyTxOut output) = upgradeBabbageTxOut output

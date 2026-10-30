@@ -15,8 +15,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import qualified Data.OMap.Strict as OMap
@@ -73,7 +72,7 @@ outputWithForm address StoreBackedOutput amount =
 -- | Inspect every body's own ordinary inputs and outputs against the captured
 -- allocations. A NewTxOut requires presence regardless of its recorded amount.
 -- This oracle does not call production presence predicates or read declarations.
-requiredDeclarationOwners :: Allocations DijkstraEra -> Tx TopTx DijkstraEra -> [DeclarationOwner]
+requiredDeclarationOwners :: IndexedUTxOs DijkstraEra -> Tx TopTx DijkstraEra -> [DeclarationOwner]
 requiredDeclarationOwners allocations tx =
   [TopTxBody | requiresDeclaration allocations tx]
     <> [ SubTxBody input
@@ -91,12 +90,12 @@ sourceInput child = case Set.toList (child ^. bodyTxL . inputsTxBodyL) of
 
 -- | Store-backed ordinary input or output form triggers the body's obligation.
 -- Reference inputs, collateral and nested children's outputs are excluded.
-requiresDeclaration :: Allocations DijkstraEra -> Tx l DijkstraEra -> Bool
+requiresDeclaration :: IndexedUTxOs DijkstraEra -> Tx l DijkstraEra -> Bool
 requiresDeclaration allocations tx =
   any isStoreBacked (tx ^. bodyTxL . outputsTxBodyL)
     || ( any isStoreBacked
-           . Allocations.txOuts
-           . Allocations.restrictToInputs (tx ^. bodyTxL . inputsTxBodyL)
+           . IndexedUTxOs.txOuts
+           . IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . inputsTxBodyL)
            $ allocations
        )
 

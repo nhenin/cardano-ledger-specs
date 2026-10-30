@@ -118,7 +118,7 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
   prop "DS-COLLATERAL-FUNDING-P02 - fixed collateral inputs, return, fee and prices ⇒ ordinary declarations do not change collateral deposit funding" $
     forAll ((,) <$> Collateral.fundingScenarios <*> Collateral.ordinaryDeclarationCases) $ \(scenarios, declarations) ->
       forM_ scenarios $ \scenario -> do
-        Fixture{signedTx, previousUTxOState, inputCoins, releasedDeposits, returnDeposit, protocolParameters} <- Collateral.buildAndSign scenario
+        Fixture{signedTx, previousUTxOState, inputCoins, releasedDeposits, returnDeposit} <- Collateral.buildAndSign scenario
         let originalBody = signedTx ^. bodyTxL
             returnCoins = foldMap (^. coinTxOutL) $ originalBody ^. collateralReturnTxBodyL
             additionalDeposit = max (Coin 0) (returnDeposit <-> releasedDeposits)
@@ -128,8 +128,7 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
                 & collateralReturnTxBodyL .~ (originalBody ^. collateralReturnTxBodyL)
                 & feeTxBodyL .~ (originalBody ^. feeTxBodyL)
                 & totalCollateralTxBodyL .~ (originalBody ^. totalCollateralTxBodyL)
-              settlement = collateralDepositSettlement protocolParameters
-                (liveOutputStore previousUTxOState) body
+              settlement = collateralDepositSettlement (liveOutputStore previousUTxOState) body
           collateralReleasedDeposits settlement `shouldBe` releasedDeposits
           collateralReturnDeposit settlement `shouldBe` returnDeposit
           collateralAdditionalDeposit settlement `shouldBe` additionalDeposit

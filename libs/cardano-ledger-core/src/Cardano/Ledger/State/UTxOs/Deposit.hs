@@ -9,6 +9,7 @@ module Cardano.Ledger.State.UTxOs.Deposit (
   DepositAmount (..),
   ByteSize (..),
   calculateDeposit,
+  legacyDepositCalculation,
 ) where
 
 import Cardano.Ledger.Binary (
@@ -41,8 +42,13 @@ data DepositCalculation
   | DepositCalculationV2 !CoinPerByte
   deriving (Eq, Ord, Show, Generic)
 
--- | An output size measured in bytes. Accepted sizes are validated at insertion
--- and decoding before they are passed to the pricing calculation.
+-- | Compatibility calculation for legacy outputs without recorded pricing.
+-- Their deposits remain inside the output and contribute zero to the Store.
+legacyDepositCalculation :: DepositCalculation
+legacyDepositCalculation = DepositCalculationV1 (CoinPerByte (CompactCoin 0))
+
+-- | An output size measured in bytes. Calculations use the measured size;
+-- entry decoding rejects negative sizes supplied by persisted data.
 newtype ByteSize = ByteSize
   { unByteSize :: Int64
   }

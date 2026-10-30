@@ -61,7 +61,7 @@ module Cardano.Ledger.Alonzo.Tx (
   totExUnits,
   alonzoMinFeeTx,
   --  Figure 5
-  txOutsTxBody,
+  outputsTxBody,
   -- Other
   toCBORForSizeComputation,
   toCBORForMempoolSubmission,

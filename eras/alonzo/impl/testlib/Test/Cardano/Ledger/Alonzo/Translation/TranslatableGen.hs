@@ -49,7 +49,7 @@ import Test.Cardano.Ledger.Alonzo.Translation.TranslationInstance (
   VersionedTxInfo (..),
  )
 import Test.Cardano.Ledger.Common
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 
 class
   ( EraUTxO era
@@ -62,7 +62,7 @@ class
   where
   tgRedeemers :: Gen (Redeemers era)
   tgTx :: SupportedLanguage era -> Gen (Tx TopTx era)
-  tgUtxo :: SupportedLanguage era -> Tx TopTx era -> Gen (TxOutMap era)
+  tgUtxo :: SupportedLanguage era -> Tx TopTx era -> Gen (IndexedUTxOs era)
 
 instance TranslatableGen AlonzoEra where
   tgRedeemers = arbitrary
@@ -70,7 +70,7 @@ instance TranslatableGen AlonzoEra where
   tgUtxo _ tx = do
     let ins = tx ^. bodyTxL ^. inputsTxBodyL
     outs <- vectorOf (length ins) (arbitrary :: Gen (TxOut AlonzoEra))
-    pure $ TxOutMap (Map.fromList $ Set.toList ins `zip` outs)
+    pure $ legacyIndexedUTxOs (Map.fromList $ Set.toList ins `zip` outs)
 
 translationInstances ::
   TranslatableGen era =>
@@ -99,7 +99,7 @@ genTranslationInstance = do
   tx <- tgTx supportedLanguage
   utxo <- tgUtxo supportedLanguage tx
   let lti =
-        mkTestLedgerTxInfo protVer epochInfo systemStart (legacyAllocations utxo) tx $
+        mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $
           LedgerTopTxInfo mempty
   plutusPurpose <- arbitrary
   pure $ case supportedLanguage of

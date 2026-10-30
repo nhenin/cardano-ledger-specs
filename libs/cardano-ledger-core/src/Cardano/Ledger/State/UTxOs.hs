@@ -24,7 +24,6 @@ import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.State.CertState (CertState)
-import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
 import Cardano.Ledger.State.UTxOs.Store (UTxOStore)
 import Control.DeepSeq (NFData)
 import Data.Kind (Type)
@@ -73,7 +72,7 @@ class EraTx era => EraUTxO era where
     PParams era ->
     -- | Function that can lookup current delegation deposits
     (Credential Staking -> Maybe Coin) ->
-    Allocations era ->
+    IndexedUTxOs era ->
     TxBody t era ->
     Value era
 
@@ -90,20 +89,20 @@ class EraTx era => EraUTxO era where
   getScriptsProvided ::
     -- | For some era it is necessary to look into accepted allocations to find all of the available
     -- scripts for the transaction
-    Allocations era ->
+    IndexedUTxOs era ->
     Tx t era ->
     ScriptsProvided era
 
   -- | Produce all the information required for figuring out which scripts are required
   -- for the transaction to be valid, once those scripts are evaluated
-  getScriptsNeeded :: Allocations era -> TxBody t era -> ScriptsNeeded era
+  getScriptsNeeded :: IndexedUTxOs era -> TxBody t era -> ScriptsNeeded era
 
   -- | Extract the set of all script hashes that are needed for script validation.
   getScriptsHashesNeeded :: ScriptsNeeded era -> Set ScriptHash
 
   -- | Extract all of the KeyHash witnesses that are required for validating the transaction
   getWitsVKeyNeeded ::
-    CertState era -> Allocations era -> TxBody t era -> Set (KeyHash Witness)
+    CertState era -> IndexedUTxOs era -> TxBody t era -> Set (KeyHash Witness)
 
   -- | Minimum fee computation, excluding witnesses and including ref scripts size
-  getMinFeeTxUtxo :: PParams era -> Tx t era -> Allocations era -> Coin
+  getMinFeeTxUtxo :: PParams era -> Tx t era -> IndexedUTxOs era -> Coin

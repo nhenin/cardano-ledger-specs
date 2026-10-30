@@ -20,6 +20,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Rules.Reports (synopsisCoinMap)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.Val ((<+>))
 import Control.State.Transition (STS (..))
 import Data.Foldable as F (foldl')
@@ -86,7 +87,7 @@ consistentUtxoSizeProp proof = aggProp agg0 aggregate makeprop
         body = getBody proof tx
     makeprop firstSt lastSt n = getUtxoSize firstSt === getUtxoSize lastSt - n
     getUtxoSize :: MockChainState era -> Int
-    getUtxoSize = Map.size . unAllocations . allocations . utxosUTxOStore . lsUTxOState . esLState . nesEs . mcsNes
+    getUtxoSize = IndexedUTxOs.size . allocations . utxosUTxOStore . lsUTxOState . esLState . nesEs . mcsNes
 
 aggUTxO ::
   forall era.

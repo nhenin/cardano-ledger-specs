@@ -79,13 +79,12 @@ import Cardano.Ledger.Shelley.UTxO (
   getShelleyWitsVKeyNeeded,
  )
 import Cardano.Ledger.State (
-  Allocations,
   EraCertState (..),
   EraUTxO (..),
   ScriptsProvided (..),
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn
 import Control.DeepSeq (NFData)
 import Data.Foldable as F (foldl', toList)
@@ -133,7 +132,7 @@ class EraUTxO era => AlonzoEraUTxO era where
   -- the inputs that might be spent are the required datums and the datums corresponding
   -- to the outputs and reference inputs are the supplemental datums.
   getSupplementalDataHashes ::
-    Allocations era ->
+    IndexedUTxOs era ->
     TxBody l era ->
     Set.Set DataHash
 
@@ -144,10 +143,10 @@ class EraUTxO era => AlonzoEraUTxO era where
   -- This is similar to @getDatum@ function as in the spec:
   --
   -- @
-  --   getDatum :: Tx era -> Allocations era -> ScriptPurpose era -> [Data era]
+  --   getDatum :: Tx era -> IndexedUTxOs era -> ScriptPurpose era -> [Data era]
   -- @
   getSpendingDatum ::
-    Allocations era ->
+    IndexedUTxOs era ->
     Tx l era ->
     PlutusPurpose AsItem era ->
     Maybe (Data era)
@@ -229,13 +228,13 @@ getAlonzoSupplementalDataHashes txBody =
 --  contains Data. Nothing is returned for the other kinds.
 getAlonzoSpendingDatum ::
   (AlonzoEraTxWits era, AlonzoEraTxOut era, EraTx era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx l era ->
   PlutusPurpose AsItem era ->
   Maybe (Data era)
 getAlonzoSpendingDatum inputAllocations tx sp = do
   AsItem txIn <- toSpendingPurpose sp
-  txOut <- Unspent.toTxOut <$> Allocations.lookupUTxO txIn inputAllocations
+  txOut <- Unspent.toTxOut <$> IndexedUTxOs.lookupUTxO txIn inputAllocations
   SJust hash <- Just $ txOut ^. dataHashTxOutL
   Map.lookup hash $ tx ^. witsTxL . datsTxWitsL . unTxDatsL
 
@@ -250,7 +249,7 @@ getAlonzoScriptsHashesNeeded (AlonzoScriptsNeeded sn) = Set.fromList (map snd sn
 -- @{ h | (_ → (a,_,h)) ∈ txins tx ◁ utxo, isNonNativeScriptAddress tx a}@
 getInputDataHashesTxBody ::
   (EraTxBody era, AlonzoEraTxOut era, AlonzoEraScript era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   ScriptsProvided era ->
   (Set.Set DataHash, Set.Set TxIn)
@@ -263,7 +262,7 @@ getInputDataHashesTxBody inputAllocations txBody (ScriptsProvided scriptsProvide
       pure $ plutusScriptLanguage plutusScript
     isSpendingPlutusScript = isJust . spendingPlutusScriptLanguage
     accum ans@(!hashSet, !inputSet) txIn =
-      case Allocations.lookupUTxO txIn inputAllocations of
+      case IndexedUTxOs.lookupUTxO txIn inputAllocations of
         Nothing -> ans
         Just entry ->
           let txOut = Unspent.toTxOut entry
@@ -315,7 +314,7 @@ getInputDataHashesTxBody inputAllocations txBody (ScriptsProvided scriptsProvide
 -- function 'validateMissingScripts' in the Utxow rule.
 getAlonzoScriptsNeeded ::
   (MaryEraTxBody era, AlonzoEraScript era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   AlonzoScriptsNeeded era
 getAlonzoScriptsNeeded inputAllocations txBody =
@@ -372,7 +371,7 @@ zipAsIxItem xs f =
 
 getSpendingScriptsNeeded ::
   (AlonzoEraScript era, EraTxBody era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   AlonzoScriptsNeeded era
 getSpendingScriptsNeeded inputAllocations txBody =
@@ -380,7 +379,7 @@ getSpendingScriptsNeeded inputAllocations txBody =
     catMaybes $
       zipAsIxItem (txBody ^. inputsTxBodyL) $
         \asIxItem@(AsIxItem _ txIn) -> do
-          addr <- view addrTxOutL . Unspent.toTxOut <$> Allocations.lookupUTxO txIn inputAllocations
+          addr <- view addrTxOutL . Unspent.toTxOut <$> IndexedUTxOs.lookupUTxO txIn inputAllocations
           hash <- getScriptHash addr
           return (SpendingPurpose asIxItem, hash)
 {-# INLINEABLE getSpendingScriptsNeeded #-}
@@ -423,7 +422,7 @@ getAlonzoWitsVKeyNeeded ::
   , STxLevel l era ~ STxTopLevel l era
   ) =>
   CertState era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Set.Set (KeyHash Witness)
 getAlonzoWitsVKeyNeeded certState inputAllocations txBody =
