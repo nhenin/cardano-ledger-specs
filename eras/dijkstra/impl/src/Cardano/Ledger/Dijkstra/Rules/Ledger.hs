@@ -76,6 +76,7 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure, UtxoEnv (..)
 import Cardano.Ledger.Dijkstra.Rules.Utxow (DijkstraUtxowPredFailure)
 import Cardano.Ledger.Dijkstra.TxBody
 import Cardano.Ledger.Dijkstra.UTxO (DijkstraEraUTxO (..), batchNonDistinctRefScriptsSize)
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest)
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
@@ -85,7 +86,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
 import Data.Word (Word32)
@@ -346,7 +347,7 @@ validateAllRefScriptSize ::
   , DijkstraEraTxBody era
   ) =>
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx TopTx era ->
   Test (DijkstraLedgerPredFailure era)
 validateAllRefScriptSize pp inputAllocations tx =
@@ -392,12 +393,15 @@ dijkstraLedgerTransition = do
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
+  -- Synchronize effective parameters once for the batch (also covering direct
+  -- ledger callers). Preserve the active formula version and historical entries.
   -- Retain the previous store before SubTxs consume any entries.
   -- Witness checks and whole-batch accounting retain these original allocations,
   -- including each output's historical calculation and accepted size.
-  let previousUTxOStore = ledgerState ^. utxoStoreG
+  let activeLedgerState = ledgerState & utxoStoreL %~ activateDepositParameters pp
+      previousUTxOStore = activeLedgerState ^. utxoStoreG
       originalAllocations =
-        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
+        IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
           previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
@@ -414,7 +418,7 @@ dijkstraLedgerTransition = do
             (allocations previousUTxOStore)
             originalAccounts
             (tx ^. isPhase2ValidTxL)
-        , ledgerState
+        , activeLedgerState
         , subStAnnTxs
         )
 

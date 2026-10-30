@@ -31,7 +31,7 @@ import Cardano.Ledger.Shelley.Scripts (
  )
 import Cardano.Ledger.Shelley.UTxO (getShelleyMinFeeTxUtxo)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
 import qualified Data.List.NonEmpty as NE
@@ -46,7 +46,7 @@ spec :: forall era. ConwayEraImp era => SpecWith (ImpInit (LedgerSpec era))
 spec = describe "UTXO" $ do
   describe "Certificates" $ do
     it "Reg/UnReg collect and refund correct amounts" $ do
-      Assets initialValue <- sumAllAssets . Allocations.txOuts <$> getAllocations
+      Assets initialValue <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       accountDeposit <- getsPParams ppKeyDepositL
       stakePoolDeposit <- getsPParams ppPoolDepositL
       dRepDeposit <- getsPParams ppDRepDepositL
@@ -75,7 +75,7 @@ spec = describe "UTXO" $ do
                 , UnRegDepositTxCert cred2 accountDeposit
                 , RegDepositTxCert cred4 accountDeposit
                 ]
-      Assets valueAfterRegister <- sumAllAssets . Allocations.txOuts <$> getAllocations
+      Assets valueAfterRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       -- Overwrite deposit protocol parameters in order to ensure they does not affect refunds
       modifyPParams
         ( \pp ->
@@ -102,7 +102,7 @@ spec = describe "UTXO" $ do
                 , UnRegDepositTxCert cred3 accountDeposit
                 , UnRegDepositTxCert cred4 accountDeposit
                 ]
-      Assets valueAfterUnRegister <- sumAllAssets . Allocations.txOuts <$> getAllocations
+      Assets valueAfterUnRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       let totalFees = (txRegister ^. bodyTxL . feeTxBodyL) <+> (txUnRegister ^. bodyTxL . feeTxBodyL)
       fees <- getsNES (nesEsL . esLStateL . lsUTxOStateL . utxosFeesL)
       totalFees `shouldBe` fees
@@ -153,7 +153,7 @@ spec = describe "UTXO" $ do
         refIns <- produceRefScripts (NE.fromList refScripts)
         tx <- submitTxWithRefInputs scriptTxIn refIns
         minFeeDiff <- do
-          entries <- getAllocations
+          entries <- getIndexedUTxOs
           pp <- getsNES $ nesEsL . curPParamsEpochStateL
           pure $ getMinFeeTxUtxo pp tx entries <-> getShelleyMinFeeTxUtxo pp tx
         refScriptFee <- getsPParams ppMinFeeRefScriptCostPerByteL
@@ -197,7 +197,7 @@ conwayOnlySpec ::
 conwayOnlySpec = describe "UTXO" $ do
   describe "Certificates" $ do
     it "Reg/UnReg collect and refund correct amounts" $ do
-      Assets initialValue <- sumAllAssets . Allocations.txOuts <$> getAllocations
+      Assets initialValue <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       accountDeposit <- getsPParams ppKeyDepositL
       stakePoolDeposit <- getsPParams ppPoolDepositL
       dRepDeposit <- getsPParams ppDRepDepositL
@@ -226,7 +226,7 @@ conwayOnlySpec = describe "UTXO" $ do
                 , UnRegDepositTxCert cred1 accountDeposit
                 , RegDepositTxCert cred4 accountDeposit
                 ]
-      Assets valueAfterRegister <- sumAllAssets . Allocations.txOuts <$> getAllocations
+      Assets valueAfterRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       -- Overwrite deposit protocol parameters in order to ensure they does not affect refunds
       modifyPParams
         ( \pp ->
@@ -253,7 +253,7 @@ conwayOnlySpec = describe "UTXO" $ do
                 , UnRegTxCert cred3
                 , UnRegDepositTxCert cred4 accountDeposit
                 ]
-      Assets valueAfterUnRegister <- sumAllAssets . Allocations.txOuts <$> getAllocations
+      Assets valueAfterUnRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       let totalFees = (txRegister ^. bodyTxL . feeTxBodyL) <+> (txUnRegister ^. bodyTxL . feeTxBodyL)
       fees <- getsNES (nesEsL . esLStateL . lsUTxOStateL . utxosFeesL)
       totalFees `shouldBe` fees

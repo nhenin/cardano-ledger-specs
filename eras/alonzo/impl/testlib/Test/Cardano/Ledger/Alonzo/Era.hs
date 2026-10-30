@@ -97,7 +97,7 @@ mkTestLedgerTxInfo ::
   ProtVer ->
   EpochInfo (Either Text) ->
   SystemStart ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx level era ->
   LedgerLevelTxInfo level era ->
   LedgerTxInfo level era

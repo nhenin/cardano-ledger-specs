@@ -205,7 +205,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..))
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (Val (..), (<->))
@@ -1793,7 +1793,7 @@ showConwayTxBalance ::
   ) =>
   PParams era ->
   CertState era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx TopTx era ->
   String
 showConwayTxBalance pp certState entries tx =
@@ -1814,7 +1814,8 @@ showConwayTxBalance pp certState entries tx =
   where
     txBody = tx ^. bodyTxL
     Assets inputs =
-      sumAllAssets . Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
+      sumAllAssets . IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $
+        entries
     Assets outputs = sumAllAssets (txBody ^. outputsTxBodyL)
     accounts = certState ^. certDStateL . accountsL
     pState = certState ^. certPStateL
@@ -1833,7 +1834,7 @@ logConwayTxBalance ::
 logConwayTxBalance tx = do
   pp <- getsPParams id
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   logString $ showConwayTxBalance pp certState entries tx
 
 submitBootstrapAwareFailingVote ::

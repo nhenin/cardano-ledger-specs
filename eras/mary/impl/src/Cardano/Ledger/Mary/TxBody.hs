@@ -41,7 +41,7 @@ module Cardano.Ledger.Mary.TxBody (
 import Cardano.Ledger.Allegra.Core
 import Cardano.Ledger.Allegra.TxBody
 import Cardano.Ledger.BaseTypes (ToKeyValuePairs (toKeyValuePairs))
-import Cardano.Ledger.Binary (Annotator, DecCBOR (..), EncCBOR (..), ToCBOR (..))
+import Cardano.Ledger.Binary (Annotator, DecCBOR (..), EncCBOR (..), ToCBOR (..), mkSized)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Mary.Era (MaryEra)
 import Cardano.Ledger.Mary.TxCert ()
@@ -235,6 +235,9 @@ instance EraTxBody MaryEra where
   inputsTxBodyL =
     lensMemoRawType @MaryEra (\AllegraTxBodyRaw {atbrInputs} -> atbrInputs) $ \txBodyRaw inputs -> txBodyRaw {atbrInputs = inputs}
   {-# INLINEABLE inputsTxBodyL #-}
+
+  sizedOutputsTxBodyG = outputsTxBodyL . to (fmap (mkSized $ eraProtVerLow @MaryEra))
+  {-# INLINE sizedOutputsTxBodyG #-}
 
   outputsTxBodyL =
     lensMemoRawType @MaryEra (\AllegraTxBodyRaw {atbrOutputs} -> atbrOutputs) $ \txBodyRaw outputs -> txBodyRaw {atbrOutputs = outputs}

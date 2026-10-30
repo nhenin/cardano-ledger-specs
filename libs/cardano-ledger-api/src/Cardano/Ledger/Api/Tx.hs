@@ -105,11 +105,17 @@ import Cardano.Ledger.Api.Tx.Body
 import Cardano.Ledger.Api.Tx.Cert
 import Cardano.Ledger.Api.Tx.Wits
 import Cardano.Ledger.Babbage.Collateral (mkCollateralTxIn)
-import Cardano.Ledger.Core (EraTx (..), TxLevel (..), binaryUpgradeTx, txIdTx, txOutsTxBody)
+import Cardano.Ledger.Core (
+  EraTx (..),
+  TxLevel (..),
+  binaryUpgradeTx,
+  outputsTxBody,
+  txIdTx,
+ )
 import Cardano.Ledger.Tools (calcMinFeeTx, estimateMinFeeTx, setMinFeeTx, setMinFeeTxUtxo)
-import Cardano.Ledger.TxOut.Map (TxOutMap (..))
+import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.Monad (join)
-import qualified Data.Map as Map
 import Lens.Micro
 
 class (EraTx era, AnyEraTxBody era, AnyEraTxWits era, AnyEraTxAuxData era) => AnyEraTx era where
@@ -139,16 +145,15 @@ instance AnyEraTx ConwayEra
 
 instance AnyEraTx DijkstraEra
 
--- | Index the outputs produced by the selected phase-2 outcome. This payload
--- view does not include accepted sizes or historical deposit calculations.
-producedTxOuts :: AnyEraTx era => Tx TopTx era -> TxOutMap era
+-- | Index the outputs selected by the phase-2 outcome, retaining their encoded
+-- sizes. This view does not establish ledger acceptance or record deposit pricing.
+producedTxOuts :: AnyEraTx era => Tx TopTx era -> IndexedTxOs era
 producedTxOuts tx =
   case tx ^. isPhase2ValidTxG of
     Just Phase2Invalid ->
-      TxOutMap $
-        case join (txBody ^. collateralReturnTxBodyG) of
-          Nothing -> mempty
-          Just txOut -> Map.singleton (mkCollateralTxIn txBody) txOut
-    _ -> txOutsTxBody txBody
+      case join (txBody ^. sizedCollateralReturnTxBodyG) of
+        Nothing -> mempty
+        Just output -> IndexedTxOs.singleton (mkCollateralTxIn txBody) output
+    _ -> outputsTxBody txBody
   where
     txBody = tx ^. bodyTxL

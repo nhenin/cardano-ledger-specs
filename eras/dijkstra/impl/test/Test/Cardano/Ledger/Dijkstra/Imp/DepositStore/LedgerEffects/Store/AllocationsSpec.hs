@@ -15,9 +15,16 @@ import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
  )
-import Cardano.Ledger.State (allocations, lookupUTxO, unAllocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.State (
+  DepositCalculation (..),
+  activateNewCalculation,
+  allocations,
+  currentCalculation,
+  lookupUTxO,
+  utxoStoreL,
+ )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Val (inject)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -52,6 +59,7 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (
   fixupTx,
   freshKeyAddrNoPtr_,
   getsNES,
+  modifyNES,
   modifyPParams,
  )
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe, shouldNotBe)
@@ -76,8 +84,8 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
           assertDepositTotal utxoState
           let recordsAfter = recordedAmounts $ liveOutputStore utxoState
           recordsAfter `shouldBe` newAllocations <> Map.withoutKeys recordsBefore (ordinarySpendingInputs signedTx)
-          Map.keysSet recordsAfter `shouldBe` Map.keysSet
-            (unAllocations . Allocations.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ utxoState)
+          Map.keysSet recordsAfter `shouldBe`
+            (IndexedUTxOs.inputIds . IndexedUTxOs.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ utxoState)
 
   -- Both real script outcomes cover mixed collateral, absent/implicit/Store returns,
   -- equal deposits and changed prices. Shared ordinary/collateral sources are removed
@@ -101,8 +109,8 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
           recordsAfter `shouldBe` case signedTx ^. isPhase2ValidTxL of
             Phase2Valid -> Map.withoutKeys recordsBefore $ ordinarySpendingInputs signedTx
             Phase2Invalid -> returnAllocation <> Map.withoutKeys recordsBefore collateralInputs
-          Map.keysSet recordsAfter `shouldBe` Map.keysSet
-            (unAllocations . Allocations.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ utxoState)
+          Map.keysSet recordsAfter `shouldBe`
+            (IndexedUTxOs.inputIds . IndexedUTxOs.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ utxoState)
 
   -- The accepted wire output has one more byte than its canonical re-encoding.
   -- Its measured allocation survives a real state-codec restore, changed prices
@@ -119,15 +127,22 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       let records = recordedAmounts $ liveOutputStore allocatedState
       Map.lookup source records `shouldBe` Just creationDeposit
       canonicalOutput <- expectJust $
-        UTxO.toTxOut <$> lookupUTxO source (allocations . liveOutputStore $ allocatedState)
+        Unspent.toTxOut <$> lookupUTxO source (allocations . liveOutputStore $ allocatedState)
       fromIntegral (Binary.sizedSize $ Binary.mkSized version canonicalOutput) `shouldBe` acceptedBytes - 1
       Effects.restoreUTxOState allocatedState
+      -- Formula activation and parameter activation affect future allocations only.
+      modifyNES $ utxoStoreL %~ activateNewCalculation (DepositCalculationV2 $ CoinPerByte $ CompactCoin 1000)
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2000)
+      activatedState <- readLedger
+      let activeCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 2000
+      currentCalculation (liveOutputStore activatedState) `shouldBe` activeCalculation
+      allocations (liveOutputStore activatedState) `shouldBe` allocations (liveOutputStore allocatedState)
       parameters <- getsNES $ nesEsL . curPParamsEpochStateL
       Pricing.outputDeposit parameters canonicalOutput `shouldNotBe` creationDeposit
       referenceTx <- fixupTx $ mkBasicTx mkBasicTxBody & bodyTxL . referenceInputsTxBodyL .~ Set.singleton source
       submitTx referenceTx >>= isAccepted
       referencedState <- readLedger
+      currentCalculation (liveOutputStore referencedState) `shouldBe` activeCalculation
       retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin 1000) referencedState
       recordedAmounts (liveOutputStore referencedState) `shouldBe` records
       address <- freshKeyAddrNoPtr_
@@ -138,6 +153,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject coins)
       submitTx spendingTx >>= isAccepted
       consumedState <- readLedger
+      currentCalculation (liveOutputStore consumedState) `shouldBe` activeCalculation
       assertDepositTotal consumedState
       recordedAmounts (liveOutputStore consumedState) `shouldBe` Map.delete source records
 

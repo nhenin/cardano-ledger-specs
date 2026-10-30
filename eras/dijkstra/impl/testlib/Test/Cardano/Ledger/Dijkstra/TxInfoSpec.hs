@@ -60,7 +60,7 @@ import Lens.Micro ((&), (.~))
 import qualified PlutusLedgerApi.V4 as PV4
 import Test.Cardano.Ledger.Alonzo.Era (mkTestLedgerTxInfo)
 import Test.Cardano.Ledger.Common
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations, testGlobals)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs, testGlobals)
 import Test.Cardano.Ledger.Dijkstra.Arbitrary ()
 import qualified Test.Cardano.Ledger.Plutus.Examples as Plutus
 
@@ -83,7 +83,7 @@ spec = describe "TxInfo" $ do
   let mkLocalLedgerTxInfo utxo tx =
         let ei = epochInfo testGlobals
             ss = systemStart testGlobals
-         in mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss (legacyAllocations utxo) tx
+         in mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss utxo tx
   describe "PlutusV4" $ do
     prop "Threads the sub-transaction index into txInfoSubTxIx" $ \(txIx :: TxIx) -> do
       let
@@ -105,7 +105,7 @@ spec = describe "TxInfo" $ do
       stakeRef <- oneof [StakeRefBase <$> arbitrary, pure StakeRefNull]
       let
         utxo =
-          TxOutMap
+          legacyIndexedUTxOs
             [ (txIn, mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef) val)
             ]
         tx =
@@ -194,7 +194,7 @@ spec = describe "TxInfo" $ do
           paymentCred2 = ScriptHashObj scriptHash
           txOut = mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
           utxo =
-            TxOutMap
+            legacyIndexedUTxOs
               [
                 ( txIn
                 , mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)

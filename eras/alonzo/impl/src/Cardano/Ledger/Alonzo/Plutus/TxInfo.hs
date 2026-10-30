@@ -79,9 +79,9 @@ import Cardano.Ledger.Mary.Value (
  )
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.Rules.ValidationMode (Inject (..))
-import Cardano.Ledger.State (Allocations, StakePoolParams (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.State (StakePoolParams (..))
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..), txInToText)
 import Cardano.Ledger.Val (zero)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -309,13 +309,13 @@ instance
 transLookupTxOut ::
   forall era.
   Inject (AlonzoContextError era) (ContextError era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) (TxOut era)
 transLookupTxOut entries txIn =
-  case Allocations.lookupUTxO txIn entries of
+  case IndexedUTxOs.lookupUTxO txIn entries of
     Nothing -> Left $ inject $ TranslationLogicMissingInput @era txIn
-    Just entry -> Right $ UTxO.toTxOut entry
+    Just entry -> Right $ Unspent.toTxOut entry
 
 -- | Translate a validity interval to POSIX time
 transValidityInterval ::

@@ -17,7 +17,7 @@ import Cardano.Ledger.Metadata (Metadatum (I))
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Data.Aeson as Aeson
 import qualified Data.Text as T
 import Test.Cardano.Base.Bytes (genByteString)
@@ -71,7 +71,7 @@ roundTripStateEraTypesSpec = do
           serialize version state `shouldBe` serialize version (legacyUTxOStateEncoding state)
       prop "preserves legacy output-map CBOR and JSON encodings" $ \(state :: UTxOState era) -> do
         let store = utxosUTxOStore state
-            outputs = Allocations.toTxOutMap . Store.allocations . utxosUTxOStore $ state
+            outputs = IndexedUTxOs.mapTxOuts id . Store.allocations . utxosUTxOStore $ state
         forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
           serialize version store `shouldBe` serialize version outputs
         Aeson.toJSON store `shouldBe` Aeson.toJSON outputs
@@ -88,7 +88,7 @@ legacyUTxOStateEncoding state =
     <> encodeMap
       encodeMemPack
       encodeMemPack
-      (unTxOutMap . Allocations.toTxOutMap . Store.allocations . utxosUTxOStore $ state)
+      (IndexedUTxOs.mapTxOuts id . Store.allocations . utxosUTxOStore $ state)
     <> encCBOR (utxosDeposited state)
     <> encCBOR (utxosFees state)
     <> encCBOR (utxosGovState state)

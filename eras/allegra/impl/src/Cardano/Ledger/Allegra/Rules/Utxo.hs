@@ -44,9 +44,10 @@ import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.Shelley.PParams (Update)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.Slot (SlotNo)
 import Control.DeepSeq (NFData)
@@ -56,7 +57,6 @@ import qualified Data.ByteString.Lazy as BSL (length)
 import Data.Foldable (toList)
 import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty)
-import qualified Data.Map.Strict as Map
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
@@ -134,9 +134,9 @@ data AllegraUtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (TxOutMap era)
-      -- | UTxO created (produced)
-      (TxOutMap era)
+      (IndexedUTxOs era)
+      -- | Outputs created by the body, with their supplied sizes
+      (IndexedTxOs era)
   deriving (Generic)
 
 deriving instance
@@ -178,7 +178,7 @@ utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       storedAllocations = Store.allocations . Shelley.utxosUTxOStore $ utxos
-      inputAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
       ppup = Shelley.utxosGovState utxos
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
@@ -215,9 +215,9 @@ utxoTransition = do
   {- adaPolicy ∉ supp mint tx
      above check not needed because mint field of type MultiAsset cannot contain ada -}
 
-  let outputs = txOutsTxBody txBody
+  let outputs = IndexedTxOs.txOuts $ outputsTxBody txBody
       -- This legacy rule, also used by Mary, has only implicit-deposit outputs.
-      implicitOutputs = [output | LegacyTxOut output <- Map.elems (unTxOutMap outputs)]
+      implicitOutputs = [output | LegacyTxOut output <- outputs]
   {- ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp)) -}
   runTest $ validateImplicitDeposits pp implicitOutputs
 
@@ -226,7 +226,7 @@ utxoTransition = do
   runTest $ validateOutputTooBigUTxO pp implicitOutputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
-  runTest $ Shelley.validateOutputBootAddrAttrsTooBig (Map.elems (unTxOutMap outputs))
+  runTest $ Shelley.validateOutputBootAddrAttrsTooBig (outputs)
 
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ Shelley.validateMaxTxSizeUTxO pp tx

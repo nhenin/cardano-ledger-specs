@@ -14,7 +14,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
  )
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   expectedDepositTotal,
@@ -23,7 +23,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
 
 actualAda :: EpochState DijkstraEra -> Coin
 actualAda epoch =
-  (foldMap (^. coinTxOutL) . Allocations.txOuts . allocations . utxosUTxOStore $ state)
+  (foldMap (^. coinTxOutL) . IndexedUTxOs.txOuts . allocations . utxosUTxOStore $ state)
     <> expectedDepositTotal (liveOutputStore state)
     <> utxosFees state
     <> utxosDeposited state

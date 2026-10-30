@@ -11,7 +11,7 @@
 -- as specified in /A Simplified Formal Specification of a UTxO Ledger/.
 module Cardano.Ledger.Shelley.LedgerState (
   -- * UTxO
-  TxOutMap (..),
+  IndexedUTxOs (..),
   CanGetUTxOStore (..),
   CanSetUTxOStore (..),
 
@@ -124,4 +124,3 @@ import Cardano.Ledger.Shelley.PParams (pvCanFollow)
 import Cardano.Ledger.Shelley.RewardUpdate
 import Cardano.Ledger.Shelley.Rules.Ppup (ShelleyGovState (..))
 import Cardano.Ledger.Shelley.State
-import Cardano.Ledger.TxOut.Map (TxOutMap (..))

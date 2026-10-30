@@ -162,13 +162,11 @@ utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState}
           ]
   where
     curEpoch = runReader (epochFromSlot ueSlot) testGlobals
-    initialStore =
-      either (error . ("utxoStateSpec: invalid Conway outputs: " <>) . show) id $
-        fromLegacyTxOutMap uecUTxO
+    initialStore = fromAllocations legacyDepositCalculation uecUTxO
 
 data UtxoExecContext era = UtxoExecContext
   { uecTx :: !(Tx TopTx era)
-  , uecUTxO :: !(TxOutMap era)
+  , uecUTxO :: !(IndexedUTxOs era)
   , uecUtxoEnv :: !(UtxoEnv era)
   }
   deriving (Generic)

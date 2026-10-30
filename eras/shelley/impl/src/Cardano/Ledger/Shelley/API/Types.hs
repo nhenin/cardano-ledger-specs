@@ -140,5 +140,5 @@ import Cardano.Ledger.State as X (
   calculatePoolDistr',
   individualPoolStake,
  )
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs as X (IndexedUTxOs (..))
 import Cardano.Ledger.TxIn as X (TxId (..), TxIn (..))
-import Cardano.Ledger.TxOut.Map as X (TxOutMap (..))

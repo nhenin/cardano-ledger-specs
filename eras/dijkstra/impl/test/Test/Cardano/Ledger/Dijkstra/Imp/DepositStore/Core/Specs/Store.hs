@@ -17,10 +17,9 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core (TxOut (..))
 import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosUTxOStore)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.TxOut.Map (unTxOutMap)
 import qualified Data.Map.Strict as Map
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM)
 import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
@@ -31,13 +30,13 @@ liveOutputStore = utxosUTxOStore
 -- | Complete output observation for ledger-effect assertions. This projection
 -- belongs to the test oracle; production reads use allocations directly.
 outputs :: UTxOState era -> Map.Map TxIn (TxOut era)
-outputs = unTxOutMap . Allocations.toTxOutMap . allocations . utxosUTxOStore
+outputs = IndexedUTxOs.mapTxOuts id . allocations . utxosUTxOStore
 
 -- | Independent specification formula for both calculation versions. V2 uses
 -- the same formula as V1 for now. This does not call the production calculation
 -- or read the cached total.
 expectedAllocationDeposit :: Unspent (TxOut DijkstraEra) -> Coin
-expectedAllocationDeposit allocation = case UTxO.toTxOut allocation of
+expectedAllocationDeposit allocation = case Unspent.toTxOut allocation of
   LegacyTxOut _ -> Coin 0
   NewTxOut _ ->
     Coin $ toInteger price * (160 + toInteger (sizedSize $ sizedOutput allocation))
@@ -50,9 +49,9 @@ expectedAllocationDeposit allocation = case UTxO.toTxOut allocation of
 -- no external record; a zero-priced Store-backed allocation remains present.
 -- This map is never installed as ledger state or passed to production accounting.
 recordedAmounts :: UTxOStore DijkstraEra -> Map.Map TxIn Coin
-recordedAmounts = Map.mapMaybe recordedAmount . unAllocations . allocations
+recordedAmounts = Map.mapMaybe recordedAmount . unIndexedUTxOs . allocations
   where
-    recordedAmount allocation = case UTxO.toTxOut allocation of
+    recordedAmount allocation = case Unspent.toTxOut allocation of
       LegacyTxOut _ -> Nothing
       NewTxOut _ -> Just $ expectedAllocationDeposit allocation
 
@@ -60,7 +59,7 @@ storedDepositTotal :: UTxOStore DijkstraEra -> Coin
 storedDepositTotal = toCoin . totalDepositAmount
 
 expectedDepositTotal :: UTxOStore DijkstraEra -> Coin
-expectedDepositTotal = foldMap expectedAllocationDeposit . unAllocations . allocations
+expectedDepositTotal = foldMap expectedAllocationDeposit . IndexedUTxOs.unspentOutputs . allocations
 
 assertDepositTotal :: UTxOState DijkstraEra -> ImpTestM DijkstraEra ()
 assertDepositTotal state =
@@ -71,7 +70,7 @@ retainsCreationMetadata ::
   TxIn -> Int -> CoinPerByte -> UTxOState DijkstraEra -> ImpTestM DijkstraEra ()
 retainsCreationMetadata input acceptedBytes rate state = do
   entry <- expectJust $ lookupUTxO input $ allocations $ liveOutputStore state
-  case UTxO.toTxOut entry of
+  case Unspent.toTxOut entry of
     LegacyTxOut _ -> expectationFailure "Expected a Store-backed allocation with creation metadata"
     NewTxOut _ -> do
       sizedSize (sizedOutput entry) `shouldBe` fromIntegral acceptedBytes

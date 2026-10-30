@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -8,7 +9,7 @@ module Test.Cardano.Ledger.Core.Utils (
   mkDummySafeHash,
   txInAt,
   mkActiveStake,
-  legacyAllocations,
+  legacyIndexedUTxOs,
 ) where
 
 import Cardano.Ledger.BaseTypes (
@@ -26,11 +27,9 @@ import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
 import Cardano.Ledger.State (
   ActiveStake (..),
-  Allocations,
   StakeWithDelegation (..),
-  allocations,
-  fromLegacyTxOutMap,
  )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn, mkTxInPartial)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
@@ -44,8 +43,12 @@ import Test.Cardano.Ledger.Core.Rational (unsafeBoundRational)
 
 -- | Adapt an output-only legacy fixture to canonical allocation metadata.
 -- Store-backed outputs require their actual historical metadata and are rejected.
-legacyAllocations :: EraTxOut era => TxOutMap era -> Allocations era
-legacyAllocations = either (error . show) allocations . fromLegacyTxOutMap
+legacyIndexedUTxOs :: EraTxOut era => Map TxIn (TxOut era) -> IndexedUTxOs era
+legacyIndexedUTxOs = IndexedUTxOs.fromLegacyTxOuts . Map.map requireLegacyFixture
+  where
+    requireLegacyFixture = \case
+      LegacyTxOut legacyOutput -> legacyOutput
+      NewTxOut _ -> error "legacyIndexedUTxOs: expected a legacy output fixture"
 
 testGlobals :: Globals
 testGlobals =

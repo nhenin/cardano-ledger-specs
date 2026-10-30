@@ -71,9 +71,10 @@ import Cardano.Ledger.Shelley.Rules.Reports (showTxCerts)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq
@@ -153,9 +154,9 @@ data UtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (TxOutMap era)
-      -- | UTxO created
-      (TxOutMap era)
+      (IndexedUTxOs era)
+      -- | Outputs created by the body, with their supplied sizes
+      (IndexedTxOs era)
   deriving (Generic)
 
 deriving instance
@@ -323,7 +324,7 @@ instance
                   (tx ^. bodyTxL)
                   pp
                   certState
-                  ( Allocations.restrictToInputs
+                  ( IndexedUTxOs.restrictToInputs
                       (tx ^. bodyTxL . inputsTxBodyL)
                       (allocations . utxosUTxOStore $ utxoState)
                   )
@@ -343,7 +344,7 @@ instance
         (\_ st' -> utxosDeposited st' >= mempty)
     , let utxoBalance us =
             Val.inject (utxosDeposited us <> utxosFees us)
-              <> coerce (sumAllAssets . Allocations.txOuts . allocations . utxosUTxOStore $ us)
+              <> coerce (sumAllAssets . IndexedUTxOs.txOuts . allocations . utxosUTxOStore $ us)
           withdrawals :: TxBody TopTx era -> Value era
           withdrawals txb = Val.inject . F.foldl' (<>) mempty . unWithdrawals $ txb ^. withdrawalsTxBodyL
        in PostCondition
@@ -380,7 +381,7 @@ utxoInductive = do
   TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       entries = allocations . utxosUTxOStore $ utxoState
-      inputAllocations = Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
+      inputAllocations = IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
       UTxOState _ _ _ ppup _ _ = utxoState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
@@ -468,7 +469,7 @@ validateFeeTooSmallUTxO ::
   EraUTxO era =>
   PParams era ->
   Tx TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (ShelleyUtxoPredFailure era)
 validateFeeTooSmallUTxO pp tx inputAllocations =
   failureUnless (minFee <= txFee) $
@@ -486,14 +487,14 @@ validateFeeTooSmallUTxO pp tx inputAllocations =
 --
 -- > inputs ⊆ dom utxo
 validateBadInputsUTxO ::
-  Allocations era ->
+  IndexedUTxOs era ->
   Set TxIn ->
   Test (ShelleyUtxoPredFailure era)
 validateBadInputsUTxO entries inputs =
   failureOnNonEmptySet badInputs BadInputsUTxO
   where
     {- inputs ➖ dom utxo -}
-    badInputs = Set.filter (`Map.notMember` unAllocations entries) inputs
+    badInputs = Set.filter (not . (`IndexedUTxOs.member` entries)) inputs
 
 -- | Make sure all addresses match the supplied NetworkId
 --
@@ -533,7 +534,7 @@ validateWrongNetworkWithdrawal netId txb =
 validateValueNotConservedUTxO ::
   (EraUTxO era, EraCertState era) =>
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   CertState era ->
   TxBody TopTx era ->
   Test (ShelleyUtxoPredFailure era)
@@ -627,7 +628,7 @@ updateUTxOState ::
   TxBody TopTx era ->
   CertState era ->
   (Coin -> m ()) ->
-  (TxOutMap era -> TxOutMap era -> m ()) ->
+  (IndexedUTxOs era -> IndexedTxOs era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState = do
@@ -635,49 +636,42 @@ updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState =
   withUtxo <- updateUTxOAndInstantStake txBody utxoDiffEvent withDeposits
   pure $ withUtxo & utxosFeesL <>~ (txBody ^. feeTxBodyL)
 
--- | Apply a legacy-era output delta and update instant stake, preserving the
--- metadata of all unaffected allocations. Dijkstra prepares its allocation
--- delta explicitly and calls 'updateUTxOAndInstantStakeWithStore'.
+-- | Release consumed entries and allocate the body's outputs. Dijkstra retains
+-- supplied sizes and the Store's current calculation; earlier eras use canonical legacy
+-- metadata. Retain unaffected entries unchanged.
 updateUTxOAndInstantStake ::
   (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
-  (TxOutMap era -> TxOutMap era -> m ()) ->
+  (IndexedUTxOs era -> IndexedTxOs era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
   let consumed = txBody ^. inputsTxBodyL
       previousStore = utxosUTxOStore utxoState
-      remaining = Allocations.withoutInputs consumed . allocations $ previousStore
-      TxOutMap created = txOutsTxBody txBody
+      remaining = IndexedUTxOs.withoutInputs consumed . allocations $ previousStore
+      created = outputsTxBody txBody
       -- Preserve the legacy union's existing-entry bias on colliding keys.
-      createdWithoutCollisions = TxOutMap . Allocations.excludeAllocatedInputs remaining $ created
-      store =
-        either
-          (error . ("updateUTxOAndInstantStake: expected legacy created outputs: " <>) . show)
-          id
-          $ applyLegacyOutputDelta
-            consumed
-            createdWithoutCollisions
-            previousStore
+      createdWithoutCollisions = IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) created
+      store = allocate createdWithoutCollisions . release consumed $ previousStore
    in updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState
 
--- | Apply caller-prepared output storage while updating stake and emitting the
--- output difference. The caller retains or validates all allocation metadata.
+-- | Apply caller-prepared storage while updating stake. The event distinguishes
+-- consumed unspent entries from the body's created outputs; pricing stays in Store allocation.
 updateUTxOAndInstantStakeWithStore ::
   (EraTxBody era, EraStake era, Monad m) =>
   UTxOStore era ->
   TxBody l era ->
-  (TxOutMap era -> TxOutMap era -> m ()) ->
+  (IndexedUTxOs era -> IndexedTxOs era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState = do
-  let TxOutMap createdOutputs = txOutsTxBody txBody
-      TxOutMap !consumedOutputs =
-        Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) (allocations . utxosUTxOStore $ utxoState)
+  let created = outputsTxBody txBody
+      !consumed =
+        IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) (allocations . utxosUTxOStore $ utxoState)
       newInstantStake =
-        deleteInstantStake consumedOutputs $
-          addInstantStake createdOutputs (utxoState ^. instantStakeL)
-  utxoDiffEvent (TxOutMap consumedOutputs) (TxOutMap createdOutputs)
+        deleteInstantStake (IndexedUTxOs.txOuts consumed) $
+          addInstantStake (IndexedTxOs.txOuts created) (utxoState ^. instantStakeL)
+  utxoDiffEvent consumed created
   pure $!
     utxoState
       & utxosUTxOStoreL .~ store

@@ -33,7 +33,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.AllocationSpec as Allocation
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ReleaseSpec as Release
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ZeroNetChangeSpec as ZeroNetChange
-import Test.Cardano.Ledger.Dijkstra.ImpTest (getAllocations)
+import Test.Cardano.Ledger.Dijkstra.ImpTest (getIndexedUTxOs)
 
 -- | Register the requirements in domain order.
 spec :: Spec
@@ -60,7 +60,7 @@ spec = describe
           signedTx <- case phase2 of
             Phase2Valid -> buildAndSignTx declaredTx
             Phase2Invalid -> buildAndSignPhase2InvalidTx declaredTx
-          previousAllocations <- getAllocations
+          previousAllocations <- getIndexedUTxOs
           -- Read activity from each body's own resolved inputs and proposed outputs.
           -- Remove each required field independently: other bodies still declare.
           forM_ (Operations.requiredDeclarationOwners previousAllocations signedTx) $ \owner ->

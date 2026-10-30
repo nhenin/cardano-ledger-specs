@@ -3,11 +3,13 @@
 ## 1.21.0.0
 
 * Remove the `Shelley.UTxO` reexports of `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`.
-* Replace the output-view type `UTxO` with `TxOutMap` and `txouts` with `txOutsTxBody`. Rename wallet queries to `getTxOutMap`, `getFilteredTxOutMap` and `getTxOutMapSubset`; their output-map encodings remain unchanged.
+* Distinguish proposed `IndexedTxOs` from stored `IndexedUTxOs`. Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset` retain complete entries; pre-Dijkstra serialized output maps remain unchanged.
+* Replace `txouts` with `outputsTxBody`, returning proposed outputs with their supplied sizes. Allocation reads the Store's current calculation; events distinguish consumed stored entries from created outputs.
+* Add `EraTransition.initialUTxOStore` so each era initializes its current deposit calculation before any transaction. Earlier eras retain the legacy default.
 * Store complete allocations in `UTxOState.utxosUTxOStore`, with `utxosUTxOStoreL` and the shared `utxoStoreG`/`utxoStoreL` accessors. Retain pre-Dijkstra snapshot encoding and include Dijkstra's cached output-deposit total in ADA pots.
 * Check initial-fund collisions directly against allocations and reconstruct stake from the funded Store's outputs, preserving existing entries and historical deposit metadata.
-* Add `getUTxOStore` and `getAllocations` to the Imp test API for direct access to the current store and its allocations. Remove the output-only `getUTxO` helper; single-input reads remain available through `impGetUTxO`.
-* Change `expectUTxOContent` to accept `Allocations`; test submission assertions look up only the requested outputs.
+* Add `getUTxOStore` and `getIndexedUTxOs` to the Imp test API for direct access to the current store and its allocations. Remove the output-only `getUTxO` helper; single-input reads remain available through `impGetUTxO`.
+* Change `expectUTxOContent` to accept `IndexedUTxOs`; test submission assertions look up only the requested outputs.
 * Remove `nesPd` field from `NewEpochState` and `nesPdL`:
   - Add `nesStakePoolDistrG`, which reads the stake pool distribution from the set snapshot instead
   - Remove the re-export of `ssStakeMarkPoolDistrL` from `Cardano.Ledger.Shelley.LedgerState`

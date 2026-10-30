@@ -61,7 +61,6 @@ import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
-import Control.Exception (throw)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
 import Data.Foldable (toList)
@@ -75,7 +74,7 @@ data SubUtxoEnv era = SubUtxoEnv
   { sueSlot :: SlotNo
   , suePParams :: PParams era
   , sueCertState :: CertState era
-  , sueOriginalAllocations :: Allocations era
+  , sueOriginalAllocations :: IndexedUTxOs era
   , sueTopTxIsPhase2Valid :: IsPhase2Valid
   }
 
@@ -189,9 +188,9 @@ data DijkstraSubUtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (TxOutMap era)
-      -- | UTxO created
-      (TxOutMap era)
+      (IndexedUTxOs era)
+      -- | Outputs created by the body, with their supplied sizes
+      (IndexedTxOs era)
   deriving (Generic)
 
 deriving instance (Era era, Eq (TxOut era)) => Eq (DijkstraSubUtxoEvent era)
@@ -242,7 +241,7 @@ dijkstraSubUtxoTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXO" era)
 dijkstraSubUtxoTransition = do
-  ctx@(TRC (SubUtxoEnv slot pp _ originalAllocations topTxIsPhase2Valid, utxoState, stAnnTx)) <-
+  TRC (SubUtxoEnv slot pp _ originalAllocations topTxIsPhase2Valid, utxoState, stAnnTx) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
@@ -282,26 +281,12 @@ dijkstraSubUtxoTransition = do
   runTestOnSignal $ Alonzo.validateWrongNetworkInTxBody netId txBody
 
   case topTxIsPhase2Valid of
-    Phase2Valid -> do
-      let invariantFailure :: String -> a
-          invariantFailure message =
-            throw $
-              AssertionException $
-                AssertionViolation
-                  { avSTS = "Dijkstra SUBUTXO"
-                  , avMsg = message
-                  , avCtx = ctx
-                  , avState = Nothing
-                  }
-          utxoStore = utxosUTxOStore utxoState
-      case applyBodyAllocations pp txBody utxoStore of
-        Left err -> invariantFailure $ "SubTx allocation invariant violated: " <> show err
-        Right store ->
-          Shelley.updateUTxOAndInstantStakeWithStore
-            store
-            txBody
-            (\a b -> tellEvent $ TxUTxODiff a b)
-            (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
+    Phase2Valid ->
+      Shelley.updateUTxOAndInstantStakeWithStore
+        (applyBodyAllocations txBody $ utxosUTxOStore utxoState)
+        txBody
+        (\a b -> tellEvent $ TxUTxODiff a b)
+        (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
     Phase2Invalid ->
       pure utxoState
 

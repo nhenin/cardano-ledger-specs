@@ -84,16 +84,14 @@ import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, run
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosFeesL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
-import Control.Exception (throw)
 import Control.Monad (when)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended (
-  AssertionException (..),
-  AssertionViolation (..),
   Embed (..),
   Rule,
   STS (..),
@@ -318,7 +316,7 @@ hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
 validateValueNotConservedUTxO ::
   EraUTxO era =>
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   PState era ->
   TxBody TopTx era ->
   Test (Mismatch RelEQ (Value era))
@@ -337,7 +335,7 @@ validateValueNotConservedUTxO pp inputAllocations pState txBody =
 validateLegacyValueNotConservedUTxO ::
   (EraUTxO era, DijkstraEraTxBody era) =>
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   PState era ->
   TxBody TopTx era ->
   Validation (NonEmpty (Mismatch RelEQ (Value era))) ()
@@ -378,26 +376,11 @@ dijkstraUtxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 dijkstraUtxoTransition = do
-  ctx@( TRC
-          ( UtxoEnv slot pp postSubsPState originalCertState previousUTxOStore
-            , utxos
-            , stAnnTx
-            )
-        ) <-
+  TRC (UtxoEnv slot pp postSubsPState originalCertState previousUTxOStore, utxos, stAnnTx) <-
     judgmentContext
-  let invariantFailure :: String -> a
-      invariantFailure message =
-        throw $
-          AssertionException $
-            AssertionViolation
-              { avSTS = "Dijkstra UTXO"
-              , avMsg = message
-              , avCtx = ctx
-              , avState = Nothing
-              }
-      utxoStore = utxosUTxOStore utxos
+  let utxoStore = utxosUTxOStore utxos
   -- Accounting reads the original historical allocations even after children
-  -- have updated the live store. Checked state construction excludes invalid metadata.
+  -- have updated the live store.
   let tx = stAnnTx ^. txStAnnTxG
   let originalPState = originalCertState ^. certPStateL
 
@@ -428,7 +411,7 @@ dijkstraUtxoTransition = do
     inputs = txBody ^. inputsTxBodyL
     originalAllocations = allocations previousUTxOStore
     -- Inherited fee/value validators receive only inputs belonging to this batch.
-    inputAllocations = Allocations.restrictToInputs allInputs $ originalAllocations
+    inputAllocations = IndexedUTxOs.restrictToInputs allInputs $ originalAllocations
 
   {- SpendInputsOf txTop ∪ RefInputsOf txTop ∪ CollInputsOf txTop ⊆ dom(utxo₀) -}
   runTest $ Shelley.validateBadInputsUTxO originalAllocations allInputs
@@ -445,7 +428,7 @@ dijkstraUtxoTransition = do
   -- SubTx changes have already been applied only to the live store.
   runTest $
     first (fmap DepositStoreFailure) $
-      DepositStore.validateOrdinaryDepositStore pp previousUTxOStore txBody
+      DepositStore.validateOrdinaryDepositStore previousUTxOStore txBody
 
   {- minfee pp txTop utxo₀ ≤ txfee txb -}
   runTest $ Shelley.validateFeeTooSmallUTxO pp tx inputAllocations
@@ -516,45 +499,39 @@ dijkstraUtxoTransition = do
 
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
   case tx ^. isPhase2ValidTxL of
-    Phase2Valid ->
-      case DepositStore.applyBodyAllocations pp txBody utxoStore of
-        Left err ->
-          invariantFailure $ "Ordinary allocation invariant violated: " <> show err
-        Right store -> do
-          withDeposits <-
-            Shelley.updateUTxOStateDeposits
-              pp
-              originalCertState
-              txBody
-              (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-              (Conway.updateTreasuryDonation tx utxos)
-          withOutputs <-
-            Shelley.updateUTxOAndInstantStakeWithStore
-              store
-              txBody
-              (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
-              withDeposits
-          pure $ withOutputs & utxosFeesL <>~ txBody ^. feeTxBodyL
+    Phase2Valid -> do
+      let store = DepositStore.applyBodyAllocations txBody utxoStore
+      withDeposits <-
+        Shelley.updateUTxOStateDeposits
+          pp
+          originalCertState
+          txBody
+          (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
+          (Conway.updateTreasuryDonation tx utxos)
+      withOutputs <-
+        Shelley.updateUTxOAndInstantStakeWithStore
+          store
+          txBody
+          (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
+          withDeposits
+      pure $ withOutputs & utxosFeesL <>~ txBody ^. feeTxBodyL
     Phase2Invalid ->
-      case DepositStore.applyCollateralAllocations pp txBody utxoStore of
-        Left err ->
-          invariantFailure $ "Collateral allocation invariant violated: " <> show err
-        Right store ->
-          let settlement =
-                DepositStore.collateralDepositSettlement pp previousUTxOStore txBody
-              removed =
-                Allocations.txOuts
-                  . Allocations.restrictToInputs (txBody ^. collateralInputsTxBodyL)
-                  . allocations
-                  $ utxoStore
-              TxOutMap created = collOuts txBody
-           in pure $
-                utxos
-                  { utxosUTxOStore = store
-                  , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
-                  , utxosInstantStake =
-                      deleteInstantStake removed $ addInstantStake created (utxosInstantStake utxos)
-                  }
+      let store = DepositStore.applyCollateralAllocations txBody utxoStore
+          settlement =
+            DepositStore.collateralDepositSettlement previousUTxOStore txBody
+          removed =
+            IndexedUTxOs.txOuts
+              . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
+              . allocations
+              $ utxoStore
+          created = collOuts txBody
+       in pure $
+            utxos
+              { utxosUTxOStore = store
+              , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
+              , utxosInstantStake =
+                  deleteInstantStake removed $ addInstantStake (IndexedTxOs.txOuts created) (utxosInstantStake utxos)
+              }
 
 --------------------------------------------------------------------------------
 -- UTXO STS

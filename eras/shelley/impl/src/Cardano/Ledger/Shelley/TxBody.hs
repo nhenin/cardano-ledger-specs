@@ -48,6 +48,7 @@ import Cardano.Ledger.Binary (
   DecCBOR (decCBOR),
   EncCBOR (..),
   ToCBOR (..),
+  mkSized,
  )
 import Cardano.Ledger.Binary.Coders (
   Decode (..),
@@ -260,6 +261,9 @@ instance EraTxBody ShelleyEra where
     lensMemoRawType @ShelleyEra (\ShelleyTxBodyRaw {stbrInputs} -> stbrInputs) $
       \txBodyRaw@ShelleyTxBodyRaw {} inputs -> txBodyRaw {stbrInputs = inputs}
   {-# INLINEABLE inputsTxBodyL #-}
+
+  sizedOutputsTxBodyG = outputsTxBodyL . to (fmap (mkSized $ eraProtVerLow @ShelleyEra))
+  {-# INLINE sizedOutputsTxBodyG #-}
 
   outputsTxBodyL =
     lensMemoRawType @ShelleyEra (\ShelleyTxBodyRaw {stbrOutputs} -> stbrOutputs) $

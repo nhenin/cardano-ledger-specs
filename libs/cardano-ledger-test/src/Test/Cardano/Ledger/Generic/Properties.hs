@@ -31,7 +31,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.Slot (EpochNo, SlotNo (..))
 import Control.Monad.Trans.RWS.Strict (gets)
 import Control.State.Transition.Extended hiding (Assertion)
@@ -123,7 +123,7 @@ genTxAndLEDGERState sizes = do
                 (epochInfo testGlobals)
                 (systemStart testGlobals)
                 pp
-                ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
+                ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
                     ledgerState ^. utxoStoreG
                 )
                 mempty
@@ -218,7 +218,7 @@ tracePreserveAda numTx gensize =
 -- | The incremental Stake invaraint is preserved over a trace of length 100=
 stakeInvariant :: EraStake era => MockChainState era -> MockChainState era -> Property
 stakeInvariant (MockChainState {}) (MockChainState nes _ _ _) =
-  let outputs = Allocations.txOuts . allocations $ nes ^. utxoStoreG
+  let outputs = IndexedUTxOs.txOuts . allocations $ nes ^. utxoStoreG
    in nes ^. instantStakeL === addInstantStake outputs mempty
 
 incrementStakeInvariant ::

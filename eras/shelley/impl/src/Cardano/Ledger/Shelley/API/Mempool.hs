@@ -61,7 +61,7 @@ import Cardano.Ledger.Shelley.Rules.Ledger (
   ledgerSlotNoL,
  )
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -145,7 +145,7 @@ unsafeMakeValidatedTx globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
               . Store.allocations
               . (^. utxoStoreG)
               $ state
@@ -190,7 +190,7 @@ class
     EpochInfo (Either Text) ->
     SystemStart ->
     PParams era ->
-    Allocations era ->
+    IndexedUTxOs era ->
     StAnnTxCache era ->
     Tx TopTx era ->
     StAnnTx TopTx era
@@ -292,7 +292,7 @@ defaultApplyTxWithValidation wrap validationPolicy globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
               . Store.allocations
               . (^. utxoStoreG)
               $ state
@@ -345,7 +345,7 @@ instance ApplyTx ShelleyEra where
             (epochInfo globals)
             (systemStart globals)
             (env ^. ledgerPpL)
-            ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+            ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . (^. utxoStoreG)
                 $ state

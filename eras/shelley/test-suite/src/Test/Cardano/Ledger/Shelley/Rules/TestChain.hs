@@ -44,7 +44,7 @@ import Cardano.Ledger.Shelley.LedgerState (
 import Cardano.Ledger.Shelley.Rules
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.TPraos.BlockHeader (
   BHeader (..),
   bhbody,
@@ -54,7 +54,6 @@ import Control.Monad.Trans.Reader (ReaderT)
 import Control.State.Transition
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity)
-import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Data.Proxy
 import Data.Word (Word64)
@@ -149,7 +148,7 @@ ledgerTraceFromBlock chainSt block =
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+              ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
                   ls ^. Store.utxoStoreG
               )
               mempty
@@ -175,7 +174,7 @@ ledgerTraceFromBlockWithRestrictedUTxO ::
   ) =>
   ChainState era ->
   Block (BHeader MockCrypto) era ->
-  (TxOutMap era, Trace (EraRule "LEDGER" era))
+  (IndexedUTxOs era, Trace (EraRule "LEDGER" era))
 ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
   ( irrelevantUTxO
   , runShelleyBase $
@@ -187,7 +186,7 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+              ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
                   ls ^. Store.utxoStoreG
               )
               mempty
@@ -200,12 +199,12 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
     txIns = neededTxInsForBlock block
     LedgerState utxoSt delegationSt = ledgerSt0
     previousStore = utxosUTxOStore utxoSt
-    irrelevantUTxO = Allocations.toTxOutMap . Allocations.withoutInputs txIns . Store.allocations $ previousStore
+    irrelevantUTxO = IndexedUTxOs.withoutInputs txIns . Store.allocations $ previousStore
     restrictedSt0 =
       LedgerState
         ( utxoSt
             { utxosUTxOStore =
-                Store.release (Map.keysSet . unTxOutMap $ irrelevantUTxO) previousStore
+                Store.release (IndexedUTxOs.inputIds $ irrelevantUTxO) previousStore
             }
         )
         delegationSt

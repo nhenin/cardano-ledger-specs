@@ -29,7 +29,7 @@ import Cardano.Ledger.Shelley.LedgerState.Types (curPParamsEpochStateL, prevPPar
 import Cardano.Ledger.Shelley.Rules ()
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (FromByronTranslationContext (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (zero, (<->))
@@ -76,18 +76,18 @@ translateCompactTxInByronToShelley (Byron.CompactTxInUtxo compactTxId idx) =
 
 translateUTxOByronToShelley ::
   Byron.UTxO ->
-  TxOutMap ShelleyEra
+  IndexedUTxOs ShelleyEra
 translateUTxOByronToShelley (Byron.UTxO utxoByron) =
-  TxOutMap $
+  IndexedUTxOs.fromLegacyTxOuts $
     Map.fromList
       [ (txInShelley, txOutShelley)
       | (txInByron, txOutByron) <- Map.toList utxoByron
       , let txInShelley = translateCompactTxInByronToShelley txInByron
-            txOutShelley = LegacyTxOut . translateCompactTxOutByronToShelley $ txOutByron
+            txOutShelley = translateCompactTxOutByronToShelley txOutByron
       , -- In some testnets there are a few TxOuts with zero values injected at
       -- initialization of Byron. We do not allow zero values in TxOuts in Shelley
       -- onwards.
-      txOutShelley ^. coinTxOutL /= zero
+      LegacyTxOut txOutShelley ^. coinTxOutL /= zero
       ]
 
 translateToShelleyLedgerState ::
@@ -117,10 +117,10 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
         let storedAllocations =
               Store.allocations . utxosUTxOStore . lsUTxOState . esLState $ epochState
             redeemers =
-              Allocations.filterByTxOut
+              IndexedUTxOs.filterByTxOut
                 (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
                 storedAllocations
-         in Allocations.toTxOutMap redeemers
+         in redeemers
     }
   where
     pparams :: PParams ShelleyEra
@@ -141,7 +141,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
 
     reserves :: Coin
     reserves =
-      word64ToCoin (fbtcMaxLovelaceSupply transCtxt) <-> (sumAllCoin . unTxOutMap $ utxoShelley)
+      word64ToCoin (fbtcMaxLovelaceSupply transCtxt) <-> (sumAllCoin . IndexedUTxOs.txOuts $ utxoShelley)
 
     epochState :: EpochState ShelleyEra
     epochState =
@@ -158,7 +158,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
         & prevPParamsEpochStateL .~ pparams
         & curPParamsEpochStateL .~ pparams
 
-    utxoShelley :: TxOutMap ShelleyEra
+    utxoShelley :: IndexedUTxOs ShelleyEra
     utxoShelley = translateUTxOByronToShelley utxoByron
 
     ledgerState :: LedgerState ShelleyEra
@@ -166,11 +166,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       LedgerState
         { lsUTxOState =
             UTxOState
-              { utxosUTxOStore =
-                  either
-                    (error . ("translateToShelleyLedgerStateFromUtxo: expected legacy outputs: " <>) . show)
-                    id
-                    $ fromLegacyTxOutMap utxoShelley
+              { utxosUTxOStore = fromAllocations legacyDepositCalculation utxoShelley
               , utxosDeposited = Coin 0
               , utxosFees = Coin 0
               , utxosGovState = emptyGovState

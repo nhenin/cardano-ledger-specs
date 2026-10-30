@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |  AlonzoEra instances for EraGen and ScriptClass
@@ -73,6 +74,8 @@ import Cardano.Ledger.State (
   EraUTxO (..),
   getScriptsNeeded,
  )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (Val ((<+>), (<×>)))
@@ -97,7 +100,6 @@ import Test.Cardano.Ledger.Alonzo.Arbitrary ()
 import Test.Cardano.Ledger.Alonzo.ImpTest (computeScriptIntegrity)
 import Test.Cardano.Ledger.Binary.Random
 import Test.Cardano.Ledger.Common (tracedDiscard)
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.MaryEraGen (addTokens, genMint, maryGenesisValue, policyIndex)
 import Test.Cardano.Ledger.Plutus (alwaysFailsPlutus, alwaysSucceedsPlutus, zeroTestingCostModel)
 import Test.Cardano.Ledger.Plutus.Examples
@@ -279,13 +281,13 @@ unTime :: AlonzoScript era -> NativeScript era
 unTime (NativeScript x) = x
 unTime (PlutusScript _) = error "Plutus in Timelock"
 
-okAsCollateral :: TxOutMap AlonzoEra -> TxIn -> Bool
+okAsCollateral :: IndexedUTxOs AlonzoEra -> TxIn -> Bool
 okAsCollateral utxo inputx =
-  maybe False vKeyLockedAdaOnly $ Map.lookup inputx (unTxOutMap utxo)
+  maybe False (vKeyLockedAdaOnly . Unspent.toTxOut) $ IndexedUTxOs.lookupUTxO inputx utxo
 
 genAlonzoTxBody ::
   GenEnv c AlonzoEra ->
-  TxOutMap AlonzoEra ->
+  IndexedUTxOs AlonzoEra ->
   PParams AlonzoEra ->
   SlotNo ->
   Set.Set TxIn ->
@@ -431,13 +433,13 @@ instance EraGen AlonzoEra where
         .~ ( hashScriptIntegrity
                <$> computeScriptIntegrity
                  pp
-                 (legacyAllocations utxo)
+                 utxo
                  (mkBasicTx txb & witsTxL .~ wits)
            )
     where
       requiredCollateral = ceiling $ fromIntegral (pp ^. ppCollateralPercentageL) * unCoin coinx % 100
       potentialCollateral = Set.filter (okAsCollateral utxo) txin
-      collateralOutputs = Map.restrictKeys (unTxOutMap utxo) potentialCollateral
+      collateralOutputs = IndexedUTxOs.mapTxOuts id $ IndexedUTxOs.restrictToInputs potentialCollateral utxo
       collateralAmounts = List.sortOn snd . Map.toList . Map.map (unCoin . view coinTxOutL) $ collateralOutputs
       takeUntilSum s = map fst . takeUntil ((s >=) . snd) . scanl1 (\(_, s') (x, n) -> (x, s' + n))
       takeUntil p xs = let (y, n) = span p xs in y ++ take 1 n
@@ -464,8 +466,8 @@ instance EraGen AlonzoEra where
           & rdmrsTxWitsL .~ Redeemers rdmrMap
       txinputs = txbody ^. inputsTxBodyL
       inputOutputs :: [TxOut AlonzoEra]
-      inputOutputs = Map.elems $ Map.restrictKeys (unTxOutMap utxo) txinputs
-      AlonzoScriptsNeeded purposeHashPairs = getScriptsNeeded @AlonzoEra (legacyAllocations utxo) txbody
+      inputOutputs = IndexedUTxOs.txOuts $ IndexedUTxOs.restrictToInputs txinputs utxo
+      AlonzoScriptsNeeded purposeHashPairs = getScriptsNeeded @AlonzoEra utxo txbody
       rdmrMap = List.foldl' accum Map.empty purposeHashPairs -- Search through the pairs for Plutus scripts
       accum ans (purpose, hash1) =
         case Map.lookup hash1 mapScriptWit of
@@ -509,8 +511,8 @@ instance EraGen AlonzoEra where
   --    method of the EraGen class in the AlonzoEra instance.
   genEraDone utxo pp tx =
     let theFee = tx ^. bodyTxL . feeTxBodyL -- Coin supplied to pay fees
-        minimumFee = getMinFeeTxUtxo @AlonzoEra pp tx (legacyAllocations utxo)
-        neededHashes = getScriptsHashesNeeded $ getScriptsNeeded (legacyAllocations utxo) (tx ^. bodyTxL)
+        minimumFee = getMinFeeTxUtxo @AlonzoEra pp tx utxo
+        neededHashes = getScriptsHashesNeeded $ getScriptsNeeded utxo (tx ^. bodyTxL)
         oldScriptWits = tx ^. witsTxL . scriptTxWitsL
         newWits = oldScriptWits `Map.restrictKeys` neededHashes
      in if minimumFee <= theFee
@@ -540,10 +542,11 @@ instance EraGen AlonzoEra where
       Phase2Valid -> tx ^. bodyTxL . feeTxBodyL
       Phase2Invalid -> sumCollateral tx utxo
 
-sumCollateral :: (EraTx era, AlonzoEraTxBody era) => Tx TopTx era -> TxOutMap era -> Coin
-sumCollateral tx (TxOutMap outputs) = sumAllCoin collateralOutputs
-  where
-    collateralOutputs = Map.restrictKeys outputs (tx ^. bodyTxL . collateralInputsTxBodyL)
+sumCollateral :: (EraTx era, AlonzoEraTxBody era) => Tx TopTx era -> IndexedUTxOs era -> Coin
+sumCollateral tx =
+  sumAllCoin
+    . IndexedUTxOs.txOuts
+    . IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . collateralInputsTxBodyL)
 
 storageCost :: forall era t. (EraPParams era, EncCBOR t) => Integer -> PParams era -> t -> Coin
 storageCost extra pp x = (extra + encodedLen @era x) <×> fromCompact (unCoinPerByte $ pp ^. ppTxFeePerByteL)

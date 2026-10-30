@@ -28,7 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.PoolRank (likelihood)
 import Cardano.Ledger.Shelley.State
-import Cardano.Ledger.TxOut.Map (TxOutMap (..))
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.Slot (EpochSize (..))
 import Control.DeepSeq (NFData)
 import Criterion.Main (
@@ -166,10 +166,10 @@ profileCreateRegPools size = do
 benchInstantStake ::
   forall era.
   EraStake era =>
-  (DState era, PState era, TxOutMap era) ->
+  (DState era, PState era, IndexedUTxOs era) ->
   SnapShot
 benchInstantStake (dstate, pstate, utxo) =
-  let instantStake = addInstantStake (unTxOutMap utxo) mempty
+  let instantStake = addInstantStake (IndexedUTxOs.txOuts utxo) mempty
    in snapShotFromInstantStake instantStake dstate pstate
 
 -- =================================================================

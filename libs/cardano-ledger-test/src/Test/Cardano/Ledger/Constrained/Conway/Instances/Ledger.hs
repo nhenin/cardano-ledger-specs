@@ -104,6 +104,7 @@ import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Plutus.Data
 import Cardano.Ledger.Plutus.Language
 import Cardano.Ledger.Rewards
+import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.Shelley.RewardUpdate (FreeVars, Pulser, RewardAns, RewardPulser (RSLP))
@@ -118,7 +119,7 @@ import Cardano.Ledger.Shelley.TxCert (
  )
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits (..))
-import Cardano.Ledger.State.UTxOs.Allocations qualified as Allocations
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs qualified as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val (Val)
 import Constrained.API.Extend hiding (Sized)
@@ -1562,15 +1563,13 @@ instance
   HasSpec (LedgerState era)
 
 -- Conway generators use the canonical legacy Store representation: zero external
--- deposits and the compatibility metadata supplied by 'fromLegacyTxOutMap'.
+-- deposits and canonical legacy compatibility metadata.
 -- They do not generate new outputs or arbitrary historical deposit metadata.
 instance HasSimpleRep (UTxOStore ConwayEra) where
-  type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[TxOutMap ConwayEra]]
-  type SimpleRep (UTxOStore ConwayEra) = TxOutMap ConwayEra
-  toSimpleRep = Allocations.toTxOutMap . allocations
-  fromSimpleRep =
-    either (error . ("fromSimpleRep: invalid Conway outputs: " <>) . show) id
-      . fromLegacyTxOutMap
+  type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[IndexedUTxOs ConwayEra]]
+  type SimpleRep (UTxOStore ConwayEra) = IndexedUTxOs ConwayEra
+  toSimpleRep = allocations
+  fromSimpleRep = fromAllocations legacyDepositCalculation
 
 instance HasSpec (UTxOStore ConwayEra)
 
@@ -1594,11 +1593,24 @@ instance HasSimpleRep (ConwayInstantStake era)
 
 instance Typeable era => HasSpec (ConwayInstantStake era)
 
-instance Typeable (TxOut era) => HasSimpleRep (TxOutMap era)
+-- Shelley keeps stashed AVVM outputs in the same legacy representation. Both
+-- supported eras have only legacy outputs; this must not erase Dijkstra history.
+instance HasSimpleRep (IndexedUTxOs ShelleyEra) where
+  type TheSop (IndexedUTxOs ShelleyEra) = '["IndexedUTxOs" ::: '[Map TxIn (TxOut ShelleyEra)]]
+  type SimpleRep (IndexedUTxOs ShelleyEra) = Map TxIn (TxOut ShelleyEra)
+  toSimpleRep = IndexedUTxOs.mapTxOuts id
+  fromSimpleRep = legacyIndexedUTxOs
 
-instance
-  (Era era, HasSpec (TxOut era), IsNormalType (TxOut era)) =>
-  HasSpec (TxOutMap era)
+instance HasSpec (IndexedUTxOs ShelleyEra)
+
+-- The representation boundary reconstructs canonical legacy metadata explicitly.
+instance HasSimpleRep (IndexedUTxOs ConwayEra) where
+  type TheSop (IndexedUTxOs ConwayEra) = '["IndexedUTxOs" ::: '[Map TxIn (TxOut ConwayEra)]]
+  type SimpleRep (IndexedUTxOs ConwayEra) = Map TxIn (TxOut ConwayEra)
+  toSimpleRep = IndexedUTxOs.mapTxOuts id
+  fromSimpleRep = legacyIndexedUTxOs
+
+instance HasSpec (IndexedUTxOs ConwayEra)
 
 instance HasSimpleRep (ConwayGovState ConwayEra)
 

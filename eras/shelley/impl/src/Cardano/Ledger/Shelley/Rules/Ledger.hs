@@ -70,7 +70,7 @@ import Cardano.Ledger.Shelley.Rules.Utxo (ShelleyUtxoPredFailure (..), UtxoEnv (
 import Cardano.Ledger.Shelley.Rules.Utxow (ShelleyUtxowPredFailure, UTXOW)
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo, epochFromSlot)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData (..))
 import Control.Monad (guard)
@@ -418,7 +418,7 @@ renderDepositEqualsObligationViolation
                 let certstate = lsCertState lstate
                     utxoSt = lsUTxOState lstate
                     inputAllocations =
-                      Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                      IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                         . Store.allocations
                         . utxosUTxOStore
                         $ utxoSt

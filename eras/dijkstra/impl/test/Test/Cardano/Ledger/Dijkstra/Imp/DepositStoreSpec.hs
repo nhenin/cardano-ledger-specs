@@ -21,5 +21,5 @@ spec = describe "DepositStore" $ do
   LedgerEffects.spec
 
 -- Pricing, stake and voting rules remain documented but are outside the current
--- executable scope. Historical pricing, Plutus context projection and stronger
--- local settlement guarantees remain design work.
+-- executable scope. V2's distinct pricing formula, Plutus context projection and
+-- stronger local settlement guarantees remain design work.

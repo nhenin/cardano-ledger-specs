@@ -143,7 +143,7 @@ import Cardano.Ledger.Mary.Value (MultiAsset)
 import Cardano.Ledger.Shelley.Core (ShelleyEraTxBody (..))
 import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.UTxO (getProducedValue)
-import Cardano.Ledger.State (Allocations, EraUTxO (getConsumedValue))
+import Cardano.Ledger.State (EraUTxO (getConsumedValue), IndexedUTxOs)
 import Cardano.Ledger.StrictlyPositiveCoin (
   StrictlyPositiveCoin,
   mkStrictlyPositiveCoin,
@@ -413,7 +413,7 @@ evalBalanceTxBody ::
   -- that have the registration certificates included in the supplied `TxBody`
   (KeyHash StakePool -> Bool) ->
   -- | Accepted allocations relevant to the transaction.
-  Allocations era ->
+  IndexedUTxOs era ->
   -- | The transaction being evaluated for balance.
   TxBody TopTx era ->
   -- | The difference between what the transaction consumes and what it produces.

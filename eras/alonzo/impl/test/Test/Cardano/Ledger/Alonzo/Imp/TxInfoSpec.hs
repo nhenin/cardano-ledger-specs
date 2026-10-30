@@ -30,7 +30,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       (_, shelleyAddr) <- freshKeyAddr
       byronAddr <- AddrBootstrap <$> freshBootstrapAddress
       shelleyTxIn <- sendCoinTo shelleyAddr mempty
-      entries <- getAllocations
+      entries <- getIndexedUTxOs
       let
         byronTxOut = mkBasicTxOutWithImplicitDeposit byronAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
@@ -50,7 +50,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       (_, shelleyAddr) <- freshKeyAddr
       byronAddr <- AddrBootstrap <$> freshBootstrapAddress
       byronTxIn <- sendCoinTo byronAddr mempty
-      entries <- getAllocations
+      entries <- getIndexedUTxOs
       let
         shelleyTxOut = mkBasicTxOutWithImplicitDeposit shelleyAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra

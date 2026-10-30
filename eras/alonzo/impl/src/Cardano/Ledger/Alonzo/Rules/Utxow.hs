@@ -65,13 +65,12 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (ShelleyScriptsNeeded (..))
 import Cardano.Ledger.State (
-  Allocations,
   EraCertState (..),
   EraUTxO (..),
   ScriptsProvided (..),
   dsGenDelegsL,
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Control.DeepSeq (NFData)
@@ -227,7 +226,7 @@ missingRequiredDatums ::
   , AlonzoEraUTxO era
   ) =>
   ScriptsProvided era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx l era ->
   Test (AlonzoUtxowPredFailure era)
 missingRequiredDatums scriptsProvided inputAllocations tx = do
@@ -331,7 +330,7 @@ alonzoStyleWitness = do
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
   let inputAllocations =
-        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
           . utxosUTxOStore
           $ u

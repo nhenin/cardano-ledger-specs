@@ -39,10 +39,7 @@ import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Plutus.Data (Data (..), Datum (..), dataToBinaryData)
 import Cardano.Ledger.Plutus.Language (Language (..), SLanguage (..))
 import Cardano.Ledger.Plutus.TxInfo (TxOutSource (..))
-import Cardano.Ledger.State (
-  Allocations,
-  EraUTxO (..),
- )
+import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..), mkTxInPartial)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -62,7 +59,7 @@ import Test.Cardano.Ledger.Alonzo.Era (mkTestLedgerTxInfo)
 import Test.Cardano.Ledger.Binary.Random (mkDummyHash)
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), mkCredential, mkKeyPair)
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Examples (exampleByronAddress)
 
 shelleyAddr :: Addr
@@ -126,9 +123,9 @@ exampleAllocations ::
   , EraPlutusTxInfo 'PlutusV2 era
   , Value era ~ MaryValue
   ) =>
-  Allocations era
+  IndexedUTxOs era
 exampleAllocations =
-  legacyAllocations . TxOutMap $
+  legacyIndexedUTxOs $
     Map.fromList
       [ (byronInput, byronOutput)
       , (shelleyInput, shelleyOutput)

@@ -185,7 +185,7 @@ spec = describe "SUBUTXO" $ do
           [ mkBasicTx $ mkBasicTxBody & inputsTxBodyL .~ [txIn]
           , mkBasicTx $ mkBasicTxBody & referenceInputsTxBodyL .~ [txIn]
           ]
-      currentAllocations <- getAllocations
+      currentAllocations <- getIndexedUTxOs
       expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "SubOutputBootAddrAttrsTooBig" $ do
@@ -287,7 +287,7 @@ spec = describe "SUBUTXO" $ do
       mkBasicTxBody
         & inputsTxBodyL .~ [txIn]
         & referenceInputsTxBodyL .~ [txIn]
-    currentAllocations <- getAllocations
+    currentAllocations <- getIndexedUTxOs
     expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "Composite tests" $ do

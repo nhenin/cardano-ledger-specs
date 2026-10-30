@@ -86,16 +86,15 @@ library
     Cardano.Ledger.Slot
     Cardano.Ledger.State
     Cardano.Ledger.State.UTxOs
-    Cardano.Ledger.State.UTxOs.Allocations
-    Cardano.Ledger.State.UTxOs.Allocations.UTxO
+    Cardano.Ledger.State.UTxOs.IndexedUTxOs
+    Cardano.Ledger.State.UTxOs.Unspent
     Cardano.Ledger.State.UTxOs.Deposit
     Cardano.Ledger.State.UTxOs.Store
-    Cardano.Ledger.State.UTxOs.Store.Error
     Cardano.Ledger.StrictlyPositiveCoin
     Cardano.Ledger.Tools
     Cardano.Ledger.TxIn
     Cardano.Ledger.TxOut
-    Cardano.Ledger.TxOut.Map
+    Cardano.Ledger.TxOut.IndexedTxOs
     Cardano.Ledger.Val
 
   hs-source-dirs: src

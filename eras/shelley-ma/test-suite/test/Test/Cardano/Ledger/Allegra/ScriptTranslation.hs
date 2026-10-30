@@ -26,6 +26,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Stack
 import Lens.Micro ((&), (.~))
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Utils (applySTSTest, runShelleyBase)
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase)
@@ -53,7 +54,7 @@ testScriptPostTranslation =
               (S.ScriptHashObj scriptHash)
               S.StakeRefNull
           utxo =
-            S.TxOutMap $
+            legacyIndexedUTxOs $
               Map.singleton
                 (S.TxIn bootstrapTxId minBound)
                 (LegacyTxOut $ mkCoinTxOut addr (S.Coin 1))
@@ -66,9 +67,7 @@ testScriptPostTranslation =
               (ChainAccountState (S.Coin 0) (S.Coin 0))
           utxoStShelley =
             def
-              { S.utxosUTxOStore =
-                  either (error . ("Script translation fixture: " <>) . show) id $
-                    fromLegacyTxOutMap utxo
+              { S.utxosUTxOStore = fromAllocations legacyDepositCalculation utxo
               }
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =

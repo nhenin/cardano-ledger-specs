@@ -58,45 +58,43 @@ source links follow the current modules. Previous documentation anchors still re
 ## Current implementation status
 
 Shared `UTxOState` owns `utxosUTxOStore :: UTxOStore era` directly.
-`CanGetUTxOStore` / `CanSetUTxOStore` replace both old accessor-class pairs;
-the `UTxOs` sum type is removed. The current working tree also removes
-`toUTxO`, `utxoG` and `utxosUtxo`. `EraUTxO`, Plutus contexts, transaction
-annotations and accepted-input validators now receive `Allocations` directly.
-Annotations retain only their relevant inputs. `EraUTxO` and `ScriptsProvided`
-are owned by `State.UTxOs`, rather than the legacy output-map module. Earlier-era codecs
-retain their map formats and traverse stored entries directly; Dijkstra persists
-the complete Store. The dated results below distinguish these changes from
-earlier checkpoints.
+`CanGetUTxOStore` / `CanSetUTxOStore` expose that Store throughout ledger state.
+The `UTxOs` sum type, legacy map module and whole-Store payload projection helpers
+remain removed.
 
-Accounting reads historical allocations directly; the retired map-only `DepositStore` type
-and compatibility getters remain removed. The allocation map now contains
-`Unspent (TxOut era)` values. Each retains `sizedOutput :: Sized (TxOut era)`
-and `depositCalculation :: DepositCalculation`; the wrapped `TxOut` distinguishes
-legacy and Store-backed outputs. Both retain supplied accepted metadata, while
-legacy external refunds remain zero. Legacy imports without that metadata use
-provisional compatibility size and zero-rate V1 values, not recovered history.
-The `UTxOStore` type uses the `UTxOStore` record constructor and
-`DepositAmount` total. Output-only views use `TxOutMap` from
-`Cardano.Ledger.TxOut.Map`; the old `UTxO` type and `LegacyUTxOMap` module are removed.
-The complete-Store accessors are in
-`Cardano.Ledger.State.UTxOs`; the Store model remains in
-`Cardano.Ledger.State.UTxOs.Store`. The allocation collection and entry model are
-now separated into `Allocations` and `Allocations.UTxO` within that namespace;
-calculation and shared errors have their own modules.
+`UTxOStore.allocations :: IndexedUTxOs era` owns the recorded unspent entries. There is
+no additional `Allocations` wrapper or `TxOutMap` payload type. The collection owns
+lookup, selection, filtering, traversal and historical deposit totals. The Store
+owns `currentCalculation`, `activateNewCalculation`, `allocate`, `release` and its exact cached `DepositAmount`.
+`State.UTxOs.Unspent` holds each output's accepted `Sized` value and creation-time
+`DepositCalculation`. Selecting entries preserves this metadata.
 
-`Core.txOutsTxBody` replaces `txouts`: it indexes a body's regular payloads,
-retaining the bounded output-index enumeration and excluding collateral return.
-The input, lookup, filter and balance helpers have been removed; callers use
-body lenses, allocation queries or output collection folds. `Allocations.toTxOutMap`
-and `txOutsForInputs` return `TxOutMap` directly. Store import uses
-`fromLegacyTxOutMap`, which still rejects Store-backed payloads lacking historical
-metadata. Legacy wire formats and credential sharing are retained.
+Input validators, transaction annotations, wallet queries and test helpers
+use complete `IndexedUTxOs` entries. Output proposals use `IndexedTxOs`, retaining
+`Sized TxOut` without historical pricing; events distinguish their consumed records
+from the created output proposals. Wallet queries are `getIndexedUTxOs`,
+`getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset`; Imp tests use `getUTxOStore`,
+`getIndexedUTxOs` or an individual `impGetUTxO` lookup. Body and produced-output
+builders retain the body's sizes without a calculation. `Store.allocate` records
+the Store's current calculation when inserting outputs. `activateNewCalculation` affects
+future allocations only; existing entries and their exact total remain unchanged.
+Genesis, translation and effective parameter changes initialize or update the active
+calculation. Parameter updates preserve the selected V1/V2 formula version.
+`IndexedUTxOs.toIndexedTxOs` marks output-only views without altering stored history.
 
-Imp tests read `getUTxOStore` or `getAllocations`; their `getUTxO` projection is
-removed. Wallet payload queries are named `getTxOutMap`, `getFilteredTxOutMap`
-and `getTxOutMapSubset`. These source-API changes complete the interface migration;
-the [30 October verification](#output-map-interface-on-30-october-2026) covers the
-completed migration. Earlier dated results retain their original scope.
+Earlier-era collection/Store encodings keep their payload-map format and credential
+sharing. Their decoder reconstructs canonical legacy compatibility metadata, not
+original historical sizes. Dijkstra collections persist complete entries; the
+Dijkstra Store schema is `[currentCalculation, cachedTotal, completeEntries]`, including
+for an empty Store. The previous two-field Store snapshot is rejected because it lacks
+the active calculation. The removed standalone
+Dijkstra payload-map API could not retain metadata and is not wire-compatible with
+the new complete-entry collection. Raw-map import remains a checked legacy boundary
+and rejects new outputs without their history.
+
+The dated verification records below retain their original scope; the previous
+checkpoint `dc2c69046` passed 18 build targets and 159 targeted examples before this
+collection unification.
 
 `Cardano.Ledger.TxOut` now owns `TxOut`, `NoNewTxOut`, the output classes,
 builders, lenses, value wrappers and collection queries. `Core` preserves its
@@ -104,7 +102,8 @@ existing output exports. The five collection queries are imported directly from
 `TxOut`, rather than through `State` or `LegacyUTxOMap`.
 
 `calculateDeposit :: DepositCalculation -> ByteSize -> Coin` is now pure.
-V2 is accepted with provisional V1 formula parity; production still selects V1.
+V2 is accepted with provisional V1 formula parity; genesis and translation select V1,
+while rate changes preserve an already selected V1 or V2.
 Individual entry deposits return `Coin`; allocation sums and selected-input
 totals return `DepositAmount`, converted with `toCoin` for Coin arithmetic.
 Checked Store construction/update and entry decoding retain
@@ -133,7 +132,7 @@ The preceding module-only move passed its core test-target build and formatting
 checks. The earlier layout passed all 11 selected build targets and 158 executed
 examples on 27 October.
 The earlier naming-only checks registered the 209 business contracts by dry run.
-The allocation-based read-contract revision below now reruns all 209 successfully.
+The allocation-based read-contract revision below reran all 209 successfully at that checkpoint.
 Earlier-layout checks, style-cleanup runs and the 26 October results remain
 separate evidence for their respective revisions.
 
@@ -146,13 +145,14 @@ experimental Dijkstra snapshot schema; earlier-era bytes remain unchanged.
 Its executed checks are recorded separately below.
 
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
-registers **209 implemented business contracts**, with no pending LedgerEffects
+registers **210 implemented business contracts**, with no pending LedgerEffects
 entry: 80 Declarations (21 Grammar and 59 Requirements), 58 Accounting
 (41 NetChange, three Attribution and 14 Balance), two Authorization, 33 Settlement,
-five Minimum coin, seven Collateral and 24 Ledger-effects checks.
+five Minimum coin, seven Collateral and 25 Ledger-effects checks.
 The original 21 effects checks replaced the earlier nine-contract outline: its eight
 pending contracts were implemented or refined into explicit observations. Three
-historical-metadata lifecycle regressions now extend that coverage.
+historical-metadata lifecycle regressions extend that coverage; Epoch N02 adds
+effective-parameter activation with historical deposits preserved.
 The former rejection-snapshot placeholder is removed: the submission adapter
 installs state only on success, so snapshot equality after rejection would retest
 that adapter rather than establish a new DepositStore transition. Transaction-rule
@@ -192,8 +192,8 @@ Production state owns each live output in one allocation map. Both accepted outp
 forms retain their supplied full-output size and calculation. Store-backed entries
 retain their creation-time V1 price; legacy entries have zero external deposit.
 Imported legacy entries use provisional compatibility metadata, not recovered
-history. `fromAllocations`, decoding and `allocate` validate incoming metadata;
-`allocate` and `release` preserve the exact cached total. Raw allocation construction is pure.
+history. Decoding validates persisted metadata. `fromAllocations` derives the cached
+total; `allocate` and `release` preserve it. These Store operations are pure.
 Accounting queries selected input allocations directly. Ordinary validation checks per-body contributions, the batch net
 total and release destinations. Successful execution applies each body’s output delta once, while batch validation
 retains the original allocation store for historical input refunds. Collateral execution derives its own allocation, release and fee
@@ -237,7 +237,7 @@ have been replaced by real ledger submissions.
 | [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `fromAllocations` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
 | [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
-| [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | One generated property funds live Store records and crosses two actual ordinary epoch boundaries, preserving the same allocation map. It checks exact records, the epoch increment and unchanged parameters; historical size/rate metadata and the independently checked cached total are preserved. |
+| [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | Two generated properties cross real epoch boundaries with live records. N01 preserves the complete Store with unchanged parameters. N02 activates a scheduled byte-price update for V1 and V2 while preserving historical allocations, the formula version and the independently checked total. |
 | [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Inherited binary round trips cover Dijkstra UTxOState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore a reachable UTxOState and spend its retained noncanonical-byte allocation after repricing. Consensus rollback remains outside this ledger API. |
 | [DS-STAKE](dijkstra-deposit-store-rules.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
 | [DS-VOTING](dijkstra-deposit-store-rules.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
@@ -249,6 +249,63 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Store operation cleanup checkpoint on 30 October 2026
+
+Removed `OutputStoreError` and the raw-output legacy import. `allocate` and
+`fromAllocations` now return `UTxOStore` directly; legacy imports accept typed
+`LegacyTxOut` payloads. Persisted negative sizes and inconsistent cached totals
+remain decoder failures. Renamed activation to `activateNewCalculation`.
+
+The rebuild is pending at this checkpoint. The 316 passing examples below
+precede this final API cleanup and are not a validation claim for this revision.
+Legacy compatibility metadata remains unchanged; recovering or representing
+actual legacy creation policies is an unresolved model question.
+
+## Active calculation and indexed outputs on 30 October 2026
+
+Validated the working tree based on `dc2c69046`. `outputsTxBody` returns
+`IndexedTxOs`: sized output proposals without historical pricing. Stored entries
+use `IndexedUTxOs`, preserving each output's original size and calculation.
+
+`UTxOStore.currentCalculation` supplies new allocations. `activateNewCalculation`
+changes future pricing without changing existing allocations or the exact cached
+total. Genesis, translation and effective parameter updates select the active
+calculation; parameter updates preserve its V1/V2 formula version. Dijkstra
+snapshots persist all three Store fields, including the active calculation when
+empty. Earlier-era formats and historical translation goldens remain unchanged.
+
+All **18 build targets passed**, including shared generators, conformance, API,
+era tests, tools and benchmarks. The final incremental build also passed after
+formatting the renamed import. No production rules outside the agreed storage
+migration were added to legacy eras.
+
+| Executed group | Examples | Failures | Seconds |
+| --- | ---: | ---: | ---: |
+| Complete DepositStore executable specification | 210 | 0 | 459.5011 |
+| Collection/Store codecs, legacy translation and canonical import/export | 46 | 0 | 81.6016 |
+| API balances, initial funds, queries, refunds, chain examples and collateral | 60 | 0 | 52.1447 |
+| **Total** | **316** | **0** | — |
+
+These checks used seed `739231514`, with 100 generated cases for each property
+where reported. Groups ran concurrently with some compilation; these are observed
+test durations, not isolated performance measurements. The complete business suite
+took **7m40s**. This does not claim a run of every upstream test.
+
+The new evidence includes 17 Store metadata properties, five API metadata properties,
+the strengthened historical-refund and translation checks, and Epoch N02 for actual
+parameter activation. No golden files were regenerated.
+
+Build and runtime evidence:
+
+- `/private/tmp/indexedutxo-full-build-17.log`
+- `/private/tmp/indexedutxo-deposit-results.json`
+- `/private/tmp/indexedutxo-codecs-results.json`
+- `/private/tmp/indexedutxo-ledger-results.json`
+
+Source formatting, whitespace and source-link checks passed. Ctags were regenerated
+for 1,344 project files and 4,972 dependency files; the navigation tool still reports
+68 unavailable cached dependency sources and its parser warnings.
 
 ## Output map interface on 30 October 2026
 
@@ -1494,17 +1551,17 @@ Seed: `739231514`.
 | Designation | [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L170) | Net release, while TopTx allocates | 140 ms |
 | Designation | [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L183) | Valid designation when phase 2 fails | 420 ms |
 | Designation | [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L199) | Invalid designation when phase 2 fails | 420 ms |
-| OutputIndex | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L59) | The index belongs to the declaring body | 217 ms |
-| OutputIndex | [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L76) | The first missing own index is rejected | 325 ms |
-| OutputIndex | [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L99) | A SubTx cannot select TopTx's output | 237 ms |
-| OutputIndex | [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L120) | Collateral return is outside the ordinary output sequence | 336 ms |
-| OutputIndex | [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L141) | A SubTx without outputs cannot settle locally | 172 ms |
-| OutputIndex | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L160) | The first and last own outputs are valid | 347 ms |
-| OutputIndex | [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L174) | TopTx cannot select a SubTx's output | 234 ms |
-| OutputIndex | [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L193) | A SubTx cannot select a sibling's output | 236 ms |
-| OutputIndex | [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L214) | Valid output indices when phase 2 fails | 293 ms |
-| OutputIndex | [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L228) | An invalid output index still fails when phase 2 fails | 450 ms |
-| OutputIndex | [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L252) | A SubTx without outputs delegates its final release | 129 ms |
+| OutputIndex | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L60) | The index belongs to the declaring body | 217 ms |
+| OutputIndex | [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L77) | The first missing own index is rejected | 325 ms |
+| OutputIndex | [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L100) | A SubTx cannot select TopTx's output | 237 ms |
+| OutputIndex | [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L121) | Collateral return is outside the ordinary output sequence | 336 ms |
+| OutputIndex | [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L142) | A SubTx without outputs cannot settle locally | 172 ms |
+| OutputIndex | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L161) | The first and last own outputs are valid | 347 ms |
+| OutputIndex | [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L175) | TopTx cannot select a SubTx's output | 234 ms |
+| OutputIndex | [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L194) | A SubTx cannot select a sibling's output | 236 ms |
+| OutputIndex | [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L215) | Valid output indices when phase 2 fails | 293 ms |
+| OutputIndex | [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L229) | An invalid output index still fails when phase 2 fails | 450 ms |
+| OutputIndex | [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) | A SubTx without outputs delegates its final release | 129 ms |
 | OutputCoin | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L43) | Output ADA must cover the required share | 266 ms |
 | OutputCoin | [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) | Implicit output, one lovelace short | 143 ms |
 | OutputCoin | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) | Implicit output, exact amount | 148 ms |
@@ -1547,7 +1604,7 @@ baseline is `1d2aa2e3ff62cd7e0fd60c403811287f98335773` plus this working-tree ch
 | [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX-P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L90) | Attribution P02 (total), N02 | Delegation preserves the required total; allocation and release, both modes accepted | Pass · 100 | 0.6703 s |
 | [DS-TX-SETTLEMENT-PARTICIPATION-P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) | Attribution P01, N01 | Every declaration form has the independently expected local and TopTx shares | Pass · 100 | 0.2908 s |
 | [DS-TX-SETTLEMENT-PARTICIPATION-P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) | Attribution P02 (responsibility) | Local → delegated moves each signed contribution from SubTx to TopTx | Pass · 100 | 0.3038 s |
-| [DS-TX-SETTLEMENT-PARTICIPATION-N09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L252) | Attribution N03 | A SubTx creates no outputs and delegates its final Store release; accepted | Pass · 100 | 0.3255 s |
+| [DS-TX-SETTLEMENT-PARTICIPATION-N09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) | Attribution N03 | A SubTx creates no outputs and delegates its final Store release; accepted | Pass · 100 | 0.3255 s |
 | [DS-TX-SETTLEMENT-PARTICIPATION-N10](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) | Attribution N04 | Active and inactive explicit zero contribute zero locally and to TopTx; accepted | Pass · 100 | 0.3633 s |
 
 Each time is the complete property run, including funding and its 100 scenarios.

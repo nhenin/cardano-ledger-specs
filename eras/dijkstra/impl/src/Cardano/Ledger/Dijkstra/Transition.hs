@@ -9,6 +9,7 @@ module Cardano.Ledger.Dijkstra.Transition (
 ) where
 
 import Cardano.Ledger.Alonzo.Transition (AlonzoEraTransition)
+import Cardano.Ledger.Babbage.Core (ppCoinsPerUTxOByteL)
 import Cardano.Ledger.Conway
 import Cardano.Ledger.Conway.Transition (
   ConwayEraTransition,
@@ -19,6 +20,7 @@ import Cardano.Ledger.Dijkstra.Genesis
 import Cardano.Ledger.Dijkstra.PParams (ppLeiosCommitteeSizeL)
 import Cardano.Ledger.Dijkstra.Rules.Snap (kesMaxKeyAgeEpochs)
 import Cardano.Ledger.Dijkstra.Translation ()
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Shelley.Genesis (ShelleyGenesis (..))
 import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState,
@@ -29,6 +31,8 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Transition
 import Cardano.Ledger.State (
+  DepositCalculation (..),
+  emptyUTxOStore,
   mkGoSnapShot,
   mkMarkSnapShot,
   mkSetSnapShot,
@@ -36,6 +40,7 @@ import Cardano.Ledger.State (
   ssStakeGoL,
   ssStakeMarkL,
   ssStakeSetL,
+  utxoStoreL,
  )
 import GHC.Generics
 import Lens.Micro
@@ -50,8 +55,12 @@ instance EraTransition DijkstraEra where
 
   mkTransitionConfig = DijkstraTransitionConfig
 
-  injectIntoTestState hasFS cfg nes =
-    seatInitialLeiosCommittee cfg <$> conwayInjectIntoTestState hasFS cfg nes
+  initialUTxOStore pp = emptyUTxOStore $ DepositCalculationV1 (pp ^. ppCoinsPerUTxOByteL)
+
+  injectIntoTestState hasFS cfg nes = do
+    initialized <- conwayInjectIntoTestState hasFS cfg nes
+    let pp = initialized ^. nesEsL . curPParamsEpochStateL
+    pure $ seatInitialLeiosCommittee cfg (initialized & utxoStoreL %~ activateDepositParameters pp)
 
   tcPreviousEraConfigL =
     lens dtcConwayTransitionConfig (\dtc pc -> dtc {dtcConwayTransitionConfig = pc})

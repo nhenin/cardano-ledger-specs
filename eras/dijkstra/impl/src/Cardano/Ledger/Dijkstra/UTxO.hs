@@ -73,7 +73,7 @@ class AlonzoEraUTxO era => DijkstraEraUTxO era where
 dijkstraConsumed ::
   EraUTxO era =>
   PParams era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Value era
 dijkstraConsumed pp = getConsumedValue pp (const Nothing)
@@ -87,7 +87,7 @@ getConsumedDijkstraValue ::
   ) =>
   PParams era ->
   (Credential Staking -> Maybe Coin) ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Value era
 getConsumedDijkstraValue pp lookupStakingDeposit inputAllocations txBody =
@@ -187,7 +187,7 @@ getDijkstraScriptsProvided ::
   , DijkstraEraTxBody era
   , STxLevel l era ~ STxBothLevels l era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx l era ->
   ScriptsProvided era
 getDijkstraScriptsProvided inputAllocations tx =
@@ -205,7 +205,7 @@ getDijkstraScriptsProvided inputAllocations tx =
 
 getDijkstraScriptsNeeded ::
   (DijkstraEraTxBody era, DijkstraEraScript era) =>
-  Allocations era -> TxBody l era -> AlonzoScriptsNeeded era
+  IndexedUTxOs era -> TxBody l era -> AlonzoScriptsNeeded era
 getDijkstraScriptsNeeded inputAllocations txb =
   getConwayScriptsNeeded inputAllocations txb
     <> guardingScriptsNeeded
@@ -233,7 +233,7 @@ getDijkstraSupplementalDataHashes ::
   , DijkstraEraTxBody era
   , STxLevel l era ~ STxBothLevels l era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Set DataHash
 getDijkstraSupplementalDataHashes inputAllocations txBody =
@@ -314,7 +314,7 @@ batchNonDistinctRefScriptsSize ::
   ( EraTx era
   , DijkstraEraTxBody era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx TopTx era ->
   Int
 batchNonDistinctRefScriptsSize inputAllocations tx =

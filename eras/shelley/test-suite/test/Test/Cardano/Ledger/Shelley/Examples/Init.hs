@@ -23,6 +23,7 @@ import Cardano.Ledger.Slot (
   EpochNo (..),
   SlotNo (..),
  )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<->))
 import Cardano.Protocol.TPraos.BlockHeader (
@@ -74,7 +75,7 @@ nonce0 = hashHeaderToNonce lastByronHeaderHash
 --
 -- The initial state for the examples uses the function
 -- 'initialShelleyState' with the genesis delegation
--- 'genDelegs' and any given starting 'TxOutMap'.
+-- 'genDelegs' and any given starting 'IndexedUTxOs'.
 initSt ::
   forall era.
   ( EraTxOut era
@@ -85,14 +86,14 @@ initSt ::
   , AtMostEra "Alonzo" era
   , Default (StashedAVVMAddresses era)
   ) =>
-  TxOutMap era ->
+  IndexedUTxOs era ->
   ChainState era
 initSt utxo =
   initialShelleyState
     (At $ LastAppliedBlock (BlockNo 0) (SlotNo 0) lastByronHeaderHash)
     (EpochNo 0)
     utxo
-    (maxLLSupply <-> (sumAllCoin . unTxOutMap $ utxo))
+    (maxLLSupply <-> (sumAllCoin . IndexedUTxOs.txOuts $ utxo))
     genDelegs
     (ppEx @era)
     nonce0

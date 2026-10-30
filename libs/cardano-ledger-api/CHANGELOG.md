@@ -2,7 +2,7 @@
 
 ## 1.16.0.0
 
-* Replace the output-view type `UTxO` / `unUTxO` with `TxOutMap` / `unTxOutMap`. `producedTxOuts` returns `TxOutMap`; body indexing uses `txOutsTxBody`. Preserve payload-map codecs and output-index behavior; complete accepted entries remain `Allocations`.
+* Distinguish `IndexedTxOs` (sized output proposals) from `IndexedUTxOs` (stored entries with historical deposit calculations). `producedTxOuts` returns `IndexedTxOs` without a pricing argument. Remove the `Allocations` wrapper; preserve legacy state encodings and output-index behavior.
 * Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
 * Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
 * Re-export abstract `StrictlyPositiveCoin`, `mkStrictlyPositiveCoin`, and `unStrictlyPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.

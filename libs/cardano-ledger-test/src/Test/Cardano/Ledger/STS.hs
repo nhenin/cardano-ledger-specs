@@ -21,7 +21,7 @@ import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.LedgerState (utxosUTxOStore)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (allocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Constrained.API hiding (forAll)
 import Control.Monad.Reader
 import Control.State.Transition.Extended
@@ -234,7 +234,7 @@ prop_UTXOS =
             (epochInfo testGlobals)
             (systemStart testGlobals)
             pp
-            (legacyAllocations utxo)
+            utxo
             mempty
             tx
     )
@@ -337,7 +337,7 @@ prop_UTXOW =
             (epochInfo testGlobals)
             (systemStart testGlobals)
             (Shelley.uePParams env)
-            (Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations . utxosUTxOStore $ st)
+            (IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations . utxosUTxOStore $ st)
             mempty
             tx
     )

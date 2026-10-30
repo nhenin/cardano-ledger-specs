@@ -131,7 +131,7 @@ toCompactCoinError c =
 mkStake :: [(Credential Staking, Coin)] -> Stake
 mkStake = Stake . GHC.Exts.fromList . map (fmap toCompactCoinError)
 
-initUTxO :: TxOutMap ShelleyEra
+initUTxO :: IndexedUTxOs ShelleyEra
 initUTxO =
   genesisCoins
     genesisId

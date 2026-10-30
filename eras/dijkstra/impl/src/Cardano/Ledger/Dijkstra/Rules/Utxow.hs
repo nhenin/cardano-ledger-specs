@@ -70,7 +70,7 @@ import Cardano.Ledger.State (
   ScriptsProvided (..),
   allocations,
  )
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
@@ -246,7 +246,7 @@ dijkstraUtxowTransition = do
   let txBody = tx ^. bodyTxL
       -- Preserve pre-batch inputs for inherited datum, script and witness checks.
       originalAllocations =
-        Allocations.restrictToInputs (txBody ^. allInputsTxBodyF) . allocations $ previousUTxOStore
+        IndexedUTxOs.restrictToInputs (txBody ^. allInputsTxBodyF) . allocations $ previousUTxOStore
       subTxs = OMap.elems $ txBody ^. subTransactionsTxBodyL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
 

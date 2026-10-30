@@ -81,7 +81,6 @@ import Cardano.Ledger.Plutus (
   asSLanguage,
   plutusLanguage,
  )
-import Cardano.Ledger.State (Allocations)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -118,7 +117,7 @@ data LedgerTxInfo level era where
     { ltiProtVer :: !ProtVer
     , ltiEpochInfo :: !(EpochInfo (Either Text))
     , ltiSystemStart :: !SystemStart
-    , ltiAllocations :: !(Allocations era)
+    , ltiAllocations :: !(IndexedUTxOs era)
     , ltiTx :: !(Tx level era)
     , ltiScriptsUsed :: [(PlutusPurpose AsIxItem era, SupportedPlutusRunnable era)]
     , ltiScriptHashesUsed :: Map.Map (PlutusPurpose AsIx era) ScriptHash
@@ -176,7 +175,7 @@ class
 
   toPlutusTxInInfo ::
     proxy l ->
-    Allocations era ->
+    IndexedUTxOs era ->
     TxIn ->
     Either (ContextError era) (PlutusTxInInfo era l)
 

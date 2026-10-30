@@ -26,10 +26,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..))
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import Data.Default (def)
-import qualified Data.Map.Strict as Map
 import Lens.Micro ((&), (.~), (^.))
 
 --------------------------------------------------------------------------------
@@ -156,8 +156,12 @@ instance TranslateEra AlonzoEra UTxOState where
 instance TranslateEra AlonzoEra ShelleyInstantStake where
   translateEra _ = pure . coerce
 
-instance TranslateEra AlonzoEra TxOutMap where
-  translateEra _ = pure . TxOutMap . Map.map upgradeTxOut . unTxOutMap
+instance TranslateEra AlonzoEra IndexedUTxOs where
+  translateEra _ = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra AlonzoEra) -> LegacyTxOut AlonzoEra
+      translateOutput output = case upgradeTxOut output of
+        LegacyTxOut translated -> translated
 
 instance TranslateEra AlonzoEra ShelleyGovState where
   translateEra ctxt ps =

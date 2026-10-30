@@ -65,7 +65,7 @@ import Test.Cardano.Ledger.Shelley.Utils (
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 
-initUTxO :: EraTxOut era => TxOutMap era
+initUTxO :: EraTxOut era => IndexedUTxOs era
 initUTxO =
   genesisCoins
     genesisId

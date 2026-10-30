@@ -64,6 +64,7 @@ import Cardano.Ledger.Dijkstra.Scripts (
   pattern RequireGuard,
  )
 import Cardano.Ledger.Dijkstra.UTxO
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.Shelley.API (mkStAnnTx)
 import Cardano.Ledger.Shelley.LedgerState
@@ -103,7 +104,12 @@ instance ShelleyEraImp DijkstraEra where
 
   impSatisfyNativeScript = impDijkstraSatisfyNativeScript
 
-  modifyPParams = conwayModifyPParams
+  -- Direct test parameter updates model the same activation boundary as an epoch.
+  -- Historical allocations keep their creation calculation.
+  modifyPParams f = do
+    conwayModifyPParams f
+    parameters <- getsPParams id
+    modifyNES $ utxoStoreL %~ activateDepositParameters parameters
 
   fixupTx = dijkstraFixupTx
   expectTxSuccess = impBabbageExpectTxSuccess
@@ -407,7 +413,7 @@ detectLegacyMode ::
 detectLegacyMode tx = do
   Globals {systemStart, epochInfo} <- gets (^. impGlobalsL)
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   let stAnnTx = mkStAnnTx epochInfo systemStart pp entries mempty tx
   pure $ stAnnTx ^. plutusLegacyModeStAnnTxG
 
@@ -475,7 +481,7 @@ balanceSubTransactions ::
 balanceSubTransactions topTx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   pools <- Map.keysSet <$> getsNES (nesEsL . esLStateL . lsCertStateL . certPStateL . psStakePoolsL)
-  entries <- getAllocations
+  entries <- getIndexedUTxOs
   let
     subTransactions = topTx ^. bodyTxL . subTransactionsTxBodyL
     subsCerts = foldMap' (^. bodyTxL . certsTxBodyL) subTransactions

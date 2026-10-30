@@ -2,7 +2,7 @@
 
 ## 1.12.0.0
 
-* Rename the output-map translation instance from `TranslateEra MaryEra UTxO` to `TranslateEra MaryEra TxOutMap`, preserving output conversion and serialized map formats.
+* Use `TranslateEra MaryEra IndexedUTxOs` for complete entries, preserving legacy output conversion and serialized map formats.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 
 ### `testlib`

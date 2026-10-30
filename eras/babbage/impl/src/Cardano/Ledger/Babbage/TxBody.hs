@@ -265,6 +265,9 @@ instance EraTxBody BabbageEra where
     lensMemoRawType @BabbageEra (\BabbageTxBodyRaw {btbrInputs} -> btbrInputs) $ \txBodyRaw inputs -> txBodyRaw {btbrInputs = inputs}
   {-# INLINE inputsTxBodyL #-}
 
+  sizedOutputsTxBodyG = sizedOutputsTxBodyL
+  {-# INLINE sizedOutputsTxBodyG #-}
+
   outputsTxBodyL =
     lensMemoRawType @BabbageEra (fmap sizedValue . (\BabbageTxBodyRaw {btbrOutputs} -> btbrOutputs)) $ \txBodyRaw outputs ->
       txBodyRaw {btbrOutputs = mkSized (eraProtVerLow @BabbageEra) <$> outputs}

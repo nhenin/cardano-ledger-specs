@@ -24,6 +24,7 @@ import Lens.Micro
 import Test.Cardano.Ledger.Alonzo.Arbitrary (genPlutusScript)
 import Test.Cardano.Ledger.Common (Gen, arbitrary, chooseInt, chooseInteger, resize)
 import Test.Cardano.Ledger.Conway.Arbitrary ()
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
 
 -- | Every generated pair contains zero and distinct positive monetary pots.
@@ -48,9 +49,7 @@ conwayStates = do
       outputMap =
         Map.fromList $
           zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (take 1 outputs <> outputs)
-      outputStore =
-        either (error . ("Conway lifecycle fixture: " <>) . show) id $
-          fromLegacyTxOutMap (TxOutMap outputMap)
+      outputStore = fromAllocations legacyDepositCalculation . legacyIndexedUTxOs $ outputMap
       utxoStateL = nesEsL . esLStateL . lsUTxOStateL
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =

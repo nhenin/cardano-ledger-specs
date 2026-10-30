@@ -37,6 +37,7 @@ import Cardano.Ledger.Shelley.Rewards (
   filterRewards,
  )
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData (rnf), deepseq)
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
@@ -46,13 +47,12 @@ import Lens.Micro
 
 -- ================================================
 
--- | Initialize legacy output storage and compute its cached instant stake.
--- Use this for legacy-era tests and initialization. Dijkstra callers construct
--- explicit storage so historical allocation metadata cannot be reconstructed.
+-- | Initialize output storage from complete unspent entries and compute its
+-- cached instant stake. Preserve each entry's size and historical calculation.
 smartUTxOState ::
-  (EraTxOut era, EraStake era) =>
+  EraStake era =>
   PParams era ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   Coin ->
   Coin ->
   GovState era ->
@@ -60,15 +60,11 @@ smartUTxOState ::
   UTxOState era
 smartUTxOState _pp utxo c1 c2 st donation =
   UTxOState
-    ( either
-        (error . ("smartUTxOState: expected legacy outputs: " <>) . show)
-        id
-        $ fromLegacyTxOutMap utxo
-    )
+    (fromAllocations legacyDepositCalculation utxo)
     c1
     c2
     st
-    (addInstantStake (unTxOutMap utxo) mempty)
+    (addInstantStake (IndexedUTxOs.txOuts utxo) mempty)
     donation
 
 -- =====================================================

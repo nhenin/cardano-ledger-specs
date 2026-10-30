@@ -28,7 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.State (allocations, restrictToInputs)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -210,7 +210,7 @@ balanceChild state child =
               . liveOutputStore
               . Pricing.utxoState
               $ state
-          inputCoins = foldMap (^. coinTxOutL) . Allocations.txOuts $ sources
+          inputCoins = foldMap (^. coinTxOutL) . IndexedUTxOs.txOuts $ sources
           outputCoins = foldMap (^. coinTxOutL) rest
           localDeposit = localDeclaredAmount $ child ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL
           settlementCoins = (inputCoins <-> outputCoins) <-> localDeposit

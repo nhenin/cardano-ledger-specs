@@ -22,7 +22,7 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState, lsUTxOState, utxosUTxOStor
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.Crypto (Crypto)
 import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..))
 import Control.Monad.Trans.Reader (runReaderT)
@@ -86,7 +86,7 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
             . Store.allocations
             . utxosUTxOStore
             . lsUTxOState

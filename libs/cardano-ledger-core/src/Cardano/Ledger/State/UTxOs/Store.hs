@@ -11,140 +11,132 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Accepted outputs together with the immutable inputs to their deposit calculation.
--- Checked construction, updates and decoding maintain the cached deposit total.
+-- | Active pricing and accepted outputs with immutable historical calculations.
+-- Construction and updates maintain the cached deposit total; decoding checks it.
 module Cardano.Ledger.State.UTxOs.Store (
   -- * Model
-  UTxOStore (totalDepositAmount, allocations),
+  UTxOStore (currentCalculation, totalDepositAmount, allocations),
 
   -- * Construction
   emptyUTxOStore,
   fromAllocations,
 
   -- * Updates
+  activateNewCalculation,
   allocate,
   release,
 
   -- * Legacy compatibility
-  fromLegacyTxOutMap,
   fromLegacyAllocations,
   translateLegacyStore,
-  applyLegacyOutputDelta,
 
   -- * Serialization
   encodeUTxOStore,
 ) where
 
 import Cardano.Ledger.Binary
-import Cardano.Ledger.Coin (Coin (..), CompactForm (CompactCoin))
-import Cardano.Ledger.Core
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core.Era
 import Cardano.Ledger.Credential (Credential)
-import Cardano.Ledger.State.UTxOs.Allocations (Allocations (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import Cardano.Ledger.State.UTxOs.Allocations.UTxO (Unspent (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.Hashes (KeyRole (Staking))
 import Cardano.Ledger.State.UTxOs.Deposit
-import Cardano.Ledger.State.UTxOs.Store.Error
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.State.UTxOs.Unspent (Unspent (..))
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut (EraTxOut (..), TxOut (..))
+import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
 import Control.DeepSeq (NFData (..))
-import Control.Monad (unless, when)
-import Data.Aeson (ToJSON (..), ToJSON1 (liftToJSON), object, (.=))
+import Control.Monad (unless)
+import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Default (Default (def))
-import Data.Foldable (traverse_)
 import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 -- Model
 
 data UTxOStore era = UTxOStore
-  { totalDepositAmount :: !DepositAmount
-  , allocations :: !(Allocations era)
+  { currentCalculation :: !DepositCalculation
+  , totalDepositAmount :: !DepositAmount
+  , allocations :: !(IndexedUTxOs era)
   }
 
 -- Operations
 
-emptyUTxOStore :: UTxOStore era
-emptyUTxOStore =
+-- | Start an empty Store with the calculation to record on future allocations.
+emptyUTxOStore :: DepositCalculation -> UTxOStore era
+emptyUTxOStore calculation =
   UTxOStore
-    { totalDepositAmount = DepositAmount {toCoin = mempty}
-    , allocations = Allocations {unAllocations = Map.empty}
+    { currentCalculation = calculation
+    , totalDepositAmount = DepositAmount {toCoin = mempty}
+    , allocations = mempty
     }
 
--- | Construct a Store from complete entries and derive its deposit total.
-fromAllocations :: Allocations era -> Either OutputStoreError (UTxOStore era)
-fromAllocations entries = allocate entries emptyUTxOStore
+-- | Restore complete historical entries with an explicit current calculation.
+-- Derive the total without replacing any entry's recorded size or calculation.
+fromAllocations :: DepositCalculation -> IndexedUTxOs era -> UTxOStore era
+fromAllocations calculation entries =
+  UTxOStore
+    { currentCalculation = calculation
+    , totalDepositAmount = IndexedUTxOs.sumDepositAmounts entries
+    , allocations = entries
+    }
 
--- Check externally supplied metadata before it becomes part of a Store.
--- Reading deposits from an accepted Store requires no validation.
-validateAcceptedSizes :: Allocations era -> Either OutputStoreError ()
-validateAcceptedSizes = traverse_ validateSize . unAllocations
-  where
-    validateSize entry =
-      let size = sizedSize $ sizedOutput entry
-       in when (size < 0) $ Left $ NegativeOutputSize size
+-- | Select the calculation for future allocations. Existing records and their
+-- deposits remain unchanged, including when the Store is empty.
+activateNewCalculation :: DepositCalculation -> UTxOStore era -> UTxOStore era
+activateNewCalculation calculation store = store {currentCalculation = calculation}
 
--- | Insert complete allocations and add their deposits to the total.
--- Existing entries at the same inputs are replaced: their deposits are released
--- before the new amounts are added. Unaffected historical metadata is retained.
+-- | Accept proposed outputs, recording their sizes and the current calculation.
+-- Earlier eras use canonical legacy metadata to match their payload-only state
+-- format. Dijkstra retains the supplied size and calculation for both forms.
+-- A replacement releases the previous entry's deposit before adding the new one.
 allocate ::
-  Allocations era ->
+  forall era.
+  EraTxOut era =>
+  IndexedTxOs era ->
   UTxOStore era ->
-  Either OutputStoreError (UTxOStore era)
-allocate newAllocations previousStore = do
-  validateAcceptedSizes newAllocations
-  let retainedStore = release (Map.keysSet . unAllocations $ newAllocations) previousStore
-      allocatedDepositAmount = toCoin . Allocations.sumDepositAmounts $ newAllocations
-  pure $
-    retainedStore
-      { totalDepositAmount =
-          DepositAmount {toCoin = (toCoin . totalDepositAmount $ retainedStore) <> allocatedDepositAmount}
-      , allocations =
-          Allocations $
-            Map.union (unAllocations newAllocations) (unAllocations . allocations $ retainedStore)
-      }
+  UTxOStore era
+allocate proposedOutputs previousStore =
+  let calculation = currentCalculation previousStore
+      newAllocations =
+        IndexedUTxOs.fromList
+          [ ( input
+            , case (eraProtVerLow @era < natVersion @12, sizedValue output) of
+                (True, LegacyTxOut legacy) -> Unspent.fromLegacyTxOut legacy
+                _ -> Unspent {sizedOutput = output, depositCalculation = calculation}
+            )
+          | (input, output) <- IndexedTxOs.toList proposedOutputs
+          ]
+      retainedStore = release (IndexedTxOs.inputIds proposedOutputs) previousStore
+      allocatedDepositAmount = toCoin . IndexedUTxOs.sumDepositAmounts $ newAllocations
+   in retainedStore
+        { totalDepositAmount =
+            DepositAmount {toCoin = (toCoin . totalDepositAmount $ retainedStore) <> allocatedDepositAmount}
+        , allocations = newAllocations <> allocations retainedStore
+        }
 
 -- | Remove the selected allocations and subtract their historical deposits.
 -- Inputs absent from the Store have no effect; retained entries are unchanged.
 release :: Set TxIn -> UTxOStore era -> UTxOStore era
 release inputs previousStore =
-  case Allocations.extractInputs inputs (allocations previousStore) of
+  case IndexedUTxOs.extractInputs inputs (allocations previousStore) of
     (remainingAllocations, releasedAllocations) ->
       previousStore
         { totalDepositAmount =
             DepositAmount
               { toCoin =
                   (toCoin . totalDepositAmount $ previousStore)
-                    <-> (toCoin . Allocations.sumDepositAmounts $ releasedAllocations)
+                    <-> (toCoin . IndexedUTxOs.sumDepositAmounts $ releasedAllocations)
               }
         , allocations = remainingAllocations
         }
 
 -- Legacy compatibility
-
--- | Replace legacy outputs while retaining the metadata of every unaffected entry.
--- Newly inserted outputs must use implicit deposits.
-applyLegacyOutputDelta ::
-  EraTxOut era =>
-  Set TxIn ->
-  TxOutMap era ->
-  UTxOStore era ->
-  Either OutputStoreError (UTxOStore era)
-applyLegacyOutputDelta consumed created previous = do
-  newStore <- fromLegacyTxOutMap created
-  allocate (allocations newStore) . release consumed $ previous
-
--- | This conversion is only for legacy outputs. It cannot reconstruct the
--- accepted size or historical rate of an existing store-backed output.
-fromLegacyTxOutMap :: EraTxOut era => TxOutMap era -> Either OutputStoreError (UTxOStore era)
-fromLegacyTxOutMap (TxOutMap outputs) =
-  fromLegacyAllocations <$> Map.traverseWithKey requireLegacyOutput outputs
-  where
-    requireLegacyOutput input = \case
-      LegacyTxOut output -> Right output
-      NewTxOut _ -> Left $ MissingHistoricalAllocation input
 
 -- | Import legacy output payloads without historical deposit metadata.
 -- Re-encoded size and V1 with a zero rate are NOT historical pricing inputs.
@@ -154,8 +146,9 @@ fromLegacyTxOutMap (TxOutMap outputs) =
 fromLegacyAllocations :: forall era. EraTxOut era => Map TxIn (LegacyTxOut era) -> UTxOStore era
 fromLegacyAllocations outputs =
   UTxOStore
-    { totalDepositAmount = DepositAmount {toCoin = mempty}
-    , allocations = Allocations {unAllocations = Map.map legacyOutput outputs}
+    { currentCalculation = legacyDepositCalculation
+    , totalDepositAmount = DepositAmount {toCoin = mempty}
+    , allocations = IndexedUTxOs.fromLegacyTxOuts outputs
     }
 
 -- | Translate legacy entries using the era's output conversion. The callback
@@ -169,31 +162,25 @@ translateLegacyStore ::
   UTxOStore target
 translateLegacyStore translateOutput store =
   UTxOStore
-    { totalDepositAmount = DepositAmount {toCoin = mempty}
-    , allocations =
-        Allocations . Allocations.mapTxOuts (legacyOutput . translateOutput) . allocations $ store
+    { currentCalculation = legacyDepositCalculation
+    , totalDepositAmount = DepositAmount {toCoin = mempty}
+    , allocations = IndexedUTxOs.translateLegacyOutputs translateOutput . allocations $ store
     }
-
-legacyOutput :: forall era. EraTxOut era => LegacyTxOut era -> Unspent (TxOut era)
-legacyOutput output =
-  let sized = mkSized (eraProtVerLow @era) . LegacyTxOut $ output
-   in sizedSize sized `seq`
-        Unspent
-          { sizedOutput = sized
-          , depositCalculation = DepositCalculationV1 . CoinPerByte . CompactCoin $ 0
-          }
 
 -- Instances
 
 instance Default (UTxOStore era) where
-  def = emptyUTxOStore
+  def = emptyUTxOStore legacyDepositCalculation
 
 deriving instance Eq (TxOut era) => Eq (UTxOStore era)
 
 deriving instance Show (TxOut era) => Show (UTxOStore era)
 
 instance NFData (TxOut era) => NFData (UTxOStore era) where
-  rnf store = rnf (totalDepositAmount store) `seq` rnf (allocations store)
+  rnf store =
+    rnf (currentCalculation store) `seq`
+      rnf (totalDepositAmount store) `seq`
+        rnf (allocations store)
 
 deriving via
   InspectHeapNamed "UTxOStore" (UTxOStore era)
@@ -204,20 +191,16 @@ deriving via
 
 instance (Era era, ToJSON (TxOut era)) => ToJSON (UTxOStore era) where
   toJSON store
-    | eraProtVerLow @era < natVersion @12 =
-        liftToJSON
-          (omitField . UTxO.toTxOut)
-          (toJSON . UTxO.toTxOut)
-          (toJSONList . map UTxO.toTxOut)
-          (unAllocations . allocations $ store)
+    | eraProtVerLow @era < natVersion @12 = toJSON . allocations $ store
     | otherwise =
-        object ["totalDepositAmount" .= totalDepositAmount store, "allocations" .= allocations store]
+        object
+          [ "currentCalculation" .= currentCalculation store
+          , "totalDepositAmount" .= totalDepositAmount store
+          , "allocations" .= allocations store
+          ]
 
 instance EraTxOut era => EncCBOR (UTxOStore era) where
-  encCBOR store
-    | eraProtVerLow @era < natVersion @12 =
-        encodeMap encCBOR (encCBOR . UTxO.toTxOut) . unAllocations . allocations $ store
-    | otherwise = encodeStoreWith encCBOR encCBOR store
+  encCBOR = encodeStoreWith encCBOR encCBOR
 
 instance EraTxOut era => DecCBOR (UTxOStore era) where
   decCBOR = decNoShareCBOR
@@ -225,14 +208,14 @@ instance EraTxOut era => DecCBOR (UTxOStore era) where
 instance EraTxOut era => DecShareCBOR (UTxOStore era) where
   type Share (UTxOStore era) = Interns (Credential Staking)
   decShareCBOR credentials
-    | eraProtVerLow @era < natVersion @12 = do
-        outputs <- decShareCBOR credentials
-        either (fail . show) pure $ fromLegacyTxOutMap outputs
-    | otherwise = decodeRecordNamed "UTxOStore" (const 2) $ do
+    | eraProtVerLow @era < natVersion @12 =
+        fromAllocations legacyDepositCalculation <$> decShareCBOR credentials
+    | otherwise = decodeRecordNamed "UTxOStore" (const 3) $ do
+        calculation <- decCBOR
         supplied <- Coin <$> decCBOR
-        entries <- decodeMap decNoShareCBOR (decShareCBOR credentials)
-        store <- either (fail . show) pure . fromAllocations $ Allocations entries
-        let expected = toCoin $ totalDepositAmount store
+        entries <- decShareCBOR credentials
+        let store = fromAllocations calculation entries
+            expected = toCoin $ totalDepositAmount store
         unless (supplied == expected) $
           fail $
             "UTxOStore deposit total mismatch: supplied " <> show supplied <> ", expected " <> show expected
@@ -247,17 +230,21 @@ instance EraTxOut era => FromCBOR (UTxOStore era) where
 -- | Ledger snapshots retain the usual MemPack output representation and encode
 -- the original charged size separately. The ordinary Sized codec discards it.
 encodeUTxOStore :: forall era. EraTxOut era => UTxOStore era -> Encoding
-encodeUTxOStore store
-  | eraProtVerLow @era < natVersion @12 =
-      encodeMap encodeMemPack (encodeMemPack . UTxO.toTxOut) . unAllocations . allocations $ store
-  | otherwise = encodeStoreWith encodeMemPack encodeMemPack store
+encodeUTxOStore = encodeStoreWith encodeMemPack encodeMemPack
 
 encodeStoreWith ::
+  forall era.
+  Era era =>
   (TxIn -> Encoding) ->
   (TxOut era -> Encoding) ->
   UTxOStore era ->
   Encoding
-encodeStoreWith encodeInput encodeOutput store =
-  encodeListLen 2
-    <> encCBOR (toCoin $ totalDepositAmount store)
-    <> encodeMap encodeInput (UTxO.encodeWith encodeOutput) (unAllocations $ allocations store)
+encodeStoreWith encodeInput encodeOutput store
+  | eraProtVerLow @era < natVersion @12 = encodeEntries
+  | otherwise =
+      encodeListLen 3
+        <> encCBOR (currentCalculation store)
+        <> encCBOR (toCoin $ totalDepositAmount store)
+        <> encodeEntries
+  where
+    encodeEntries = IndexedUTxOs.encodeWith encodeInput encodeOutput . allocations $ store

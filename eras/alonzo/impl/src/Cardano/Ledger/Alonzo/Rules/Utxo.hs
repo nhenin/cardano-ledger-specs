@@ -95,7 +95,7 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
@@ -223,7 +223,7 @@ deriving stock instance
 instance
   ( Era era
   , NFData (Value era)
-  , NFData (TxOutMap era)
+  , NFData (IndexedUTxOs era)
   , NFData (PredicateFailure (EraRule "UTXOS" era))
   , NFData (TxOut era)
   ) =>
@@ -235,9 +235,9 @@ data AlonzoUtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (TxOutMap era)
-      -- | UTxO created
-      (TxOutMap era)
+      (IndexedUTxOs era)
+      -- | Outputs created by the body, with their supplied sizes
+      (IndexedTxOs era)
   deriving (Generic)
 
 deriving instance
@@ -296,13 +296,13 @@ feesOK ::
   ) =>
   PParams era ->
   Tx TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (AlonzoUtxoPredFailure era)
 feesOK pp tx entries =
   let txBody = tx ^. bodyTxL
       collateral = txBody ^. collateralInputsTxBodyL -- Inputs allocated to pay txfee
       -- Resolve only the collateral outputs used to pay fees.
-      collateralAllocations = Allocations.restrictToInputs collateral entries
+      collateralAllocations = IndexedUTxOs.restrictToInputs collateral entries
       theFee = txBody ^. feeTxBodyL
       minFee = getMinFeeTxUtxo pp tx entries
    in sequenceA_
@@ -321,7 +321,7 @@ validateCollateral ::
   ) =>
   PParams era ->
   TxBody TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (AlonzoUtxoPredFailure era)
 validateCollateral pp txb collateralAllocations =
   sequenceA_
@@ -330,21 +330,21 @@ validateCollateral pp txb collateralAllocations =
     , -- Part 4: balance ∗ 100 ≥ txfee txb ∗ (collateralPercent pp)
       validateInsufficientCollateral pp txb bal
     , -- Part 5: isAdaOnly balance
-      validateCollateralContainsNonADA $ Allocations.txOuts collateralAllocations
+      validateCollateralContainsNonADA $ IndexedUTxOs.txOuts collateralAllocations
     , -- Part 6: (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
-      failureIf (null $ Allocations.unspentOutputs collateralAllocations) NoCollateralInputs
+      failureIf (IndexedUTxOs.null collateralAllocations) NoCollateralInputs
     ]
   where
-    bal = toDeltaCoin . sumAllCoin . Allocations.txOuts $ collateralAllocations
+    bal = toDeltaCoin . sumAllCoin . IndexedUTxOs.txOuts $ collateralAllocations
 
 -- > (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
 validateScriptsNotPaidUTxO ::
   EraTxOut era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Test (AlonzoUtxoPredFailure era)
 validateScriptsNotPaidUTxO collateralAllocations =
   failureOnNonEmptyMap
-    ( unTxOutMap . Allocations.toTxOutMap . Allocations.filterByTxOut (not . vKeyLocked) $
+    ( IndexedUTxOs.mapTxOuts id . IndexedUTxOs.filterByTxOut (not . vKeyLocked) $
         collateralAllocations
     )
     ScriptsNotPaidUTxO
@@ -526,7 +526,7 @@ utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       storedAllocations = Store.allocations . utxosUTxOStore $ utxos
-      inputAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -799,17 +799,13 @@ updateUTxOState pp certState tx utxoState =
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
           let !utxoDel =
-                Allocations.txOuts
-                  . Allocations.restrictToInputs (txBody ^. collateralInputsTxBodyL)
+                IndexedUTxOs.txOuts
+                  . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
                   . Store.allocations
                   . utxosUTxOStore
                   $ utxoState
               store =
-                either (error . ("Alonzo collateral release: " <>) . show) id $
-                  applyLegacyOutputDelta
-                    (txBody ^. collateralInputsTxBodyL)
-                    mempty
-                    (utxosUTxOStore utxoState)
+                Store.release (txBody ^. collateralInputsTxBodyL) $ utxosUTxOStore utxoState
            in pure $!
                 utxoState
                   { utxosUTxOStore = store

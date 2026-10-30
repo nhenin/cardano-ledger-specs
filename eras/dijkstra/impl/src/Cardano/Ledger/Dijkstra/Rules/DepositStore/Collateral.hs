@@ -20,9 +20,9 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   CollateralDepositSettlement (..),
   collateralDepositSettlement,
  )
-import Cardano.Ledger.State (Allocations, UTxOStore)
+import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.Val as Val
 import Data.Bifunctor (first)
@@ -47,9 +47,9 @@ validateCollateralFunding ::
   UTxOStore era ->
   Validation (NonEmpty (EraRuleFailure rule era)) ()
 validateCollateralFunding pp body store =
-  let settlement = collateralDepositSettlement pp store body
+  let settlement = collateralDepositSettlement store body
       collateralAllocations =
-        Allocations.restrictToInputs (body ^. collateralInputsTxBodyL) $ Store.allocations store
+        IndexedUTxOs.restrictToInputs (body ^. collateralInputsTxBodyL) $ Store.allocations store
    in sequenceA_
         [ first (fmap injectFailure) $ Alonzo.validateScriptsNotPaidUTxO collateralAllocations
         , first (fmap injectFailure) $ validateCollateralAssets body collateralAllocations
@@ -59,10 +59,10 @@ validateCollateralFunding pp body store =
                 collateralCoinFee settlement
         , first (fmap injectFailure) $
             Babbage.validateCollateralEqBalance
-              (collAdaBalance body $ Allocations.txOuts collateralAllocations)
+              (collAdaBalance body $ IndexedUTxOs.txOuts collateralAllocations)
               (body ^. totalCollateralTxBodyL)
         , failureUnless
-            (not . null $ Allocations.unspentOutputs collateralAllocations)
+            (not . IndexedUTxOs.null $ collateralAllocations)
             (injectFailure $ Alonzo.NoCollateralInputs @era)
         ]
 
@@ -72,10 +72,10 @@ validateCollateralFunding pp body store =
 validateCollateralAssets ::
   BabbageEraTxBody era =>
   TxBody TopTx era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Validation (NonEmpty (Alonzo.AlonzoUtxoPredFailure era)) ()
 validateCollateralAssets body collateralAllocations =
-  let consumedAssets = unAssets . sumAllAssets . Allocations.txOuts $ collateralAllocations
+  let consumedAssets = unAssets . sumAllAssets . IndexedUTxOs.txOuts $ collateralAllocations
       returnAssets = unAssets $ sumAllAssets (body ^. collateralReturnTxBodyL)
       reportedAssets = case body ^. collateralReturnTxBodyL of
         SJust _ | Val.isAdaOnly consumedAssets -> returnAssets

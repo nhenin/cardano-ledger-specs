@@ -13,7 +13,6 @@ import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..), smartUTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Control.State.Transition.Extended hiding (Assertion)
 import Data.Default (def)
 import Data.List.NonEmpty (NonEmpty)
@@ -26,12 +25,12 @@ import Test.Tasty.HUnit (Assertion, (@?=))
 
 ignoreAllButUTxO ::
   Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (LedgerState MaryEra) ->
-  Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (TxOutMap MaryEra)
+  Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (IndexedUTxOs MaryEra)
 ignoreAllButUTxO =
   fmap
     ( \( LedgerState
            ( UTxOState
-               ((Allocations.toTxOutMap . Store.allocations) -> utxo)
+               ((Store.allocations) -> utxo)
                _
                _
                _
@@ -44,10 +43,10 @@ ignoreAllButUTxO =
 
 testMaryNoDelegLEDGER ::
   HasCallStack =>
-  TxOutMap MaryEra ->
+  IndexedUTxOs MaryEra ->
   Tx TopTx MaryEra ->
   LedgerEnv MaryEra ->
-  Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (TxOutMap MaryEra) ->
+  Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (IndexedUTxOs MaryEra) ->
   Assertion
 testMaryNoDelegLEDGER utxo tx env (Right expectedUTxO) = do
   checkTrace @(Shelley.LEDGER MaryEra) runShelleyBase env $

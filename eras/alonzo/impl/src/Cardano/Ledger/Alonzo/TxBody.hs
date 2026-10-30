@@ -90,6 +90,7 @@ import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
   ToCBOR (..),
+  mkSized,
  )
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin (..))
@@ -228,6 +229,9 @@ instance EraTxBody AlonzoEra where
     lensMemoRawType @AlonzoEra (\AlonzoTxBodyRaw {atbrInputs} -> atbrInputs) $
       \txBodyRaw inputs_ -> txBodyRaw {atbrInputs = inputs_}
   {-# INLINEABLE inputsTxBodyL #-}
+
+  sizedOutputsTxBodyG = outputsTxBodyL . to (fmap (mkSized $ eraProtVerLow @AlonzoEra))
+  {-# INLINE sizedOutputsTxBodyG #-}
 
   outputsTxBodyL =
     lensMemoRawType @AlonzoEra (\AlonzoTxBodyRaw {atbrOutputs} -> atbrOutputs) $

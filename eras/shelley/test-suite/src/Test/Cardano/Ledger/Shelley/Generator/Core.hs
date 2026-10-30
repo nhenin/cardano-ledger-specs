@@ -92,6 +92,7 @@ import Data.Word (Word64)
 import Numeric.Natural (Natural)
 import qualified PlutusLedgerApi.V1 as PV1
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), KeyPairs, mkAddr, mkCredential, vKey)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Constants (Constants (..))
 import Test.Cardano.Ledger.Shelley.Generator.ScriptClass (
   ScriptClass,
@@ -444,11 +445,12 @@ genesisChainAccountState =
 -- | Creates the UTxO for a new ledger with the specified
 -- genesis TxId and transaction outputs.
 genesisCoins ::
+  EraTxOut era =>
   TxId ->
   [TxOut era] ->
-  TxOutMap era
+  IndexedUTxOs era
 genesisCoins genesisTxId outs =
-  TxOutMap $
+  legacyIndexedUTxOs $
     Map.fromList [(TxIn genesisTxId idx, out) | (idx, out) <- zip [minBound ..] outs]
 
 -- ==================================================================

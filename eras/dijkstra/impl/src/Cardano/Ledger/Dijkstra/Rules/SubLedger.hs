@@ -101,7 +101,7 @@ data SubLedgerEnv era = SubLedgerEnv
   , sleEpochNo :: Maybe EpochNo
   , slePParams :: PParams era
   , sleAccount :: ChainAccountState
-  , sleOriginalAllocations :: Allocations era
+  , sleOriginalAllocations :: IndexedUTxOs era
   , sleOriginalAccounts :: Accounts era
   , sleTopTxIsPhase2Valid :: IsPhase2Valid
   }

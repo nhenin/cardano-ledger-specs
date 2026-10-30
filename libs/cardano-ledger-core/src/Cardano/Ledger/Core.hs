@@ -32,7 +32,8 @@ module Cardano.Ledger.Core (
   EraTx (..),
   txIdTx,
   TxOut (..),
-  TxOutMap (..),
+  IndexedUTxOs (..),
+  IndexedTxOs (..),
   NoNewTxOut,
   EraTxOut (..),
   EraLegacyTxOut (..),
@@ -42,7 +43,7 @@ module Cardano.Ledger.Core (
   bootAddrTxOutF,
   EraTxBody (..),
   txIdTxBody,
-  txOutsTxBody,
+  outputsTxBody,
   EraTxAuxData (..),
   modifyTxAuxData,
   hashTxAuxData,
@@ -94,6 +95,7 @@ import Cardano.Ledger.Binary (
   DecCBOR,
   DecoderError,
   EncCBOR (..),
+  Sized,
   ToCBOR,
   serialize,
   translateViaCBORAnnotator,
@@ -110,9 +112,11 @@ import Cardano.Ledger.Keys.Bootstrap (BootstrapWitness, bootstrapWitKeyHash)
 import Cardano.Ledger.Keys.WitVKey (WitVKey, witVKeyHash)
 import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Metadata
+import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.TxOut
-import Cardano.Ledger.TxOut.Map (TxOutMap (..))
+import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs (..))
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
 import Control.Monad.Except (Except)
 import Control.Monad.Trans.Fail.String (errorFail)
@@ -253,6 +257,11 @@ class
   inputsTxBodyL :: Lens' (TxBody l era) (Set TxIn)
 
   outputsTxBodyL :: Lens' (TxBody l era) (StrictSeq (TxOut era))
+
+  -- | Proposed outputs retaining the byte counts supplied with the transaction body.
+  -- Each era specifies its representation: legacy-only bodies reconstruct the
+  -- canonical count, while bodies with stored sizes expose those sizes directly.
+  sizedOutputsTxBodyG :: SimpleGetter (TxBody l era) (StrictSeq (Sized (TxOut era)))
 
   feeTxBodyL :: Lens' (TxBody TopTx era) Coin
 
@@ -500,14 +509,15 @@ txIdTx tx = txIdTxBody (tx ^. bodyTxL)
 txIdTxBody :: EraTxBody era => TxBody l era -> TxId
 txIdTxBody = TxId . hashAnnotated
 
--- | Index a body's regular output payloads by the inputs that would spend them.
--- This does not construct accepted allocations or include a collateral return.
--- The positional indices retain the existing bounded @TxIx@ enumeration.
-txOutsTxBody :: forall era l. EraTxBody era => TxBody l era -> TxOutMap era
-txOutsTxBody txBody =
-  TxOutMap . Map.fromList $
-    [ (TxIn transId idx, out)
-    | (out, idx) <- zip (toList $ txBody ^. outputsTxBodyL) [minBound ..]
+-- | Index proposed regular outputs, retaining the body's supplied sizes.
+-- This assigns output references without recording a deposit calculation.
+-- The bounded indices retain the existing @TxIx@ limit; collateral returns
+-- are indexed by the era-specific collateral rule.
+outputsTxBody :: forall era l. EraTxBody era => TxBody l era -> IndexedTxOs era
+outputsTxBody txBody =
+  IndexedTxOs.fromList
+    [ (TxIn transId idx, output)
+    | (output, idx) <- zip (toList $ txBody ^. sizedOutputsTxBodyG) [minBound ..]
     ]
   where
     transId = txIdTxBody txBody

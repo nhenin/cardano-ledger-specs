@@ -40,7 +40,6 @@ import Cardano.Ledger.Dijkstra.Tx (DijkstraStAnnTx (..))
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (ScriptsNeeded, ScriptsProvided, allocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Control.DeepSeq (deepseq, rnf)
 import Control.State.Transition.Extended (TRC (..))
 import Data.Functor.Identity (Identity)
@@ -239,7 +238,7 @@ instance ExecSpecTopLevelRule "LEDGER" DijkstraEra where
       , dlecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
-            , uecUTxO = Allocations.toTxOutMap . allocations $ state ^. utxoStoreG
+            , uecUTxO = allocations $ state ^. utxoStoreG
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL

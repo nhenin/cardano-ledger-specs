@@ -63,6 +63,7 @@ import Cardano.Ledger.Shelley.Scripts (
   pattern RequireMOf,
   pattern RequireSignature,
  )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val (Val (..))
 import Control.Monad.Except (MonadError (..))
@@ -230,12 +231,13 @@ instance SpecTranslate DijkstraEra (BabbageTxOut DijkstraEra) where
     script' <- toSpecRep script
     pure (addr', (val', (datum', script')))
 
-instance SpecTranslate DijkstraEra (TxOutMap DijkstraEra) where
+instance SpecTranslate DijkstraEra (IndexedUTxOs DijkstraEra) where
   type
-    SpecRep DijkstraEra (TxOutMap DijkstraEra) =
+    SpecRep DijkstraEra (IndexedUTxOs DijkstraEra) =
       Agda.HSMap (SpecRep DijkstraEra TxIn) (SpecRep DijkstraEra (TxOut DijkstraEra))
 
-  toSpecRep (TxOutMap m) = toSpecRepMap m
+  -- The formal model carries output payloads, not historical deposit metadata.
+  toSpecRep = toSpecRepMap . IndexedUTxOs.mapTxOuts id
 
 deriving instance SpecTranslate DijkstraEra OrdExUnits
 

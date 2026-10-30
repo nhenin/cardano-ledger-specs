@@ -104,6 +104,7 @@ import Cardano.Ledger.Plutus.ExUnits (ExUnits (..), Prices (..))
 import Cardano.Ledger.Plutus.Language (Language (..), nonNativeLanguages)
 import Cardano.Ledger.Rewards (Reward (..), RewardType (..))
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (
   StrictlyPositiveCoin,
   mkStrictlyPositiveCoin,
@@ -138,7 +139,7 @@ import System.Random.Stateful (StatefulGen, uniformRM)
 import Test.Cardano.Base.Bytes (genByteArray, genShortByteString)
 import qualified Test.Cardano.Chain.Common.Gen as Byron
 import Test.Cardano.Ledger.Binary.Arbitrary
-import Test.Cardano.Ledger.Core.Utils (unsafeBoundRational)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs, unsafeBoundRational)
 import Test.Cardano.Slotting.Arbitrary ()
 import Test.Cardano.StrictContainers.Instances ()
 import Test.Crypto.Hash ()
@@ -165,29 +166,21 @@ instance Arbitrary DepositCalculation where
   shrink (DepositCalculationV1 rate) = DepositCalculationV1 <$> shrink rate
   shrink (DepositCalculationV2 rate) = DepositCalculationV2 <$> shrink rate
 
-instance Arbitrary OutputStoreError where
-  arbitrary =
-    oneof
-      [ NegativeOutputSize <$> arbitrary
-      , MissingHistoricalAllocation <$> arbitrary
-      ]
-  shrink = genericShrink
-
 instance Arbitrary (Sized a) => Arbitrary (Unspent a) where
   arbitrary = Unspent <$> arbitrary <*> arbitrary
 
 instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) where
   arbitrary
-    | eraProtVerLow @era >= natVersion @12 =
-        suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations . Allocations
+    | eraProtVerLow @era >= natVersion @12 = do
+        calculation <- arbitrary
+        fromAllocations calculation <$> arbitrary
     | otherwise =
-        suchThatMap arbitrary $ either (const Nothing) Just . fromLegacyTxOutMap
+        fromAllocations legacyDepositCalculation <$> arbitrary
   shrink store =
-    mapMaybe (either (const Nothing) Just . fromAllocations . Allocations . Map.fromList) $
-      shrinkList (const []) $
-        Map.toList $
-          unAllocations $
-            allocations store
+    map
+      (fromAllocations (currentCalculation store) . IndexedUTxOs.fromList)
+      $ shrinkList (const []) . IndexedUTxOs.toList
+      $ allocations store
 
 instance Arbitrary ActiveSlotCoeff where
   arbitrary = mkActiveSlotCoeff <$> arbitrary
@@ -615,10 +608,14 @@ instance Arbitrary DRepState where
   arbitrary = DRepState <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.TxOut.Map -------------------------------------------------------------
+-- Cardano.Ledger.State.UTxOs.IndexedUTxOs -------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
-deriving instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (TxOutMap era)
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (IndexedUTxOs era) where
+  arbitrary
+    | eraProtVerLow @era >= natVersion @12 = IndexedUTxOs <$> arbitrary
+    | otherwise = legacyIndexedUTxOs <$> arbitrary
+  shrink = map IndexedUTxOs.fromList . shrinkList (const []) . IndexedUTxOs.toList
 
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.Core.PParams -----------------------------------------------------------

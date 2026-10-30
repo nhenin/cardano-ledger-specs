@@ -31,9 +31,9 @@ import Cardano.Ledger.Binary (sizedValue)
 import Cardano.Ledger.Mary.UTxO (getConsumedMaryValue, getProducedMaryValue)
 import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.Shelley.UTxO (getShelleyMinFeeTxUtxo)
-import Cardano.Ledger.State (Allocations, EraUTxO (..), ScriptsProvided (..))
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
+import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..))
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
 import Control.Applicative
 import Data.Foldable (toList)
@@ -75,7 +75,7 @@ instance AlonzoEraUTxO BabbageEra where
 
 getBabbageSupplementalDataHashes ::
   BabbageEraTxBody era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Set.Set DataHash
 getBabbageSupplementalDataHashes inputAllocations txBody =
@@ -83,7 +83,7 @@ getBabbageSupplementalDataHashes inputAllocations txBody =
   where
     newOuts = map sizedValue $ toList $ txBody ^. allSizedOutputsTxBodyF
     referencedOuts =
-      Allocations.txOuts . Allocations.restrictToInputs (txBody ^. referenceInputsTxBodyL) $
+      IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. referenceInputsTxBodyL) $
         inputAllocations
     outs = newOuts <> referencedOuts
 
@@ -93,13 +93,13 @@ getBabbageSpendingDatum ::
   ( AlonzoEraTx era
   , BabbageEraTxOut era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx l era ->
   PlutusPurpose AsItem era ->
   Maybe (Data era)
 getBabbageSpendingDatum inputAllocations tx sp = do
   AsItem txIn <- toSpendingPurpose sp
-  txOut <- Unspent.toTxOut <$> Allocations.lookupUTxO txIn inputAllocations
+  txOut <- Unspent.toTxOut <$> IndexedUTxOs.lookupUTxO txIn inputAllocations
   let txOutDataFromWits = do
         dataHash <- strictMaybeToMaybe (txOut ^. dataHashTxOutL)
         Map.lookup dataHash (tx ^. witsTxL . datsTxWitsL . unTxDatsL)
@@ -141,7 +141,7 @@ getBabbageScriptsProvided ::
   ( EraTx era
   , BabbageEraTxBody era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Tx l era ->
   ScriptsProvided era
 getBabbageScriptsProvided inputAllocations tx = ScriptsProvided ans
@@ -153,18 +153,18 @@ getBabbageScriptsProvided inputAllocations tx = ScriptsProvided ans
 -- | Collect all the reference scripts found in the TxOuts, pointed to by some input.
 getReferenceScripts ::
   BabbageEraTxOut era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Set TxIn ->
   Map.Map ScriptHash (Script era)
 getReferenceScripts inputAllocations ins = Map.fromList (getReferenceScriptsNonDistinct inputAllocations ins)
 
 getReferenceScriptsNonDistinct ::
   BabbageEraTxOut era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   Set TxIn ->
   [(ScriptHash, Script era)]
 getReferenceScriptsNonDistinct inputAllocations inputs =
   [ (hashScript script, script)
-  | txOut <- Allocations.txOuts . Allocations.restrictToInputs inputs $ inputAllocations
+  | txOut <- IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs inputs $ inputAllocations
   , SJust script <- [txOut ^. referenceScriptTxOutL]
   ]

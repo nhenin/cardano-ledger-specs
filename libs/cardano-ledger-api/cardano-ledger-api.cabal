@@ -133,6 +133,7 @@ test-suite cardano-ledger-api-test
     Paths_cardano_ledger_api
     Test.Cardano.Ledger.Api.State.Imp.QuerySpec
     Test.Cardano.Ledger.Api.State.QuerySpec
+    Test.Cardano.Ledger.Api.IndexedUTxOsSpec
     Test.Cardano.Ledger.Api.Transition.InitialFundsSpec
     Test.Cardano.Ledger.Api.Tx
     Test.Cardano.Ledger.Api.Tx.Body

@@ -56,7 +56,7 @@ maryTranslationTests =
     , testProperty "ProposedPPUpdates compatibility" (test @S.ProposedPPUpdates)
     , testProperty "ShelleyGovState compatibility" (test @S.ShelleyGovState)
     , testProperty "TxOut compatibility" (test @TxOut)
-    , testProperty "TxOutMap compatibility" (test @S.TxOutMap)
+    , testProperty "IndexedUTxOs compatibility" (test @S.IndexedUTxOs)
     , testProperty "UTxOState compatibility" (test @S.UTxOState)
     , testProperty "LedgerState compatibility" (test @S.LedgerState)
     , testProperty "EpochState compatibility" (test @S.EpochState)

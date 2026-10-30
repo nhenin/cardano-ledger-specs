@@ -45,6 +45,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsCertStateL,
   lsUTxOStateL,
  )
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import Data.Default (Default (def))
@@ -197,5 +198,9 @@ instance TranslateEra ConwayEra UTxOState where
         , API.utxosDonation = API.utxosDonation us
         }
 
-instance TranslateEra ConwayEra API.TxOutMap where
-  translateEra _ = pure . API.TxOutMap . Map.map upgradeTxOut . API.unTxOutMap
+instance TranslateEra ConwayEra IndexedUTxOs where
+  translateEra _ = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra ConwayEra) -> LegacyTxOut ConwayEra
+      translateOutput output = case upgradeTxOut output of
+        LegacyTxOut translated -> translated

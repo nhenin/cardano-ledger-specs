@@ -26,7 +26,6 @@ module Test.Cardano.Ledger.Babbage.ImpTest (
 
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext (..))
 import Cardano.Ledger.Babbage (BabbageEra)
-import Cardano.Ledger.Babbage.Collateral (collOuts)
 import Cardano.Ledger.Babbage.Core
 import Cardano.Ledger.Babbage.Rules (BabbageUtxoPredFailure, BabbageUtxowPredFailure)
 import Cardano.Ledger.Babbage.TxInfo (BabbageContextError)
@@ -40,9 +39,9 @@ import Cardano.Ledger.Shelley.LedgerState (
 import Cardano.Ledger.Tools (ensureMinCoinTxOut, setMinCoinTxOut)
 import Cardano.Ledger.TxIn (TxIn, mkTxInPartial)
 import Control.Monad (forM, (>=>))
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
 import Data.Maybe (isNothing)
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
@@ -116,8 +115,11 @@ impBabbageExpectTxSuccess ::
 impBabbageExpectTxSuccess tx = do
   impAlonzoExpectTxSuccess tx
   -- Check that the balance of the collateral was returned
-  let returns = Map.toList . unTxOutMap . collOuts $ tx ^. bodyTxL
-  currentAllocations <- getAllocations
+  let returns =
+        [ (mkTxInPartial (txIdTx tx) (fromIntegral . length $ tx ^. bodyTxL . outputsTxBodyL), output)
+        | output <- toList $ tx ^. bodyTxL . collateralReturnTxBodyL
+        ]
+  currentAllocations <- getIndexedUTxOs
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Collateral return should not be in UTxO" $

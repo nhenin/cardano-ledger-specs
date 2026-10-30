@@ -117,7 +117,7 @@ spec =
                 Nothing -> Success ()
                 Just failures -> Failure failures
             ledgerState = TopTx.ledgerState proposal
-            actual = traverse_ (validateSubTxExactness (Ledger.protocolParameters ledgerState)
+            actual = traverse_ (validateSubTxExactness
               (liveOutputStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
         actual `shouldBe` expected
 

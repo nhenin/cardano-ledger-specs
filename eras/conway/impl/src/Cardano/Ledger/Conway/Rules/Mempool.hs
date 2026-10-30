@@ -40,7 +40,7 @@ import Cardano.Ledger.Conway.Rules.Ledger (ConwayLedgerEvent, ConwayLedgerPredFa
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.Monad (unless)
 import Control.State.Transition (
@@ -61,7 +61,6 @@ import Control.State.Transition (
  )
 import Control.State.Transition.Extended (Embed (..), trans)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq)
 import Data.Text as T (pack)
 import Lens.Micro ((^.))
@@ -118,8 +117,8 @@ mempoolTransition = do
   -- Detect whether the transaction is probably a duplicate
   let
     inputs = tx ^. bodyTxL . inputsTxBodyL
-    allocatedOutputs = Allocations.unAllocations . Store.allocations . (^. utxoStoreG) $ ledgerState
-    notAllSpent = any (`Map.member` allocatedOutputs) inputs
+    allocatedOutputs = Store.allocations . (^. utxoStoreG) $ ledgerState
+    notAllSpent = any (`IndexedUTxOs.member` allocatedOutputs) inputs
   notAllSpent
     ?! ConwayMempoolFailure
       "All inputs are spent. Transaction has probably already been included"

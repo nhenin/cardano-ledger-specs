@@ -33,7 +33,7 @@ import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..))
 import Cardano.Ledger.Shelley.Rules (DelplEnv, LedgerEnv (..))
 import Cardano.Ledger.Shelley.State hiding (txOuts)
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllValue)
 import Cardano.Ledger.Val (Val (..), sumVal, (<+>), (<->), (<×>))
@@ -67,7 +67,6 @@ import Test.Cardano.Ledger.Core.KeyPair (
   mkCredential,
   mkWitnessesVKey,
  )
-import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.Shelley.Constants (Constants (..), defaultConstants)
 import Test.Cardano.Ledger.Shelley.Generator.Core (
   GenEnv (..),
@@ -141,7 +140,7 @@ genTx
   (LedgerEnv slot _ txIx pparams reserves)
   ( LedgerState
       utxoSt@( UTxOState
-                 ((Allocations.toTxOutMap . Store.allocations) -> utxo)
+                 ((Store.allocations) -> utxo)
                  _
                  _
                  _
@@ -203,7 +202,7 @@ genTx
             spendingBalanceUtxo
               <+> inject ((withdrawals <-> deposits) <+> refunds)
           n =
-            if Map.size (unTxOutMap utxo) < genTxStableUtxoSize defaultConstants
+            if Set.size (IndexedUTxOs.inputIds utxo) < genTxStableUtxoSize defaultConstants
               then -- something moderate 80-120 ^
                 genTxUtxoIncrement defaultConstants -- something small 2-5
               else 0 -- no change at all
@@ -213,7 +212,7 @@ genTx
               -- generating a transaction. If we get unexplained failures one
               -- might investigate changing these constants.
 
-      -- !_ = occaisionally (length inputs * length ksKeyPairs * length ksMSigScripts) 10000 ("UTxOSize = "++show (Map.size (unTxOutMap utxo)))
+      -- !_ = occaisionally (length inputs * length ksKeyPairs * length ksMSigScripts) 10000 ("UTxOSize = "++show (Set.size (IndexedUTxOs.inputIds utxo)))
 
       outputAddrs <-
         genRecipients @era (length inputs + n) ksKeyPairs ksMSigScripts
@@ -368,7 +367,7 @@ genNextDelta ::
   forall era c.
   (EraGen era, EraUTxO era) =>
   ScriptInfo era ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -387,7 +386,7 @@ genNextDelta
   tx
   _count -- the counter of the fix loop
   delta@(Delta dfees extraInputs extraWitnesses change _ extraScripts) =
-    let !baseTxFee = getMinFeeTxUtxo pparams tx (legacyAllocations utxo)
+    let !baseTxFee = getMinFeeTxUtxo pparams tx utxo
         -- based on the current contents of delta, how much will the fee
         -- increase when we add the delta to the tx?
         draftSize =
@@ -426,19 +425,12 @@ genNextDelta
                 do
                   let txBody = tx ^. bodyTxL
                       inputsInUse = txBody ^. inputsTxBodyL <> extraInputs
-                      utxo' :: TxOutMap era
+                      utxo' :: IndexedUTxOs era
                       utxo' =
                         -- Remove possible inputs from Utxo, if they already
                         -- appear in inputs.
-                        TxOutMap $
-                          Map.filterWithKey
-                            ( \k v ->
-                                (k `Set.notMember` inputsInUse) && genEraGoodTxOut v
-                            )
-                            -- filter out UTxO entries where the TxOut are not
-                            -- appropriate for this Era (i.e. Keylocked in
-                            -- AlonzoEra)
-                            (unTxOutMap utxo)
+                        IndexedUTxOs.filterByTxOut genEraGoodTxOut $
+                          IndexedUTxOs.withoutInputs inputsInUse utxo
                   (inputs, value, (vkeyPairs, msigPairs)) <-
                     genInputs (1, 1) ksIndexedPaymentKeys ksIndexedPayScripts utxo'
                   -- It is possible that the Utxo has no possible inputs left, so
@@ -490,7 +482,7 @@ genNextDeltaTilFixPoint ::
   Coin ->
   KeyPairs ->
   [(Script era, Script era)] ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -506,7 +498,7 @@ genNextDeltaTilFixPoint scriptinfo initialfee keys scripts utxo pparams keySpace
 applyDelta ::
   forall era c.
   EraGen era =>
-  TxOutMap era ->
+  IndexedUTxOs era ->
   ScriptInfo era ->
   PParams era ->
   [KeyPair Witness] ->
@@ -568,7 +560,7 @@ converge ::
   Map ScriptHash (Script era) ->
   KeyPairs ->
   [(Script era, Script era)] ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -660,7 +652,7 @@ mkScriptWits payScripts stakeScripts =
 mkTxWits ::
   forall era.
   EraGen era =>
-  (TxOutMap era, TxBody TopTx era, ScriptInfo era) ->
+  (IndexedUTxOs era, TxBody TopTx era, ScriptInfo era) ->
   Map (KeyHash Payment) (KeyPair Payment) ->
   Map (KeyHash Staking) (KeyPair Staking) ->
   [KeyPair Witness] ->
@@ -742,13 +734,13 @@ genInputs ::
   (Int, Int) ->
   Map (KeyHash Payment) (KeyPair Payment) ->
   Map ScriptHash (Script era, Script era) ->
-  TxOutMap era ->
+  IndexedUTxOs era ->
   Gen
     ( [TxIn]
     , Value era
     , ([KeyPair Witness], [(Script era, Script era)])
     )
-genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (TxOutMap utxo) = do
+genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (IndexedUTxOs.mapTxOuts id -> utxo) = do
   numInputs <- QC.choose (minNumGenInputs, maxNumGenInputs)
   selectedUtxo <- pickRandomFromMap numInputs utxo
   let (inputs, witnesses) = unzip (fmap witnessedInput <$> selectedUtxo)

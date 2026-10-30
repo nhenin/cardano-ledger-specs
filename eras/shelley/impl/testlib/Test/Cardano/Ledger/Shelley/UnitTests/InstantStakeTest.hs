@@ -13,6 +13,7 @@ import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential, StakeReference (..))
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Data.Default (def)
 import Data.Map.Strict (Map)
@@ -24,6 +25,7 @@ import Lens.Micro
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Era
 import Test.Cardano.Ledger.Shelley.ImpTest
 
@@ -85,7 +87,7 @@ instantStakeIncludesRewards = do
     -- Each wallet (except mary) has one or more UTxO entries
     -- Since tom uses a StakeRefNull those entries will not be distributed
     utxo1 =
-      TxOutMap @era $
+      legacyIndexedUTxOs @era $
         LegacyTxOut
           <$> Map.fromList
             [ (tomTxIn1, mkCoinTxOut tomAddr $ fromCompact tomCoin1) -- Not distrubuted, see tomAddr
@@ -95,7 +97,7 @@ instantStakeIncludesRewards = do
             , (johnTxIn, mkCoinTxOut johnAddr $ fromCompact johnCoin)
             -- Note Mary does not have a UTxO entry, but her rewards are still counted
             ]
-    instantStake = addInstantStake (unTxOutMap utxo1) mempty
+    instantStake = addInstantStake (IndexedUTxOs.txOuts utxo1) mempty
   let snapShot =
         snapShotFromInstantStake instantStake (certState ^. certDStateL) (certState ^. certPStateL)
       computedStakeDistr = Map.map (unNonZero . swdStake) $ VMap.toMap $ unActiveStake $ ssActiveStake snapShot

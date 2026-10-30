@@ -25,8 +25,10 @@ import Cardano.Ledger.Shelley.LedgerState (
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.State.Transition.Extended (BaseM, Environment, STS, Signal, State)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -115,7 +117,7 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
     inputsEliminated
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u')}) _
+          LedgerState (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')}) _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -148,19 +150,19 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
     newEntryPresent
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u)}) _
+          LedgerState (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)}) _
         , signal = stAnnTx
         , target =
-          LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u')}) _
+          LedgerState (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')}) _
         } =
         let tx = stAnnTx ^. txStAnnTxG
-            TxOutMap outs = txOutsTxBody @era (tx ^. bodyTxL)
+            outs = IndexedTxOs.mapTxOuts id $ outputsTxBody @era (tx ^. bodyTxL)
             outIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet outs)
             oldIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet u)
          in property $
               hasFailedScripts tx
                 || ( (outIds `Set.disjoint` oldIds)
-                       && (Map.isSubmapOfBy (\output entry -> output == UTxO.toTxOut entry) outs u')
+                       && (Map.isSubmapOfBy (\output entry -> output == Unspent.toTxOut entry) outs u')
                    )
 
 -- | Check for required signatures in case of Multi-Sig. There has to be one set

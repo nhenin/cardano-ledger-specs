@@ -85,7 +85,6 @@ import Cardano.Ledger.Plutus.TxInfo (
   transTxIn,
   txOutSourceToText,
  )
-import Cardano.Ledger.State (Allocations)
 import Cardano.Ledger.TxIn (TxIn (..), txInToText)
 import Control.DeepSeq (NFData)
 import Control.Monad (unless, when, zipWithM)
@@ -167,7 +166,7 @@ transTxInInfoV1 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV1.TxInInfo
 transTxInInfoV1 entries txIn = do
@@ -183,7 +182,7 @@ transTxInInfoV2 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV2.TxInInfo
 transTxInInfoV2 entries txIn = do

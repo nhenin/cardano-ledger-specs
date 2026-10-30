@@ -78,8 +78,8 @@ import Cardano.Ledger.Shelley.UTxO (
   ScriptsProvided (..),
   ShelleyScriptsNeeded (..),
  )
-import Cardano.Ledger.State (Allocations, EraCertState (..), dsGenDelegs)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.State (EraCertState (..), dsGenDelegs)
+import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq
 import Control.Monad.Trans.Reader (asks)
@@ -304,7 +304,7 @@ transitionRulesUTXOW = do
   {-  (utxo,_,_,_ ) := utxoSt  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
   let inputAllocations =
-        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
           . utxosUTxOStore
           $ u
@@ -430,7 +430,7 @@ validateNeededWitnesses ::
   -- | Provided witness
   Set (KeyHash Witness) ->
   CertState era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody t era ->
   Test (ShelleyUtxowPredFailure era)
 validateNeededWitnesses witsKeyHashes certState inputAllocations txBody =

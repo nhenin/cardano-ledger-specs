@@ -61,7 +61,7 @@ import Lens.Micro ((^.))
 
 getConwayScriptsNeeded ::
   ConwayEraTxBody era =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   AlonzoScriptsNeeded era
 getConwayScriptsNeeded inputAllocations txBody =
@@ -152,7 +152,7 @@ getConwayMinFeeTxUtxo ::
   ) =>
   PParams era ->
   Tx l era ->
-  Allocations era ->
+  IndexedUTxOs era ->
   Coin
 getConwayMinFeeTxUtxo pparams tx inputAllocations =
   getMinFeeTx pparams tx $ txNonDistinctRefScriptsSize inputAllocations tx
@@ -164,7 +164,7 @@ getConwayMinFeeTxUtxo pparams tx inputAllocations =
 -- Any input that appears in both regular inputs and reference inputs of a transaction is
 -- only used once in this computation.
 txNonDistinctRefScriptsSize ::
-  (EraTx era, BabbageEraTxBody era) => Allocations era -> Tx l era -> Int
+  (EraTx era, BabbageEraTxBody era) => IndexedUTxOs era -> Tx l era -> Int
 txNonDistinctRefScriptsSize inputAllocations tx = getSum $ foldMap (Sum . originalBytesSize . snd) refScripts
   where
     inputs = (tx ^. bodyTxL . referenceInputsTxBodyL) `Set.union` (tx ^. bodyTxL . inputsTxBodyL)
@@ -172,7 +172,7 @@ txNonDistinctRefScriptsSize inputAllocations tx = getSum $ foldMap (Sum . origin
 
 getConwayWitsVKeyNeeded ::
   (EraTx era, ConwayEraTxBody era) =>
-  Allocations era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   Set.Set (KeyHash Witness)
 getConwayWitsVKeyNeeded inputAllocations txBody =

@@ -38,7 +38,6 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..))
 import Control.Monad (forM)
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -200,7 +199,7 @@ snaps
     where
       pstate = certState ^. certPStateL
       dstate = certState ^. certDStateL
-      u = Allocations.toTxOutMap . allocations $ store
+      u = allocations $ store
       snap = stakeDistr u dstate pstate
       mark = mkMarkSnapShot snap (EpochNo 0) 0 (EpochInterval 0)
       set = mkSetSnapShot mark

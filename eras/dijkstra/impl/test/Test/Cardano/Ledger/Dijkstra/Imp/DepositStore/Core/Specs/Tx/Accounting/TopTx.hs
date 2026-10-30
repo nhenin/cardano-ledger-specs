@@ -226,7 +226,6 @@ ownNetDeposit proposal =
 requiredNetChange :: ReleaseTx -> Coin
 requiredNetChange proposal =
   requiredTxTotalNetUTxODeposit
-    (Standalone.protocolParameters $ ledgerState proposal)
     (liveOutputStore $ Standalone.utxoState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
@@ -236,7 +235,6 @@ validateNetChange ::
   ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
 validateNetChange proposal =
   validateTopTxExactness
-    (Standalone.protocolParameters $ ledgerState proposal)
     (liveOutputStore $ Standalone.utxoState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 

@@ -2,13 +2,15 @@
 
 ## 0.5.0.0
 
-* Replace the output-only `UTxO` type with `TxOutMap` in era translation and the `TxUTxODiff` payloads of `DijkstraSubUtxoEvent`. Collateral output views use the same type; complete accepted entries remain `Allocations`. This source-API rename preserves ledger behavior and serialized formats.
-* Construct `outputAllocations` and `collateralReturnAllocations` with an explicit `DepositCalculation`, preserving supplied sizes. Apply body and collateral effects through `Store.release` and `Store.allocate`.
-* Implement recorded UTxO capacity deposits in ledger state. Ordinary transactions allocate newly priced output deposits, release recorded input deposits and update the Store once for the complete batch.
-* Validate exact TopTx batch totals, each SubTx contribution, release settlement destinations and Store solvency in `Rules.DepositStore.Accounting`. Add `DepositStoreFailure` to UTXO at CBOR tag `26`, including signed amount diagnostics.
+* Persist the Store's active `currentCalculation`. Initialize it from effective parameters, activate parameter changes at epoch boundaries, and synchronize the batch entry point without changing the formula version or historical allocations.
+* Price new-deposit validation through the same current calculation used by allocation. `requiredUTxODeposit` and `allocatedUTxODeposits` take a calculation; net-change and collateral validators read it from the Store.
+* Distinguish accepted `IndexedUTxOs` from proposed `IndexedTxOs`. `Store.allocate` records the accepted size and calculation; body and collateral builders remain independent of pricing. Events carry consumed stored entries and created outputs.
+* Use `outputsTxBody` and `collOuts` for proposed outputs. Remove the duplicate `outputAllocations` and `collateralReturnAllocations` helpers; apply effects through `Store.release` and `Store.allocate`.
+* Implement recorded UTxO capacity deposits in ledger state. Each body releases its recorded input deposits and allocates its new outputs; complete-batch validation uses the original Store.
+* Validate exact TopTx batch totals, each SubTx contribution and release settlement destinations in `Rules.DepositStore.Accounting`. Add `DepositStoreFailure` to UTXO at CBOR tag `26`, including signed amount diagnostics.
 * Include the declared batch net allocation or release exactly once in ADA conservation, preserving independent SubTx financial imbalance and local/delegated attribution.
 * Derive collateral deposit settlement from consumed allocations and the return output. Fund any additional return deposit before the coin minimum; credit released deposit surplus to fees. Ordinary Store effects remain unapplied on phase-2 failure.
-* Initialize the Store empty on Conway translation and include it in Dijkstra ledger snapshots.
+* Translate existing Conway outputs into legacy allocations with no separately held deposit. Include the active calculation, total deposit amount and historical entries in Dijkstra ledger snapshots.
 * Require each TopTx and SubTx creating or spending store-backed outputs to carry its own UTxO capacity deposit declaration. Resolve each body's ordinary spending inputs against the original UTxO on both phase-2 outcomes. Use `MissingUTxODepositDeclaration` in UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` in SUBUTXO at tag `11`.
 * Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxOs.Deposit.TopTx` and `UTxOs.Deposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
 * Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.
