@@ -39,7 +39,10 @@ import Cardano.Ledger.Alonzo.Scripts (OrdExUnits (..))
 import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx, IsPhase2Valid (..), isPhase2ValidTxL)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoEraTxWits (..))
 import Cardano.Ledger.Babbage.Collateral (collOuts)
-import Cardano.Ledger.Babbage.Core (BabbageEraTxBody)
+import Cardano.Ledger.Babbage.Core (
+  BabbageEraTxBody (referenceInputsTxBodyL),
+  BabbageEraTxOut (referenceScriptTxOutL),
+ )
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.BaseTypes (
   Mismatch (..),
@@ -47,6 +50,7 @@ import Cardano.Ledger.BaseTypes (
   ProtVer (..),
   Relation (..),
   ShelleyBase,
+  StrictMaybe (..),
   Version,
   natVersion,
   networkId,
@@ -76,8 +80,8 @@ import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Shelley.UTxO (UTxO (..), txouts, unUTxO)
-import Cardano.Ledger.State (utxoStoreG)
+import Cardano.Ledger.Shelley.UTxO (txouts, unUTxO)
+import Cardano.Ledger.State (Allocations, utxoStoreG)
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
@@ -102,6 +106,7 @@ import Data.Monoid (Sum (getSum))
 import qualified Data.Monoid as Monoid (Sum (..))
 import Data.Sequence (Seq)
 import Data.Sequence.Strict (StrictSeq)
+import qualified Data.Set as Set
 import Data.Word (Word32)
 import GHC.Generics (Generic)
 import Lens.Micro
@@ -330,10 +335,7 @@ bbodyTransition = do
     failOnJust checkHeaderProtVerTooHigh $
       injectFailure . HeaderProtVerTooHigh @era
 
-  let blockInputs = foldMap (\tx -> tx ^. bodyTxL . allInputsTxBodyF) (blockBody ^. txSeqBlockBodyL)
-      utxo =
-        UTxO . Allocations.txOutsForInputs blockInputs . Store.allocations . (^. utxoStoreG) $ ls
-  validateBodyRefScriptsSizeTooBig @era pp blockBody utxo
+  validateBodyRefScriptsSizeTooBig @era pp blockBody (Store.allocations $ ls ^. utxoStoreG)
 
 instance
   ( Era era
@@ -357,7 +359,7 @@ validateBodyRefScriptsSizeTooBig ::
   ) =>
   PParams era ->
   BlockBody era ->
-  UTxO era ->
+  Allocations era ->
   Rule (EraRule "BBODY" era) 'Transition ()
 validateBodyRefScriptsSizeTooBig pp blockBody utxo =
   let protVer = pp ^. ppProtocolVersionL
@@ -374,17 +376,31 @@ validateBodyRefScriptsSizeTooBig pp blockBody utxo =
                   }
             )
 
+-- | Read accepted inputs from allocations. From protocol version 11, also
+-- account for outputs proposed by earlier transactions in the same block.
+-- This local output map is not an allocation store: the LEDGERS rule validates
+-- these transactions separately and records their historical metadata.
 totalRefScriptSizeInBlock ::
-  (AlonzoEraTx era, BabbageEraTxBody era) => ProtVer -> StrictSeq (Tx TopTx era) -> UTxO era -> Int
-totalRefScriptSizeInBlock protVer txs (UTxO utxo)
+  (AlonzoEraTx era, BabbageEraTxBody era) =>
+  ProtVer -> StrictSeq (Tx TopTx era) -> Allocations era -> Int
+totalRefScriptSizeInBlock protVer txs allocations
   | pvMajor protVer <= natVersion @10 =
-      getSum $ foldMap' (Monoid.Sum . txNonDistinctRefScriptsSize (UTxO utxo)) txs
+      getSum $ foldMap' (Monoid.Sum . txNonDistinctRefScriptsSize allocations) txs
   | otherwise =
-      snd $ F.foldl' accum (utxo, 0) txs
+      snd $ F.foldl' accum (initialOutputs, 0) txs
   where
-    accum (!accUtxo, !accSum) tx =
-      let updatedUtxo = accUtxo `Map.union` unUTxO toAdd
+    blockInputs = foldMap (^. bodyTxL . allInputsTxBodyF) txs
+    initialOutputs = Allocations.txOutsForInputs blockInputs allocations
+    accum (!outputs, !totalSize) tx =
+      let updatedOutputs = outputs `Map.union` unUTxO toAdd
           toAdd
             | Phase2Valid <- tx ^. isPhase2ValidTxL = txouts $ tx ^. bodyTxL
             | otherwise = collOuts $ tx ^. bodyTxL
-       in (updatedUtxo, accSum + txNonDistinctRefScriptsSize (UTxO accUtxo) tx)
+          inputs = (tx ^. bodyTxL . referenceInputsTxBodyL) `Set.union` (tx ^. bodyTxL . inputsTxBodyL)
+          scriptSize =
+            sum
+              [ originalBytesSize script
+              | output <- Map.elems $ Map.restrictKeys outputs inputs
+              , SJust script <- [output ^. referenceScriptTxOutL]
+              ]
+       in (updatedOutputs, totalSize + scriptSize)

@@ -214,13 +214,12 @@ ledgersTransition = do
   foldM
     ( \ !curLedgerState (ix, tx) ->
         -- build the annotations against the same utxo snapshot that the rule will validate against
-        let utxo =
-              UTxO
-                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        let inputAllocations =
+              Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . (^. utxoStoreG)
                 $ curLedgerState
-            stAnnTx = mkStAnnTx ei sysStart pp utxo mempty tx
+            stAnnTx = mkStAnnTx ei sysStart pp inputAllocations mempty tx
          in trans @(EraRule "LEDGER" era) $
               TRC (LedgerEnv slot (Just epochNo) ix pp account, curLedgerState, stAnnTx)
     )

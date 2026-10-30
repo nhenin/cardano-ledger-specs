@@ -417,9 +417,8 @@ renderDepositEqualsObligationViolation
             | avMsg == "Deposit pot must equal obligation (LEDGER)" ->
                 let certstate = lsCertState lstate
                     utxoSt = lsUTxOState lstate
-                    utxo =
-                      UTxO
-                        . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                    inputAllocations =
+                      Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                         . Store.allocations
                         . utxosUTxOStore
                         $ utxoSt
@@ -438,7 +437,7 @@ renderDepositEqualsObligationViolation
                       <> "\n"
                       <> show (allObligations certstate (utxosGovState utxoSt))
                       <> "\nConsumed = "
-                      <> show (consumedTxBody txb pp certstate utxo)
+                      <> show (consumedTxBody txb pp certstate inputAllocations)
                       <> "\nProduced = "
                       <> show (producedTxBody txb pp certstate)
             | avMsg == "Reverse stake pool delegations must match" ->

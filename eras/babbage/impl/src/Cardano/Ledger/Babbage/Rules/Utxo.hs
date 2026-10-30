@@ -75,7 +75,6 @@ import Control.State.Transition.Extended
 import Data.Bifunctor (first)
 import Data.Foldable (foldMap', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
-import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -192,15 +191,15 @@ feesOK ::
   ) =>
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  Allocations era ->
   Test (EraRuleFailure rule era)
-feesOK pp tx u@(UTxO utxo) =
+feesOK pp tx entries =
   let txBody = tx ^. bodyTxL
       collateral = txBody ^. collateralInputsTxBodyL -- Inputs allocated to pay txfee
-      -- restrict Utxo to those inputs we use to pay fees.
-      utxoCollateral = Map.restrictKeys utxo collateral
+      -- Resolve only the collateral outputs used to pay fees.
+      collateralAllocations = Allocations.restrictToInputs collateral entries
       theFee = txBody ^. feeTxBodyL -- Coin supplied to pay fees
-      minFee = getMinFeeTxUtxo pp tx u
+      minFee = getMinFeeTxUtxo pp tx entries
    in sequenceA_
         [ -- Part 1: minfee pp tx ≤ txfee txBody
           failureUnless
@@ -210,7 +209,7 @@ feesOK pp tx u@(UTxO utxo) =
             )
         , -- Part 2: (txrdmrs tx ≠ ∅ ⇒ validateCollateral)
           unless (null $ tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL) $
-            validateTotalCollateral pp txBody utxoCollateral
+            validateTotalCollateral pp txBody collateralAllocations
         ]
 
 -- | Test that inputs and refInpts are disjoint, in Conway and later Eras.
@@ -238,24 +237,25 @@ validateTotalCollateral ::
   ) =>
   PParams era ->
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
+  Allocations era ->
   Test (EraRuleFailure rule era)
-validateTotalCollateral pp txBody utxoCollateral =
+validateTotalCollateral pp txBody collateralAllocations =
   sequenceA_
     [ -- Part 3: (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
-      fromAlonzoValidation $ Alonzo.validateScriptsNotPaidUTxO utxoCollateral
+      fromAlonzoValidation $ Alonzo.validateScriptsNotPaidUTxO collateralAllocations
     , -- Part 4: isAdaOnly balance
       fromAlonzoValidation $
-        validateCollateralContainsNonADA txBody utxoCollateral
+        validateCollateralContainsNonADA txBody collateralAllocations
     , -- Part 5: balance ≥ ⌈txfee txb ∗ (collateralPercent pp) / 100⌉
       fromAlonzoValidation $ Alonzo.validateInsufficientCollateral pp txBody bal
     , -- Part 6: (txcoll tx ≠ ◇) ⇒ balance = txcoll tx
       first (fmap injectFailure) $ validateCollateralEqBalance bal (txBody ^. totalCollateralTxBodyL)
     , -- Part 7: collInputs tx ≠ ∅
-      fromAlonzoValidation $ failureIf (null utxoCollateral) (Alonzo.NoCollateralInputs @era)
+      fromAlonzoValidation $
+        failureIf (null $ Allocations.unspentOutputs collateralAllocations) (Alonzo.NoCollateralInputs @era)
     ]
   where
-    bal = collAdaBalance txBody utxoCollateral
+    bal = collAdaBalance txBody . Allocations.txOuts $ collateralAllocations
     fromAlonzoValidation = first (fmap injectFailure)
 
 -- | This validation produces the same failure as in Alonzo, but is slightly different
@@ -271,19 +271,19 @@ validateCollateralContainsNonADA ::
   forall era.
   BabbageEraTxBody era =>
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
+  Allocations era ->
   Test (Alonzo.AlonzoUtxoPredFailure era)
-validateCollateralContainsNonADA txBody utxoCollateral =
+validateCollateralContainsNonADA txBody collateralAllocations =
   failureUnless onlyAdaInCollateral $ Alonzo.CollateralContainsNonADA valueWithNonAda
   where
     onlyAdaInCollateral =
-      utxoCollateralAndReturnHaveOnlyAda || allNonAdaIsConsumedByReturn
+      collateralAndReturnHaveOnlyAda || allNonAdaIsConsumedByReturn
     -- When we do not have any non-ada TxOuts we can short-circuit the more expensive
     -- validation of NonAda being fully consumed by the return output, which requires
     -- computation of the full balance on the Value, not just the Coin.
-    utxoCollateralAndReturnHaveOnlyAda =
-      utxoCollateralHasOnlyAda && areAllAdaOnly (txBody ^. collateralReturnTxBodyL)
-    utxoCollateralHasOnlyAda = areAllAdaOnly utxoCollateral
+    collateralAndReturnHaveOnlyAda =
+      collateralHasOnlyAda && areAllAdaOnly (txBody ^. collateralReturnTxBodyL)
+    collateralHasOnlyAda = areAllAdaOnly . Allocations.txOuts $ collateralAllocations
     -- Whenever return TxOut consumes all of the NonAda value then the total collateral
     -- balance is considered valid.
     allNonAdaIsConsumedByReturn = Val.isAdaOnly totalCollateralBalance
@@ -296,11 +296,11 @@ validateCollateralContainsNonADA txBody utxoCollateral =
       case txBody ^. collateralReturnTxBodyL of
         SNothing -> collateralBalance
         SJust retTxOut ->
-          if utxoCollateralHasOnlyAda
+          if collateralHasOnlyAda
             then implicitCollateralValue retTxOut
             else collateralBalance
     -- This is the balance that is provided by the collateral inputs
-    collateralBalance = foldMap' implicitCollateralValue utxoCollateral
+    collateralBalance = foldMap' implicitCollateralValue . Allocations.txOuts $ collateralAllocations
     -- This is the total amount that will be spent as collateral. This is where we account
     -- for the fact that we can remove Non-Ada assets from collateral inputs, by directing
     -- them to the return TxOut.
@@ -368,7 +368,7 @@ babbageUtxoValidation = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       storedAllocations = Store.allocations . utxosUTxOStore $ utxos
-      utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      inputAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -394,14 +394,14 @@ babbageUtxoValidation = do
   runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txBody
 
   {-   feesOK pp tx utxo   -}
-  validate $ feesOK pp tx utxo -- Generalizes the fee to small from earlier Era's
+  validate $ feesOK pp tx inputAllocations -- Generalizes the fee to small from earlier Era's
 
   {- allInputs = spendInputs txb ∪ collInputs txb ∪ refInputs txb -}
   {- (spendInputs txb ∪ collInputs txb ∪ refInputs txb) ⊆ dom utxo   -}
   runTest $ Shelley.validateBadInputsUTxO storedAllocations allInputs
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ Shelley.validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   {-   adaID ∉ supp mint tx - check not needed because mint field of type MultiAsset
    cannot contain ada -}

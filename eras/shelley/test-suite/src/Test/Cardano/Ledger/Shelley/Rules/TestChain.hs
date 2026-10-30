@@ -149,7 +149,7 @@ ledgerTraceFromBlock chainSt block =
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              ( UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+              ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
                   ls ^. Store.utxoStoreG
               )
               mempty
@@ -187,7 +187,7 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              ( UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+              ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
                   ls ^. Store.utxoStoreG
               )
               mempty

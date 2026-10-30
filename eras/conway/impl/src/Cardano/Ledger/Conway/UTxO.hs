@@ -61,11 +61,11 @@ import Lens.Micro ((^.))
 
 getConwayScriptsNeeded ::
   ConwayEraTxBody era =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   AlonzoScriptsNeeded era
-getConwayScriptsNeeded utxo txBody =
-  getSpendingScriptsNeeded utxo txBody
+getConwayScriptsNeeded inputAllocations txBody =
+  getSpendingScriptsNeeded inputAllocations txBody
     <> getWithdrawingScriptsNeeded txBody
     <> certifyingScriptsNeeded
     <> getMintingScriptsNeeded txBody
@@ -152,10 +152,10 @@ getConwayMinFeeTxUtxo ::
   ) =>
   PParams era ->
   Tx l era ->
-  UTxO era ->
+  Allocations era ->
   Coin
-getConwayMinFeeTxUtxo pparams tx utxo =
-  getMinFeeTx pparams tx $ txNonDistinctRefScriptsSize utxo tx
+getConwayMinFeeTxUtxo pparams tx inputAllocations =
+  getMinFeeTx pparams tx $ txNonDistinctRefScriptsSize inputAllocations tx
 
 -- | Calculate the total size of reference scripts used by the transactions. Duplicate
 -- scripts will be counted as many times as they occur, since there is never a reason to
@@ -163,19 +163,20 @@ getConwayMinFeeTxUtxo pparams tx utxo =
 --
 -- Any input that appears in both regular inputs and reference inputs of a transaction is
 -- only used once in this computation.
-txNonDistinctRefScriptsSize :: (EraTx era, BabbageEraTxBody era) => UTxO era -> Tx l era -> Int
-txNonDistinctRefScriptsSize utxo tx = getSum $ foldMap (Sum . originalBytesSize . snd) refScripts
+txNonDistinctRefScriptsSize ::
+  (EraTx era, BabbageEraTxBody era) => Allocations era -> Tx l era -> Int
+txNonDistinctRefScriptsSize inputAllocations tx = getSum $ foldMap (Sum . originalBytesSize . snd) refScripts
   where
     inputs = (tx ^. bodyTxL . referenceInputsTxBodyL) `Set.union` (tx ^. bodyTxL . inputsTxBodyL)
-    refScripts = getReferenceScriptsNonDistinct utxo inputs
+    refScripts = getReferenceScriptsNonDistinct inputAllocations inputs
 
 getConwayWitsVKeyNeeded ::
   (EraTx era, ConwayEraTxBody era) =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Set.Set (KeyHash Witness)
-getConwayWitsVKeyNeeded utxo txBody =
-  getShelleyWitsVKeyNeededNoGov utxo txBody
+getConwayWitsVKeyNeeded inputAllocations txBody =
+  getShelleyWitsVKeyNeededNoGov inputAllocations txBody
     `Set.union` Set.map asWitness (txBody ^. reqSignerHashesTxBodyG)
     `Set.union` voterWitnesses txBody
 

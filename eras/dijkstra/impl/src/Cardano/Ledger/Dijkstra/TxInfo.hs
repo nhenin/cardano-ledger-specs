@@ -125,7 +125,7 @@ import Cardano.Ledger.Plutus (
  )
 import Cardano.Ledger.Plutus.Data (Data)
 import Cardano.Ledger.Plutus.ToPlutusData (ToPlutusData (..))
-import Cardano.Ledger.State (StakePoolParams (..), UTxO)
+import Cardano.Ledger.State (Allocations, StakePoolParams (..))
 import Cardano.Ledger.TxIn (TxId, TxIn (..), txIdToHex)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -335,14 +335,14 @@ instance EraPlutusTxInfo 'PlutusV1 DijkstraEra where
 
   toPlutusScriptPurpose proxy lti = Alonzo.transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     flip (withBothTxLevels ltiTx) transFailUnsupportedScriptInSubTx $ \tx -> PlutusTxInfoResult $ do
       let txBody = tx ^. bodyTxL
       Conway.guardConwayFeaturesForPlutusV1V2 tx
       guardDijkstraFeaturesForPlutusV1toV3 tx
       timeRange <- Conway.transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputs <- mapM (Conway.transTxInInfoV1 ltiUTxO) (Set.toList (txBody ^. inputsTxBodyL))
-      mapM_ (Conway.transTxInInfoV1 ltiUTxO) (Set.toList (txBody ^. referenceInputsTxBodyL))
+      inputs <- mapM (Conway.transTxInInfoV1 ltiAllocations) (Set.toList (txBody ^. inputsTxBodyL))
+      mapM_ (Conway.transTxInInfoV1 ltiAllocations) (Set.toList (txBody ^. referenceInputsTxBodyL))
       outputs <-
         zipWithM
           (Conway.transTxOutV1 . TxOutFromOutput)
@@ -394,15 +394,16 @@ instance EraPlutusTxInfo 'PlutusV2 DijkstraEra where
 
   toPlutusScriptPurpose proxy lti = Alonzo.transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     flip (withBothTxLevels ltiTx) transFailUnsupportedScriptInSubTx $ \tx -> PlutusTxInfoResult $ do
       let txBody = tx ^. bodyTxL
       Conway.guardConwayFeaturesForPlutusV1V2 tx
       guardDijkstraFeaturesForPlutusV1toV3 tx
       timeRange <-
         Conway.transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputs <- mapM (Babbage.transTxInInfoV2 ltiUTxO) (Set.toList (txBody ^. inputsTxBodyL))
-      refInputs <- mapM (Babbage.transTxInInfoV2 ltiUTxO) (Set.toList (txBody ^. referenceInputsTxBodyL))
+      inputs <- mapM (Babbage.transTxInInfoV2 ltiAllocations) (Set.toList (txBody ^. inputsTxBodyL))
+      refInputs <-
+        mapM (Babbage.transTxInInfoV2 ltiAllocations) (Set.toList (txBody ^. referenceInputsTxBodyL))
       outputs <-
         zipWithM
           (Babbage.transTxOutV2 . TxOutFromOutput)
@@ -435,7 +436,7 @@ instance EraPlutusTxInfo 'PlutusV3 DijkstraEra where
 
   toPlutusScriptPurpose proxy lti = Conway.transPlutusPurposeV3 proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     flip (withBothTxLevels ltiTx) transFailUnsupportedScriptInSubTx $ \tx -> PlutusTxInfoResult $ do
       let
         txBody = tx ^. bodyTxL
@@ -444,8 +445,8 @@ instance EraPlutusTxInfo 'PlutusV3 DijkstraEra where
       guardDijkstraFeaturesForPlutusV1toV3 tx
       timeRange <-
         Conway.transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputsInfo <- mapM (Conway.transTxInInfoV3 ltiUTxO) (Set.toList txInputs)
-      refInputsInfo <- mapM (Conway.transTxInInfoV3 ltiUTxO) (Set.toList refInputs)
+      inputsInfo <- mapM (Conway.transTxInInfoV3 ltiAllocations) (Set.toList txInputs)
+      refInputsInfo <- mapM (Conway.transTxInInfoV3 ltiAllocations) (Set.toList refInputs)
       Conway.checkReferenceInputsNotDisjointFromInputs txBody
       outputs <-
         zipWithM
@@ -585,8 +586,8 @@ instance EraPlutusTxInfo 'PlutusV4 DijkstraEra where
         refInputs = txBody ^. referenceInputsTxBodyL
       timeRange <-
         transValidityInterval era ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputsInfo <- mapM (transTxInInfoV4 ltiUTxO) (Set.toList txInputs)
-      refInputsInfo <- mapM (transTxInInfoV4 ltiUTxO) (Set.toList refInputs)
+      inputsInfo <- mapM (transTxInInfoV4 ltiAllocations) (Set.toList txInputs)
+      refInputsInfo <- mapM (transTxInInfoV4 ltiAllocations) (Set.toList refInputs)
       Conway.checkReferenceInputsNotDisjointFromInputs txBody
       outputs <-
         zipWithM
@@ -639,11 +640,11 @@ transTxInInfoV4 ::
   , Inject (Babbage.BabbageContextError era) (ContextError era)
   , Inject (DijkstraContextError era) (ContextError era)
   ) =>
-  UTxO era ->
+  Allocations era ->
   TxIn ->
   Either (ContextError era) PV4.TxInInfo
-transTxInInfoV4 utxo txIn = do
-  txOut <- Alonzo.transLookupTxOut utxo txIn
+transTxInInfoV4 entries txIn = do
+  txOut <- Alonzo.transLookupTxOut entries txIn
   plutusTxOut <- transTxOutV4 (TxOutFromInput txIn) txOut
   Right (PV4.TxInInfo (transTxInV4 txIn) plutusTxOut)
 
@@ -945,7 +946,7 @@ toPlutusV4Args ::
 toPlutusV4Args proxy lti@LedgerTxInfo {..} txInfo plutusPurpose redeemerData = do
   scriptPurpose <- toPlutusScriptPurpose proxy lti plutusPurpose
   let
-    spendDatum = transDatum <$> getSpendingDatum ltiUTxO ltiTx (hoistPlutusPurpose toAsItem plutusPurpose)
+    spendDatum = transDatum <$> getSpendingDatum ltiAllocations ltiTx (hoistPlutusPurpose toAsItem plutusPurpose)
     ixPurpose = hoistPlutusPurpose toAsIx plutusPurpose
   scriptInfo <-
     scriptPurposeToScriptInfo proxy spendDatum lti txInfo ixPurpose scriptPurpose

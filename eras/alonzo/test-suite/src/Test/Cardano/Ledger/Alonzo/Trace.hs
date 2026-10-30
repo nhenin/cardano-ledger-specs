@@ -86,8 +86,7 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        ( UTxO
-            . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
             . Store.allocations
             . utxosUTxOStore
             . lsUTxOState

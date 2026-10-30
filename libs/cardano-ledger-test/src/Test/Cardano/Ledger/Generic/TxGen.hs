@@ -90,6 +90,7 @@ import GHC.Stack
 import Lens.Micro ((%~), (&), (.~), (<>~), (^.))
 import qualified Lens.Micro.Extras as L
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr, mkWitnessVKey)
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.Examples.STSTestUtils (EraModel (..))
 import Test.Cardano.Ledger.Generic.ApplyTx (
   mkAlonzoPlutusPurposePointer,
@@ -972,7 +973,7 @@ genAlonzoTxAndInfo slot = do
       bogusTxForFeeCalc =
         applyIsValid isValid $
           mkBasicTx txBodyNoFee & witsTxL .~ noFeeWits
-      fee = getMinFeeTxUtxo gePParams bogusTxForFeeCalc (UTxO refInputsUtxo)
+      fee = getMinFeeTxUtxo gePParams bogusTxForFeeCalc (legacyAllocations $ UTxO refInputsUtxo)
   -- traceM $ "noFeeWits:\n" <> showExpr noFeeWits
 
   accounts <- gets (mAccounts . gsModel)

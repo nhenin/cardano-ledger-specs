@@ -58,8 +58,10 @@ import Cardano.Ledger.State as UTxO (
   txouts,
   verifyWitVKey,
  )
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
-import Cardano.Ledger.TxOut (sumAllAssets)
+import Cardano.Ledger.TxOut (sumAllAssets, sumAllCoin)
 import Cardano.Ledger.Val ((<+>))
 import qualified Cardano.Ledger.Val as Val
 import Data.Coerce (coerce)
@@ -71,28 +73,28 @@ import GHC.Generics (Generic)
 import Lens.Micro ((^.))
 
 -- | Compute the subset of inputs of the set 'txIns' for which each input is
--- locked by a script in the UTxO 'u'.
+-- locked by a script in the accepted allocations.
 txinsScriptHashes ::
   EraTxOut era =>
   Set TxIn ->
-  UTxO era ->
+  Allocations era ->
   Set ScriptHash
-txinsScriptHashes txInps (UTxO u) = foldr add Set.empty txInps
+txinsScriptHashes txInps inputAllocations = foldr add Set.empty txInps
   where
     -- to get subset, start with empty, and only insert those inputs in txInps
-    -- that are locked in u
-    add input ans = case Map.lookup input u of
-      Just txOut -> case txOut ^. addrTxOutL of
+    -- that are locked in the accepted allocations
+    add input ans = case Allocations.lookupUTxO input inputAllocations of
+      Just entry -> case Unspent.toTxOut entry ^. addrTxOutL of
         Addr _ (ScriptHashObj h) _ -> Set.insert h ans
         _ -> ans
       Nothing -> ans
 
 getShelleyScriptsNeeded ::
   EraTxBody era =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   ShelleyScriptsNeeded era
-getShelleyScriptsNeeded u txBody =
+getShelleyScriptsNeeded inputAllocations txBody =
   ShelleyScriptsNeeded
     ( scriptHashes
         `Set.union` Set.fromList
@@ -102,7 +104,7 @@ getShelleyScriptsNeeded u txBody =
     )
   where
     withdrawals = Map.keys (unWithdrawals (txBody ^. withdrawalsTxBodyL))
-    scriptHashes = txinsScriptHashes (txBody ^. inputsTxBodyL) u
+    scriptHashes = txinsScriptHashes (txBody ^. inputsTxBodyL) inputAllocations
     certificates = toList (txBody ^. certsTxBodyL)
 
 -- | Shelley version of consumed will work for all eras, however, starting with Dijkstra era it
@@ -111,7 +113,7 @@ shelleyConsumed ::
   (EraUTxO era, EraCertState era) =>
   PParams era ->
   Accounts era ->
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Value era
 shelleyConsumed pp accounts = getConsumedValue pp (`lookupAccountDeposit` accounts)
@@ -145,12 +147,14 @@ getConsumedCoin ::
   EraTxBody era =>
   PParams era ->
   (Credential Staking -> Maybe Coin) ->
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Coin
-getConsumedCoin pp lookupRefund utxo txBody =
+getConsumedCoin pp lookupRefund inputAllocations txBody =
   {- balance (txins tx ◁ u) + wbalance (txwdrls tx) + keyRefunds dpstate tx -}
-  sumCoinUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+  ( sumAllCoin . Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $
+      inputAllocations
+  )
     <> refunds
     <> withdrawals
   where
@@ -203,10 +207,10 @@ witsVKeyNeededGenDelegs txBody (GenDelegs genDelegs) =
 -- related Keys, i.e. `GenDelegs`
 getShelleyWitsVKeyNeededNoGov ::
   EraTx era =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Set (KeyHash Witness)
-getShelleyWitsVKeyNeededNoGov utxo' txBody =
+getShelleyWitsVKeyNeededNoGov inputAllocations txBody =
   certAuthors
     `Set.union` inputAuthors
     `Set.union` owners
@@ -216,9 +220,9 @@ getShelleyWitsVKeyNeededNoGov utxo' txBody =
     inputAuthors = foldr' accum Set.empty (txBody ^. spendableInputsTxBodyF)
       where
         accum txin !ans =
-          case txinLookup txin utxo' of
-            Just txOut ->
-              case txOut ^. addrTxOutL of
+          case Allocations.lookupUTxO txin inputAllocations of
+            Just entry ->
+              case Unspent.toTxOut entry ^. addrTxOutL of
                 Addr _ (KeyHashObj pay) _ -> Set.insert (asWitness pay) ans
                 AddrBootstrap bootAddr ->
                   Set.insert (asWitness (bootstrapKeyHash bootAddr)) ans
@@ -252,11 +256,11 @@ getShelleyWitsVKeyNeededNoGov utxo' txBody =
 getShelleyWitsVKeyNeeded ::
   (EraTx era, ShelleyEraTxBody era, EraCertState era, STxLevel l era ~ STxTopLevel l era) =>
   CertState era ->
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Set (KeyHash Witness)
-getShelleyWitsVKeyNeeded certState utxo txBody =
+getShelleyWitsVKeyNeeded certState inputAllocations txBody =
   case toSTxLevel txBody of
     STopTxOnly ->
-      getShelleyWitsVKeyNeededNoGov utxo txBody
+      getShelleyWitsVKeyNeededNoGov inputAllocations txBody
         `Set.union` witsVKeyNeededGenDelegs txBody (dsGenDelegs (certState ^. certDStateL))

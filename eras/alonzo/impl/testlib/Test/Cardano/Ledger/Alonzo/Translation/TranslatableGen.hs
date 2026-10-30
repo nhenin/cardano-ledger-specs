@@ -47,6 +47,7 @@ import Test.Cardano.Ledger.Alonzo.Translation.TranslationInstance (
   VersionedTxInfo (..),
  )
 import Test.Cardano.Ledger.Common
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 
 class
   ( EraUTxO era
@@ -95,7 +96,9 @@ genTranslationInstance = do
   supportedLanguage :: SupportedLanguage era <- arbitrary
   tx <- tgTx supportedLanguage
   utxo <- tgUtxo supportedLanguage tx
-  let lti = mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+  let lti =
+        mkTestLedgerTxInfo protVer epochInfo systemStart (legacyAllocations utxo) tx $
+          LedgerTopTxInfo mempty
   plutusPurpose <- arbitrary
   pure $ case supportedLanguage of
     SupportedLanguage slang ->

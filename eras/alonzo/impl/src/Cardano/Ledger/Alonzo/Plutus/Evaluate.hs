@@ -59,7 +59,7 @@ import Cardano.Ledger.Plutus.Evaluate (
 import Cardano.Ledger.Plutus.ExUnits
 import Cardano.Ledger.Plutus.Language (Language (..), plutusLanguage)
 import Cardano.Ledger.Plutus.TxInfo (exBudgetToExUnits)
-import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..), UTxO (..))
+import Cardano.Ledger.State (Allocations, EraUTxO (..), ScriptsProvided (..))
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -92,9 +92,9 @@ collectPlutusScriptsWithContext ::
   SystemStart ->
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  Allocations era ->
   Either (NonEmpty (CollectError era)) [PlutusWithContext]
-collectPlutusScriptsWithContext epochInfo systemStart pp tx utxo =
+collectPlutusScriptsWithContext epochInfo systemStart pp tx entries =
   scriptsWithContextFromLedgerTxInfo ledgerTxInfo (pp ^. ppCostModelsL)
   where
     -- We need to pass major protocol version to the script for script evaluation
@@ -104,7 +104,7 @@ collectPlutusScriptsWithContext epochInfo systemStart pp tx utxo =
         { ltiProtVer = protVer
         , ltiEpochInfo = epochInfo
         , ltiSystemStart = systemStart
-        , ltiUTxO = utxo
+        , ltiAllocations = entries
         , ltiTx = tx
         , ltiScriptsUsed = plutusScriptsUsed
         , ltiScriptHashesUsed = toScriptHashByPurpose plutusScriptsUsed
@@ -113,8 +113,8 @@ collectPlutusScriptsWithContext epochInfo systemStart pp tx utxo =
     (_, plutusScriptsUsed) =
       resolveNeededPlutusScriptsWithPurpose
         protVer
-        (getScriptsProvided utxo tx)
-        (getScriptsNeeded utxo (tx ^. bodyTxL))
+        (getScriptsProvided entries tx)
+        (getScriptsNeeded entries (tx ^. bodyTxL))
         mempty
 
 scriptsWithContextFromLedgerTxInfo ::
@@ -287,8 +287,8 @@ evalTxExUnits ::
   PParams era ->
   -- | The transaction.
   Tx TopTx era ->
-  -- | The current UTxO set (or the relevant portion for the transaction).
-  UTxO era ->
+  -- | Accepted allocations (or the relevant portion for the transaction).
+  Allocations era ->
   -- | The epoch info, used to translate slots to POSIX time for plutus.
   EpochInfo (Either Text) ->
   -- | The start time of the given block chain.
@@ -296,8 +296,8 @@ evalTxExUnits ::
   -- | We return a map from redeemer pointers to either a failure or a
   --  sufficient execution budget.
   RedeemerReport era
-evalTxExUnits pp tx utxo epochInfo systemStart =
-  Map.map (fmap snd) $ evalTxExUnitsWithLogs pp tx utxo epochInfo systemStart
+evalTxExUnits pp tx entries epochInfo systemStart =
+  Map.map (fmap snd) $ evalTxExUnitsWithLogs pp tx entries epochInfo systemStart
 
 -- | Evaluate the execution budgets needed for all the redeemers in
 --  a given transaction.
@@ -314,8 +314,8 @@ evalTxExUnitsWithLogs ::
   PParams era ->
   -- | The transaction.
   Tx TopTx era ->
-  -- | The current UTxO set (or the relevant portion for the transaction).
-  UTxO era ->
+  -- | Accepted allocations (or the relevant portion for the transaction).
+  Allocations era ->
   -- | The epoch info, used to translate slots to POSIX time for plutus.
   EpochInfo (Either Text) ->
   -- | The start time of the given block chain.
@@ -328,7 +328,7 @@ evalTxExUnitsWithLogs ::
   --  Unlike `evalTxExUnits`, this function also returns evaluation logs, useful for
   --  debugging.
   RedeemerReportWithLogs era
-evalTxExUnitsWithLogs pp tx utxo epochInfo systemStart = Map.mapWithKey findAndCount rdmrs
+evalTxExUnitsWithLogs pp tx entries epochInfo systemStart = Map.mapWithKey findAndCount rdmrs
   where
     keyedByPurpose (plutusPurpose, _) = hoistPlutusPurpose toAsIx plutusPurpose
     purposeToScriptHash = fromElems keyedByPurpose scriptsNeeded
@@ -337,7 +337,7 @@ evalTxExUnitsWithLogs pp tx utxo epochInfo systemStart = Map.mapWithKey findAndC
         { ltiProtVer = protVer
         , ltiEpochInfo = epochInfo
         , ltiSystemStart = systemStart
-        , ltiUTxO = utxo
+        , ltiAllocations = entries
         , ltiTx = tx
         , ltiScriptsUsed = plutusScriptsUsed
         , ltiScriptHashesUsed = toScriptHashByPurpose plutusScriptsUsed
@@ -350,8 +350,8 @@ evalTxExUnitsWithLogs pp tx utxo epochInfo systemStart = Map.mapWithKey findAndC
     rdmrs = wits ^. rdmrsTxWitsL . unRedeemersL
     protVer = pp ^. ppProtocolVersionL
     costModels = costModelsValid $ pp ^. ppCostModelsL
-    provided@(ScriptsProvided scriptsProvided) = getScriptsProvided utxo tx
-    needed@(AlonzoScriptsNeeded scriptsNeeded) = getScriptsNeeded utxo txBody
+    provided@(ScriptsProvided scriptsProvided) = getScriptsProvided entries tx
+    needed@(AlonzoScriptsNeeded scriptsNeeded) = getScriptsNeeded entries txBody
     (_, plutusScriptsUsed) = resolveNeededPlutusScriptsWithPurpose protVer provided needed mempty
     findAndCount pointer (redeemerData, exUnits) = do
       (plutusPurpose, plutusScriptHash) <-

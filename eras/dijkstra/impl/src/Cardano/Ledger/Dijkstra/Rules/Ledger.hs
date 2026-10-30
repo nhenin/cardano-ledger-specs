@@ -346,11 +346,11 @@ validateAllRefScriptSize ::
   , DijkstraEraTxBody era
   ) =>
   PParams era ->
-  UTxO era ->
+  Allocations era ->
   Tx TopTx era ->
   Test (DijkstraLedgerPredFailure era)
-validateAllRefScriptSize pp utxo tx =
-  let totalRefScriptSize = batchNonDistinctRefScriptsSize utxo tx
+validateAllRefScriptSize pp inputAllocations tx =
+  let totalRefScriptSize = batchNonDistinctRefScriptsSize inputAllocations tx
       maxRefScriptSizePerTx = fromIntegral @Word32 @Int $ pp ^. ppMaxRefScriptSizePerTxG
    in failureUnless (totalRefScriptSize <= maxRefScriptSizePerTx) $
         DijkstraTxRefScriptsSizeTooBig
@@ -393,11 +393,11 @@ dijkstraLedgerTransition = do
   let tx = stAnnTx ^. txStAnnTxG
 
   -- Retain the previous store before SubTxs consume any entries.
-  -- Witness checks use their output view; whole-batch accounting also needs
-  -- each allocation's historical calculation and accepted size.
+  -- Witness checks and whole-batch accounting retain these original allocations,
+  -- including each output's historical calculation and accepted size.
   let previousUTxOStore = ledgerState ^. utxoStoreG
-      originalUtxo =
-        UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
+      originalAllocations =
+        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
           previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
@@ -422,7 +422,7 @@ dijkstraLedgerTransition = do
 
   let txBody = tx ^. bodyTxL
   runTest $ Conway.validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
-  runTest $ validateAllRefScriptSize pp originalUtxo tx
+  runTest $ validateAllRefScriptSize pp originalAllocations tx
 
   (utxoStateBeforeUtxow, certStateFinal) <-
     if tx ^. isPhase2ValidTxL == Phase2Valid

@@ -67,6 +67,7 @@ import Test.Cardano.Ledger.Core.KeyPair (
   mkCredential,
   mkWitnessesVKey,
  )
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.Shelley.Constants (Constants (..), defaultConstants)
 import Test.Cardano.Ledger.Shelley.Generator.Core (
   GenEnv (..),
@@ -386,7 +387,7 @@ genNextDelta
   tx
   _count -- the counter of the fix loop
   delta@(Delta dfees extraInputs extraWitnesses change _ extraScripts) =
-    let !baseTxFee = getMinFeeTxUtxo pparams tx utxo
+    let !baseTxFee = getMinFeeTxUtxo pparams tx (legacyAllocations utxo)
         -- based on the current contents of delta, how much will the fee
         -- increase when we add the delta to the tx?
         draftSize =

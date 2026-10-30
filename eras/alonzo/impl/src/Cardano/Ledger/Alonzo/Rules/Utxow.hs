@@ -65,10 +65,10 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (ShelleyScriptsNeeded (..))
 import Cardano.Ledger.State (
+  Allocations,
   EraCertState (..),
   EraUTxO (..),
   ScriptsProvided (..),
-  UTxO (..),
   dsGenDelegsL,
  )
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
@@ -227,15 +227,15 @@ missingRequiredDatums ::
   , AlonzoEraUTxO era
   ) =>
   ScriptsProvided era ->
-  UTxO era ->
+  Allocations era ->
   Tx l era ->
   Test (AlonzoUtxowPredFailure era)
-missingRequiredDatums scriptsProvided utxo tx = do
+missingRequiredDatums scriptsProvided inputAllocations tx = do
   let txBody = tx ^. bodyTxL
-      (inputHashes, txInsNoDataHash) = getInputDataHashesTxBody utxo txBody scriptsProvided
+      (inputHashes, txInsNoDataHash) = getInputDataHashesTxBody inputAllocations txBody scriptsProvided
       txHashes = Map.keysSet (tx ^. witsTxL . datsTxWitsL . unTxDatsL)
       unmatchedDatumHashes = Set.difference inputHashes txHashes
-      allowedSupplementalDataHashes = getSupplementalDataHashes utxo txBody
+      allowedSupplementalDataHashes = getSupplementalDataHashes inputAllocations txBody
       supplimentalDatumHashes = Set.difference txHashes inputHashes
       (okSupplimentalDHs, notOkSupplimentalDHs) =
         Set.partition (`Set.member` allowedSupplementalDataHashes) supplimentalDatumHashes
@@ -330,9 +330,8 @@ alonzoStyleWitness = do
   {-  txb := txbody tx  -}
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo =
-        UTxO
-          . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+  let inputAllocations =
+        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
           . utxosUTxOStore
           $ u
@@ -352,7 +351,7 @@ alonzoStyleWitness = do
 
   {- inputHashes := { h | (_ → (a,_,h)) ∈ txins tx ◁ utxo, isTwoPhaseScriptAddress tx a} -}
   {-  inputHashes ⊆ dom(txdats txw)  -}
-  runTest $ missingRequiredDatums scriptsProvided utxo tx
+  runTest $ missingRequiredDatums scriptsProvided inputAllocations tx
 
   {- dom(txdats txw) ⊆ inputHashes ∪ {h | ( , , h) ∈ txouts tx -}
   -- This is incorporated into missingRequiredDatums, see the
@@ -367,7 +366,7 @@ alonzoStyleWitness = do
   runTestOnSignal $ Shelley.validateVerifiedWits tx
 
   {-  witsVKeyNeeded utxo tx genDelegs ⊆ witsKeyHashes                   -}
-  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState utxo txBody
+  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState inputAllocations txBody
 
   -- check genesis keys signatures for instantaneous rewards certificates
   {-  genSig := { hashKey gkey | gkey ∈ dom(genDelegs)} ∩ witsKeyHashes  -}

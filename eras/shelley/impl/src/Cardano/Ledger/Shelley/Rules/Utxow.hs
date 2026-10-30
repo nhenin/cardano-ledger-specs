@@ -76,10 +76,9 @@ import Cardano.Ledger.Shelley.UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
   ShelleyScriptsNeeded (..),
-  UTxO (..),
   verifyWitVKey,
  )
-import Cardano.Ledger.State (EraCertState (..), dsGenDelegs)
+import Cardano.Ledger.State (Allocations, EraCertState (..), dsGenDelegs)
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq
@@ -304,14 +303,13 @@ transitionRulesUTXOW = do
 
   {-  (utxo,_,_,_ ) := utxoSt  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo =
-        UTxO
-          . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+  let inputAllocations =
+        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
           . utxosUTxOStore
           $ u
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
-      scriptsProvided = getScriptsProvided utxo tx
+      scriptsProvided = getScriptsProvided inputAllocations tx
 
   -- check scripts
   {-  ∀ s ∈ range(txscripts txw) ∩ Scriptnative), runNativeScript s tx   -}
@@ -319,7 +317,7 @@ transitionRulesUTXOW = do
   runTestOnSignal $ validateFailedNativeScripts scriptsProvided tx
 
   {-  { s | (_,s) ∈ scriptsNeeded utxo tx} = dom(txscripts txw)          -}
-  let scriptsNeeded = getScriptsNeeded utxo (tx ^. bodyTxL)
+  let scriptsNeeded = getScriptsNeeded inputAllocations (tx ^. bodyTxL)
   runTest $ validateMissingScripts scriptsNeeded scriptsProvided
 
   -- check VKey witnesses
@@ -327,7 +325,7 @@ transitionRulesUTXOW = do
   runTestOnSignal $ validateVerifiedWits tx
 
   {-  witsVKeyNeeded utxo tx genDelegs ⊆ witsKeyHashes                   -}
-  runTest $ validateNeededWitnesses witsKeyHashes certState utxo (tx ^. bodyTxL)
+  runTest $ validateNeededWitnesses witsKeyHashes certState inputAllocations (tx ^. bodyTxL)
 
   -- check metadata hash
   {-  ((adh = ◇) ∧ (ad= ◇)) ∨ (adh = hashAD ad)                          -}
@@ -432,11 +430,11 @@ validateNeededWitnesses ::
   -- | Provided witness
   Set (KeyHash Witness) ->
   CertState era ->
-  UTxO era ->
+  Allocations era ->
   TxBody t era ->
   Test (ShelleyUtxowPredFailure era)
-validateNeededWitnesses witsKeyHashes certState utxo txBody =
-  let needed = getWitsVKeyNeeded certState utxo txBody
+validateNeededWitnesses witsKeyHashes certState inputAllocations txBody =
+  let needed = getWitsVKeyNeeded certState inputAllocations txBody
       missingWitnesses = Set.difference needed witsKeyHashes
    in failureOnNonEmptySet missingWitnesses MissingVKeyWitnessesUTXOW
 

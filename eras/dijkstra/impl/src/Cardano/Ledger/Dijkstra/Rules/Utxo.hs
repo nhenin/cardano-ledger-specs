@@ -318,18 +318,18 @@ hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
 validateValueNotConservedUTxO ::
   EraUTxO era =>
   PParams era ->
-  UTxO era ->
+  Allocations era ->
   PState era ->
   TxBody TopTx era ->
   Test (Mismatch RelEQ (Value era))
-validateValueNotConservedUTxO pp utxo pState txBody =
+validateValueNotConservedUTxO pp inputAllocations pState txBody =
   failureUnless (consumedValue == producedValue) $
     Mismatch
       { mismatchSupplied = consumedValue
       , mismatchExpected = producedValue
       }
   where
-    consumedValue = dijkstraConsumed pp utxo txBody
+    consumedValue = dijkstraConsumed pp inputAllocations txBody
     producedValue = produced pp pState txBody
 
 -- | Legacy self-balance uses TopTx's attributed share, excluding locally
@@ -337,17 +337,18 @@ validateValueNotConservedUTxO pp utxo pState txBody =
 validateLegacyValueNotConservedUTxO ::
   (EraUTxO era, DijkstraEraTxBody era) =>
   PParams era ->
-  UTxO era ->
+  Allocations era ->
   PState era ->
   TxBody TopTx era ->
   Validation (NonEmpty (Mismatch RelEQ (Value era))) ()
-validateLegacyValueNotConservedUTxO pp utxo pState body =
+validateLegacyValueNotConservedUTxO pp inputAllocations pState body =
   let Coin topTxNetDeposit = DepositStore.attributedTopTxNetUTxODeposit body
       ordinaryBody =
         body
           & subTransactionsTxBodyL .~ mempty
           & netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
-      consumedValue = dijkstraConsumed pp utxo ordinaryBody <> inject (Coin $ max 0 $ negate topTxNetDeposit)
+      consumedValue =
+        dijkstraConsumed pp inputAllocations ordinaryBody <> inject (Coin $ max 0 $ negate topTxNetDeposit)
       producedValue = produced pp pState ordinaryBody <> inject (Coin $ max 0 topTxNetDeposit)
    in failureUnless (consumedValue == producedValue) $ Mismatch consumedValue producedValue
 
@@ -427,7 +428,7 @@ dijkstraUtxoTransition = do
     inputs = txBody ^. inputsTxBodyL
     originalAllocations = allocations previousUTxOStore
     -- Inherited fee/value validators receive only inputs belonging to this batch.
-    originalUtxo = UTxO . Allocations.txOutsForInputs allInputs $ originalAllocations
+    inputAllocations = Allocations.restrictToInputs allInputs $ originalAllocations
 
   {- SpendInputsOf txTop ∪ RefInputsOf txTop ∪ CollInputsOf txTop ⊆ dom(utxo₀) -}
   runTest $ Shelley.validateBadInputsUTxO originalAllocations allInputs
@@ -447,7 +448,7 @@ dijkstraUtxoTransition = do
       DepositStore.validateOrdinaryDepositStore pp previousUTxOStore txBody
 
   {- minfee pp txTop utxo₀ ≤ txfee txb -}
-  runTest $ Shelley.validateFeeTooSmallUTxO pp tx originalUtxo
+  runTest $ Shelley.validateFeeTooSmallUTxO pp tx inputAllocations
 
   {- (RedeemersOf txTop ≠ ∅ ⊎ Any (λ txSub → RedeemersOf txSub ≠ ∅) subtxs) → collateralCheck -}
   validate $ validateBatchCollateral pp tx previousUTxOStore
@@ -465,7 +466,7 @@ dijkstraUtxoTransition = do
       first (fmap Shelley.ValueNotConservedUTxO) $
         validateValueNotConservedUTxO
           pp
-          originalUtxo
+          inputAllocations
           originalPState
           txBody
 
@@ -475,7 +476,7 @@ dijkstraUtxoTransition = do
         first (fmap ValueNotConservedInLegacyMode) $
           validateLegacyValueNotConservedUTxO
             pp
-            originalUtxo
+            inputAllocations
             postSubsPState
             txBody
 

@@ -424,8 +424,8 @@ detectLegacyMode ::
 detectLegacyMode tx = do
   Globals {systemStart, epochInfo} <- gets (^. impGlobalsL)
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getUTxO
-  let stAnnTx = mkStAnnTx epochInfo systemStart pp utxo mempty tx
+  entries <- allocations <$> getsNES utxoStoreG
+  let stAnnTx = mkStAnnTx epochInfo systemStart pp entries mempty tx
   pure $ stAnnTx ^. plutusLegacyModeStAnnTxG
 
 -- | Add a collateral input to the top-level transaction when a
@@ -496,11 +496,11 @@ balanceSubTransactions ::
 balanceSubTransactions topTx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   pools <- Map.keysSet <$> getsNES (nesEsL . epochStateStakePoolsL)
-  utxo <- getUTxO
+  entries <- allocations <$> getsNES utxoStoreG
   let
     subTransactions = topTx ^. bodyTxL . subTransactionsTxBodyL
     subsCerts = foldMap' (^. bodyTxL . certsTxBodyL) subTransactions
-    subsConsumed = coin $ foldMap' (dijkstraConsumed pp utxo . (^. bodyTxL)) subTransactions
+    subsConsumed = coin $ foldMap' (dijkstraConsumed pp entries . (^. bodyTxL)) subTransactions
     subsProduced =
       foldMap' (coin . localProducedValue pp . (^. bodyTxL)) subTransactions
         <> getTotalDepositsTxCerts pp (`Set.member` pools) subsCerts

@@ -145,8 +145,7 @@ unsafeMakeValidatedTx globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          ( UTxO
-              . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
               . Store.allocations
               . (^. utxoStoreG)
               $ state
@@ -191,7 +190,7 @@ class
     EpochInfo (Either Text) ->
     SystemStart ->
     PParams era ->
-    UTxO era ->
+    Allocations era ->
     StAnnTxCache era ->
     Tx TopTx era ->
     StAnnTx TopTx era
@@ -293,8 +292,7 @@ defaultApplyTxWithValidation wrap validationPolicy globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          ( UTxO
-              . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
               . Store.allocations
               . (^. utxoStoreG)
               $ state
@@ -347,8 +345,7 @@ instance ApplyTx ShelleyEra where
             (epochInfo globals)
             (systemStart globals)
             (env ^. ledgerPpL)
-            ( UTxO
-                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+            ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . (^. utxoStoreG)
                 $ state

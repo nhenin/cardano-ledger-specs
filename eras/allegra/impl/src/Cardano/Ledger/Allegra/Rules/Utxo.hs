@@ -178,7 +178,7 @@ utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       storedAllocations = Store.allocations . Shelley.utxosUTxOStore $ utxos
-      utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      inputAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
       ppup = Shelley.utxosGovState utxos
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
@@ -190,7 +190,7 @@ utxoTransition = do
   runTest $ Shelley.validateInputSetEmptyUTxO txBody
 
   {- minfee pp tx ≤ txfee txb -}
-  runTest $ Shelley.validateFeeTooSmallUTxO pp tx utxo
+  runTest $ Shelley.validateFeeTooSmallUTxO pp tx inputAllocations
 
   {- txins txb ⊆ dom utxo -}
   runTest $
@@ -206,7 +206,7 @@ utxoTransition = do
   runTest $ Shelley.validateWrongNetworkWithdrawal netId txBody
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ Shelley.validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   -- process Protocol Parameter Update Proposals
   govStateAfterPPUP <-

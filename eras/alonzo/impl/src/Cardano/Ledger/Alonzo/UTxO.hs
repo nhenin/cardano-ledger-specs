@@ -79,12 +79,14 @@ import Cardano.Ledger.Shelley.UTxO (
   getShelleyWitsVKeyNeeded,
  )
 import Cardano.Ledger.State (
+  Allocations,
   EraCertState (..),
   EraUTxO (..),
   ScriptsProvided (..),
-  UTxO (..),
   getScriptHash,
  )
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
 import Cardano.Ledger.TxIn
 import Control.DeepSeq (NFData)
 import Data.Foldable as F (foldl', toList)
@@ -132,7 +134,7 @@ class EraUTxO era => AlonzoEraUTxO era where
   -- the inputs that might be spent are the required datums and the datums corresponding
   -- to the outputs and reference inputs are the supplemental datums.
   getSupplementalDataHashes ::
-    UTxO era ->
+    Allocations era ->
     TxBody l era ->
     Set.Set DataHash
 
@@ -143,10 +145,10 @@ class EraUTxO era => AlonzoEraUTxO era where
   -- This is similar to @getDatum@ function as in the spec:
   --
   -- @
-  --   getDatum :: Tx era -> UTxO era -> ScriptPurpose era -> [Data era]
+  --   getDatum :: Tx era -> Allocations era -> ScriptPurpose era -> [Data era]
   -- @
   getSpendingDatum ::
-    UTxO era ->
+    Allocations era ->
     Tx l era ->
     PlutusPurpose AsItem era ->
     Maybe (Data era)
@@ -228,13 +230,13 @@ getAlonzoSupplementalDataHashes txBody =
 --  contains Data. Nothing is returned for the other kinds.
 getAlonzoSpendingDatum ::
   (AlonzoEraTxWits era, AlonzoEraTxOut era, EraTx era) =>
-  UTxO era ->
+  Allocations era ->
   Tx l era ->
   PlutusPurpose AsItem era ->
   Maybe (Data era)
-getAlonzoSpendingDatum (UTxO m) tx sp = do
+getAlonzoSpendingDatum inputAllocations tx sp = do
   AsItem txIn <- toSpendingPurpose sp
-  txOut <- Map.lookup txIn m
+  txOut <- Unspent.toTxOut <$> Allocations.lookupUTxO txIn inputAllocations
   SJust hash <- Just $ txOut ^. dataHashTxOutL
   Map.lookup hash $ tx ^. witsTxL . datsTxWitsL . unTxDatsL
 
@@ -249,34 +251,36 @@ getAlonzoScriptsHashesNeeded (AlonzoScriptsNeeded sn) = Set.fromList (map snd sn
 -- @{ h | (_ → (a,_,h)) ∈ txins tx ◁ utxo, isNonNativeScriptAddress tx a}@
 getInputDataHashesTxBody ::
   (EraTxBody era, AlonzoEraTxOut era, AlonzoEraScript era) =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   ScriptsProvided era ->
   (Set.Set DataHash, Set.Set TxIn)
-getInputDataHashesTxBody (UTxO utxo) txBody (ScriptsProvided scriptsProvided) =
-  Map.foldlWithKey' accum (Set.empty, Set.empty) spendUTxO
+getInputDataHashesTxBody inputAllocations txBody (ScriptsProvided scriptsProvided) =
+  foldl' accum (Set.empty, Set.empty) $ txBody ^. inputsTxBodyL
   where
     spendingPlutusScriptLanguage addr = do
       scriptHash <- getScriptHash addr
       plutusScript <- lookupPlutusScript scriptHash scriptsProvided
       pure $ plutusScriptLanguage plutusScript
     isSpendingPlutusScript = isJust . spendingPlutusScriptLanguage
-    spendInputs = txBody ^. inputsTxBodyL
-    spendUTxO = Map.restrictKeys utxo spendInputs
-    accum ans@(!hashSet, !inputSet) txIn txOut =
-      let addr = txOut ^. addrTxOutL
-       in case txOut ^. datumTxOutF of
-            NoDatum
-              | Just lang <- spendingPlutusScriptLanguage addr
-              , -- Spending Datums are no longer required with PlutusV3. See: CIP-0069
-                lang < PlutusV3 ->
-                  (hashSet, Set.insert txIn inputSet)
-            DatumHash dataHash
-              | isSpendingPlutusScript addr -> (Set.insert dataHash hashSet, inputSet)
-            -- Though it is somewhat odd to allow native scripts to include a datum,
-            -- the Alonzo era already set the precedent with datum hashes, and several dapp
-            -- developers see this as a helpful feature.
-            _ -> ans
+    accum ans@(!hashSet, !inputSet) txIn =
+      case Allocations.lookupUTxO txIn inputAllocations of
+        Nothing -> ans
+        Just entry ->
+          let txOut = Unspent.toTxOut entry
+              addr = txOut ^. addrTxOutL
+           in case txOut ^. datumTxOutF of
+                NoDatum
+                  | Just lang <- spendingPlutusScriptLanguage addr
+                  , -- Spending Datums are no longer required with PlutusV3. See: CIP-0069
+                    lang < PlutusV3 ->
+                      (hashSet, Set.insert txIn inputSet)
+                DatumHash dataHash
+                  | isSpendingPlutusScript addr -> (Set.insert dataHash hashSet, inputSet)
+                -- Though it is somewhat odd to allow native scripts to include a datum,
+                -- the Alonzo era already set the precedent with datum hashes, and several dapp
+                -- developers see this as a helpful feature.
+                _ -> ans
 
 -- |
 -- Uses of inputs in ‘txscripts’ and ‘neededScripts’
@@ -312,11 +316,11 @@ getInputDataHashesTxBody (UTxO utxo) txBody (ScriptsProvided scriptsProvided) =
 -- function 'validateMissingScripts' in the Utxow rule.
 getAlonzoScriptsNeeded ::
   (MaryEraTxBody era, AlonzoEraScript era) =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   AlonzoScriptsNeeded era
-getAlonzoScriptsNeeded utxo txBody =
-  getSpendingScriptsNeeded utxo txBody
+getAlonzoScriptsNeeded inputAllocations txBody =
+  getSpendingScriptsNeeded inputAllocations txBody
     <> getWithdrawingScriptsNeeded txBody
     <> certifyingScriptsNeeded
     <> getMintingScriptsNeeded txBody
@@ -369,15 +373,15 @@ zipAsIxItem xs f =
 
 getSpendingScriptsNeeded ::
   (AlonzoEraScript era, EraTxBody era) =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   AlonzoScriptsNeeded era
-getSpendingScriptsNeeded (UTxO utxo) txBody =
+getSpendingScriptsNeeded inputAllocations txBody =
   AlonzoScriptsNeeded $
     catMaybes $
       zipAsIxItem (txBody ^. inputsTxBodyL) $
         \asIxItem@(AsIxItem _ txIn) -> do
-          addr <- view addrTxOutL <$> Map.lookup txIn utxo
+          addr <- view addrTxOutL . Unspent.toTxOut <$> Allocations.lookupUTxO txIn inputAllocations
           hash <- getScriptHash addr
           return (SpendingPurpose asIxItem, hash)
 {-# INLINEABLE getSpendingScriptsNeeded #-}
@@ -420,11 +424,11 @@ getAlonzoWitsVKeyNeeded ::
   , STxLevel l era ~ STxTopLevel l era
   ) =>
   CertState era ->
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Set.Set (KeyHash Witness)
-getAlonzoWitsVKeyNeeded certState utxo txBody =
-  getShelleyWitsVKeyNeeded certState utxo txBody
+getAlonzoWitsVKeyNeeded certState inputAllocations txBody =
+  getShelleyWitsVKeyNeeded certState inputAllocations txBody
     `Set.union` Set.map asWitness (txBody ^. reqSignerHashesTxBodyG)
 {-# INLINEABLE getAlonzoWitsVKeyNeeded #-}
 

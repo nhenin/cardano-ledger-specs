@@ -24,6 +24,7 @@ import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Api.Arbitrary ()
 import Test.Cardano.Ledger.Common
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 
 totalTxDeposits ::
   (EraTxBody era, EraCertState era) =>
@@ -143,7 +144,7 @@ propEvalBalanceTxBody ::
 propEvalBalanceTxBody pp certState utxo = do
   property $
     forAll (genTxBodyFrom @_ @TopTx certState utxo) $ \txBody ->
-      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId utxo txBody
+      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId (legacyAllocations utxo) txBody
         `shouldBe` evaluateTransactionBalance pp certState utxo txBody
   where
     lookupKeyDeposit = lookupDepositDState (certState ^. certDStateL)
@@ -158,7 +159,7 @@ propEvalBalanceShelleyTxBody ::
 propEvalBalanceShelleyTxBody pp certState utxo =
   property $
     forAll (genTxBodyFrom @_ @TopTx certState utxo) $ \txBody ->
-      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId utxo txBody
+      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId (legacyAllocations utxo) txBody
         `shouldBe` evaluateTransactionBalanceShelley pp certState utxo txBody
   where
     lookupKeyDeposit = lookupDepositDState (certState ^. certDStateL)

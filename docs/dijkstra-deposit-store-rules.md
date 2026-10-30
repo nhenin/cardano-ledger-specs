@@ -6650,11 +6650,16 @@ canonical legacy entry and zero separately held deposit in one traversal, withou
 a compatibility-map round trip or partial error handler. Historical Dijkstra
 allocations are not passed through this legacy conversion.
 
-Inherited script, witness, fee and value validators still accept `UTxO`. Their
-callers select the relevant transaction inputs before projecting those entries.
-Block reference-script checks select the union of block inputs, then retain the
-existing handling of outputs created earlier in the block. They do not invent
-historical metadata for proposed outputs.
+Accepted-input validators read `Allocations` directly: consumed value, scripts,
+witnesses, datums, fees, collateral and Plutus context construction. `EraUTxO`
+and `ScriptsProvided` belong to `Cardano.Ledger.State.UTxOs`; they no longer
+reside in the legacy output-map module. Transaction annotations carry
+`ltiAllocations`, preserving each entry's accepted size and historical calculation.
+
+Block reference-script checks also receive allocations. Their local output map
+selects the union of block inputs and includes outputs proposed earlier in the
+block, following the existing protocol-version rules. This map supports the block
+check; it does not construct allocations or invent historical metadata.
 
 Legacy codecs traverse allocation entries directly. Full output-only maps are
 requested by APIs that explicitly return them, initial stake reconstruction, and test
@@ -6664,8 +6669,10 @@ their complete collection; no performance-neutrality or benchmark claim is made.
 **Remaining interface work**
 
 - [x] Remove the shared whole-Store projection helpers and migrate their callers.
-- [ ] Migrate inherited `EraUTxO`, script-context and stake contracts that still
-  require an output-only map, eliminating the remaining boundary conversions.
+- [x] Migrate `EraUTxO`, script contexts, transaction annotations and accepted-input
+  validators to `Allocations`, eliminating their legacy-map conversions.
+- [ ] Review stake output-delta contracts separately: their arguments include
+  proposed outputs, so they cannot be replaced by historical allocations blindly.
 - [ ] Retire `LegacyUTxOMap` after its remaining contracts, codecs and output
   construction functions have appropriate owners. The module is still present;
   the complete interface cleanup is not finished.
@@ -6690,9 +6697,10 @@ Deposit queries use the allocations directly. `restrictToInputs` selects complet
 `unspentOutputs` exposes them with their accepted size and historical calculation.
 Release declaration checks use the allocations from before any body executes,
 including for SubTxs. Collateral accounting selects those entries before summing
-their output coins and historical deposits. Inherited SubTx witness and datum
-checks, and collateral validators, receive an output-only projection of their
-selected inputs.
+their output coins and historical deposits. SubTx witness and datum checks also
+read the original batch allocations; threaded ledger state still determines
+whether an input remains spendable. Collateral validators select complete
+allocations and extract output payloads only for output arithmetic or failure reports.
 
 `totalDepositAmount`, `allocations`,
 `toCoin`, `unAllocations`, `sizedOutput` and
