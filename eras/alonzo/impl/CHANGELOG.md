@@ -2,7 +2,7 @@
 
 ## 1.17.1.0
 
-* Use `IndexedUTxOs` for stored entries, era translation and script contexts. `TxUTxODiff` distinguishes consumed `IndexedUTxOs` from created `IndexedTxOs`. `Cardano.Ledger.Alonzo.Tx` reexports `outputsTxBody` instead of `txouts`, preserving supplied output sizes without attaching pricing history.
+* Use `IndexedUTxOs` for stored entries, era translation and script contexts. Both `TxUTxODiff` arguments contain complete `IndexedUTxOs` from the previous and updated Stores. `Cardano.Ledger.Alonzo.Tx` reexports `outputsTxBody` instead of `txouts`, preserving supplied output sizes without attaching pricing history.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 
 ### `testlib`

@@ -97,8 +97,20 @@ activateNewCalculation calculation store = store {currentCalculation = calculati
 -- | Apply one body's regular input and output changes on the successful path.
 -- The ledger chooses the execution path and applies each SubTx separately.
 -- New outputs record the current calculation; releases use the stored entries.
-update :: EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
-update body = allocate (outputsTxBody body) . release (body ^. inputsTxBodyL)
+-- Earlier eras retain existing entries on key collisions, matching their
+-- original output-map union. Dijkstra uses 'allocate' replacement semantics.
+update :: forall era l. EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
+update body previousStore =
+  let remainingStore = release (body ^. inputsTxBodyL) previousStore
+      proposedOutputs = outputsTxBody body
+      created =
+        if eraProtVerLow @era < natVersion @12
+          then
+            IndexedTxOs.withoutInputs
+              (IndexedUTxOs.inputIds . allocations $ remainingStore)
+              proposedOutputs
+          else proposedOutputs
+   in allocate created remainingStore
 
 -- | Accept proposed outputs, recording their sizes and the current calculation.
 -- Earlier eras use canonical legacy metadata to match their payload-only state

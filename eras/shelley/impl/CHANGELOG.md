@@ -2,9 +2,10 @@
 
 ## 1.21.0.0
 
+* Replace `updateUTxOAndInstantStake` and `updateUTxOAndInstantStakeWithStore` with `updateUTxOsAndInstantStakeWithTxBody`. Compute the Store update internally from the supplied state, then update instant stake and emit the output-change event. Callers no longer prepare a Store separately.
 * Remove the `Shelley.UTxO` reexports of `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`.
 * Distinguish proposed `IndexedTxOs` from stored `IndexedUTxOs`. Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset` retain complete entries; pre-Dijkstra serialized output maps remain unchanged.
-* Replace `txouts` with `outputsTxBody`, returning proposed outputs with their supplied sizes. Allocation reads the Store's current calculation; events distinguish consumed stored entries from created outputs.
+* Replace `txouts` with `outputsTxBody`, returning proposed outputs with their supplied sizes. Allocation reads the Store's current calculation. Both `TxUTxODiff` arguments are `IndexedUTxOs`: consumed entries from the previous Store and created entries from the updated Store, retaining recorded sizes and calculations.
 * Add `EraTransition.initialUTxOStore` so each era initializes its current deposit calculation before any transaction. Earlier eras retain the legacy default.
 * Store complete allocations in `UTxOState.utxosUTxOStore`, with `utxosUTxOStoreL` and the shared `utxoStoreG`/`utxoStoreL` accessors. Retain pre-Dijkstra snapshot encoding and include Dijkstra's cached output-deposit total in ADA pots.
 * Check initial-fund collisions directly against allocations and reconstruct stake from the funded Store's outputs, preserving existing entries and historical deposit metadata.
