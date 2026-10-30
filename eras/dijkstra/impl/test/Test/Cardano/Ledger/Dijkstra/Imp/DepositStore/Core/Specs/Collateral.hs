@@ -2,7 +2,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms #-}
 
 -- | Generated collateral proposals backed by real, accepted funding transactions.
 -- Ordinary funding, script evaluation and signing are preparation only: the
@@ -39,7 +38,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
  )
-import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
+import Cardano.Ledger.Shelley.Scripts (ShelleyEraScript (mkRequireSignature))
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
 import qualified Data.ByteString as BS
@@ -199,7 +198,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
   assets <- case tokenQuantity scenario of
     0 -> pure mempty
     quantity -> do
-      policy <- PolicyID <$> (impAddNativeScript . RequireSignature =<< freshKeyHash)
+      policy <- PolicyID <$> (impAddNativeScript . mkRequireSignature =<< freshKeyHash)
       pure $ multiAssetFromList [(policy, AssetName "collateral", quantity)]
   let sourceOutputs =
         [ output form address (sourceBytes scenario) $ MaryValue inputCoinsPerOutput assets

@@ -11,7 +11,6 @@
 * Make `calculateDeposit :: DepositCalculation -> ByteSize -> Coin` pure, with `ByteSize {unByteSize :: Int64}`. Individual entry deposits return `Coin`; `sumDepositAmounts` and `allocatedDepositTotalAmount` return `DepositAmount`, converted explicitly with `toCoin` for Coin arithmetic. Accept V2 with provisional V1 formula parity; production still selects V1. Checked Store construction/update and entry decoding reject negative sizes, and codecs reject unknown calculation versions.
 * Retain only `NegativeOutputSize` and `MissingHistoricalAllocation` in `OutputStoreError`, preserving codec tags 0 and 2 and rejecting retired tags 1, 3, 4 and 5. Unknown calculation versions and cached-total mismatches remain decoder failures.
 * Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
-
 * Select the Leios voting committee (CIP-0164) when the mark snapshot is created, instead of when it rotates into the set position:
   - Add `msStakePoolDistr`, `msLeiosMaxKeyAge` and `msLeiosCommittee` fields to `MarkSnapShot`, memoizing lazily the stake pool distribution and the committee
   - Add `mkMarkSnapShot`

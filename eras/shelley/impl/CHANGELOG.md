@@ -3,7 +3,6 @@
 ## 1.21.0.0
 
 * Store outputs in `UTxOState` through the `UTxOs` bridge and `utxosUTxOsL`, with read-only `utxosUtxo`/`utxoG` access. Retain pre-Dijkstra snapshot encoding and include Dijkstra's cached output-deposit total in ADA pots.
-
 * Remove `nesPd` field from `NewEpochState` and `nesPdL`:
   - Add `nesStakePoolDistrG`, which reads the stake pool distribution from the set snapshot instead
   - Remove the re-export of `ssStakeMarkPoolDistrL` from `Cardano.Ledger.Shelley.LedgerState`

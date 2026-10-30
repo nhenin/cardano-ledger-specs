@@ -89,9 +89,9 @@ library
     Cardano.Ledger.State.UTxOs.Allocations
     Cardano.Ledger.State.UTxOs.Allocations.UTxO
     Cardano.Ledger.State.UTxOs.Deposit
-    Cardano.Ledger.State.UTxOs.Store.Error
-    Cardano.Ledger.State.UTxOs.Store
     Cardano.Ledger.State.UTxOs.LegacyUTxOMap
+    Cardano.Ledger.State.UTxOs.Store
+    Cardano.Ledger.State.UTxOs.Store.Error
     Cardano.Ledger.StrictlyPositiveCoin
     Cardano.Ledger.Tools
     Cardano.Ledger.TxIn

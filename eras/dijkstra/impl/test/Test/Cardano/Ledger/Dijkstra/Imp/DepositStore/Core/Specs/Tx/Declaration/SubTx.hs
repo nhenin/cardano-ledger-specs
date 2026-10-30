@@ -141,11 +141,11 @@ absentAndExplicitZero = do
   let absentBody =
         mkBasicTxBody @DijkstraEra @SubTx
           & inputsTxBodyL
-          .~ spendingInputs
+            .~ spendingInputs
           & referenceInputsTxBodyL
-          .~ referenceInputs
+            .~ referenceInputs
           & auxDataHashTxBodyL
-          .~ auxiliaryDataHash
+            .~ auxiliaryDataHash
   pure
     ( absentBody & subTxNetUTxODepositChangeTxBodyL .~ SubTx.NoUTxODepositDeclaration
     , absentBody & subTxNetUTxODepositChangeTxBodyL .~ SubTx.DeclaresZeroNetUTxODeposit

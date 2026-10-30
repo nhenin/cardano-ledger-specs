@@ -6,7 +6,6 @@
 * Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
 * Re-export abstract `StrictlyPositiveCoin`, `mkStrictlyPositiveCoin`, and `unStrictlyPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
 * Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
-
 * Add methods to `AnyEraTxBody`:
   - `subTransactionsTxBodyG`
   - `requiredTopLevelGuardsTxBodyG`

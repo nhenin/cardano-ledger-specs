@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Fund real assets and exact illustrated deposits for transaction-balance
@@ -22,7 +21,7 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), PolicyID (..), multiAssetFromList)
 import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
-import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
+import Cardano.Ledger.Shelley.Scripts (ShelleyEraScript (mkRequireSignature))
 import Cardano.Ledger.Val (Val (coin, isAdaOnly, (<->)), inject)
 import qualified Data.ByteString as BS
 import Data.List (find)
@@ -108,7 +107,7 @@ balancePreparedTx tx = do
 fundNativeAssets :: Integer -> ReleaseTx -> ImpTestM DijkstraEra (MaryValue, ReleaseTx)
 fundNativeAssets quantity proposal = do
   (quantity > 0) `shouldBe` True
-  policy <- PolicyID <$> (impAddNativeScript . RequireSignature =<< freshKeyHash)
+  policy <- PolicyID <$> (impAddNativeScript . mkRequireSignature =<< freshKeyHash)
   address <- freshKeyAddrNoPtr_
   let assets = multiAssetFromList [(policy, AssetName "balance-a", quantity)]
       tokenValue = MaryValue mempty assets

@@ -7,11 +7,8 @@
 * Include the declared batch net allocation or release exactly once in ADA conservation, preserving independent SubTx financial imbalance and local/delegated attribution.
 * Derive collateral deposit settlement from consumed allocations and the return output. Fund any additional return deposit before the coin minimum; credit released deposit surplus to fees. Ordinary Store effects remain unapplied on phase-2 failure.
 * Initialize the Store empty on Conway translation and include it in Dijkstra ledger snapshots.
-
 * Require each TopTx and SubTx creating or spending store-backed outputs to carry its own UTxO capacity deposit declaration. Resolve each body's ordinary spending inputs against the original UTxO on both phase-2 outcomes. Use `MissingUTxODepositDeclaration` in UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` in SUBUTXO at tag `11`.
-
 * Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxOs.Deposit.TopTx` and `UTxOs.Deposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
-
 * Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.
 * Isolate declaration validation in `Rules.DepositStore.Declaration`, reexported through `Cardano.Ledger.Dijkstra.Rules`. The validator returns `DepositStoreDeclarationFailure`, which UTXO maps to its predicate failure.
 * Use UTxO capacity deposit terminology throughout the API: `NetUTxODepositChange`, `SubTxNetUTxODepositChange`, allocation/release constructors and release-settlement names. Rename the JSON body field to `netUTxODepositChange` and the corresponding operation/settlement kinds. This naming change preserves CBOR numeric keys, tags and encoded bytes.
@@ -21,7 +18,6 @@
 * Add an optional `NetUTxODepositChange` to top-level transaction bodies, with a net allocation or a net release referencing a top-level output by index; encode it at CBOR key `28` and describe it in the CDDL schema.
 * Add an optional `SubTxNetUTxODepositChange` to sub-transaction bodies at CBOR key `28`: net allocations can request funding from the top-level transaction; net releases declare their amount and either a local output index or an explicit request to delegate accounting to the top-level transaction.
 * Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
-
 * Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
 * Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
 * Add `getDijkstraSupplementalDataHashes` and use it for `getSupplementalDataHashes`, so that,
