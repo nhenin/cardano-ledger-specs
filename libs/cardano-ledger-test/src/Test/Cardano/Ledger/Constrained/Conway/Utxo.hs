@@ -162,7 +162,7 @@ utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState}
           ]
   where
     curEpoch = runReader (epochFromSlot ueSlot) testGlobals
-    initialStore = fromAllocations legacyDepositCalculation uecUTxO
+    initialStore = mkUTxOStore legacyDepositCalculation uecUTxO
 
 data UtxoExecContext era = UtxoExecContext
   { uecTx :: !(Tx TopTx era)

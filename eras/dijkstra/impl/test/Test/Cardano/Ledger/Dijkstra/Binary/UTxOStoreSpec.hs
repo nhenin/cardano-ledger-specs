@@ -118,7 +118,7 @@ spec = describe "UTxOStore historical metadata" $ do
           entry
             `shouldSatisfy` (/= Unspent {sizedOutput = canonical, depositCalculation = DepositCalculationV1 oldRate})
           let store =
-                fromAllocations (DepositCalculationV1 newRate) . IndexedUTxOs $
+                mkUTxOStore (DepositCalculationV1 newRate) . IndexedUTxOs $
                   Map.singleton (TxIn txId $ TxIx 0) entry
           mapM_
             ( \encoding -> do
@@ -148,7 +148,7 @@ spec = describe "UTxOStore historical metadata" $ do
             createdInput = TxIn txId $ TxIx 2
         old `shouldSatisfy` (/= newer)
         let store =
-              fromAllocations (DepositCalculationV1 newRate) . IndexedUTxOs $
+              mkUTxOStore (DepositCalculationV1 newRate) . IndexedUTxOs $
                 Map.fromList [(oldInput, old), (newInput, newer)]
         allocatedDepositTotalAmount (Set.fromList [oldInput, newInput]) (allocations store)
           `shouldBe` DepositAmount (price 1000 accepted <> price 2000 accepted)
@@ -199,7 +199,7 @@ spec = describe "UTxOStore historical metadata" $ do
               , depositCalculation = DepositCalculationV1 $ rate 0
               }
           store =
-            fromAllocations (DepositCalculationV1 newRate) . IndexedUTxOs $
+            mkUTxOStore (DepositCalculationV1 newRate) . IndexedUTxOs $
               Map.fromList [(legacyInput, legacy), (backedInput, zero)]
       cachedTotal store `shouldBe` Coin 0
       case (Unspent.toTxOut legacy, Unspent.toTxOut zero) of
@@ -253,7 +253,7 @@ spec = describe "UTxOStore historical metadata" $ do
               expected = case output of
                 LegacyTxOut _ -> Coin 0
                 NewTxOut _ -> price (toInteger coinsPerByte) accepted
-          let store = fromAllocations calculation created
+          let store = mkUTxOStore calculation created
           cachedTotal store `shouldBe` expected
           Unspent.depositAmount entry `shouldBe` expected
           allocate (IndexedTxOs.singleton input accepted) (emptyUTxOStore calculation) `shouldBe` store

@@ -19,10 +19,11 @@ module Cardano.Ledger.State.UTxOs.Store (
 
   -- * Construction
   emptyUTxOStore,
-  fromAllocations,
+  mkUTxOStore,
 
   -- * Updates
   activateNewCalculation,
+  update,
   allocate,
   release,
 
@@ -36,6 +37,7 @@ module Cardano.Ledger.State.UTxOs.Store (
 
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (EraTxBody (..), outputsTxBody)
 import Cardano.Ledger.Core.Era
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (KeyRole (Staking))
@@ -55,6 +57,7 @@ import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Default (Default (def))
 import Data.Map.Strict (Map)
 import Data.Set (Set)
+import Lens.Micro ((^.))
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 -- Model
@@ -78,8 +81,8 @@ emptyUTxOStore calculation =
 
 -- | Restore complete historical entries with an explicit current calculation.
 -- Derive the total without replacing any entry's recorded size or calculation.
-fromAllocations :: DepositCalculation -> IndexedUTxOs era -> UTxOStore era
-fromAllocations calculation entries =
+mkUTxOStore :: DepositCalculation -> IndexedUTxOs era -> UTxOStore era
+mkUTxOStore calculation entries =
   UTxOStore
     { currentCalculation = calculation
     , totalDepositAmount = IndexedUTxOs.sumDepositAmounts entries
@@ -90,6 +93,12 @@ fromAllocations calculation entries =
 -- deposits remain unchanged, including when the Store is empty.
 activateNewCalculation :: DepositCalculation -> UTxOStore era -> UTxOStore era
 activateNewCalculation calculation store = store {currentCalculation = calculation}
+
+-- | Apply one body's regular input and output changes on the successful path.
+-- The ledger chooses the execution path and applies each SubTx separately.
+-- New outputs record the current calculation; releases use the stored entries.
+update :: EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
+update body = allocate (outputsTxBody body) . release (body ^. inputsTxBodyL)
 
 -- | Accept proposed outputs, recording their sizes and the current calculation.
 -- Earlier eras use canonical legacy metadata to match their payload-only state
@@ -209,12 +218,12 @@ instance EraTxOut era => DecShareCBOR (UTxOStore era) where
   type Share (UTxOStore era) = Interns (Credential Staking)
   decShareCBOR credentials
     | eraProtVerLow @era < natVersion @12 =
-        fromAllocations legacyDepositCalculation <$> decShareCBOR credentials
+        mkUTxOStore legacyDepositCalculation <$> decShareCBOR credentials
     | otherwise = decodeRecordNamed "UTxOStore" (const 3) $ do
         calculation <- decCBOR
         supplied <- Coin <$> decCBOR
         entries <- decShareCBOR credentials
-        let store = fromAllocations calculation entries
+        let store = mkUTxOStore calculation entries
             expected = toCoin $ totalDepositAmount store
         unless (supplied == expected) $
           fail $

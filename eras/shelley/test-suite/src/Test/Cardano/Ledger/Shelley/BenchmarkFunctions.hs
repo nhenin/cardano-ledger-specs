@@ -95,7 +95,7 @@ injcoins n = fmap (\_ -> mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coi
 initUTxO :: Integer -> UTxOState ShelleyEra
 initUTxO n =
   UTxOState
-    (fromAllocations legacyDepositCalculation $ genesisCoins genesisId (injcoins n))
+    (mkUTxOStore legacyDepositCalculation $ genesisCoins genesisId (injcoins n))
     (Coin 0)
     (Coin 0)
     def

@@ -48,8 +48,8 @@ import Cardano.Ledger.DRep (DRep)
 import Cardano.Ledger.State (
   PoolMetadata,
   StakePoolRelay,
-  fromAllocations,
   legacyDepositCalculation,
+  mkUTxOStore,
   toCoin,
   totalDepositAmount,
   utxoStoreG,
@@ -93,7 +93,7 @@ spec mReferenceCDDLs sampleCount = do
       forAll (resize 5 arbitrary) $ \(outputs :: IndexedUTxOs ConwayEra) -> do
         -- Conway's namespace contains outputs only. Import reconstructs their
         -- canonical legacy metadata, with no separately held deposit.
-        let store = fromAllocations legacyDepositCalculation outputs
+        let store = mkUTxOStore legacyDepositCalculation outputs
             source = def & utxoStoreL .~ store
         restored <-
           importNamespaceEntries @ConwayEra @"utxo/v0" def $

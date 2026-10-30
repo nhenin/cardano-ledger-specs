@@ -66,7 +66,7 @@ spec = describe "Initial funds" $ do
                 & tcShelleyGenesisL %~ \genesis ->
                   genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
             previousStore =
-              Store.fromAllocations legacyDepositCalculation $
+              Store.mkUTxOStore legacyDepositCalculation $
                 IndexedUTxOs.singleton existingInput existingAllocation
             previousState =
               def @(NewEpochState DijkstraEra)

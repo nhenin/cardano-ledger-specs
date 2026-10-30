@@ -192,7 +192,7 @@ Production state owns each live output in one allocation map. Both accepted outp
 forms retain their supplied full-output size and calculation. Store-backed entries
 retain their creation-time V1 price; legacy entries have zero external deposit.
 Imported legacy entries use provisional compatibility metadata, not recovered
-history. Decoding validates persisted metadata. `fromAllocations` derives the cached
+history. Decoding validates persisted metadata. `mkUTxOStore` derives the cached
 total; `allocate` and `release` preserve it. These Store operations are pure.
 Accounting queries selected input allocations directly. Ordinary validation checks per-body contributions, the batch net
 total and release destinations. Successful execution applies each body’s output delta once, while batch validation
@@ -201,7 +201,7 @@ settlement. Store ADA is included once in the ledger total.
 
 The business suite contains Transaction rules and Ledger effects. The full Pricing,
 Stake and Voting matrices remain deferred; focused metadata and codec properties
-cover historical pricing, malformed sizes and cached totals. All 13 current
+cover historical pricing, malformed sizes and cached totals. All 16 current
 metadata properties passed, including provisional V1/V2 parity and unknown-version
 rejection. Grammar has 21 codec checks; the reusable positive
 amount type has five independent ledger-core checks. One technical fixture property
@@ -234,7 +234,7 @@ have been replaced by real ledger submissions.
 | [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, retained noncanonical accepted sizes after state restoration and price changes, zero-price records from translated implicit sources, and inactive ordinary records on phase-2 failure. |
 | [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Seven generated checks preserve the original four contracts and add mixed-rate inputs with current-price replacement, a noncanonical child output and a noncanonical collateral return. Each historical output is snapshotted, restored and refunded after a price change. Independent metadata sums check the cached total. |
 | [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
-| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `fromAllocations` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
+| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `mkUTxOStore` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
 | [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
 | [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | Two generated properties cross real epoch boundaries with live records. N01 preserves the complete Store with unchanged parameters. N02 activates a scheduled byte-price update for V1 and V2 while preserving historical allocations, the formula version and the independently checked total. |
@@ -249,6 +249,33 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Store body updates on 30 October 2026
+
+`Store.update body` applies one body's regular inputs and outputs. Dijkstra's
+successful TopTx and SubTx paths call it directly; the duplicated
+`applyBodyAllocations` helper is removed. Collateral selection and SubTx ordering
+remain the ledger's responsibility. Legacy-era collision handling is unchanged.
+
+This run also validates the `mkUTxOStore` rename and the error-type removal from
+the preceding checkpoint. All **18 build targets passed** in **495.61 seconds**.
+
+| Executed group | Examples | Failures | Seconds |
+| --- | ---: | ---: | ---: |
+| API metadata, UTxO effects and allocation effects | 15 | 0 | 68.2529 |
+| Collection/Store codecs, legacy translations and canonical import/export | 45 | 0 | 84.5389 |
+| **Total** | **60** | **0** | — |
+
+The generated properties used 100 cases and seed `739231514`. Groups overlapped
+with compilation and one another; these timings are not performance benchmarks.
+The focused checks include real TopTx/SubTx execution, phase-2 collateral selection
+and spending an output after a calculation change using its recorded deposit.
+The complete business suite was not rerun for this equivalent helper relocation.
+Legacy historical-policy representation remains unresolved.
+
+Evidence: `/private/tmp/store-update-build.log`,
+`/private/tmp/store-update-targeted-results.json`, and
+`/private/tmp/store-update-codecs-results.json`.
 
 ## Store operation cleanup checkpoint on 30 October 2026
 

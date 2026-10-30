@@ -173,12 +173,12 @@ instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) wher
   arbitrary
     | eraProtVerLow @era >= natVersion @12 = do
         calculation <- arbitrary
-        fromAllocations calculation <$> arbitrary
+        mkUTxOStore calculation <$> arbitrary
     | otherwise =
-        fromAllocations legacyDepositCalculation <$> arbitrary
+        mkUTxOStore legacyDepositCalculation <$> arbitrary
   shrink store =
     map
-      (fromAllocations (currentCalculation store) . IndexedUTxOs.fromList)
+      (mkUTxOStore (currentCalculation store) . IndexedUTxOs.fromList)
       $ shrinkList (const []) . IndexedUTxOs.toList
       $ allocations store
 

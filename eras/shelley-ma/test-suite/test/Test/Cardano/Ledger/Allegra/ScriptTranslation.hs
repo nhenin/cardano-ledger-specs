@@ -67,7 +67,7 @@ testScriptPostTranslation =
               (ChainAccountState (S.Coin 0) (S.Coin 0))
           utxoStShelley =
             def
-              { S.utxosUTxOStore = fromAllocations legacyDepositCalculation utxo
+              { S.utxosUTxOStore = mkUTxOStore legacyDepositCalculation utxo
               }
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =
