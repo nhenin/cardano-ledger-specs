@@ -761,8 +761,10 @@ preserving the accepted full-output size and explicit calculation. Construction 
 selected entries and subtracts their historical deposits. Both preserve exact
 cached equality for a valid Store.
 `Store.update body` composes these operations for one body's regular inputs and
-outputs. The ledger invokes it separately for each successful SubTx and TopTx;
-phase-2 failure uses the explicit collateral update instead.
+outputs. The shared `updateUTxOsAndInstantStakeWithTxBody` helper calls it internally,
+updates instant stake and emits `TxUTxODiff` with complete consumed and created
+`IndexedUTxOs` from the previous and updated Stores respectively. Each successful SubTx and
+TopTx invokes that helper; phase-2 failure uses the explicit collateral update instead.
 Snapshot decoding validates both metadata and cached equality. The exported record
 selectors also support direct record updates, whose callers must preserve the
 relationship between the allocations and their total.
@@ -6694,10 +6696,16 @@ inputs are resolved through the previous Store and retain their own historical c
 The transition is explicit:
 
 ```haskell
-Store.update body previousStore
+Shelley.updateUTxOsAndInstantStakeWithTxBody body outputChangeEvent previousUTxOState
 ```
 
-`update` releases the body's regular inputs and allocates its regular outputs.
+The helper derives the new Store from `previousUTxOState` through `Store.update body`;
+callers do not supply a separately prepared Store. Stake and event calculations
+use the consumed entries from the previous state. The event's created entries
+are read from the updated Store, including the sizes and calculations actually
+recorded by allocation; both event arguments are `IndexedUTxOs`.
+
+`Store.update` releases the body's regular inputs and allocates its regular outputs.
 It neither validates the body nor traverses nested SubTxs. The ledger selects the
 execution path; collateral failure continues to release only collateral inputs
 and allocate only the collateral return. Initialization and other operations
@@ -6710,8 +6718,11 @@ $$
 = \sum_{u\in\text{allocations}(S)} \text{depositAmount}(u)
 $$
 
-Replacing an existing input subtracts its previous deposit before adding the replacement.
+The `allocate` primitive replaces an existing input by subtracting its previous
+deposit before adding the replacement.
 Releasing an absent input has no effect. Unaffected entries retain their metadata.
+For pre-Dijkstra body updates, an unspent entry takes precedence over a proposed
+output with the same key, preserving the original legacy map-union behavior.
 
 **Legacy boundaries retain their formats.**
 

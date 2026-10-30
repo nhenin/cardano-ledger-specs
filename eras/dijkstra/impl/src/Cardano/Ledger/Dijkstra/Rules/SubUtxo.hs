@@ -58,7 +58,6 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
@@ -185,12 +184,12 @@ instance InjectRuleEvent "SUBUTXO" DijkstraSubUtxoEvent DijkstraEra
 
 data DijkstraSubUtxoEvent era
   = TotalDeposits (SafeHash EraIndependentTxBody) Coin
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
       (IndexedUTxOs era)
-      -- | Outputs created by the body, with their supplied sizes
-      (IndexedTxOs era)
+      -- | Created entries from the updated Store, including their recorded calculation.
+      (IndexedUTxOs era)
   deriving (Generic)
 
 deriving instance (Era era, Eq (TxOut era)) => Eq (DijkstraSubUtxoEvent era)
@@ -282,8 +281,7 @@ dijkstraSubUtxoTransition = do
 
   case topTxIsPhase2Valid of
     Phase2Valid ->
-      Shelley.updateUTxOAndInstantStakeWithStore
-        (Store.update txBody $ utxosUTxOStore utxoState)
+      Shelley.updateUTxOsAndInstantStakeWithTxBody
         txBody
         (\a b -> tellEvent $ TxUTxODiff a b)
         (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)

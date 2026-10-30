@@ -71,8 +71,9 @@ owns `currentCalculation`, `activateNewCalculation`, `allocate`, `release` and i
 
 Input validators, transaction annotations, wallet queries and test helpers
 use complete `IndexedUTxOs` entries. Output proposals use `IndexedTxOs`, retaining
-`Sized TxOut` without historical pricing; events distinguish their consumed records
-from the created output proposals. Wallet queries are `getIndexedUTxOs`,
+`Sized TxOut` without historical pricing. `TxUTxODiff` carries `IndexedUTxOs` on
+both sides: consumed entries from the previous Store and created entries from
+the updated Store, including their recorded calculations. Wallet queries are `getIndexedUTxOs`,
 `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset`; Imp tests use `getUTxOStore`,
 `getIndexedUTxOs` or an individual `impGetUTxO` lookup. Body and produced-output
 builders retain the body's sizes without a calculation. `Store.allocate` records
@@ -249,6 +250,73 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Stored entries in output events on 30 October 2026
+
+`TxUTxODiff` now carries `IndexedUTxOs` for both consumed and created entries
+in the Shelley, Allegra, Alonzo and Dijkstra SubTx event types. The shared body
+update reads consumed entries from the previous Store and created entries from
+the updated Store, retaining each side's stored size and deposit calculation.
+Store allocation, stake calculation and collateral execution are unchanged.
+
+Four generated regressions exercise the event callback directly. TopTx and
+SubTx cases retain the consumed entry's historical calculation, record the
+active calculation on the created entry, preserve accepted sizes and exclude
+unrelated entries. Babbage and Conway cases check that creation events report
+the canonical stored size even when the body supplied a different size.
+
+All **three build targets passed** in **482.34 seconds**: Dijkstra tests, API tests
+and the Shelley test-suite executable, including their rebuilt dependencies.
+
+| Executed group | Examples | Failures | Wall seconds | CPU seconds |
+| --- | ---: | ---: | ---: | ---: |
+| API indexed metadata, including four event regressions | 11 | 0 | 0.0604 | 0.0615 |
+| Dijkstra UTxO effects | 5 | 0 | 4.1147 | 6.3254 |
+| Shelley CHAIN examples | 32 | 0 | 0.0248 | 0.0249 |
+| **Total** | **48** | **0** | **4.1999** | **6.4118** |
+
+The 16 generated properties each passed 100 cases with seed `739231514`.
+These are test-runner timings, excluding compilation and process startup.
+The complete business suite, allocation-effects group and codec suites were
+not rerun for this event correction; their earlier results remain recorded below.
+
+Evidence: `/private/tmp/utxo-diff-event-build.log`,
+`/private/tmp/utxo-diff-event-build-result.json`, and
+`/private/tmp/utxo-diff-event-targeted-results.json`.
+
+## Shared body update on 30 October 2026
+
+`updateUTxOsAndInstantStakeWithTxBody` now applies `Store.update` internally and
+derives stake changes and the output-difference event from the incoming state.
+The Dijkstra TopTx and SubTx callers no longer prepare a replacement Store.
+The two previous shared helpers are consolidated into this one operation.
+Collateral execution remains unchanged.
+
+`Store.update` now owns the existing legacy collision rule: an unconsumed entry
+already at a proposed output reference takes precedence. Generated Babbage and
+Conway regressions check this alongside input consumption and new-output insertion.
+Dijkstra retains its existing allocation replacement semantics.
+
+All **three build targets passed** in **476.95 seconds**: Dijkstra tests, API tests
+and the Shelley test-suite executable, including their rebuilt dependencies.
+
+| Executed group | Examples | Failures | Wall seconds | CPU seconds |
+| --- | ---: | ---: | ---: | ---: |
+| API indexed metadata | 7 | 0 | 0.0432 | 0.0440 |
+| Dijkstra UTxO effects | 5 | 0 | 3.8351 | 6.0614 |
+| Dijkstra allocation effects | 5 | 0 | 63.6322 | 119.2463 |
+| Shelley CHAIN examples | 32 | 0 | 0.0256 | 0.0257 |
+| **Total** | **49** | **0** | **67.5361** | **125.3774** |
+
+The 17 generated properties each passed 100 cases with seed `739231514`.
+These are test-runner timings, excluding compilation and process startup; they
+are not performance benchmarks. The complete business suite and codec suites
+were not rerun for this helper consolidation. Legacy historical-policy
+representation remains unresolved.
+
+Evidence: `/private/tmp/store-body-helper-build.log`,
+`/private/tmp/store-body-helper-build-result.json`, and
+`/private/tmp/store-body-helper-targeted-results.json`.
 
 ## Store body updates on 30 October 2026
 

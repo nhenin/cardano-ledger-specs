@@ -131,12 +131,12 @@ instance
 data AllegraUtxoEvent era
   = UpdateEvent (Event (EraRule "PPUP" era))
   | TotalDeposits (SafeHash EraIndependentTxBody) Coin
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
       (IndexedUTxOs era)
-      -- | Outputs created by the body, with their supplied sizes
-      (IndexedTxOs era)
+      -- | Created entries from the updated Store, including their recorded calculation.
+      (IndexedUTxOs era)
   deriving (Generic)
 
 deriving instance

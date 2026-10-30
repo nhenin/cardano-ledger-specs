@@ -25,8 +25,7 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   validSizeComputationCheck,
   updateUTxOState,
   updateUTxOStateDeposits,
-  updateUTxOAndInstantStake,
-  updateUTxOAndInstantStakeWithStore,
+  updateUTxOsAndInstantStakeWithTxBody,
 
   -- * Validations
   validateImplicitDeposit,
@@ -72,6 +71,7 @@ import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
@@ -151,12 +151,12 @@ instance (Era era, NFData (PParams era), NFData (CertState era)) => NFData (Utxo
 data UtxoEvent era
   = TotalDeposits (SafeHash EraIndependentTxBody) Coin
   | UpdateEvent (Event (EraRule "PPUP" era))
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
       (IndexedUTxOs era)
-      -- | Outputs created by the body, with their supplied sizes
-      (IndexedTxOs era)
+      -- | Created entries from the updated Store, including their recorded calculation.
+      (IndexedUTxOs era)
   deriving (Generic)
 
 deriving instance
@@ -628,49 +628,34 @@ updateUTxOState ::
   TxBody TopTx era ->
   CertState era ->
   (Coin -> m ()) ->
-  (IndexedUTxOs era -> IndexedTxOs era -> m ()) ->
+  (IndexedUTxOs era -> IndexedUTxOs era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState = do
   withDeposits <- updateUTxOStateDeposits pp certState txBody depositChangeEvent utxoState
-  withUtxo <- updateUTxOAndInstantStake txBody utxoDiffEvent withDeposits
+  withUtxo <- updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent withDeposits
   pure $ withUtxo & utxosFeesL <>~ (txBody ^. feeTxBodyL)
 
--- | Release consumed entries and allocate the body's outputs. Dijkstra retains
--- supplied sizes and the Store's current calculation; earlier eras use canonical legacy
--- metadata. Retain unaffected entries unchanged.
-updateUTxOAndInstantStake ::
+-- | Apply one body's regular input/output changes to the Store and instant stake,
+-- emitting complete consumed and created entries from the previous and updated
+-- Stores respectively. 'Store.update' records the new entries and their calculations.
+updateUTxOsAndInstantStakeWithTxBody ::
   (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
-  (IndexedUTxOs era -> IndexedTxOs era -> m ()) ->
+  (IndexedUTxOs era -> IndexedUTxOs era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
-updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
-  let consumed = txBody ^. inputsTxBodyL
-      previousStore = utxosUTxOStore utxoState
-      remaining = IndexedUTxOs.withoutInputs consumed . allocations $ previousStore
-      created = outputsTxBody txBody
-      -- Preserve the legacy union's existing-entry bias on colliding keys.
-      createdWithoutCollisions = IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) created
-      store = allocate createdWithoutCollisions . release consumed $ previousStore
-   in updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState
-
--- | Apply caller-prepared storage while updating stake. The event distinguishes
--- consumed unspent entries from the body's created outputs; pricing stays in Store allocation.
-updateUTxOAndInstantStakeWithStore ::
-  (EraTxBody era, EraStake era, Monad m) =>
-  UTxOStore era ->
-  TxBody l era ->
-  (IndexedUTxOs era -> IndexedTxOs era -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState = do
-  let created = outputsTxBody txBody
+updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent utxoState = do
+  let previousStore = utxosUTxOStore utxoState
+      store = Store.update txBody previousStore
+      proposedOutputs = outputsTxBody txBody
       !consumed =
-        IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) (allocations . utxosUTxOStore $ utxoState)
+        IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) (allocations previousStore)
+      created =
+        IndexedUTxOs.restrictToInputs (IndexedTxOs.inputIds proposedOutputs) (allocations store)
       newInstantStake =
         deleteInstantStake (IndexedUTxOs.txOuts consumed) $
-          addInstantStake (IndexedTxOs.txOuts created) (utxoState ^. instantStakeL)
+          addInstantStake (IndexedTxOs.txOuts proposedOutputs) (utxoState ^. instantStakeL)
   utxoDiffEvent consumed created
   pure $!
     utxoState
