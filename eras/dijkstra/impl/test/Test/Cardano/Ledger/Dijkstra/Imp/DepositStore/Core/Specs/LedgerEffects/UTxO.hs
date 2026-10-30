@@ -15,7 +15,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State (allocations, lookupUTxO)
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.StrictlyPositiveCoin (mkStrictlyPositiveCoin)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -34,8 +34,8 @@ import Test.Cardano.Ledger.Imp.Common (expectJust)
 -- | Reference a funded Store-backed output outside both consuming input sets.
 -- Its full output and allocation must survive either script outcome.
 withReferenceOnlyInput :: Fixture -> ImpTestM DijkstraEra Fixture
-withReferenceOnlyInput fixture@Fixture {signedTx, previousUTxOState, collateralInputs} = do
-  let recordedInputs = Map.keysSet . recordedAmounts $ liveOutputStore previousUTxOState
+withReferenceOnlyInput fixture@Fixture {signedTx, previousAccountingState, collateralInputs} = do
+  let recordedInputs = Map.keysSet . recordedAmounts $ liveOutputStore previousAccountingState
   reference <-
     expectJust $
       Set.lookupMin $
@@ -52,13 +52,13 @@ withReferenceOnlyInput fixture@Fixture {signedTx, previousUTxOState, collateralI
 -- Both real script outcomes remain valid proposals: the selected path consumes
 -- this shared source once; the inactive path does not consume it a second time.
 withSharedOrdinaryInput :: Fixture -> ImpTestM DijkstraEra Fixture
-withSharedOrdinaryInput fixture@Fixture {signedTx, previousUTxOState, collateralInputs} = do
-  let records = recordedAmounts $ liveOutputStore previousUTxOState
+withSharedOrdinaryInput fixture@Fixture {signedTx, previousAccountingState, collateralInputs} = do
+  let records = recordedAmounts $ liveOutputStore previousAccountingState
       originalInputs = signedTx ^. bodyTxL . inputsTxBodyL
   sharedInput <- expectJust $ Set.lookupMin $ collateralInputs `Set.intersection` Map.keysSet records
   source <-
     expectJust $
-      Unspent.toTxOut <$> lookupUTxO sharedInput (allocations . liveOutputStore $ previousUTxOState)
+      Unspent.toTxOut <$> lookupUTxO sharedInput (allocations . liveOutputStore $ previousAccountingState)
   recordedDeposit <- expectJust $ Map.lookup sharedInput records
   positiveDeposit <- expectJust $ mkStrictlyPositiveCoin recordedDeposit
   let inputs = Set.insert sharedInput originalInputs

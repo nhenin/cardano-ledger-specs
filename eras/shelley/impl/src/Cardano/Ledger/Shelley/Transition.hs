@@ -71,8 +71,8 @@ import Cardano.Ledger.Shelley.Translation (
   FromByronTranslationContext (..),
   toFromByronTranslationContext,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val
 import Control.Monad (unless, when)
@@ -451,10 +451,11 @@ createInitialState tc =
               , esSnapshots = emptySnapShots
               , esLState =
                   LedgerState
-                    { lsUTxOState =
-                        UTxOState (initialUTxOStore pp) zero zero govState mempty zero
+                    { lsAccountingState =
+                        AccountingState (initialUTxOStore pp) zero zero mempty zero
                     , lsCertState =
                         def & certDStateL . dsGenDelegsL .~ GenDelegs (sgGenDelegs sg)
+                    , lsGovState = govState
                     }
               , esNonMyopic = def
               }

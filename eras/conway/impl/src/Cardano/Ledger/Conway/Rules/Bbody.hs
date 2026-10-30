@@ -81,8 +81,8 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (utxoStoreG)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
 import Control.Monad (guard, when)

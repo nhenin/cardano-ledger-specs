@@ -40,8 +40,8 @@ import Cardano.Ledger.Conway.Rules.Ledger (ConwayLedgerEvent, ConwayLedgerPredFa
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.Monad (unless)
 import Control.State.Transition (
   BaseM,
@@ -134,7 +134,7 @@ mempoolTransition = do
       let addPrefix = ("Unelected committee members are not allowed to cast votes: " <>)
        in failOnNonEmpty
             ( unelectedCommitteeVoters
-                (ledgerState ^. lsUTxOStateL . utxosGovStateL . committeeGovStateL)
+                (ledgerState ^. lsGovStateL . committeeGovStateL)
                 (ledgerState ^. lsCertStateL . certVStateL . vsCommitteeStateL)
                 (tx ^. bodyTxL . votingProceduresTxBodyL)
             )
@@ -159,7 +159,7 @@ instance
   , Environment (EraRule "LEDGER" era) ~ Shelley.LedgerEnv era
   , State (EraRule "CERTS" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "LEDGER" era) ~ LedgerState era
   , GovState era ~ ConwayGovState era
   , Signal (EraRule "CERTS" era) ~ Seq (TxCert era)

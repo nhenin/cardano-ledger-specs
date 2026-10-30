@@ -58,7 +58,7 @@ import Cardano.Ledger.Conway.Rules.Utxos (
   ConwayUtxosPredFailure (..),
  )
 import Cardano.Ledger.Plutus (OrdExUnits)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosDonationL)
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..), asDonationL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState (..), EraStake, EraUTxO)
 import Cardano.Ledger.TxIn (TxIn)
@@ -216,11 +216,11 @@ instance
 updateTreasuryDonation ::
   (AlonzoEraTx era, ConwayEraTxBody era) =>
   Tx TopTx era ->
-  UTxOState era ->
-  UTxOState era
+  AccountingState era ->
+  AccountingState era
 updateTreasuryDonation tx utxos =
   case tx ^. isPhase2ValidTxL of
-    Phase2Valid -> utxos & utxosDonationL <>~ tx ^. bodyTxL . treasuryDonationTxBodyL
+    Phase2Valid -> utxos & asDonationL <>~ tx ^. bodyTxL . treasuryDonationTxBodyL
     Phase2Invalid -> utxos
 
 conwayUtxoTransition ::
@@ -235,7 +235,7 @@ conwayUtxoTransition ::
   , InjectRuleFailure "UTXO" Alonzo.AlonzoUtxoPredFailure era
   , InjectRuleFailure "UTXO" Babbage.BabbageUtxoPredFailure era
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , STS (EraRule "UTXO" era)
@@ -248,15 +248,17 @@ conwayUtxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 conwayUtxoTransition = do
-  TRC (Shelley.UtxoEnv _ pp certState, utxos, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv _ pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
   Babbage.babbageUtxoValidation
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  Babbage.updateUTxOState
-    pp
-    certState
-    tx
-    (updateTreasuryDonation tx utxos)
+  accountingState <-
+    Babbage.updateAccountingState
+      pp
+      certState
+      tx
+      (updateTreasuryDonation tx $ lsAccountingState ledgerState)
+  pure ledgerState {lsAccountingState = accountingState}
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -285,7 +287,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = Shelley.UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase

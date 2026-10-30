@@ -20,13 +20,13 @@ import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, prevPParamsEpo
 import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.State (EraCertState (..))
 import qualified Cardano.Ledger.State as State
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as UTxO
 import Cardano.Ledger.State.Orphans
 import Cardano.Ledger.State.Schema
 import Cardano.Ledger.State.Transform
 import Cardano.Ledger.State.UTxO
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as UTxO
 import Cardano.Ledger.State.Vector
 import qualified Cardano.Ledger.TxIn as TxIn
 import Conduit
@@ -61,19 +61,6 @@ insertGetKey ::
   record ->
   ReaderT backend m (Key record)
 insertGetKey = fmap (either entityKey id) . insertBy
-
-insertUTxOState ::
-  MonadIO m =>
-  Shelley.UTxOState CurrentEra ->
-  ReaderT SqlBackend m (Key UtxoState)
-insertUTxOState Shelley.UTxOState {..} = do
-  insert $
-    UtxoState
-      { utxoStateDeposited = utxosDeposited
-      , utxoStateFees = utxosFees
-      , utxoStateGovState = utxosGovState
-      , utxoStateDonation = utxosDonation
-      }
 
 insertUTxO ::
   MonadIO m =>
@@ -130,8 +117,16 @@ insertDState Shelley.DState {..} = do
 insertLedgerState ::
   MonadIO m => EpochStateId -> Shelley.LedgerState CurrentEra -> ReaderT SqlBackend m ()
 insertLedgerState epochStateKey Shelley.LedgerState {..} = do
-  stateKey <- insertUTxOState lsUTxOState
-  insertUTxO (State.allocations . Shelley.utxosUTxOStore $ lsUTxOState) stateKey
+  -- Preserve the database schema: this row stores accounting pots and governance.
+  stateKey <-
+    insert $
+      UtxoState
+        { utxoStateDeposited = Shelley.asDeposited lsAccountingState
+        , utxoStateFees = Shelley.asFees lsAccountingState
+        , utxoStateGovState = lsGovState
+        , utxoStateDonation = Shelley.asDonation lsAccountingState
+        }
+  insertUTxO (State.allocations . Shelley.asUTxOStore $ lsAccountingState) stateKey
   dstateKey <- insertDState $ lsCertState ^. Shelley.certDStateL
   insert_
     LedgerState
@@ -597,18 +592,18 @@ getLedgerState outputs LedgerState {..} dstate = do
   UtxoState {..} <- getJust ledgerStateUtxoId
   pure
     Shelley.LedgerState
-      { Shelley.lsUTxOState =
-          Shelley.smartUTxOState
+      { Shelley.lsAccountingState =
+          Shelley.smartAccountingState
             emptyPParams
             entries
             utxoStateDeposited
             utxoStateFees
-            utxoStateGovState -- Maintain invariant
             utxoStateDonation
       , Shelley.lsCertState =
           def
             & certPStateL .~ ledgerStatePstateBin
             & certDStateL .~ dstate
+      , Shelley.lsGovState = utxoStateGovState
       }
 
 getDStateNoSharing ::

@@ -29,8 +29,8 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), MultiAsset (..))
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs (lookupUTxO)
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (lookupUTxO)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val (isAdaOnly, (<->)), inject)

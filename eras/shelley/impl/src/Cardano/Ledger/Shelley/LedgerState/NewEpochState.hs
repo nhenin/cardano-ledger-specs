@@ -22,8 +22,8 @@ import Cardano.Ledger.Keys (GenDelegPair (..), GenDelegs (..))
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState.Types
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<+>), (<->))
 import Data.Default (def)
@@ -65,17 +65,17 @@ genesisState ::
   LedgerState era
 genesisState genDelegs0 utxo0 =
   LedgerState
-    ( UTxOState
+    ( AccountingState
         (mkUTxOStore legacyDepositCalculation utxo0)
         (Coin 0)
         (Coin 0)
-        emptyGovState
         mempty
         mempty
     )
     ( def
         & certDStateL .~ dState
     )
+    emptyGovState
   where
     dState :: DState era
     dState =
@@ -133,11 +133,11 @@ returnRedeemAddrsToReserves ::
 returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'}
   where
     ls = esLState es
-    us = lsUTxOState ls
+    us = lsAccountingState ls
     redeemers =
       IndexedUTxOs.filterByTxOut (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
         . Store.allocations
-        . utxosUTxOStore
+        . asUTxOStore
         $ us
     acnt = esChainAccountState es
     acnt' =
@@ -147,7 +147,7 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
         }
     us' =
       us
-        { utxosUTxOStore =
-            Store.release (IndexedUTxOs.inputIds redeemers) $ utxosUTxOStore us
+        { asUTxOStore =
+            Store.release (IndexedUTxOs.inputIds redeemers) $ asUTxOStore us
         }
-    ls' = ls {lsUTxOState = us'}
+    ls' = ls {lsAccountingState = us'}

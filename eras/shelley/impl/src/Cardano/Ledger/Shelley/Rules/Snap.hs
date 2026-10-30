@@ -23,7 +23,6 @@ import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Shelley.Era (SNAP)
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.State
 import Control.DeepSeq (NFData)
@@ -77,7 +76,9 @@ snapTransition ::
 snapTransition = do
   TRC (snapEnv, s, eNo) <- judgmentContext
 
-  let SnapEnv ls@(LedgerState (UTxOState _outputs _ fees _ _ _) certState) _pp = snapEnv
+  let SnapEnv
+        ls@(LedgerState {lsAccountingState = AccountingState {asFees = fees}, lsCertState = certState})
+        _pp = snapEnv
       instantStake = ls ^. instantStakeG
       istakeSnap =
         snapShotFromInstantStake instantStake (certState ^. certDStateL) (certState ^. certPStateL)

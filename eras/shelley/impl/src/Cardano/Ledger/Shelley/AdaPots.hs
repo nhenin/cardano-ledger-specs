@@ -24,13 +24,11 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState.Types (
   EpochState (..),
   LedgerState (..),
-  UTxOState (..),
   lsCertStateL,
-  lsUTxOStateL,
-  utxosGovStateL,
+  lsGovStateL,
  )
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllCoin)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
@@ -70,11 +68,11 @@ totalAdaPotsES (EpochState (ChainAccountState {casTreasury, casReserves}) ls _ _
     , obligationsPot = obligationCertState certState <> govStateObligations
     }
   where
-    UTxOState store _ fees_ _ _ _ = lsUTxOState ls
+    AccountingState store _ fees_ _ _ = lsAccountingState ls
     certState = ls ^. lsCertStateL
     rewards_ = sumBalancesAccounts (certState ^. certDStateL . accountsL)
     coins = sumAllCoin . IndexedUTxOs.txOuts . allocations $ store
-    govStateObligations = obligationGovState (ls ^. lsUTxOStateL . utxosGovStateL)
+    govStateObligations = obligationGovState (ls ^. lsGovStateL)
 
 sumAdaPots :: AdaPots -> Coin
 sumAdaPots

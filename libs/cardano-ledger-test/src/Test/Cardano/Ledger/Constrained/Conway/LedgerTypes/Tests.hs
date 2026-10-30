@@ -19,7 +19,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Constrained.API
 import Data.Kind (Type)
@@ -151,7 +150,7 @@ specSuite n = do
 
   soundSpecWith @(IndexedUTxOs era) (5 * n) (utxoSpecWit @era <$> universe !*! delegationsSpec)
 
-  soundSpecWith @(UTxOState era) (2 * n) utxoStateGen
+  soundSpecWith @(AccountingState era) (2 * n) accountingStateGen
 
   soundSpecWith @(GovState era) (2 * n) $ do
     pp <- genFromSpec pparamsSpec
@@ -191,9 +190,8 @@ spec = do
 
   specSuite @ConwayEra 10
 
-utxoStateGen :: Gen (Specification (UTxOState ConwayEra))
-utxoStateGen =
-  utxoStateSpec @ConwayEra
-    <$> genConwayFn @(PParams ConwayEra) pparamsSpec
-    <*> genWitUniv @ConwayEra 25
+accountingStateGen :: Gen (Specification (AccountingState ConwayEra))
+accountingStateGen =
+  accountingStateSpec @ConwayEra
+    <$> genWitUniv @ConwayEra 25
     <*> (lit <$> csX @ConwayEra)

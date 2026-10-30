@@ -13,7 +13,7 @@ import Cardano.Ledger.Credential (
   Ptr (..),
   StakeReference (..),
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Data.Map.Strict as Map
 

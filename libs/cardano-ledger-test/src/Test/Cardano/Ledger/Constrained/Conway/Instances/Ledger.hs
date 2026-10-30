@@ -119,7 +119,7 @@ import Cardano.Ledger.Shelley.TxCert (
  )
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits (..))
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs qualified as IndexedUTxOs
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs qualified as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val (Val)
 import Constrained.API.Extend hiding (Sized)
@@ -1546,7 +1546,7 @@ instance HasSimpleRep (SnapShots era)
 
 instance Era era => HasSpec (SnapShots era)
 
-instance (Typeable (CertState era), EraTxOut era) => HasSimpleRep (LedgerState era)
+instance (Typeable (CertState era), Typeable (GovState era), EraTxOut era) => HasSimpleRep (LedgerState era)
 
 instance
   ( EraTxOut era
@@ -1573,17 +1573,16 @@ instance HasSimpleRep (UTxOStore ConwayEra) where
 
 instance HasSpec (UTxOStore ConwayEra)
 
-instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
+instance (Typeable (InstantStake era), Typeable era) => HasSimpleRep (AccountingState era)
 
 instance
   ( EraTxOut era
   , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
-  , HasSpec (GovState era)
   , HasSpec (InstantStake era)
   ) =>
-  HasSpec (UTxOState era)
+  HasSpec (AccountingState era)
 
 instance HasSimpleRep (ShelleyInstantStake era)
 

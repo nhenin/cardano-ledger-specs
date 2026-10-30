@@ -35,7 +35,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Top
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted, submitTx)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   ordinarySpendingInputs,
-  readLedger,
+  readAccountingState,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (fixupTx, freshKeyAddrNoPtr_, getsNES, modifyPParams)
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
@@ -50,15 +50,15 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       forM_ scenarios $ \scenario ->
         forM_ [Effects.buildAndSignOrdinary, Effects.buildAndSignDelegatedOrdinary] $ \build -> do
           signedTx <- build scenario
-          previousUTxOState <- readLedger
+          previousAccountingState <- readAccountingState
           parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-          let previousStore = liveOutputStore previousUTxOState
+          let previousStore = liveOutputStore previousAccountingState
               newDeposits = foldMap id $ Pricing.createdAllocations
-                (Pricing.LedgerState previousUTxOState parameters) signedTx
+                (Pricing.LedgerState previousAccountingState parameters) signedTx
               recordedReleases = foldMap id $ Map.restrictKeys
                 (recordedAmounts previousStore) (ordinarySpendingInputs signedTx)
           submitTx signedTx >>= isAccepted
-          state <- readLedger
+          state <- readAccountingState
           assertDepositTotal state
           let store = liveOutputStore state
           storedDepositTotal store `shouldBe` (storedDepositTotal previousStore <> newDeposits) <-> recordedReleases
@@ -73,13 +73,13 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
           fixture <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           Fixture{signedTx, releasedDeposits, returnDeposit} <-
             if shared then InputRoles.withSharedOrdinaryInput fixture else pure fixture
-          previousStore <- liveOutputStore <$> readLedger
+          previousStore <- liveOutputStore <$> readAccountingState
           let change = case signedTx ^. isPhase2ValidTxL of
                 Phase2Valid -> Coin 0 <-> foldMap id (Map.restrictKeys
                   (recordedAmounts previousStore) (ordinarySpendingInputs signedTx))
                 Phase2Invalid -> returnDeposit <-> releasedDeposits
           submitTx signedTx >>= isAccepted
-          state <- readLedger
+          state <- readAccountingState
           assertDepositTotal state
           let store = liveOutputStore state
           storedDepositTotal store `shouldBe` storedDepositTotal previousStore <> change
@@ -91,7 +91,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
     forAll (chooseInteger (50000000, 60000000)) $ \coins -> do
       (allocationTx, acceptedBytes) <- Effects.buildAndSignNoncanonicalAllocation $ Coin coins
       submitTx allocationTx >>= isAccepted
-      readLedger >>= Effects.restoreUTxOState
+      readAccountingState >>= Effects.restoreAccountingState
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2000)
       address <- freshKeyAddrNoPtr_
       let recordedDeposit = Coin $ 1000 * (160 + toInteger acceptedBytes)
@@ -101,10 +101,10 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin coins)
-      previousStore <- liveOutputStore <$> readLedger
+      previousStore <- liveOutputStore <$> readAccountingState
       Map.lookup source (recordedAmounts previousStore) `shouldBe` Just recordedDeposit
       submitTx spendingTx >>= isAccepted
-      state <- readLedger
+      state <- readAccountingState
       assertDepositTotal state
       let store = liveOutputStore state
       storedDepositTotal store `shouldBe` storedDepositTotal previousStore <-> recordedDeposit
@@ -115,9 +115,9 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
     forAll Effects.ordinaryScenarios $ \scenarios ->
       forM_ (filter (not . null . Accounting.subOperations) scenarios) $ \scenario -> do
         signedTx <- Effects.buildAndSignOrdinaryPhase2Invalid scenario
-        balanceBefore <- storedDepositTotal . liveOutputStore <$> readLedger
+        balanceBefore <- storedDepositTotal . liveOutputStore <$> readAccountingState
         submitTx signedTx >>= isAccepted
-        state <- readLedger
+        state <- readAccountingState
         assertDepositTotal state
         let balanceAfter = storedDepositTotal $ liveOutputStore state
         balanceAfter `shouldBe` balanceBefore
@@ -131,13 +131,13 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       submitTx oldTx >>= isAccepted
       (newerTx, newerBytes) <- Effects.buildAndSignNoncanonicalAllocationAtRate (CoinPerByte $ CompactCoin 2000) $ Coin coins
       submitTx newerTx >>= isAccepted
-      before <- readLedger
+      before <- readAccountingState
       let oldInput = txInAt 0 oldTx
           newerInput = txInAt 0 newerTx
           releases = Coin $ 1000 * (160 + toInteger oldBytes) + 2000 * (160 + toInteger newerBytes)
       retainsCreationMetadata oldInput oldBytes (CoinPerByte $ CompactCoin 1000) before
       retainsCreationMetadata newerInput newerBytes (CoinPerByte $ CompactCoin 2000) before
-      Effects.restoreUTxOState before
+      Effects.restoreAccountingState before
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 3000)
       address <- freshKeyAddrNoPtr_
       parameters <- getsNES $ nesEsL . curPParamsEpochStateL
@@ -151,7 +151,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       createdOutput <- expectJust $ listToMaybe $ toList $ signedTx ^. bodyTxL . sizedOutputsTxBodyL
       let createdBytes = fromIntegral $ Binary.sizedSize createdOutput
       submitTx signedTx >>= isAccepted
-      after <- readLedger
+      after <- readAccountingState
       retainsCreationMetadata (txInAt 0 signedTx) createdBytes (CoinPerByte $ CompactCoin 3000) after
       let beforeStore = liveOutputStore before
           afterStore = liveOutputStore after
@@ -165,9 +165,9 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
     forAll (chooseInteger (50000000, 60000000)) $ \coins -> do
       (allocationTx, source, acceptedBytes) <- Effects.buildAndSignNoncanonicalSubAllocation $ Coin coins
       submitTx allocationTx >>= isAccepted
-      before <- readLedger
+      before <- readAccountingState
       retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin 1000) before
-      Effects.restoreUTxOState before
+      Effects.restoreAccountingState before
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2000)
       address <- freshKeyAddrNoPtr_
       let release = Coin $ 1000 * (160 + toInteger acceptedBytes)
@@ -177,7 +177,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin coins)
       submitTx spendingTx >>= isAccepted
-      after <- readLedger
+      after <- readAccountingState
       assertDepositTotal after
       storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal (liveOutputStore before) <-> release
       Map.lookup source (recordedAmounts $ liveOutputStore after) `shouldBe` Nothing
@@ -196,9 +196,9 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       fmap Binary.sizedSize (strictMaybeToMaybe $ signedTx ^. bodyTxL . sizedCollateralReturnTxBodyL)
         `shouldBe` Just (fromIntegral acceptedBytes)
       submitTx signedTx >>= isAccepted
-      before <- readLedger
+      before <- readAccountingState
       retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin $ fromInteger currentPrice) before
-      Effects.restoreUTxOState before
+      Effects.restoreAccountingState before
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin $ fromInteger $ 3 * currentPrice)
       address <- freshKeyAddrNoPtr_
       spendingTx <- fixupTx $
@@ -207,7 +207,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ unAssets $ sumAllAssets [returned])
       submitTx spendingTx >>= isAccepted
-      after <- readLedger
+      after <- readAccountingState
       assertDepositTotal after
       storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal (liveOutputStore before) <-> release
       Map.lookup source (recordedAmounts $ liveOutputStore after) `shouldBe` Nothing

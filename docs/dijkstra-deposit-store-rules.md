@@ -6319,12 +6319,12 @@ $$
 registers the [Conway common](../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Binary/RoundTrip.hs#L27)
 → [Alonzo](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Binary/RoundTrip.hs#L35)
 → [Shelley state round trips](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L66),
-including `UTxOState`, `EpochState` and `NewEpochState`. The [state generator](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Arbitrary.hs#L205)
+including `AccountingState`, `LedgerState`, `EpochState` and `NewEpochState`. The [state generator](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Arbitrary.hs#L205)
 includes an arbitrary Dijkstra Store, and the [output generator](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Arbitrary.hs#L68)
 includes both output forms. This existing serialization coverage stays in the
 binary suite. [Allocations P03](#ds-state-allocations-p03) additionally submits an
 output whose accepted CBOR is one byte longer than its canonical encoding, then
-restores the serialized `UTxOState` and doubles the price. A reference-only
+restores the serialized `AccountingState` and doubles the price. A reference-only
 transaction must retain its original record; spending must remove that record.
 [Balance P03](#ds-state-balance-p03) checks that the actual Store debit equals the
 recorded creation deposit.
@@ -6609,15 +6609,71 @@ This open question does not change the agreed destination bound or the existing 
 > **Keep accepted outputs, sizes and historical calculations together.**
 
 ```text
-UTxOState
-└── utxosUTxOStore :: UTxOStore
-    ├── currentCalculation :: DepositCalculation
-    ├── totalDepositAmount :: DepositAmount
-    └── allocations :: IndexedUTxOs
-        └── TxIn → Unspent TxOut
-            ├── sizedOutput
-            └── depositCalculation
+LedgerState
+├── lsAccountingState :: AccountingState
+│   ├── asUTxOStore :: UTxOStore
+│   │   ├── currentCalculation :: DepositCalculation
+│   │   ├── totalDepositAmount :: DepositAmount
+│   │   └── allocations :: IndexedUTxOs
+│   │       └── TxIn → Unspent TxOut
+│   │           ├── sizedOutput
+│   │           └── depositCalculation
+│   ├── asDeposited  — certificate and governance deposit pot
+│   ├── asFees
+│   ├── asInstantStake
+│   └── asDonation
+├── lsCertState :: CertState
+└── lsGovState :: GovState
 ```
+
+| Domain | Question answered |
+| --- | --- |
+| `AccountingState` | Which outputs, ADA pots and derived stake does the ledger hold? |
+| `CertState` | Which accounts, delegations and registrations exist? |
+| `GovState` | Which proposals, votes and protocol parameters govern the ledger? |
+
+Certificate and governance records determine deposit obligations; accounting holds
+those funds. The separately held output deposits remain inside `UTxOStore`.
+
+$$
+\text{asDeposited}
+= \text{certificateObligations}(\text{lsCertState})
++ \text{governanceObligations}(\text{lsGovState})
+$$
+
+Transaction rules thread `LedgerState` while updating the relevant domain.
+The original certificate snapshot remains available when calculating refunds;
+processing a certificate does not erase the information needed to account for it.
+A phase-2 failure applies collateral effects without ordinary certificate or
+governance effects. Existing nested CBOR and JSON ledger formats are preserved at
+the serialization boundary; the in-memory model has three sibling states.
+
+The shared modules follow those domains:
+
+```text
+Cardano.Ledger.State
+├── Accounting              AccountingState and its field lenses
+│   ├── InstantStake        Current output stake and its resolution against accounts
+│   └── UTxOs               Store access
+│       ├── Store
+│       ├── IndexedUTxOs
+│       ├── Unspent
+│       └── Deposit
+├── Certificates            EraCertState and registration state
+│   ├── Account
+│   └── StakePool
+├── Governance              EraGov and protocol-parameter transitions
+├── Epoch
+│   ├── ChainAccount        Treasury and reserves
+│   ├── SnapShots
+│   ├── PoolDistr
+│   └── LeiosCommittee      Consensus committee
+└── Stake                   Shared stake value types
+```
+
+Era-specific certificate and instant-stake implementations use the same domain
+names inside their era packages. Transaction queries (`EraUTxO`, consumed and
+produced value, required scripts and witnesses) live in `Cardano.Ledger.UTxO`.
 
 The collection types distinguish output inspection from recorded unspent entries:
 
@@ -6630,13 +6686,12 @@ The collection types distinguish output inspection from recorded unspent entries
 remain `IndexedUTxOs`. There is no additional `Allocations` wrapper. A body alone
 cannot recover historical deposit parameters or establish which outputs remain unspent.
 
-| Module under `Cardano.Ledger.State.UTxOs` | Responsibility |
+| Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
 | --- | --- |
-| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store.hs) | `activateNewCalculation`, `allocate`, `release`, checked construction and the cached total. |
-| [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
-| [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Unspent.hs) | One entry's accepted output, original size and calculation; `toTxOut`, `depositAmount` and entry codecs. |
-| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Deposit.hs) | `DepositAmount`, `ByteSize`, `DepositCalculation` and `calculateDeposit`. |
-| [`Store.Error`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store/Error.hs) | Invalid incoming size or missing historical metadata. |
+| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | `activateNewCalculation`, `allocate`, `release`, construction and the cached total. |
+| [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
+| [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output, original size and calculation; `toTxOut`, `depositAmount` and entry codecs. |
+| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | `DepositAmount`, `ByteSize`, `DepositCalculation` and `calculateDeposit`. |
 
 [`Cardano.Ledger.TxOut.IndexedTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
 owns construction, indexing and selection of sized outputs. Each collection has its own
@@ -6661,7 +6716,7 @@ outputs and recorded sizes while dropping historical calculations. The block ref
 check uses this view after selecting its relevant stored inputs, then combines it with
 outputs proposed earlier in the block. Deposit accounting never uses this projection.
 
-`UTxOState`, `LedgerState`, `EpochState` and `NewEpochState` expose the complete
+`AccountingState`, `LedgerState`, `EpochState` and `NewEpochState` expose the complete
 Store through `CanGetUTxOStore.utxoStoreG` and `CanSetUTxOStore.utxoStoreL`.
 `EraUTxO`, validators and transaction annotations consume `IndexedUTxOs` directly.
 They retain the original batch entries when validation needs inputs already consumed
@@ -6696,10 +6751,10 @@ inputs are resolved through the previous Store and retain their own historical c
 The transition is explicit:
 
 ```haskell
-Shelley.updateUTxOsAndInstantStakeWithTxBody body outputChangeEvent previousUTxOState
+Shelley.updateUTxOsAndInstantStakeWithTxBody body outputChangeEvent previousAccountingState
 ```
 
-The helper derives the new Store from `previousUTxOState` through `Store.update body`;
+The helper derives the new Store from `previousAccountingState` through `Store.update body`;
 callers do not supply a separately prepared Store. Stake and event calculations
 use the consumed entries from the previous state. The event's created entries
 are read from the updated Store, including the sizes and calculations actually

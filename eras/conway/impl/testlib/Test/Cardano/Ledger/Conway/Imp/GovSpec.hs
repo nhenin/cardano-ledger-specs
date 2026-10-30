@@ -877,8 +877,7 @@ votingSpec =
         getsNES $
           nesEsL
             . esLStateL
-            . lsUTxOStateL
-            . utxosGovStateL
+            . lsGovStateL
             . constitutionGovStateL
             . constitutionAnchorL
       expectNoCurrentProposals

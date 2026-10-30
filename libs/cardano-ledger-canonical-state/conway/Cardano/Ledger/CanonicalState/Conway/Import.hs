@@ -114,18 +114,18 @@ import Cardano.Ledger.Conway.State (
  )
 import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
+  asDepositedL,
   curPParamsEpochStateL,
   esLStateL,
   futurePParamsEpochStateL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOStateL,
   nesBcurL,
   nesEpochStateL,
   nesEsL,
   newEpochStateGovStateL,
   prevPParamsEpochStateL,
   totalObligation,
-  utxosDepositedL,
  )
 import Cardano.Ledger.TxOut (TxOut (..))
 import Cardano.SCLS.Internal.Entry.ChunkEntry (
@@ -409,6 +409,6 @@ instance ImportCanonicalState ConwayEra where
          in nes
               & nesEsL
                 . esLStateL
-                . lsUTxOStateL
-                . utxosDepositedL
+                . lsAccountingStateL
+                . asDepositedL
                 .~ totalObligation certState govState

@@ -38,7 +38,6 @@ import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules (LEDGER, LedgerEnv (..))
 import Cardano.Ledger.Shelley.State
@@ -92,13 +91,12 @@ injcoins :: Integer -> [TxOut ShelleyEra]
 injcoins n = fmap (\_ -> mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)) [0 .. n]
 
 -- Cretae an initial UTxO set with n-many transaction outputs
-initUTxO :: Integer -> UTxOState ShelleyEra
+initUTxO :: Integer -> AccountingState ShelleyEra
 initUTxO n =
-  UTxOState
+  AccountingState
     (mkUTxOStore legacyDepositCalculation $ genesisCoins genesisId (injcoins n))
     (Coin 0)
     (Coin 0)
-    def
     mempty
     mempty
 
@@ -157,8 +155,8 @@ txSpendOneUTxO =
 ledgerSpendOneUTxO :: Integer -> ()
 ledgerSpendOneUTxO n = testLEDGER (initLedgerState n) txSpendOneUTxO ledgerEnv
 
-ledgerSpendOneGivenUTxO :: UTxOState ShelleyEra -> ()
-ledgerSpendOneGivenUTxO state = testLEDGER (LedgerState state def) txSpendOneUTxO ledgerEnv
+ledgerSpendOneGivenUTxO :: AccountingState ShelleyEra -> ()
+ledgerSpendOneGivenUTxO state = testLEDGER (LedgerState state def def) txSpendOneUTxO ledgerEnv
 
 -- ===========================================================================
 --
@@ -213,7 +211,7 @@ txRegStakeKeys ix keys =
     [asWitness alicePay]
 
 initLedgerState :: Integer -> LedgerState ShelleyEra
-initLedgerState n = LedgerState (initUTxO n) def
+initLedgerState n = LedgerState (initUTxO n) def def
 
 makeLEDGERState ::
   HasCallStack => LedgerState ShelleyEra -> Tx TopTx ShelleyEra -> LedgerState ShelleyEra

@@ -8,11 +8,11 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.AdaPots (totalAdaES)
 import Cardano.Ledger.Shelley.LedgerState (
+  asDonation,
   epochStateDonationL,
   esLState,
-  lsUTxOState,
+  lsAccountingState,
   nesEsL,
-  utxosDonation,
  )
 import Cardano.Ledger.State (reservesL)
 import Cardano.Ledger.Val ((<->))
@@ -49,11 +49,11 @@ spec = describe "DS-STATE-CONSERVATION - ADA conservation" $ do
         submitTx signedTx >>= isAccepted
         after <- getsNES nesEsL
         forM_ [before, after] $ \epoch -> do
-          let utxoState = lsUTxOState $ esLState epoch
-              store = liveOutputStore utxoState
+          let accountingState = lsAccountingState $ esLState epoch
+              store = liveOutputStore accountingState
               obligations = foldMap id $ recordedAmounts store
           obligations `shouldSatisfy` (> Coin 0)
-          totalAdaES epoch <> utxosDonation utxoState `shouldBe` actualAda epoch
+          totalAdaES epoch <> asDonation accountingState `shouldBe` actualAda epoch
 
   -- Local and delegated children move ADA between application outputs and the
   -- Store; neither funding responsibility nor a zero net change creates coins.

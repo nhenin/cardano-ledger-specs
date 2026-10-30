@@ -42,15 +42,13 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   lsCertStateL,
-  lsUTxOStateL,
  )
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
-import Lens.Micro ((&), (.~), (^.))
+import Lens.Micro ((%~), (&), (.~), (^.))
 
 type instance TranslationContext DijkstraEra = DijkstraGenesis
 
@@ -126,9 +124,14 @@ instance TranslateEra DijkstraEra LedgerState where
   translateEra ctx ls =
     pure
       LedgerState
-        { lsUTxOState = translateEra' ctx $ ls ^. lsUTxOStateL
+        { lsAccountingState =
+            translateEra' ctx (lsAccountingState ls)
+              & asUTxOStoreL %~ activateDepositParameters (govState ^. curPParamsGovStateL)
         , lsCertState = translateCertState ctx $ ls ^. lsCertStateL
+        , lsGovState = govState
         }
+    where
+      govState = translateEra' ctx . lsGovState $ ls
 
 translateCertState ::
   TranslationContext DijkstraEra ->
@@ -214,23 +217,16 @@ instance TranslateEra DijkstraEra ConwayGovState where
         , cgsDRepPulsingState = translateEra' ctxt cgsDRepPulsingState
         }
 
-instance TranslateEra DijkstraEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra DijkstraEra AccountingState where
+  translateEra ctxt accountingState =
     pure
-      UTxOState
-        { utxosUTxOStore =
-            activateDepositParameters (govState ^. curPParamsGovStateL)
-              . translateEra' ctxt
-              . utxosUTxOStore
-              $ us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = govState
-        , utxosInstantStake = coerce . utxosInstantStake $ us
-        , utxosDonation = utxosDonation us
+      AccountingState
+        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
+        , asDeposited = asDeposited accountingState
+        , asFees = asFees accountingState
+        , asInstantStake = coerce . asInstantStake $ accountingState
+        , asDonation = asDonation accountingState
         }
-    where
-      govState = translateEra' ctxt . utxosGovState $ us
 
 instance TranslateEra DijkstraEra UTxOStore where
   translateEra _ =

@@ -22,11 +22,11 @@ import Cardano.Ledger.Shelley.API.Wallet (
   getIndexedUTxOs,
   getIndexedUTxOsSubset,
  )
-import Cardano.Ledger.Shelley.LedgerState (NewEpochState, UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (NewEpochState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
@@ -133,9 +133,9 @@ bodyUpdateEventSpec bodyName emptyBody = describe bodyName $
           createdInput = TxIn (txIdTxBody body) (TxIx 0)
           createdEntry = Unspent {sizedOutput = suppliedSize, depositCalculation = activeCalculation}
           previousState =
-            (def @(UTxOState DijkstraEra))
-              { utxosUTxOStore = Store.mkUTxOStore activeCalculation entries
-              , utxosInstantStake = addInstantStake (IndexedUTxOs.txOuts entries) mempty
+            (def @(AccountingState DijkstraEra))
+              { asUTxOStore = Store.mkUTxOStore activeCalculation entries
+              , asInstantStake = addInstantStake (IndexedUTxOs.txOuts entries) mempty
               }
       events <- newIORef []
       updatedState <-
@@ -149,7 +149,7 @@ bodyUpdateEventSpec bodyName emptyBody = describe bodyName $
                          , IndexedUTxOs.singleton createdInput createdEntry
                          )
                        ]
-      (Store.allocations . utxosUTxOStore $ updatedState)
+      (Store.allocations . asUTxOStore $ updatedState)
         `shouldBe` IndexedUTxOs.fromList [(untouchedInput, untouchedEntry), (createdInput, createdEntry)]
 
 -- Earlier-era snapshots contain output payloads only. Creation must retain their
@@ -193,9 +193,9 @@ legacyAllocationSpec = describe (eraName @era) $ do
         Shelley.updateUTxOsAndInstantStakeWithTxBody
           body
           (\consumed created -> modifyIORef' events (<> [(consumed, created)]))
-          (def @(UTxOState era))
+          (def @(AccountingState era))
       readIORef events `shouldReturn` [(mempty, expected)]
-      (Store.allocations . utxosUTxOStore $ updatedState) `shouldBe` expected
+      (Store.allocations . asUTxOStore $ updatedState) `shouldBe` expected
 
   -- Preserve the old UTxO map union's existing-entry priority, even for a
   -- deliberately colliding output reference at this Store-operation boundary.

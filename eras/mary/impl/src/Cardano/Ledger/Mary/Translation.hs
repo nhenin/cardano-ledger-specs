@@ -24,12 +24,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 
@@ -117,8 +116,9 @@ instance TranslateEra MaryEra LedgerState where
   translateEra ctxt ls =
     return
       LedgerState
-        { lsUTxOState = translateEra' ctxt $ lsUTxOState ls
+        { lsAccountingState = translateEra' ctxt $ lsAccountingState ls
         , lsCertState = translateEra' ctxt $ lsCertState ls
+        , lsGovState = translateEra' ctxt . lsGovState $ ls
         }
 
 instance TranslateEra MaryEra ProposedPPUpdates where
@@ -143,16 +143,15 @@ instance TranslateEra MaryEra Store.UTxOStore where
       translateOutput output = case translateEra' ctxt output of
         LegacyTxOut translated -> translated
 
-instance TranslateEra MaryEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra MaryEra AccountingState where
+  translateEra ctxt accountingState =
     return
-      UTxOState
-        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt . utxosGovState $ us
-        , utxosInstantStake = translateEra' ctxt . utxosInstantStake $ us
-        , utxosDonation = utxosDonation us
+      AccountingState
+        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
+        , asDeposited = asDeposited accountingState
+        , asFees = asFees accountingState
+        , asInstantStake = translateEra' ctxt . asInstantStake $ accountingState
+        , asDonation = asDonation accountingState
         }
 
 instance TranslateEra MaryEra ShelleyInstantStake where

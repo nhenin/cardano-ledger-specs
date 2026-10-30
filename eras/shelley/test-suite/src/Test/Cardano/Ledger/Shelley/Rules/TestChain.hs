@@ -36,15 +36,13 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   curPParamsEpochStateL,
   lsCertStateL,
-  utxosUTxOStore,
  )
 import Cardano.Ledger.Shelley.Rules
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.TPraos.BlockHeader (
   BHeader (..),
   bhbody,
@@ -197,17 +195,18 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
   where
     (_tickedChainSt, ledgerEnv, ledgerSt0, txs) = ledgerTraceBase chainSt block
     txIns = neededTxInsForBlock block
-    LedgerState utxoSt delegationSt = ledgerSt0
-    previousStore = utxosUTxOStore utxoSt
+    LedgerState utxoSt delegationSt govState = ledgerSt0
+    previousStore = asUTxOStore utxoSt
     irrelevantUTxO = IndexedUTxOs.withoutInputs txIns . Store.allocations $ previousStore
     restrictedSt0 =
       LedgerState
         ( utxoSt
-            { utxosUTxOStore =
+            { asUTxOStore =
                 Store.release (IndexedUTxOs.inputIds $ irrelevantUTxO) previousStore
             }
         )
         delegationSt
+        govState
 
 -- | Reconstruct a POOL trace from the transactions in a Block and ChainState
 poolTraceFromBlock ::

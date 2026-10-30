@@ -23,8 +23,8 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   ShelleyUtxoPredFailure (..),
   UtxoEvent (..),
   validSizeComputationCheck,
-  updateUTxOState,
-  updateUTxOStateDeposits,
+  updateAccountingState,
+  updateAccountingStateDeposits,
   updateUTxOsAndInstantStakeWithTxBody,
 
   -- * Validations
@@ -70,8 +70,8 @@ import Cardano.Ledger.Shelley.Rules.Reports (showTxCerts)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
@@ -292,7 +292,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase
@@ -305,7 +305,12 @@ instance
     AssertionViolation
       { avSTS
       , avMsg
-      , avCtx = TRC (UtxoEnv _slot pp certState, utxoState@UTxOState {utxosDeposited}, stAnnTx)
+      , avCtx =
+        TRC
+          ( UtxoEnv _slot pp certState
+            , ledgerState@LedgerState {lsAccountingState = AccountingState {asDeposited}}
+            , stAnnTx
+            )
       } =
       let tx = stAnnTx ^. txStAnnTxG
        in "AssertionViolation ("
@@ -317,7 +322,7 @@ instance
             <> "\n Certs\n"
             <> showTxCerts (tx ^. bodyTxL)
             <> "\n Deposits\n"
-            <> show utxosDeposited
+            <> show asDeposited
             <> "\n Consumed\n"
             <> show
               ( consumedTxBody
@@ -326,7 +331,7 @@ instance
                   certState
                   ( IndexedUTxOs.restrictToInputs
                       (tx ^. bodyTxL . inputsTxBodyL)
-                      (allocations . utxosUTxOStore $ utxoState)
+                      (allocations . asUTxOStore . lsAccountingState $ ledgerState)
                   )
               )
             <> "\n Produced\n"
@@ -335,16 +340,17 @@ instance
   assertions =
     [ PreCondition
         "Deposit pot must not be negative (pre)"
-        (\(TRC (_, st, _)) -> utxosDeposited st >= mempty)
+        (\(TRC (_, st, _)) -> (asDeposited . lsAccountingState $ st) >= mempty)
     , PostCondition
         "UTxO must increase fee pot"
-        (\(TRC (_, st, _)) st' -> utxosFees st' >= utxosFees st)
+        (\(TRC (_, st, _)) st' -> (asFees . lsAccountingState $ st') >= (asFees . lsAccountingState $ st))
     , PostCondition
         "Deposit pot must not be negative (post)"
-        (\_ st' -> utxosDeposited st' >= mempty)
-    , let utxoBalance us =
-            Val.inject (utxosDeposited us <> utxosFees us)
-              <> coerce (sumAllAssets . IndexedUTxOs.txOuts . allocations . utxosUTxOStore $ us)
+        (\_ st' -> (asDeposited . lsAccountingState $ st') >= mempty)
+    , let utxoBalance ledgerState =
+            let us = lsAccountingState ledgerState
+             in Val.inject (asDeposited us <> asFees us)
+                  <> coerce (sumAllAssets . IndexedUTxOs.txOuts . allocations . asUTxOStore $ us)
           withdrawals :: TxBody TopTx era -> Value era
           withdrawals txb = Val.inject . F.foldl' (<>) mempty . unWithdrawals $ txb ^. withdrawalsTxBodyL
        in PostCondition
@@ -367,7 +373,7 @@ utxoInductive ::
   , Embed (EraRule "PPUP" era) (EraRule "UTXO" era)
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , Event (EraRule "UTXO" era) ~ UtxoEvent era
   , Environment (EraRule "PPUP" era) ~ PpupEnv era
@@ -378,11 +384,11 @@ utxoInductive ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 utxoInductive = do
-  TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
+  TRC (UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      entries = allocations . utxosUTxOStore $ utxoState
+      entries = allocations . asUTxOStore . lsAccountingState $ ledgerState
       inputAllocations = IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
-      UTxOState _ _ _ ppup _ _ = utxoState
+      ppup = lsGovState ledgerState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
       genDelegs = dsGenDelegs (certState ^. certDStateL)
@@ -427,13 +433,15 @@ utxoInductive = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ validateMaxTxSizeUTxO pp tx
 
-  updateUTxOState
-    pp
-    txBody
-    certState
-    (tellEvent . TotalDeposits (hashAnnotated txBody))
-    (\a b -> tellEvent $ TxUTxODiff a b)
-    (utxoState & utxosGovStateL .~ govStateAfterPPUP)
+  accountingState <-
+    updateAccountingState
+      pp
+      txBody
+      certState
+      (tellEvent . TotalDeposits (hashAnnotated txBody))
+      (\a b -> tellEvent $ TxUTxODiff a b)
+      (lsAccountingState ledgerState)
+  pure ledgerState {lsAccountingState = accountingState, lsGovState = govStateAfterPPUP}
 
 -- | The ttl field marks the top of an open interval, so it must be strictly
 -- less than the slot, so fail if it is (>=).
@@ -615,10 +623,10 @@ validateMaxTxSizeUTxO pp tx =
 
 -- | This monadic action captures the final stages of the UTXO(S) rule. In particular it
 -- applies all of the UTxO related aditions and removals, gathers all of the fees into the
--- fee pot `utxosFees` and updates the `utxosDeposited` field. Continuation supplied will
+-- fee pot `asFees` and updates the `asDeposited` field. Continuation supplied will
 -- be called on the @deposit - refund@ change, which is normally used to emit the
 -- `TotalDeposits` event.
-updateUTxOState ::
+updateAccountingState ::
   ( EraTxBody era
   , EraStake era
   , EraCertState era
@@ -629,12 +637,12 @@ updateUTxOState ::
   CertState era ->
   (Coin -> m ()) ->
   (IndexedUTxOs era -> IndexedUTxOs era -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState = do
-  withDeposits <- updateUTxOStateDeposits pp certState txBody depositChangeEvent utxoState
+  AccountingState era ->
+  m (AccountingState era)
+updateAccountingState pp txBody certState depositChangeEvent utxoDiffEvent accountingState = do
+  withDeposits <- updateAccountingStateDeposits pp certState txBody depositChangeEvent accountingState
   withUtxo <- updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent withDeposits
-  pure $ withUtxo & utxosFeesL <>~ (txBody ^. feeTxBodyL)
+  pure $ withUtxo & asFeesL <>~ (txBody ^. feeTxBodyL)
 
 -- | Apply one body's regular input/output changes to the Store and instant stake,
 -- emitting complete consumed and created entries from the previous and updated
@@ -643,10 +651,10 @@ updateUTxOsAndInstantStakeWithTxBody ::
   (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
   (IndexedUTxOs era -> IndexedUTxOs era -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent utxoState = do
-  let previousStore = utxosUTxOStore utxoState
+  AccountingState era ->
+  m (AccountingState era)
+updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent accountingState = do
+  let previousStore = asUTxOStore accountingState
       store = Store.update txBody previousStore
       proposedOutputs = outputsTxBody txBody
       !consumed =
@@ -655,14 +663,14 @@ updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent utxoState = do
         IndexedUTxOs.restrictToInputs (IndexedTxOs.inputIds proposedOutputs) (allocations store)
       newInstantStake =
         deleteInstantStake (IndexedUTxOs.txOuts consumed) $
-          addInstantStake (IndexedTxOs.txOuts proposedOutputs) (utxoState ^. instantStakeL)
+          addInstantStake (IndexedTxOs.txOuts proposedOutputs) (accountingState ^. instantStakeL)
   utxoDiffEvent consumed created
   pure $!
-    utxoState
-      & utxosUTxOStoreL .~ store
+    accountingState
+      & asUTxOStoreL .~ store
       & instantStakeL .~ newInstantStake
 
-updateUTxOStateDeposits ::
+updateAccountingStateDeposits ::
   ( EraTxBody era
   , EraCertState era
   , Monad m
@@ -671,11 +679,11 @@ updateUTxOStateDeposits ::
   CertState era ->
   TxBody TopTx era ->
   (Coin -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOStateDeposits pp certState txBody depositChangeEvent utxoState = do
+  AccountingState era ->
+  m (AccountingState era)
+updateAccountingStateDeposits pp certState txBody depositChangeEvent accountingState = do
   depositChangeEvent depositChange
-  pure $! utxoState & utxosDepositedL <>~ depositChange
+  pure $! accountingState & asDepositedL <>~ depositChange
   where
     depositChange = totalDeposits <-> totalRefunds
     totalDeposits = certsTotalDepositsTxBody pp certState txBody

@@ -14,6 +14,7 @@ module Test.Cardano.Ledger.Conformance.ExecSpecRule.Conway.Utxo () where
 import Cardano.Ledger.Alonzo.Tx
 import Cardano.Ledger.Binary (EncCBOR (..))
 import Cardano.Ledger.Conway (ConwayEra)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import Cardano.Ledger.Shelley.Rules (utxoEnvCertStateL)
 import Control.State.Transition.Extended (TRC (..))
 import Lens.Micro.Extras (view)
@@ -34,15 +35,19 @@ import Test.Cardano.Ledger.Generic.Instances ()
 
 instance ExecSpecRule "UTXO" ConwayEra where
   type ExecContext "UTXO" ConwayEra = UtxoExecContext ConwayEra
+  type SpecState "UTXO" ConwayEra = Agda.UTxOState
 
   translateInputs (TRC (env, st, sig)) = do
     agdaEnv <- withCtxSpecTransM () $ toSpecRep env
-    agdaSt <- withSpecTransM (view utxoEnvCertStateL . uecUtxoEnv) $ toSpecRep st
+    agdaSt <-
+      withSpecTransM (\ctx -> (view utxoEnvCertStateL $ uecUtxoEnv ctx, lsGovState st)) $
+        toSpecRep (lsAccountingState st)
     agdaSig <- withCtxSpecTransM () $ toSpecRep sig
     pure $ SpecTRC agdaEnv agdaSt agdaSig
 
-  translateOutput _ =
-    withSpecTransM (view utxoEnvCertStateL . uecUtxoEnv) . toSpecRep
+  translateOutput _ st =
+    withSpecTransM (\ctx -> (view utxoEnvCertStateL $ uecUtxoEnv ctx, lsGovState st)) $
+      toSpecRep (lsAccountingState st)
 
   runAgdaRule = runFromAgdaFunction (Agda.utxoStep externalFunctions)
 

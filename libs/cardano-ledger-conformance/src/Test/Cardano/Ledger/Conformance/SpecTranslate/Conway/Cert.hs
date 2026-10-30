@@ -103,37 +103,37 @@ depositsMap certState props =
           (Agda.MkHSMap . OMap.assocList $ props ^. pPropsL)
       ]
 
-instance SpecTranslate ConwayEra (UTxOState ConwayEra) where
-  type SpecRep ConwayEra (UTxOState ConwayEra) = Agda.UTxOState
-  type SpecContext ConwayEra (UTxOState ConwayEra) = CertState ConwayEra
+instance SpecTranslate ConwayEra (AccountingState ConwayEra) where
+  type SpecRep ConwayEra (AccountingState ConwayEra) = Agda.UTxOState
+  type SpecContext ConwayEra (AccountingState ConwayEra) = (CertState ConwayEra, GovState ConwayEra)
 
-  toSpecRep UTxOState {..} = do
-    certState <- askSpecTransM
+  toSpecRep AccountingState {..} = do
+    (certState, govState) <- askSpecTransM
     let
-      props = utxosGovState ^. cgsProposalsL
+      props = govState ^. cgsProposalsL
       deposits = depositsMap certState props
     withCtxSpecTransM () $
       Agda.MkUTxOState
-        <$> (toSpecRep . allocations $ utxosUTxOStore)
-        <*> toSpecRep utxosFees
+        <$> (toSpecRep . allocations $ asUTxOStore)
+        <*> toSpecRep asFees
         <*> deposits
-        <*> toSpecRep utxosDonation
+        <*> toSpecRep asDonation
 
 instance SpecTranslate ConwayEra (LedgerState ConwayEra) where
   type SpecRep ConwayEra (LedgerState ConwayEra) = Agda.LState
 
   toSpecRep (LedgerState {..}) =
     Agda.MkLState
-      <$> withCtxSpecTransM lsCertState (toSpecRep lsUTxOState)
+      <$> withCtxSpecTransM (lsCertState, lsGovState) (toSpecRep lsAccountingState)
       <*> toSpecRep props
       <*> toSpecRep lsCertState
     where
-      props = utxosGovState lsUTxOState ^. proposalsGovStateL
+      props = lsGovState ^. proposalsGovStateL
 
 instance SpecTranslate ConwayEra (EpochState ConwayEra) where
   type SpecRep ConwayEra (EpochState ConwayEra) = Agda.EpochState
 
-  toSpecRep (EpochState {esLState = esLState@LedgerState {lsUTxOState}, ..}) =
+  toSpecRep (EpochState {esLState = esLState@LedgerState {lsGovState}, ..}) =
     Agda.MkEpochState
       <$> toSpecRep esChainAccountState
       <*> toSpecRep esSnapshots
@@ -141,9 +141,9 @@ instance SpecTranslate ConwayEra (EpochState ConwayEra) where
       <*> toSpecRep enactState
       <*> withCtxSpecTransM govActions (toSpecRep ratifyState)
     where
-      enactState = mkEnactState $ utxosGovState lsUTxOState
-      ratifyState = getRatifyState $ utxosGovState lsUTxOState
-      govActions = toList $ lsUTxOState ^. utxosGovStateL . proposalsGovStateL . pPropsL
+      enactState = mkEnactState lsGovState
+      ratifyState = getRatifyState lsGovState
+      govActions = toList $ lsGovState ^. proposalsGovStateL . pPropsL
 
 instance SpecTranslate ConwayEra (SnapShots ConwayEra) where
   type SpecRep ConwayEra (SnapShots ConwayEra) = Agda.Snapshots

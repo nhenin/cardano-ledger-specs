@@ -32,7 +32,7 @@ module Cardano.Ledger.Babbage.Rules.Utxo (
   validateCollateralEqBalance,
   validateImplicitDeposits,
   disjointRefInputs,
-  updateUTxOState,
+  updateAccountingState,
 ) where
 
 import qualified Cardano.Ledger.Allegra.Rules as Allegra
@@ -62,8 +62,8 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
@@ -358,7 +358,7 @@ babbageUtxoValidation ::
   , InjectRuleFailure "UTXO" Alonzo.AlonzoUtxoPredFailure era
   , InjectRuleFailure "UTXO" BabbageUtxoPredFailure era
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , STS (EraRule "UTXO" era)
@@ -366,9 +366,9 @@ babbageUtxoValidation ::
   ) =>
   Rule (EraRule "UTXO" era) 'Transition ()
 babbageUtxoValidation = do
-  TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      storedAllocations = Store.allocations . utxosUTxOStore $ utxos
+      storedAllocations = Store.allocations . asUTxOStore . lsAccountingState $ ledgerState
       inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
@@ -455,7 +455,7 @@ utxoTransition ::
   , InjectRuleFailure "UTXO" Alonzo.AlonzoUtxoPredFailure era
   , InjectRuleFailure "UTXO" BabbageUtxoPredFailure era
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , Event (EraRule "UTXO" era) ~ Alonzo.AlonzoUtxoEvent era
@@ -473,10 +473,11 @@ utxoTransition = do
   babbageUtxoValidation
   updatedGovState <-
     trans @(EraRule "UTXOS" era) $
-      TRC (Alonzo.UtxosEnv slot pp certState, utxosGovState utxos, stAnnTx)
-  updateUTxOState pp certState tx (utxos & utxosGovStateL .~ updatedGovState)
+      TRC (Alonzo.UtxosEnv slot pp certState, lsGovState utxos, stAnnTx)
+  accountingState <- updateAccountingState pp certState tx (lsAccountingState utxos)
+  pure utxos {lsAccountingState = accountingState, lsGovState = updatedGovState}
 
-updateUTxOState ::
+updateAccountingState ::
   forall era.
   ( AlonzoEraTx era
   , BabbageEraTxBody era
@@ -487,13 +488,13 @@ updateUTxOState ::
   PParams era ->
   CertState era ->
   Tx TopTx era ->
-  UTxOState era ->
-  Rule (EraRule "UTXO" era) 'Transition (UTxOState era)
-updateUTxOState pp certState tx utxoState =
+  AccountingState era ->
+  Rule (EraRule "UTXO" era) 'Transition (AccountingState era)
+updateAccountingState pp certState tx utxoState =
   let txBody = tx ^. bodyTxL
    in case tx ^. isPhase2ValidTxL of
         Phase2Valid ->
-          Shelley.updateUTxOState
+          Shelley.updateAccountingState
             pp
             txBody
             certState
@@ -503,7 +504,7 @@ updateUTxOState pp certState tx utxoState =
         Phase2Invalid ->
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let existingAllocations = Store.allocations . utxosUTxOStore $ utxoState
+          let existingAllocations = Store.allocations . asUTxOStore $ utxoState
               !(allocationsKeep, allocationsDel) = IndexedUTxOs.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
               utxoDel = IndexedUTxOs.txOuts allocationsDel
               collouts = collOuts txBody
@@ -511,14 +512,14 @@ updateUTxOState pp certState tx utxoState =
                 Store.allocate
                   (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds allocationsKeep) collouts)
                   . Store.release (txBody ^. collateralInputsTxBodyL)
-                  $ utxosUTxOStore utxoState
+                  $ asUTxOStore utxoState
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { utxosUTxOStore = store
+                  { asUTxOStore = store
                   , {- fees + collateralFees -}
-                    utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
-                  , utxosInstantStake =
+                    asFees = asFees utxoState <> Coin collateralFees -- NEW to Babbage
+                  , asInstantStake =
                       deleteInstantStake
                         utxoDel
                         (addInstantStake (IndexedTxOs.txOuts collouts) (utxoState ^. instantStakeL))
@@ -552,7 +553,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = Shelley.UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase

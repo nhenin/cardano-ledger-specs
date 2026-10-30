@@ -112,7 +112,7 @@ import Cardano.Ledger.Keys.Bootstrap (BootstrapWitness, bootstrapWitKeyHash)
 import Cardano.Ledger.Keys.WitVKey (WitVKey, witVKeyHash)
 import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Metadata
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs (..))
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.TxOut
 import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs (..))

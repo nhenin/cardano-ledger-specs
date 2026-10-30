@@ -42,10 +42,9 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   lsCertStateL,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Constrained.API
 import Data.Foldable
 import Data.Map (Map)
@@ -420,7 +419,7 @@ conwayCertStateSpec univ (whodelegates, wdrl) epoch = constrained $ \ [var|convC
     ]
 
 -- ==============================================================
--- Specs for IndexedUTxOs and UTxOState
+-- Specs for IndexedUTxOs and AccountingState
 -- ==============================================================
 
 utxoSpecWit ::
@@ -434,16 +433,15 @@ utxoSpecWit univ delegs = constrained $ \ [var|utxo|] ->
     [ forAll (rng_ utxomap) (\ [var|out|] -> txOutSpec univ delegs out)
     ]
 
-utxoStateSpec ::
+accountingStateSpec ::
   forall era.
   (HasSpec (InstantStake era), era ~ ConwayEra) =>
-  PParams era ->
   WitUniv era ->
   Term (CertState era) ->
-  Specification (UTxOState era)
-utxoStateSpec pp univ certstate =
+  Specification (AccountingState era)
+accountingStateSpec univ certstate =
   constrained $ \ [var|utxoState|] ->
-    match utxoState $ \ [var|utxos|] [var|deposits|] [var|fees|] [var|gov|] [var|distr|] [var|donation|] ->
+    match utxoState $ \ [var|utxos|] [var|deposits|] [var|fees|] [var|distr|] [var|donation|] ->
       match utxos $ \ [var|utxo|] ->
         [ assert $ donation ==. lit (Coin 0)
         , reify
@@ -452,7 +450,6 @@ utxoStateSpec pp univ certstate =
             (\ [var|depositsum|] -> assert $ deposits ==. depositsum)
         , assert $ lit (Coin 0) <=. fees
         , reify certstate getDelegs (\ [var|delegs|] -> satisfies utxo (utxoSpecWit univ delegs))
-        , satisfies gov (conwayGovStateSpec pp (testGovEnv pp))
         , reify utxo ((`addInstantStake` mempty) . IndexedUTxOs.txOuts) (\ [var|i|] -> distr ==. i)
         ]
 
@@ -497,9 +494,13 @@ ledgerStateSpec ::
   Specification (LedgerState era)
 ledgerStateSpec pp univ ctx epoch =
   constrained $ \ [var|ledgerState|] ->
-    match ledgerState $ \ [var|utxoS|] [var|csg|] ->
+    match ledgerState $ \ [var|accountingState|] [var|csg|] [var|govState|] ->
       [ satisfies csg (conwayCertStateSpec univ ctx epoch)
-      , reify csg id (\ [var|certstate|] -> satisfies utxoS (utxoStateSpec @era pp univ certstate))
+      , satisfies govState (conwayGovStateSpec pp (testGovEnv pp))
+      , reify
+          csg
+          id
+          (\ [var|certstate|] -> satisfies accountingState (accountingStateSpec @era univ certstate))
       ]
 
 -- ===========================================================

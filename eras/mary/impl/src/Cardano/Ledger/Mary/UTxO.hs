@@ -28,7 +28,7 @@ import Cardano.Ledger.State (
   EraUTxO (..),
   ScriptsProvided (..),
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (inject)
 import Data.Coerce (coerce)

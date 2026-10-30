@@ -35,7 +35,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.Shelley.LedgerState (UTxOState)
+import Cardano.Ledger.Shelley.LedgerState (AccountingState)
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -52,10 +52,10 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositive
   positiveAmount,
  )
 
--- | The UTxO state and protocol parameters read after real fixture funding.
+-- | The accounting state and protocol parameters read after real fixture funding.
 -- This snapshot is never installed into the ledger or used to bypass a transition.
 data LedgerState = LedgerState
-  { utxoState :: UTxOState DijkstraEra
+  { accountingState :: AccountingState DijkstraEra
   , protocolParameters :: PParams DijkstraEra
   }
   deriving (Show)
@@ -171,7 +171,7 @@ releasedDeposits :: LedgerState -> Tx TopTx DijkstraEra -> Coin
 releasedDeposits ledgerState topTx =
   foldMap id $
     Map.restrictKeys
-      (recordedAmounts $ liveOutputStore $ utxoState ledgerState)
+      (recordedAmounts $ liveOutputStore $ accountingState ledgerState)
       (topTx ^. bodyTxL . inputsTxBodyL)
 
 -- | Price every created store-backed ordinary output independently of the Store

@@ -232,20 +232,20 @@ exampleNewEpochState value ppp pp =
         , esSnapshots = emptySnapShots
         , esLState =
             LedgerState
-              { lsUTxOState =
-                  UTxOState
-                    { utxosUTxOStore =
+              { lsAccountingState =
+                  AccountingState
+                    { asUTxOStore =
                         fromLegacyAllocations $
                           Map.singleton
                             (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
                             (mkBasicLegacyTxOut addr value)
-                    , utxosDeposited = Coin 1000
-                    , utxosFees = Coin 1
-                    , utxosGovState = emptyGovState
-                    , utxosInstantStake = mempty
-                    , utxosDonation = mempty
+                    , asDeposited = Coin 1000
+                    , asFees = Coin 1
+                    , asInstantStake = mempty
+                    , asDonation = mempty
                     }
               , lsCertState = def
+              , lsGovState = emptyGovState
               }
         , esNonMyopic = def
         }

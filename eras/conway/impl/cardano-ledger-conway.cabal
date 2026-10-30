@@ -74,10 +74,10 @@ library
     Cardano.Ledger.Conway.Rules.Utxo
     Cardano.Ledger.Conway.Rules.Utxos
     Cardano.Ledger.Conway.Rules.Utxow
-    Cardano.Ledger.Conway.State.Account
-    Cardano.Ledger.Conway.State.CertState
-    Cardano.Ledger.Conway.State.Stake
-    Cardano.Ledger.Conway.State.VState
+    Cardano.Ledger.Conway.State.Certificates.Account
+    Cardano.Ledger.Conway.State.Certificates
+    Cardano.Ledger.Conway.State.Accounting.InstantStake
+    Cardano.Ledger.Conway.State.Certificates.VState
     Cardano.Ledger.Conway.Translation
     Cardano.Ledger.Conway.TxAuxData
     Cardano.Ledger.Conway.TxOut

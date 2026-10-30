@@ -112,8 +112,8 @@ import Cardano.Ledger.Shelley.LedgerState (
   newEpochStateGovStateL,
   prevPParamsEpochStateL,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as UTxO
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as UTxO
 import Cardano.SCLS.Internal.Entry.ChunkEntry (ChunkEntry (ChunkEntry))
 import Cardano.SCLS.Internal.Serializer.Dump.Plan (
   defaultSerializationPlan,

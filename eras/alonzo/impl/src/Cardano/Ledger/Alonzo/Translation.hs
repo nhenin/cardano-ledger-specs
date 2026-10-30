@@ -23,11 +23,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import Data.Default (def)
 import Lens.Micro ((&), (.~), (^.))
@@ -130,8 +129,9 @@ instance TranslateEra AlonzoEra LedgerState where
   translateEra ctxt ls =
     return
       LedgerState
-        { lsUTxOState = translateEra' ctxt $ lsUTxOState ls
+        { lsAccountingState = translateEra' ctxt $ lsAccountingState ls
         , lsCertState = translateEra' ctxt $ lsCertState ls
+        , lsGovState = translateEra' ctxt . lsGovState $ ls
         }
 
 instance TranslateEra AlonzoEra Store.UTxOStore where
@@ -141,16 +141,15 @@ instance TranslateEra AlonzoEra Store.UTxOStore where
       translateOutput output = case upgradeTxOut output of
         LegacyTxOut translated -> translated
 
-instance TranslateEra AlonzoEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra AlonzoEra AccountingState where
+  translateEra ctxt accountingState =
     return
-      UTxOState
-        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt . utxosGovState $ us
-        , utxosInstantStake = translateEra' ctxt . utxosInstantStake $ us
-        , utxosDonation = utxosDonation us
+      AccountingState
+        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
+        , asDeposited = asDeposited accountingState
+        , asFees = asFees accountingState
+        , asInstantStake = translateEra' ctxt . asInstantStake $ accountingState
+        , asDonation = asDonation accountingState
         }
 
 instance TranslateEra AlonzoEra ShelleyInstantStake where

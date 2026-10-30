@@ -190,7 +190,7 @@ releasedDeposits :: Context.ReleaseTx -> [Coin]
 releasedDeposits context =
   [ foldMap id $ Map.restrictKeys records (subTx ^. bodyTxL . inputsTxBodyL)
   | subTx <- OMap.elems $ Context.unsignedTx context ^. bodyTxL . subTransactionsTxBodyL
-  , let records = recordedAmounts $ liveOutputStore $ TopTx.utxoState $ Context.ledgerState context
+  , let records = recordedAmounts $ liveOutputStore $ TopTx.accountingState $ Context.ledgerState context
   ]
 
 -- | Original ordinary input references, grouped in SubTx order. Each generated
@@ -207,5 +207,5 @@ spendingInputs context =
 -- children are active, so an absent declaration cannot conceal a recorded release.
 storeBackedInputs :: Context.ReleaseTx -> [TxIn]
 storeBackedInputs context =
-  let records = recordedAmounts $ liveOutputStore $ TopTx.utxoState $ Context.ledgerState context
+  let records = recordedAmounts $ liveOutputStore $ TopTx.accountingState $ Context.ledgerState context
    in filter (`Map.member` records) $ spendingInputs context

@@ -40,8 +40,12 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
-import Cardano.Ledger.State.UTxOs.Deposit (ByteSize (..), DepositCalculation, calculateDeposit)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
+  ByteSize (..),
+  DepositCalculation,
+  calculateDeposit,
+ )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.TxOut (sumAllCoin)

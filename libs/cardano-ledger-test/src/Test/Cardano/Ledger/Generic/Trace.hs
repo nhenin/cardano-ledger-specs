@@ -27,7 +27,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   StashedAVVMAddresses,
-  UTxOState (..),
   curPParamsEpochStateL,
   esLStateL,
   esSnapshotsL,
@@ -192,8 +191,9 @@ snaps ::
   (EraTxOut era, EraCertState era, ShelleyEraAccounts era) => LedgerState era -> SnapShots era
 snaps
   ( LedgerState
-      UTxOState {utxosUTxOStore = store, utxosFees = f}
+      AccountingState {asUTxOStore = store, asFees = f}
       certState
+      _
     ) =
     SnapShots mark set (mkGoSnapShot set) f
     where

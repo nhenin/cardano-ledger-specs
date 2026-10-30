@@ -226,7 +226,7 @@ ownNetDeposit proposal =
 requiredNetChange :: ReleaseTx -> Coin
 requiredNetChange proposal =
   requiredTxTotalNetUTxODeposit
-    (liveOutputStore $ Standalone.utxoState $ ledgerState proposal)
+    (liveOutputStore $ Standalone.accountingState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
 -- | Run only production TopTx exactness against the funded snapshot. Other
@@ -235,7 +235,7 @@ validateNetChange ::
   ReleaseTx -> Validation (NonEmpty DepositStoreAccountingFailure) ()
 validateNetChange proposal =
   validateTopTxExactness
-    (liveOutputStore $ Standalone.utxoState $ ledgerState proposal)
+    (liveOutputStore $ Standalone.accountingState $ ledgerState proposal)
     (unsignedTx proposal ^. bodyTxL)
 
 -- | Independently require the declared amount to equal priced allocations minus

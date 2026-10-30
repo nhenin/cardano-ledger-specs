@@ -27,7 +27,7 @@ import Cardano.Ledger.Mary.Value
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Conduit
@@ -542,7 +542,7 @@ instance AggregateStat LedgerStateStats where
 countLedgerStateStats :: LedgerState CurrentEra -> LedgerStateStats
 countLedgerStateStats LedgerState {..} =
   LedgerStateStats
-    { lssUTxOStats = countUTxOStats . allocations . utxosUTxOStore $ lsUTxOState
+    { lssUTxOStats = countUTxOStats . allocations . asUTxOStore $ lsAccountingState
     , lssDStateStats = countDStateStats (lsCertState ^. certDStateL)
     , lssPStateStats = countPStateStats (lsCertState ^. certPStateL)
     }

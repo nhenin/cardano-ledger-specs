@@ -22,7 +22,7 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
  )
 import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.Val as Val
 import Data.Bifunctor (first)

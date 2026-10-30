@@ -14,7 +14,7 @@ import Cardano.Ledger.Babbage (
 import Cardano.Ledger.Conway.Era (ConwayEra)
 import Cardano.Ledger.Conway.Governance ()
 import Cardano.Ledger.Conway.Rules ()
-import Cardano.Ledger.Conway.State.CertState ()
+import Cardano.Ledger.Conway.State.Certificates ()
 import Cardano.Ledger.Shelley.API.Forecast (EraForecast (..))
 
 instance EraForecast ConwayEra where

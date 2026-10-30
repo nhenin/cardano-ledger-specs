@@ -125,7 +125,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
   let input = txInAt (0 :: Int) created
   impGetUTxO input >>= (`shouldBe` source)
   refreshFeeSource feeSource
-  state <- Release.readLedger
+  state <- Release.readAccountingState
   recorded <- expectJust $ Map.lookup input $ recordedAmounts $ liveOutputStore state
   recorded `shouldBe` allocated
   parentAddress <- freshKeyAddrNoPtr_

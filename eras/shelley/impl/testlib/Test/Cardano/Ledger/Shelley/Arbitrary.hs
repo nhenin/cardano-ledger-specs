@@ -188,26 +188,26 @@ instance
     LedgerState
       <$> arbitrary
       <*> arbitrary
+      <*> arbitrary
   shrink LedgerState {..} =
     -- We drop the first element in the list so the list does not contain the
     -- original LedgerState which would cause `shrink` to loop indefinitely.
     drop 1 $
       LedgerState
-        <$> (lsUTxOState : shrink lsUTxOState)
+        <$> (lsAccountingState : shrink lsAccountingState)
         <*> (lsCertState : shrink lsCertState)
+        <*> (lsGovState : shrink lsGovState)
 
 instance
   ( EraTxOut era
   , Arbitrary (TxOut era)
-  , Arbitrary (GovState era)
   , Arbitrary (InstantStake era)
   ) =>
-  Arbitrary (UTxOState era)
+  Arbitrary (AccountingState era)
   where
   arbitrary =
-    UTxOState
+    AccountingState
       <$> arbitrary
-      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -215,7 +215,7 @@ instance
 
   -- The 'genericShrink' function returns first the immediate subterms of a
   -- value (in case it is a recursive data-type), and then shrinks the value
-  -- itself. Since 'UTxOState' is not a recursive data-type, there are no
+  -- itself. Since 'AccountingState' is not a recursive data-type, there are no
   -- subterms, and we can use `recursivelyShrink` directly. This is particularly
   -- important when abstracting away the different fields of the ledger state,
   -- since the generic subterms instances will overlap due to GHC not having

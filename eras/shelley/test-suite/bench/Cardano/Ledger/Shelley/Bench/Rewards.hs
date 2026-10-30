@@ -29,7 +29,7 @@ import qualified Cardano.Ledger.Shelley.LedgerState as LS
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.State (StakePoolParams (..))
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Protocol.Crypto (hashVerKeyVRF)
 import Cardano.Slotting.EpochInfo
 import Cardano.Slotting.Slot (EpochNo)
@@ -90,8 +90,8 @@ genChainInEpoch epoch = do
   --   address.
   let initialAllocations =
         Store.allocations
-          . LS.utxosUTxOStore
-          . LS.lsUTxOState
+          . LS.asUTxOStore
+          . LS.lsAccountingState
           . LS.esLState
           . LS.nesEs
           . chainNes

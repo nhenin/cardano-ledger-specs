@@ -50,11 +50,11 @@ import Cardano.Ledger.Binary.Coders (
   (<!),
  )
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL)
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..), dsGenDelegsL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended (
@@ -331,7 +331,7 @@ babbageUtxowTransition ::
   , StAnnTxCache era ~ Map.Map ScriptHash (SupportedPlutusRunnable era)
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , InjectRuleFailure "UTXOW" Shelley.ShelleyUtxowPredFailure era
   , InjectRuleFailure "UTXOW" Alonzo.AlonzoUtxowPredFailure era
   , InjectRuleFailure "UTXOW" BabbageUtxowPredFailure era
@@ -339,7 +339,7 @@ babbageUtxowTransition ::
     Embed (EraRule "UTXO" era) (EraRule "UTXOW" era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   ) =>
   TransitionRule (EraRule "UTXOW" era)
 babbageUtxowTransition = do
@@ -353,7 +353,8 @@ babbageUtxowTransition = do
   let inputAllocations =
         IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
-          . utxosUTxOStore
+          . asUTxOStore
+          . lsAccountingState
           $ u
       txBody = tx ^. bodyTxL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
@@ -428,7 +429,7 @@ instance
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , Ord (PredicateFailure (EraRule "UTXOS" era))
   , Show (PredicateFailure (EraRule "UTXOS" era))
@@ -436,7 +437,7 @@ instance
   ) =>
   STS (UTXOW era)
   where
-  type State (UTXOW era) = UTxOState era
+  type State (UTXOW era) = LedgerState era
   type Signal (UTXOW era) = StAnnTx TopTx era
   type Environment (UTXOW era) = Shelley.UtxoEnv era
   type BaseM (UTXOW era) = ShelleyBase

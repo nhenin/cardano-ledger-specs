@@ -81,10 +81,10 @@ import Cardano.Ledger.Dijkstra.UTxO (
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (OrdExUnits)
 import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), utxosFeesL)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
@@ -363,7 +363,7 @@ dijkstraUtxoTransition ::
   , InjectRuleFailure "UTXO" Babbage.BabbageUtxoPredFailure era
   , InjectRuleFailure "UTXO" DijkstraUtxoPredFailure era
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , STS (EraRule "UTXO" era)
@@ -376,9 +376,10 @@ dijkstraUtxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 dijkstraUtxoTransition = do
-  TRC (UtxoEnv slot pp postSubsPState originalCertState previousUTxOStore, utxos, stAnnTx) <-
+  TRC (UtxoEnv slot pp postSubsPState originalCertState previousUTxOStore, ledgerState, stAnnTx) <-
     judgmentContext
-  let utxoStore = utxosUTxOStore utxos
+  let previousAccountingState = lsAccountingState ledgerState
+      utxoStore = asUTxOStore previousAccountingState
   -- Accounting reads the original historical allocations even after children
   -- have updated the live store.
   let tx = stAnnTx ^. txStAnnTxG
@@ -498,38 +499,41 @@ dijkstraUtxoTransition = do
   runTest $ Alonzo.validateTooManyCollateralInputs pp txBody
 
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  case tx ^. isPhase2ValidTxL of
-    Phase2Valid -> do
-      withDeposits <-
-        Shelley.updateUTxOStateDeposits
-          pp
-          originalCertState
-          txBody
-          (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-          (Conway.updateTreasuryDonation tx utxos)
-      withOutputs <-
-        Shelley.updateUTxOsAndInstantStakeWithTxBody
-          txBody
-          (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
-          withDeposits
-      pure $ withOutputs & utxosFeesL <>~ txBody ^. feeTxBodyL
-    Phase2Invalid ->
-      let store = DepositStore.applyCollateralAllocations txBody utxoStore
-          settlement =
-            DepositStore.collateralDepositSettlement previousUTxOStore txBody
-          removed =
-            IndexedUTxOs.txOuts
-              . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
-              . allocations
-              $ utxoStore
-          created = collOuts txBody
-       in pure $
-            utxos
-              { utxosUTxOStore = store
-              , utxosFees = utxosFees utxos <> DepositStore.collateralFee settlement
-              , utxosInstantStake =
-                  deleteInstantStake removed $ addInstantStake (IndexedTxOs.txOuts created) (utxosInstantStake utxos)
-              }
+  accountingState <-
+    case tx ^. isPhase2ValidTxL of
+      Phase2Valid -> do
+        withDeposits <-
+          Shelley.updateAccountingStateDeposits
+            pp
+            originalCertState
+            txBody
+            (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
+            (Conway.updateTreasuryDonation tx previousAccountingState)
+        withOutputs <-
+          Shelley.updateUTxOsAndInstantStakeWithTxBody
+            txBody
+            (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
+            withDeposits
+        pure $ withOutputs & asFeesL <>~ txBody ^. feeTxBodyL
+      Phase2Invalid ->
+        let store = DepositStore.applyCollateralAllocations txBody utxoStore
+            settlement =
+              DepositStore.collateralDepositSettlement previousUTxOStore txBody
+            removed =
+              IndexedUTxOs.txOuts
+                . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
+                . allocations
+                $ utxoStore
+            created = collOuts txBody
+         in pure $
+              previousAccountingState
+                { asUTxOStore = store
+                , asFees = asFees previousAccountingState <> DepositStore.collateralFee settlement
+                , asInstantStake =
+                    deleteInstantStake removed $
+                      addInstantStake (IndexedTxOs.txOuts created) (asInstantStake previousAccountingState)
+                }
+  pure ledgerState {lsAccountingState = accountingState}
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -550,7 +554,7 @@ instance
   , InjectRuleFailure "UTXO" Conway.ConwayUtxoPredFailure era
   , InjectRuleFailure "UTXO" DijkstraUtxoPredFailure era
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , STS (EraRule "UTXO" era)
@@ -565,7 +569,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase

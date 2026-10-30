@@ -61,7 +61,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), natVersion)
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (ShelleyScriptsNeeded (..))
 import Cardano.Ledger.State (
@@ -70,8 +70,8 @@ import Cardano.Ledger.State (
   ScriptsProvided (..),
   dsGenDelegsL,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
@@ -316,7 +316,7 @@ alonzoStyleWitness ::
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , EraCertState era
   ) =>
@@ -332,7 +332,8 @@ alonzoStyleWitness = do
   let inputAllocations =
         IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
-          . utxosUTxOStore
+          . asUTxOStore
+          . lsAccountingState
           $ u
       txBody = tx ^. bodyTxL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
@@ -415,13 +416,13 @@ instance
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , EraCertState era
   ) =>
   STS (UTXOW era)
   where
-  type State (UTXOW era) = UTxOState era
+  type State (UTXOW era) = LedgerState era
   type Signal (UTXOW era) = StAnnTx TopTx era
   type Environment (UTXOW era) = Shelley.UtxoEnv era
   type BaseM (UTXOW era) = ShelleyBase

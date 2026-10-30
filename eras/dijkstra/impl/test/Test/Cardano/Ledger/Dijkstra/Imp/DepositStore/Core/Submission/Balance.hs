@@ -122,12 +122,12 @@ fundNativeAssets quantity proposal = do
           . outputsTxBodyL
           .~ SSeq.singleton output
   impGetUTxO (txInAt (0 :: Int) funding) >>= (`shouldBe` output)
-  state <- Release.readLedger
+  state <- Release.readAccountingState
   let context = ledgerState proposal
       tx = unsignedTx proposal
       withTokens =
         proposal
-          { ledgerState = context {Pricing.utxoState = state}
+          { ledgerState = context {Pricing.accountingState = state}
           , unsignedTx =
               tx
                 & bodyTxL
@@ -161,7 +161,7 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
           & bodyTxL
             . outputsTxBodyL
             .~ SSeq.fromList [implicitFunding, source]
-  state <- Release.readLedger
+  state <- Release.readAccountingState
   impGetUTxO (txInAt (1 :: Int) funding) >>= (`shouldBe` source)
   Map.lookup (txInAt (1 :: Int) funding) (recordedAmounts $ liveOutputStore state)
     `shouldBe` Just (Coin 2_000_000)

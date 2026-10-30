@@ -20,13 +20,12 @@ import Cardano.Ledger.Keys (witVKeyHash)
 import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.State.Transition.Extended (BaseM, Environment, STS, Signal, State)
@@ -117,7 +116,10 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
     inputsEliminated
       SourceSignalTarget
         { target =
-          LedgerState (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')}) _
+          LedgerState
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')})
+            _
+            _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -150,10 +152,16 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
     newEntryPresent
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)}) _
+          LedgerState
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)})
+            _
+            _
         , signal = stAnnTx
         , target =
-          LedgerState (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')}) _
+          LedgerState
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')})
+            _
+            _
         } =
         let tx = stAnnTx ^. txStAnnTxG
             outs = IndexedTxOs.mapTxOuts id $ outputsTxBody @era (tx ^. bodyTxL)

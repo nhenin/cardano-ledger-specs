@@ -60,7 +60,7 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.API.Types (UtxoEnv (..))
-import Cardano.Ledger.Shelley.LedgerState (utxosUTxOStore)
+import Cardano.Ledger.Shelley.LedgerState (asUTxOStore, lsAccountingState)
 import Cardano.Ledger.State (
   CommitteeAuthorization (..),
   CommitteeState (..),
@@ -68,7 +68,7 @@ import Cardano.Ledger.State (
   EraCertState (..),
   allocations,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Constrained.API
 import Control.State.Transition.Extended (STS (..))
 import Data.Foldable (Foldable (..))
@@ -585,7 +585,12 @@ constrainedUtxo =
             (epochInfo testGlobals)
             (systemStart testGlobals)
             (uePParams uecUtxoEnv)
-            (IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations . utxosUTxOStore $ st)
+            ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . allocations
+                . asUTxOStore
+                . lsAccountingState
+                $ st
+            )
             mempty
             tx
     )

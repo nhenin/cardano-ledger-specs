@@ -23,11 +23,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import Lens.Micro
 
@@ -129,8 +128,9 @@ instance TranslateEra BabbageEra LedgerState where
   translateEra ctxt ls =
     pure
       LedgerState
-        { lsUTxOState = translateEra' ctxt $ lsUTxOState ls
+        { lsAccountingState = translateEra' ctxt $ lsAccountingState ls
         , lsCertState = translateEra' ctxt $ lsCertState ls
+        , lsGovState = translateEra' ctxt . lsGovState $ ls
         }
 
 instance TranslateEra BabbageEra Store.UTxOStore where
@@ -140,16 +140,15 @@ instance TranslateEra BabbageEra Store.UTxOStore where
       translateOutput output = case upgradeTxOut output of
         LegacyTxOut translated -> translated
 
-instance TranslateEra BabbageEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra BabbageEra AccountingState where
+  translateEra ctxt accountingState =
     pure
-      UTxOState
-        { utxosUTxOStore = translateEra' ctxt . utxosUTxOStore $ us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt . utxosGovState $ us
-        , utxosInstantStake = translateEra' ctxt . utxosInstantStake $ us
-        , utxosDonation = utxosDonation us
+      AccountingState
+        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
+        , asDeposited = asDeposited accountingState
+        , asFees = asFees accountingState
+        , asInstantStake = translateEra' ctxt . asInstantStake $ accountingState
+        , asDonation = asDonation accountingState
         }
 
 instance TranslateEra BabbageEra ShelleyInstantStake where

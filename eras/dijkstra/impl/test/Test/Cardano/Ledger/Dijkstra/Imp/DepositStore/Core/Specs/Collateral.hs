@@ -34,7 +34,7 @@ import Cardano.Ledger.Mary.Value (
  )
 import Cardano.Ledger.Plutus (SLanguage (..), hashPlutusScript, mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (
-  UTxOState,
+  AccountingState,
   curPParamsEpochStateL,
   nesEsL,
  )
@@ -57,7 +57,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration as Declaration
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (readLedger)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (readAccountingState)
 import Test.Cardano.Ledger.Dijkstra.ImpTest
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 import Test.Cardano.Ledger.Plutus.Examples (alwaysFailsWithDatum, alwaysSucceedsWithDatum)
@@ -88,7 +88,7 @@ data Scenario = Scenario
 -- independently from its final bytes. Neither amount invokes the collateral rule.
 data Fixture = Fixture
   { signedTx :: Tx TopTx DijkstraEra
-  , previousUTxOState :: UTxOState DijkstraEra
+  , previousAccountingState :: AccountingState DijkstraEra
   , collateralInputs :: Set.Set TxIn
   , inputCoins :: Coin
   , releasedDeposits :: Coin
@@ -247,7 +247,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
       prepared
         & bodyTxL . collateralReturnTxBodyL .~ finalReturn
         & isPhase2ValidTxL .~ phase2
-  state <- readLedger
+  state <- readAccountingState
   let records = recordedAmounts $ liveOutputStore state
       released = foldMap id $ Map.restrictKeys records inputs
       Coin fee = signed ^. bodyTxL . feeTxBodyL
@@ -258,7 +258,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
   pure
     Fixture
       { signedTx = signed
-      , previousUTxOState = state
+      , previousAccountingState = state
       , collateralInputs = inputs
       , inputCoins = totalInputCoins
       , releasedDeposits = released

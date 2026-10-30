@@ -61,7 +61,7 @@ releasedDeposits :: ReleaseTx -> Coin
 releasedDeposits proposal =
   foldMap id $
     Map.restrictKeys
-      (recordedAmounts $ liveOutputStore $ TopTx.utxoState $ ledgerState proposal)
+      (recordedAmounts $ liveOutputStore $ TopTx.accountingState $ ledgerState proposal)
       (ordinarySpendingInputs $ unsignedTx proposal)
 
 -- | Required net change: allocations minus releases. Positive allocates, negative

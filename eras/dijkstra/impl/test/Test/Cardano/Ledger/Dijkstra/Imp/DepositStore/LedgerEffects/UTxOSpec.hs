@@ -20,7 +20,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   createdOrdinaryOutputs,
   ordinarySpendingInputs,
-  readLedger,
+  readAccountingState,
  )
 import Test.Cardano.Ledger.Imp.Common (shouldBe)
 
@@ -35,12 +35,12 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
       forAll Effects.ordinaryScenarios $ \scenarios ->
         forM_ scenarios $ \scenario -> do
           signedTx <- Effects.buildAndSignOrdinary scenario
-          previousUTxOState <- readLedger
+          previousAccountingState <- readAccountingState
           submitTx signedTx >>= isAccepted
-          utxoState <- readLedger
-          Store.outputs utxoState
+          accountingState <- readAccountingState
+          Store.outputs accountingState
             `shouldBe` createdOrdinaryOutputs signedTx
-              <> Map.withoutKeys (Store.outputs previousUTxOState) (ordinarySpendingInputs signedTx)
+              <> Map.withoutKeys (Store.outputs previousAccountingState) (ordinarySpendingInputs signedTx)
 
     -- Actual successful scripts activate the ordinary path even when collateral
     -- proposes Store allocations or releases. Its sources remain unspent and its
@@ -48,12 +48,12 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
     prop "DS-STATE-UTXO-N02 - accepted ∧ phase2Valid ⇒ collateralOnlyInputs survive ∧ collateralReturn is not created" $
       forAll Collateral.fundingScenarios $ \scenarios ->
         forM_ (filter ((== Phase2Valid) . Collateral.phase2) scenarios) $ \scenario -> do
-          Fixture{signedTx, previousUTxOState} <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
+          Fixture{signedTx, previousAccountingState} <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           submitTx signedTx >>= isAccepted
-          utxoState <- readLedger
-          Store.outputs utxoState
+          accountingState <- readAccountingState
+          Store.outputs accountingState
             `shouldBe` createdOrdinaryOutputs signedTx
-              <> Map.withoutKeys (Store.outputs previousUTxOState) (ordinarySpendingInputs signedTx)
+              <> Map.withoutKeys (Store.outputs previousAccountingState) (ordinarySpendingInputs signedTx)
 
   describe "Phase-2 failure: consume only collateral and create only its return" $ do
     -- Real failing scripts cover absent, implicit and Store-backed returns.
@@ -62,14 +62,14 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
     prop "DS-STATE-UTXO-N03 - accepted ∧ phase2Invalid ⇒ utxoAfter = (utxoBefore without collateralInputs) ∪ collateralReturn" $
       forAll Collateral.fundingScenarios $ \scenarios ->
         forM_ (filter ((== Phase2Invalid) . Collateral.phase2) scenarios) $ \scenario -> do
-          Fixture{signedTx, previousUTxOState, collateralInputs} <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
+          Fixture{signedTx, previousAccountingState, collateralInputs} <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           let collateralReturn = signedTx ^. bodyTxL . collateralReturnTxBodyL
               returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
           submitTx signedTx >>= isAccepted
-          utxoState <- readLedger
-          Store.outputs utxoState
+          accountingState <- readAccountingState
+          Store.outputs accountingState
             `shouldBe` foldMap (Map.singleton returnInput) collateralReturn
-              <> Map.withoutKeys (Store.outputs previousUTxOState) collateralInputs
+              <> Map.withoutKeys (Store.outputs previousAccountingState) collateralInputs
 
     -- A failing TopTx script suppresses all ordinary effects, including several
     -- children with real Store allocations and releases. This does not assume
@@ -78,15 +78,15 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
       forAll Effects.ordinaryScenarios $ \scenarios ->
         forM_ (filter ((> 1) . length . Accounting.subOperations) scenarios) $ \scenario -> do
           signedTx <- Effects.buildAndSignOrdinaryPhase2Invalid scenario
-          previousUTxOState <- readLedger
+          previousAccountingState <- readAccountingState
           let collateralInputs = signedTx ^. bodyTxL . collateralInputsTxBodyL
               collateralReturn = signedTx ^. bodyTxL . collateralReturnTxBodyL
               returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
           submitTx signedTx >>= isAccepted
-          utxoState <- readLedger
-          Store.outputs utxoState
+          accountingState <- readAccountingState
+          Store.outputs accountingState
             `shouldBe` foldMap (Map.singleton returnInput) collateralReturn
-              <> Map.withoutKeys (Store.outputs previousUTxOState) collateralInputs
+              <> Map.withoutKeys (Store.outputs previousAccountingState) collateralInputs
 
   describe "Shared input: the selected path consumes it exactly once" $
     -- A real Store-backed source serves both roles. Its ordinary settlement is
@@ -95,20 +95,20 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
     prop "DS-STATE-UTXO-N05 - accepted ∧ ordinaryInputs ∩ collateralInputs ≠ ∅ ⇒ utxoAfter = (utxoBefore without selectedInputs) ∪ selectedOutputs" $
       forAll (Collateral.scenarios [Collateral.StoreBacked] (Just Collateral.StoreBacked) Phase2Invalid) $ \generated ->
         forM_ [Phase2Valid, Phase2Invalid] $ \phase2 -> do
-          Fixture{signedTx, previousUTxOState, collateralInputs} <-
+          Fixture{signedTx, previousAccountingState, collateralInputs} <-
             Collateral.buildAndSign generated{Collateral.phase2 = phase2}
               >>= InputRoles.withSharedOrdinaryInput
               >>= InputRoles.withReferenceOnlyInput
           submitTx signedTx >>= isAccepted
-          utxoState <- readLedger
-          let previousOutputs = Store.outputs previousUTxOState
+          accountingState <- readAccountingState
+          let previousOutputs = Store.outputs previousAccountingState
           case phase2 of
             Phase2Valid ->
-              Store.outputs utxoState
+              Store.outputs accountingState
                 `shouldBe` createdOrdinaryOutputs signedTx <> Map.withoutKeys previousOutputs (ordinarySpendingInputs signedTx)
             Phase2Invalid -> do
               let collateralReturn = signedTx ^. bodyTxL . collateralReturnTxBodyL
                   returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
-              Store.outputs utxoState
+              Store.outputs accountingState
                 `shouldBe` foldMap (Map.singleton returnInput) collateralReturn <> Map.withoutKeys previousOutputs collateralInputs
 {- FOURMOLU_ENABLE -}

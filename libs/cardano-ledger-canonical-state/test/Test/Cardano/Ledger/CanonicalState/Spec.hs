@@ -55,7 +55,7 @@ import Cardano.Ledger.State (
   utxoStoreG,
   utxoStoreL,
  )
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs (..))
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs (..))
 import Cardano.Ledger.TxIn (TxId)
 import Cardano.SCLS.CBOR.Canonical.Encoder (ToCanonicalCBOR (..))
 import Codec.CBOR.Cuddle.CDDL.CTree (CTreeRoot)

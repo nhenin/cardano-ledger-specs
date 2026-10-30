@@ -50,16 +50,16 @@ conwayStates = do
         Map.fromList $
           zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (take 1 outputs <> outputs)
       outputStore = mkUTxOStore legacyDepositCalculation . legacyIndexedUTxOs $ outputMap
-      utxoStateL = nesEsL . esLStateL . lsUTxOStateL
+      accountingStateL = nesEsL . esLStateL . lsAccountingStateL
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =
         previousState
-          & utxoStateL . utxosUTxOStoreL .~ outputStore
+          & accountingStateL . asUTxOStoreL .~ outputStore
           & treasuryL .~ Coin (factor * amount)
           & reservesL .~ Coin (factor * (amount + 1))
-          & utxoStateL . utxosDepositedL .~ Coin (factor * (amount + 2))
-          & utxoStateL . utxosFeesL .~ Coin (factor * (amount + 3))
-          & utxoStateL . utxosDonationL .~ Coin (factor * (amount + 4))
+          & accountingStateL . asDepositedL .~ Coin (factor * (amount + 2))
+          & accountingStateL . asFeesL .~ Coin (factor * (amount + 3))
+          & accountingStateL . asDonationL .~ Coin (factor * (amount + 4))
           & accountStatesL
             .~ ConwayAccounts
               ( Map.singleton credential $

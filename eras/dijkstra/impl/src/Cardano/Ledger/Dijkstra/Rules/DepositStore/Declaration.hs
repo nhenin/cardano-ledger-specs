@@ -30,8 +30,8 @@ import Cardano.Ledger.Dijkstra.Core (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs (IndexedUTxOs)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Data.List.NonEmpty (NonEmpty)
 import Lens.Micro ((^.))
 import Validation (Validation, failureUnless)

@@ -73,6 +73,7 @@ import Cardano.Ledger.Shelley.Era as X (
 import Cardano.Ledger.Shelley.Genesis as X
 import Cardano.Ledger.Shelley.LedgerState as X (
   AccountState,
+  AccountingState (..),
   ChainAccountState,
   DState (..),
   EpochState (..),
@@ -83,7 +84,6 @@ import Cardano.Ledger.Shelley.LedgerState as X (
   PState (..),
   RewardUpdate (..),
   ShelleyGovState (..),
-  UTxOState (..),
   mkShelleyCertState,
  )
 import Cardano.Ledger.Shelley.PParams as X (
@@ -140,5 +140,5 @@ import Cardano.Ledger.State as X (
   calculatePoolDistr',
   individualPoolStake,
  )
-import Cardano.Ledger.State.UTxOs.IndexedUTxOs as X (IndexedUTxOs (..))
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as X (IndexedUTxOs (..))
 import Cardano.Ledger.TxIn as X (TxId (..), TxIn (..))

@@ -267,12 +267,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
   curPParamsEpochStateL,
   esLStateL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOStateL,
   nesELL,
   nesEsL,
   prevPParamsEpochStateL,
-  utxosDonationL,
  )
 import Cardano.Ledger.Shelley.Rules (
   AccountAlreadyRegistered,
@@ -303,8 +302,8 @@ import Cardano.Ledger.Shelley.Transition (
 import Cardano.Ledger.Shelley.Translation (toFromByronTranslationContext)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (epochFromSlot, epochInfoFirst, getTheSlotOfNoReturn)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Tools (
   calcMinFeeTxNativeScriptWits,
   ensureMinCoinTxOut,
@@ -1967,7 +1966,7 @@ epochBoundaryCheck preNES postNES = do
     tot nes =
       (<+>)
         (sumAdaPots (totalAdaPotsES (nes ^. nesEsL)))
-        (nes ^. nesEsL . esLStateL . lsUTxOStateL . utxosDonationL)
+        (nes ^. nesEsL . esLStateL . lsAccountingStateL . asDonationL)
 
 -- | Runs the TICK rule until the `n` epochs are passed
 passNEpochs ::
