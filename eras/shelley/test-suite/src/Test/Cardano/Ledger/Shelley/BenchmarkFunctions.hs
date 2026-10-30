@@ -96,7 +96,7 @@ initUTxO :: Integer -> UTxOState ShelleyEra
 initUTxO n =
   UTxOState
     ( either (error . ("Shelley benchmark genesis outputs: " <>) . show) id $
-        fromLegacyUTxO $
+        fromLegacyTxOutMap $
           genesisCoins genesisId (injcoins n)
     )
     (Coin 0)

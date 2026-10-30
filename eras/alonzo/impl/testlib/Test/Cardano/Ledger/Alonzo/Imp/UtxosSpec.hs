@@ -47,7 +47,6 @@ import Cardano.Ledger.Plutus (
   withSLanguage,
  )
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
-import Cardano.Ledger.State (allocations, utxoStoreG)
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Monad.Reader (asks)
@@ -83,7 +82,7 @@ spec = describe "UTXOS" $ do
       ss@(SystemStart sysStart) <- use $ impGlobalsL . to systemStart
       SlotNo currentSlot <- use impCurSlotNoG
       protVer <- getProtVer
-      entries <- allocations <$> getsNES utxoStoreG
+      entries <- getAllocations
       let txValidity = 7200
           -- We must provide a non-Nothing upper bound so that the "closed" vs "open" case can be tested.
           interval = ValidityInterval SNothing $ SJust $ SlotNo $ currentSlot + txValidity
@@ -123,7 +122,7 @@ spec = describe "UTXOS" $ do
             let
               overrideExUnits tx = do
                 pp <- getsNES $ nesEsL . curPParamsEpochStateL
-                entries <- allocations <$> getsNES utxoStoreG
+                entries <- getAllocations
                 Globals {epochInfo, systemStart} <- use impGlobalsL
                 purposeUnits <-
                   either (fail . show) pure . sequence $
@@ -160,7 +159,7 @@ spec = describe "UTXOS" $ do
             logToExpr txBorked
 
             pp <- getsNES $ nesEsL . curPParamsEpochStateL
-            entries <- allocations <$> getsNES utxoStoreG
+            entries <- getAllocations
             Globals {epochInfo, systemStart} <- use impGlobalsL
             let report = evalTxExUnits pp txBorked entries epochInfo systemStart
             logToExpr report

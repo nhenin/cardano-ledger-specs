@@ -200,7 +200,7 @@ snaps
     where
       pstate = certState ^. certPStateL
       dstate = certState ^. certDStateL
-      u = UTxO . Allocations.toTxOutMap . allocations $ store
+      u = Allocations.toTxOutMap . allocations $ store
       snap = stakeDistr u dstate pstate
       mark = mkMarkSnapShot snap (EpochNo 0) 0 (EpochInterval 0)
       set = mkSetSnapShot mark

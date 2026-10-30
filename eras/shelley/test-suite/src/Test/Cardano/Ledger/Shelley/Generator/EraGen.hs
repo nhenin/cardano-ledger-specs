@@ -45,7 +45,9 @@ import Cardano.Ledger.Shelley.LedgerState (StashedAVVMAddresses, UTxOState (..))
 import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.Rules (UtxoEnv)
 import Cardano.Ledger.Shelley.TxBody (ShelleyEraTxBody)
-import Cardano.Ledger.State (EraCertState, UTxO)
+import Cardano.Ledger.State (
+  EraCertState,
+ )
 import Cardano.Ledger.TxIn (TxId (TxId), TxIn)
 import Cardano.Protocol.TPraos.BlockHeader (BHeader)
 import Cardano.Slotting.Slot (SlotNo)
@@ -179,7 +181,7 @@ class
   -- additional script witnessing.
   genEraTxBody ::
     GenEnv c era ->
-    UTxO era ->
+    TxOutMap era ->
     PParams era ->
     SlotNo ->
     Set TxIn ->
@@ -196,7 +198,7 @@ class
 
   -- | Update an era-specific TxBody
   updateEraTxBody ::
-    UTxO era ->
+    TxOutMap era ->
     PParams era ->
     TxWits era ->
     TxBody TopTx era ->
@@ -221,7 +223,7 @@ class
   -- use Test.Cardano.Ledger.Shelley.Generator.Update(genDecentralisationParam) in your instance.
 
   genEraTxWits ::
-    (UTxO era, TxBody TopTx era, ScriptInfo era) ->
+    (TxOutMap era, TxBody TopTx era, ScriptInfo era) ->
     Set (WitVKey Witness) ->
     Map ScriptHash (Script era) ->
     TxWits era
@@ -245,7 +247,7 @@ class
 
   -- | A final opportunity to tweak things when the generator is done. Possible uses
   --   1) Add tracing when debugging on a per Era basis
-  genEraDone :: UTxO era -> PParams era -> Tx TopTx era -> Gen (Tx TopTx era)
+  genEraDone :: TxOutMap era -> PParams era -> Tx TopTx era -> Gen (Tx TopTx era)
   genEraDone _utxo _pp x = pure x
 
   -- | A final opportunity to tweak things at the block level. Possible uses
@@ -256,7 +258,7 @@ class
   hasFailedScripts :: Tx TopTx era -> Bool
   hasFailedScripts = const False
 
-  feeOrCollateral :: Tx TopTx era -> UTxO era -> Coin
+  feeOrCollateral :: Tx TopTx era -> TxOutMap era -> Coin
   feeOrCollateral tx _ = tx ^. bodyTxL . feeTxBodyL
 
 {------------------------------------------------------------------------------
@@ -267,7 +269,7 @@ class
 someKeyPairs :: Constants -> (Int, Int) -> Gen KeyPairs
 someKeyPairs c range = take <$> choose range <*> shuffle (keyPairs c)
 
-genUtxo0 :: forall era c. EraGen era => GenEnv c era -> Gen (UTxO era)
+genUtxo0 :: forall era c. EraGen era => GenEnv c era -> Gen (TxOutMap era)
 genUtxo0 ge@(GenEnv _ _ c@Constants {minGenesisUTxOouts, maxGenesisUTxOouts}) = do
   let range = (minGenesisUTxOouts `div` 2, maxGenesisUTxOouts `div` 2)
   genesisKeys <- someKeyPairs c range

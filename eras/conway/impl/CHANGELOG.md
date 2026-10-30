@@ -2,6 +2,7 @@
 
 ## 1.25.0.0
 
+* Rename the output-map translation instance to `TranslateEra ConwayEra TxOutMap`. Block reference-script accounting uses `txOutsTxBody` and `TxOutMap` projections, preserving its selection rules, ledger behavior and serialized map formats.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 * Change `TICKF` to run the `SNAP` rule at the epoch boundary:
   - Add `SNAP` related constraints to the `STS` instance of `TICKF`

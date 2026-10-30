@@ -190,12 +190,12 @@ instance SpecTranslate ConwayEra (BabbageTxOut ConwayEra) where
     script' <- toSpecRep script
     pure (addr', (val', (datum', script')))
 
-instance SpecTranslate ConwayEra (UTxO ConwayEra) where
+instance SpecTranslate ConwayEra (TxOutMap ConwayEra) where
   type
-    SpecRep ConwayEra (UTxO ConwayEra) =
+    SpecRep ConwayEra (TxOutMap ConwayEra) =
       Agda.HSMap (SpecRep ConwayEra TxIn) (SpecRep ConwayEra (TxOut ConwayEra))
 
-  toSpecRep (UTxO m) = toSpecRepMap m
+  toSpecRep (TxOutMap m) = toSpecRepMap m
 
 deriving instance SpecTranslate ConwayEra OrdExUnits
 

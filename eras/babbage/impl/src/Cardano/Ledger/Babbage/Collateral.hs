@@ -17,7 +17,6 @@ import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))
 import Cardano.Ledger.BaseTypes (TxIx (..), txIxFromIntegral)
 import Cardano.Ledger.Coin (DeltaCoin, toDeltaCoin)
 import Cardano.Ledger.Core
-import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<->))
@@ -44,11 +43,11 @@ collAdaBalance txBody utxoCollateral = toDeltaCoin $
 collOuts ::
   BabbageEraTxBody era =>
   TxBody TopTx era ->
-  UTxO era
+  TxOutMap era
 collOuts txBody =
   case txBody ^. collateralReturnTxBodyL of
-    SNothing -> UTxO Map.empty
-    SJust txOut -> UTxO (Map.singleton (mkCollateralTxIn txBody) txOut)
+    SNothing -> TxOutMap Map.empty
+    SJust txOut -> TxOutMap (Map.singleton (mkCollateralTxIn txBody) txOut)
 
 mkCollateralTxIn :: EraTxBody era => TxBody l era -> TxIn
 mkCollateralTxIn txBody = TxIn (txIdTxBody txBody) txIx

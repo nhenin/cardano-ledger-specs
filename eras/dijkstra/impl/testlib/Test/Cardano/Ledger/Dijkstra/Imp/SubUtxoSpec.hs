@@ -185,7 +185,8 @@ spec = describe "SUBUTXO" $ do
           [ mkBasicTx $ mkBasicTxBody & inputsTxBodyL .~ [txIn]
           , mkBasicTx $ mkBasicTxBody & referenceInputsTxBodyL .~ [txIn]
           ]
-      getUTxO >>= (`expectUTxOContent` [(txIn, isNothing)])
+      currentAllocations <- getAllocations
+      expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "SubOutputBootAddrAttrsTooBig" $ do
     it "an output to a bootstrap address whose attributes exceed the limit" $ do
@@ -282,7 +283,8 @@ spec = describe "SUBUTXO" $ do
       mkBasicTxBody
         & inputsTxBodyL .~ [txIn]
         & referenceInputsTxBodyL .~ [txIn]
-    getUTxO >>= (`expectUTxOContent` [(txIn, isNothing)])
+    currentAllocations <- getAllocations
+    expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "Composite tests" $ do
     it

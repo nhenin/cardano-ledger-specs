@@ -347,7 +347,7 @@ instance
   def = NewEpochState (EpochNo 0) def def def def def
 
 type family StashedAVVMAddresses era where
-  StashedAVVMAddresses ShelleyEra = UTxO ShelleyEra
+  StashedAVVMAddresses ShelleyEra = TxOutMap ShelleyEra
   StashedAVVMAddresses _ = ()
 
 deriving stock instance

@@ -1,6 +1,6 @@
 # Dijkstra DepositStore verification record
 
-**Updated:** 29 October 2026
+**Updated:** 30 October 2026
 
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -76,12 +76,27 @@ legacy and Store-backed outputs. Both retain supplied accepted metadata, while
 legacy external refunds remain zero. Legacy imports without that metadata use
 provisional compatibility size and zero-rate V1 values, not recovered history.
 The `UTxOStore` type uses the `UTxOStore` record constructor and
-`DepositAmount` total. The `UTxO` type is retained in
-`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`. The complete-Store accessors are in
+`DepositAmount` total. Output-only views use `TxOutMap` from
+`Cardano.Ledger.TxOut.Map`; the old `UTxO` type and `LegacyUTxOMap` module are removed.
+The complete-Store accessors are in
 `Cardano.Ledger.State.UTxOs`; the Store model remains in
 `Cardano.Ledger.State.UTxOs.Store`. The allocation collection and entry model are
 now separated into `Allocations` and `Allocations.UTxO` within that namespace;
 calculation and shared errors have their own modules.
+
+`Core.txOutsTxBody` replaces `txouts`: it indexes a body's regular payloads,
+retaining the bounded output-index enumeration and excluding collateral return.
+The input, lookup, filter and balance helpers have been removed; callers use
+body lenses, allocation queries or output collection folds. `Allocations.toTxOutMap`
+and `txOutsForInputs` return `TxOutMap` directly. Store import uses
+`fromLegacyTxOutMap`, which still rejects Store-backed payloads lacking historical
+metadata. Legacy wire formats and credential sharing are retained.
+
+Imp tests read `getUTxOStore` or `getAllocations`; their `getUTxO` projection is
+removed. Wallet payload queries are named `getTxOutMap`, `getFilteredTxOutMap`
+and `getTxOutMapSubset`. These source-API changes complete the interface migration;
+the [30 October verification](#output-map-interface-on-30-october-2026) covers the
+completed migration. Earlier dated results retain their original scope.
 
 `Cardano.Ledger.TxOut` now owns `TxOut`, `NoNewTxOut`, the output classes,
 builders, lenses, value wrappers and collection queries. `Core` preserves its
@@ -177,8 +192,8 @@ Production state owns each live output in one allocation map. Both accepted outp
 forms retain their supplied full-output size and calculation. Store-backed entries
 retain their creation-time V1 price; legacy entries have zero external deposit.
 Imported legacy entries use provisional compatibility metadata, not recovered
-history. `fromAllocations`, decoding and `applyAllocationDelta`
-validate metadata and maintain the cached total; raw allocation construction is pure.
+history. `fromAllocations`, decoding and `allocate` validate incoming metadata;
+`allocate` and `release` preserve the exact cached total. Raw allocation construction is pure.
 Accounting queries selected input allocations directly. Ordinary validation checks per-body contributions, the batch net
 total and release destinations. Successful execution applies each body’s output delta once, while batch validation
 retains the original allocation store for historical input refunds. Collateral execution derives its own allocation, release and fee
@@ -219,7 +234,7 @@ have been replaced by real ledger submissions.
 | [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, retained noncanonical accepted sizes after state restoration and price changes, zero-price records from translated implicit sources, and inactive ordinary records on phase-2 failure. |
 | [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Seven generated checks preserve the original four contracts and add mixed-rate inputs with current-price replacement, a noncanonical child output and a noncanonical collateral return. Each historical output is snapshotted, restored and refunded after a price change. Independent metadata sums check the cached total. |
 | [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
-| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `fromAllocations` establishes exact cached equality and `applyAllocationDelta` preserves it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
+| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `fromAllocations` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
 | [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
 | [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | One generated property funds live Store records and crosses two actual ordinary epoch boundaries, preserving the same allocation map. It checks exact records, the epoch increment and unchanged parameters; historical size/rate metadata and the independently checked cached total are preserved. |
@@ -234,6 +249,46 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Output map interface on 30 October 2026
+
+Working-tree validation on `29df3e144` after removing `LegacyUTxOMap` and its
+`UTxO` type. `TxOutMap` owns payload-map codecs; `Core.txOutsTxBody` owns body
+indexing; accepted state continues to use `UTxOStore` and complete `Allocations`.
+Wallet queries, translations, events, tools, generators and test fixtures use
+the corresponding types. No compatibility alias for the old type remains.
+
+All **18 build targets passed**, covering core, era, API and canonical-state
+tests; shared generator and conformance libraries; and the affected tool and
+benchmark executables. The 119 changed Haskell source hashes matched the final
+build. Fourmolu and whitespace checks passed.
+
+| Executed group | Examples | Seconds |
+| --- | ---: | ---: |
+| Output-map shared codecs, Shelley through Dijkstra | 5 | 1.4689 |
+| Era translation compatibility and historical goldens | 23 | 7.7382 |
+| Canonical import/export and initial funds | 10 | 42.9813 |
+| API balances and certificate deposit refunds | 12 | 4.5758 |
+| Shelley chain examples and Alonzo collateral | 34 | 0.0761 |
+| DepositStore operation requirements and transaction balances | 62 | 10.5982 |
+| Store historical metadata and codecs | 13 | 68.8471 |
+| **Total** | **159** | **136.2856** |
+
+All selected examples passed, with zero failures. Properties used 100 generated
+cases where reported by the suite. The two test batches ran concurrently; the
+table sums each group's elapsed time, not overall wall-clock duration. This is
+targeted regression evidence, not a full-suite result. No golden files were
+regenerated. Historical parameter/size retention and legacy map bytes remain
+covered by the metadata, translation and canonical-state checks.
+
+All 209 semantic test links in the business document were checked against their
+DS identifiers; test order and titles remain unchanged. Ctags were refreshed.
+
+Local evidence: `/private/tmp/txoutmap-full-build-command.json`,
+`/private/tmp/txoutmap-full-build-5-result.json`,
+`/private/tmp/txoutmap-targeted-results.json`,
+`/private/tmp/txoutmap-source-hashes.json`, and
+`/private/tmp/txoutmap-doc-link-results.json`.
 
 ## Allocation-based read contracts on 29 October 2026
 
@@ -2910,3 +2965,53 @@ separate from enforcement of the remaining transaction rules.
 
 Future verification records should name their code checkpoint and actual run results.
 Business cases and required behavior remain in the business specification.
+
+## Allocation operations — 30 October 2026
+
+Working-tree validation on `29df3e144` after replacing `applyAllocationDelta` with
+`allocate` and `release`. `fromAllocations` now accepts `Allocations`; Dijkstra
+constructs regular and collateral-return allocations with an explicit calculation
+and preserves each supplied `Sized` output. Legacy payload formats are unchanged.
+
+The existing mixed-price property now checks release alone, replacement without
+prior release, and release followed by allocation at the same input. Each path
+preserves unrelated metadata and subtracts a replaced deposit once. Negative-size
+rejection and V2 metadata/codec coverage remain in the same test group.
+
+Nine build targets passed: core, Shelley, Alonzo, Babbage, Conway, Dijkstra and API
+test suites, the Shelley trace-test library, and canonical-state tests.
+
+| Executed group | Examples | Seconds |
+| --- | ---: | ---: |
+| Legacy submission / collateral | 16 | 0.3292 |
+| Store metadata and codecs | 13 | 72.9871 |
+| Dijkstra ledger effects | 24 | 379.0654 |
+| Deposit-specific collateral | 7 | 21.0974 |
+| Initial funds | 9 | 43.5344 |
+| Conway canonical UTxO import/export | 1 | 0.0299 |
+| **Total** | **70** | **517.0434** |
+
+All selected examples passed; this is not a full-suite result. Historical restoration
+and price-change properties account for most of the runtime. Source hashes matched
+the completed build; Fourmolu and whitespace checks passed, and ctags were refreshed.
+
+Local evidence: `/private/tmp/utxo-allocation-operations-build-result.json`,
+`/private/tmp/utxo-allocation-operations-targeted-results.json`, and
+`/private/tmp/utxo-allocation-operations-source-hashes.json`.
+
+### Mary translation review
+
+The earlier `ShelleyTxOut` → `TxOut` translation-instance change follows the
+introduction of the output wrapper. Mary still wraps `ShelleyTxOut` as its legacy
+variant; its new-output representation is uninhabited. The payload translation
+retains the same address coercion and compact-value injection.
+
+The existing Mary translation compatibility group passed **10 examples in 2.5541 s**,
+including output, UTxO and ledger-state CBOR comparisons. This verifies encoding
+behavior, not source compatibility with the removed
+`TranslateEra MaryEra ShelleyTxOut` instance. Both concrete and wrapper instances
+can coexist; no current direct concrete-instance caller was found in the repository.
+No Mary production source was modified during this pass.
+
+Evidence: `/private/tmp/utxo-mary-translation-build.log` and
+`/private/tmp/utxo-mary-translation-tests-result.json`.

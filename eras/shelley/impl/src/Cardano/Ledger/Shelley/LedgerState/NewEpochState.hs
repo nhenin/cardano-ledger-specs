@@ -61,7 +61,7 @@ genesisState ::
   forall era.
   (EraTxOut era, EraGov era, EraCertState era, EraStake era) =>
   Map (KeyHash GenesisRole) GenDelegPair ->
-  UTxO era ->
+  TxOutMap era ->
   LedgerState era
 genesisState genDelegs0 utxo0 =
   LedgerState
@@ -69,7 +69,7 @@ genesisState genDelegs0 utxo0 =
         ( either
             (error . ("genesisState: expected legacy outputs: " <>) . show)
             id
-            $ fromLegacyUTxO utxo0
+            $ fromLegacyTxOutMap utxo0
         )
         (Coin 0)
         (Coin 0)

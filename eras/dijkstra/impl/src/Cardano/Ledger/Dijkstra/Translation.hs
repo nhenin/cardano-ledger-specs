@@ -234,6 +234,5 @@ instance TranslateEra DijkstraEra UTxOStore where
       upgradeImplicit :: TxOut ConwayEra -> LegacyTxOut DijkstraEra
       upgradeImplicit (LegacyTxOut output) = upgradeBabbageTxOut output
 
-instance TranslateEra DijkstraEra UTxO where
-  translateEra _ctxt utxo =
-    pure $ UTxO $ upgradeTxOut `Map.map` unUTxO utxo
+instance TranslateEra DijkstraEra TxOutMap where
+  translateEra _ = pure . TxOutMap . Map.map upgradeTxOut . unTxOutMap

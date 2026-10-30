@@ -189,9 +189,9 @@ data DijkstraSubUtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (UTxO era)
+      (TxOutMap era)
       -- | UTxO created
-      (UTxO era)
+      (TxOutMap era)
   deriving (Generic)
 
 deriving instance (Era era, Eq (TxOut era)) => Eq (DijkstraSubUtxoEvent era)

@@ -142,8 +142,8 @@ poolDistrZero = def
 accountStateZero :: ChainAccountState
 accountStateZero = ChainAccountState (Coin 0) (Coin 0)
 
-utxoZero :: UTxO era
-utxoZero = UTxO Map.empty
+utxoZero :: TxOutMap era
+utxoZero = TxOutMap Map.empty
 
 genDelegsZero :: GenDelegs
 genDelegsZero = GenDelegs Map.empty
@@ -270,7 +270,7 @@ instance Reflect era => Extract (UTxOState era) era where
   extract x =
     smartUTxOState
       (mPParams x)
-      (UTxO (mUTxO x))
+      (TxOutMap (mUTxO x))
       (mDeposited x)
       (mFees x)
       emptyGovState
@@ -327,7 +327,7 @@ abstract x =
         )
           x
     , mAccounts = (dsAccounts . certDState . lsCertState . esLState . nesEs) x
-    , mUTxO = Allocations.toTxOutMap . allocations $ x ^. utxoStoreG
+    , mUTxO = unTxOutMap . Allocations.toTxOutMap . allocations $ x ^. utxoStoreG
     , mMutFee = Map.empty
     , mChainAccountState = (esChainAccountState . nesEs) x
     , mPoolDistr = (unPoolDistr . view nesStakePoolDistrG) x

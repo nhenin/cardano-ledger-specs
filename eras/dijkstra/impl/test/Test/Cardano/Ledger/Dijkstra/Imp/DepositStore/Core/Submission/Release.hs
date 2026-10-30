@@ -53,7 +53,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsUTxOStateL,
   nesEsL,
  )
-import Cardano.Ledger.State (UTxO (..), allocations, lookupUTxO)
+import Cardano.Ledger.State (
+  allocations,
+  lookupUTxO,
+ )
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
@@ -361,17 +364,18 @@ submitTxAndExpectSuccess ledgerState tx = do
       retainedOutputs = Allocations.toTxOutMap . Allocations.withoutInputs consumed . allocations $ before
   withNoFixup $ submitTx_ fixed
   afterState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
-  UTxO outputsAfter <- getUTxO
   let after = liveOutputStore afterState
+      allocationsAfter = allocations after
   recordedAmounts after
     `shouldBe` Map.union newAllocations (Map.withoutKeys (recordedAmounts before) consumed)
   storedDepositTotal after
     `shouldBe` (storedDepositTotal before <> foldMap id newAllocations)
     <-> released
-  Map.restrictKeys outputsAfter consumed `shouldBe` Map.empty
-  Map.restrictKeys outputsAfter (Map.keysSet retainedOutputs) `shouldBe` retainedOutputs
+  Allocations.txOutsForInputs consumed allocationsAfter `shouldBe` mempty
+  Allocations.txOutsForInputs (Map.keysSet . unTxOutMap $ retainedOutputs) allocationsAfter
+    `shouldBe` retainedOutputs
   forM_ (zip [0 ..] $ toList $ fixed ^. bodyTxL . outputsTxBodyL) $ \(index, output) ->
-    Map.lookup (txInAt index fixed) outputsAfter `shouldBe` Just output
+    (UTxO.toTxOut <$> lookupUTxO (txInAt index fixed) allocationsAfter) `shouldBe` Just output
 
 -- | Fund the optional TopTx source, one to five ordered SubTx sources and one unrelated Store
 -- allocation through a real transaction. Each body proposes an implicit output

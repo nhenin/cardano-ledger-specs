@@ -2,6 +2,7 @@
 
 ## 1.10.2.1
 
+* Replace the output-only `UTxO` type with `TxOutMap` in era translation and `TxUTxODiff` event payloads; index regular outputs with `txOutsTxBody`. The rename preserves ledger behavior and serialized map formats.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.10.2.0

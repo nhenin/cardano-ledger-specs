@@ -21,6 +21,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
   UTxOState (..),
  )
+import Cardano.Ledger.TxOut.Map (TxOutMap)
 import Constrained.API
 import Data.Kind (Type)
 import Data.Map (Map)
@@ -149,7 +150,7 @@ specSuite n = do
     epn <- genFromSpec epochNoSpec
     pure (conwayCertStateSpec univ context (lit epn))
 
-  soundSpecWith @(UTxO era) (5 * n) (utxoSpecWit @era <$> universe !*! delegationsSpec)
+  soundSpecWith @(TxOutMap era) (5 * n) (utxoSpecWit @era <$> universe !*! delegationsSpec)
 
   soundSpecWith @(UTxOState era) (2 * n) utxoStateGen
 

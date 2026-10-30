@@ -50,6 +50,7 @@ import Cardano.Ledger.State.UTxOs.Allocations.UTxO (Unspent)
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.State.UTxOs.Deposit (DepositAmount (..))
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Control.DeepSeq (NFData (..))
 import Data.Aeson (ToJSON (..))
 import Data.Foldable (foldMap')
@@ -113,12 +114,12 @@ txOuts = map UTxO.toTxOut . unspentOutputs
 
 -- | Read output payloads keyed by input. Historical sizes and calculations remain
 -- in the allocations; this view is for APIs that consume only transaction outputs.
-toTxOutMap :: Allocations era -> Map TxIn (TxOut era)
-toTxOutMap = mapTxOuts id
+toTxOutMap :: Allocations era -> TxOutMap era
+toTxOutMap = TxOutMap . mapTxOuts id
 
 -- | Read existing outputs for the requested inputs. Select allocations before
 -- projecting them, so unrelated outputs are not traversed. Missing inputs are omitted.
-txOutsForInputs :: Set TxIn -> Allocations era -> Map TxIn (TxOut era)
+txOutsForInputs :: Set TxIn -> Allocations era -> TxOutMap era
 txOutsForInputs inputs = toTxOutMap . restrictToInputs inputs
 
 -- | Transform output payloads in one traversal, preserving their input keys.

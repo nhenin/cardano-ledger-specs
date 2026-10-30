@@ -162,7 +162,7 @@ producedTxBody ::
   Produced
 producedTxBody txBody pp dpstate =
   Produced
-    { proOutputs = sumCoinUTxO (txouts txBody)
+    { proOutputs = sumAllCoin . unTxOutMap . txOutsTxBody $ txBody
     , proFees = txBody ^. feeTxBodyL
     , proDeposits = certsTotalDepositsTxBody pp dpstate txBody
     }

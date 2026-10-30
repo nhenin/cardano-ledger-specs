@@ -155,9 +155,8 @@ instance TranslateEra BabbageEra UTxOState where
 instance TranslateEra BabbageEra ShelleyInstantStake where
   translateEra _ = pure . coerce
 
-instance TranslateEra BabbageEra UTxO where
-  translateEra _ctxt utxo =
-    pure $ UTxO $ upgradeTxOut `Map.map` unUTxO utxo
+instance TranslateEra BabbageEra TxOutMap where
+  translateEra _ = pure . TxOutMap . Map.map upgradeTxOut . unTxOutMap
 
 instance TranslateEra BabbageEra ShelleyGovState where
   translateEra ctxt ps =

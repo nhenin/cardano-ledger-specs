@@ -12,7 +12,6 @@ import Cardano.Ledger.Credential (
   Ptr (..),
   StakeReference (..),
  )
-import Cardano.Ledger.State (UTxO (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Data.Map.Strict as Map
 
@@ -96,5 +95,5 @@ instance Terse Coin where
 instance Terse (CompactForm Coin) where
   terse (CompactCoin n) = show n
 
-terseutxo :: Terse (TxOut era) => String -> UTxO era -> String
-terseutxo message (UTxO mp) = terselist message (Map.toList mp)
+terseutxo :: Terse (TxOut era) => String -> TxOutMap era -> String
+terseutxo message (TxOutMap mp) = terselist message (Map.toList mp)

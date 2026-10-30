@@ -52,7 +52,7 @@ allegraTranslationTests =
     , testProperty "ProposedPPUpdates compatibility" (testTranslation @S.ProposedPPUpdates)
     , testProperty "ShelleyGovState compatibility" (testTranslation @S.ShelleyGovState)
     , testProperty "TxOut compatibility" (testTranslation @TxOut)
-    , testProperty "UTxO compatibility" (testTranslation @S.UTxO)
+    , testProperty "TxOutMap compatibility" (testTranslation @S.TxOutMap)
     , testProperty "UTxOState compatibility" (testTranslation @S.UTxOState)
     , testProperty "LedgerState compatibility" (testTranslation @S.LedgerState)
     , testProperty "EpochState compatibility" (testTranslation @S.EpochState)

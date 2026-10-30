@@ -31,6 +31,7 @@ import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (FromByronTranslationContext (..))
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (zero, (<->))
 import qualified Data.ByteString.Short as SBS
 import Data.Default (def)
@@ -75,9 +76,9 @@ translateCompactTxInByronToShelley (Byron.CompactTxInUtxo compactTxId idx) =
 
 translateUTxOByronToShelley ::
   Byron.UTxO ->
-  UTxO ShelleyEra
+  TxOutMap ShelleyEra
 translateUTxOByronToShelley (Byron.UTxO utxoByron) =
-  UTxO $
+  TxOutMap $
     Map.fromList
       [ (txInShelley, txOutShelley)
       | (txInByron, txOutByron) <- Map.toList utxoByron
@@ -119,7 +120,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
               Allocations.filterByTxOut
                 (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
                 storedAllocations
-         in UTxO . Allocations.toTxOutMap $ redeemers
+         in Allocations.toTxOutMap redeemers
     }
   where
     pparams :: PParams ShelleyEra
@@ -140,7 +141,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
 
     reserves :: Coin
     reserves =
-      word64ToCoin (fbtcMaxLovelaceSupply transCtxt) <-> sumCoinUTxO utxoShelley
+      word64ToCoin (fbtcMaxLovelaceSupply transCtxt) <-> (sumAllCoin . unTxOutMap $ utxoShelley)
 
     epochState :: EpochState ShelleyEra
     epochState =
@@ -157,7 +158,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
         & prevPParamsEpochStateL .~ pparams
         & curPParamsEpochStateL .~ pparams
 
-    utxoShelley :: UTxO ShelleyEra
+    utxoShelley :: TxOutMap ShelleyEra
     utxoShelley = translateUTxOByronToShelley utxoByron
 
     ledgerState :: LedgerState ShelleyEra
@@ -169,7 +170,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
                   either
                     (error . ("translateToShelleyLedgerStateFromUtxo: expected legacy outputs: " <>) . show)
                     id
-                    $ fromLegacyUTxO utxoShelley
+                    $ fromLegacyTxOutMap utxoShelley
               , utxosDeposited = Coin 0
               , utxosFees = Coin 0
               , utxosGovState = emptyGovState

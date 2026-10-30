@@ -160,9 +160,8 @@ instance TranslateEra MaryEra ShelleyInstantStake where
 instance TranslateEra MaryEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
-instance TranslateEra MaryEra UTxO where
-  translateEra ctxt utxo =
-    return $ UTxO (translateEra' ctxt `Map.map` unUTxO utxo)
+instance TranslateEra MaryEra TxOutMap where
+  translateEra ctxt = pure . TxOutMap . Map.map (translateEra' ctxt) . unTxOutMap
 
 instance TranslateEra MaryEra ShelleyTxWits where
   type TranslationError MaryEra ShelleyTxWits = DecoderError

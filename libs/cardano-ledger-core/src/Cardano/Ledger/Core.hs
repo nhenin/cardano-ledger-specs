@@ -32,6 +32,7 @@ module Cardano.Ledger.Core (
   EraTx (..),
   txIdTx,
   TxOut (..),
+  TxOutMap (..),
   NoNewTxOut,
   EraTxOut (..),
   EraLegacyTxOut (..),
@@ -41,6 +42,7 @@ module Cardano.Ledger.Core (
   bootAddrTxOutF,
   EraTxBody (..),
   txIdTxBody,
+  txOutsTxBody,
   EraTxAuxData (..),
   modifyTxAuxData,
   hashTxAuxData,
@@ -110,12 +112,14 @@ import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Metadata
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.TxOut
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Control.DeepSeq (NFData)
 import Control.Monad.Except (Except)
 import Control.Monad.Trans.Fail.String (errorFail)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Foldable (toList)
 import Data.Kind (Constraint, Type)
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
@@ -495,6 +499,18 @@ txIdTx tx = txIdTxBody (tx ^. bodyTxL)
 
 txIdTxBody :: EraTxBody era => TxBody l era -> TxId
 txIdTxBody = TxId . hashAnnotated
+
+-- | Index a body's regular output payloads by the inputs that would spend them.
+-- This does not construct accepted allocations or include a collateral return.
+-- The positional indices retain the existing bounded @TxIx@ enumeration.
+txOutsTxBody :: forall era l. EraTxBody era => TxBody l era -> TxOutMap era
+txOutsTxBody txBody =
+  TxOutMap . Map.fromList $
+    [ (TxIn transId idx, out)
+    | (out, idx) <- zip (toList $ txBody ^. outputsTxBodyL) [minBound ..]
+    ]
+  where
+    transId = txIdTxBody txBody
 
 -- | txsize computes the length of the serialised bytes (actual size)
 wireSizeTxF :: forall era l. EraTx era => SimpleGetter (Tx l era) Word32

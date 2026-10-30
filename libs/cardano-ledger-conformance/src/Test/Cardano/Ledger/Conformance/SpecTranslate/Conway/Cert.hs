@@ -115,7 +115,7 @@ instance SpecTranslate ConwayEra (UTxOState ConwayEra) where
       deposits = depositsMap certState props
     withCtxSpecTransM () $
       Agda.MkUTxOState
-        <$> (toSpecRep . UTxO . Allocations.toTxOutMap . allocations $ utxosUTxOStore)
+        <$> (toSpecRep . Allocations.toTxOutMap . allocations $ utxosUTxOStore)
         <*> toSpecRep utxosFees
         <*> deposits
         <*> toSpecRep utxosDonation

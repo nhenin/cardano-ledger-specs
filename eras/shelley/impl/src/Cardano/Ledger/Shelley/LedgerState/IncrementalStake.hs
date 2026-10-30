@@ -52,7 +52,7 @@ import Lens.Micro
 smartUTxOState ::
   (EraTxOut era, EraStake era) =>
   PParams era ->
-  UTxO era ->
+  TxOutMap era ->
   Coin ->
   Coin ->
   GovState era ->
@@ -63,12 +63,12 @@ smartUTxOState _pp utxo c1 c2 st donation =
     ( either
         (error . ("smartUTxOState: expected legacy outputs: " <>) . show)
         id
-        $ fromLegacyUTxO utxo
+        $ fromLegacyTxOutMap utxo
     )
     c1
     c2
     st
-    (addInstantStake (unUTxO utxo) mempty)
+    (addInstantStake (unTxOutMap utxo) mempty)
     donation
 
 -- =====================================================

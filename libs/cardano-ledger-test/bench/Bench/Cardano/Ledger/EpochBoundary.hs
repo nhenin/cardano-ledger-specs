@@ -18,7 +18,6 @@ import Cardano.Ledger.Credential (
  )
 import Cardano.Ledger.Mary (MaryEra)
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
-import Cardano.Ledger.State (UTxO (UTxO))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq (NFData (..), deepseq)
@@ -97,9 +96,9 @@ utxo ::
   Word64 ->
   Map Ptr c ->
   Int ->
-  UTxO TestEra
+  TxOutMap TestEra
 utxo noUnstaked noBase ptrMap dupFactor =
-  UTxO . Map.fromList $
+  TxOutMap . Map.fromList $
     txIns
       `zip` ( genericReplicate noUnstaked txOutUnstaked
                 <> cycleTimes dupFactor stakedTxs
@@ -115,7 +114,7 @@ utxo noUnstaked noBase ptrMap dupFactor =
 
 data AggTestSetup = AggTestSetup
   { atsPtrMap :: !(Map Ptr (Credential Staking))
-  , atsUTxO :: !(UTxO TestEra)
+  , atsUTxO :: !(TxOutMap TestEra)
   }
 
 instance NFData AggTestSetup where

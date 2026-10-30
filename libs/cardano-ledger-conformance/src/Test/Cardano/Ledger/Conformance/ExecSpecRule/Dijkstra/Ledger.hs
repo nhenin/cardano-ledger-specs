@@ -239,7 +239,7 @@ instance ExecSpecTopLevelRule "LEDGER" DijkstraEra where
       , dlecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
-            , uecUTxO = UTxO . Allocations.toTxOutMap . allocations $ state ^. utxoStoreG
+            , uecUTxO = Allocations.toTxOutMap . allocations $ state ^. utxoStoreG
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL

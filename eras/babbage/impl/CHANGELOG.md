@@ -2,6 +2,7 @@
 
 ## 1.15.0.1
 
+* Replace the output-only `UTxO` type with `TxOutMap` in era translation and the result of `collOuts`. Preserve collateral-return indexing, ledger behavior and serialized map formats.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.15.0.0

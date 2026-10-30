@@ -52,7 +52,7 @@ import qualified Data.Map.Strict as Map
 -- _back_ to the translation functions as the UTxO, allowing these addresses to
 -- be removed. This is needed because we cannot do a full scan on the UTxO at
 -- this point, since it has been persisted to disk.
-shelleyToAllegraAVVMsToDelete :: NewEpochState ShelleyEra -> UTxO ShelleyEra
+shelleyToAllegraAVVMsToDelete :: NewEpochState ShelleyEra -> TxOutMap ShelleyEra
 shelleyToAllegraAVVMsToDelete = stashedAVVMAddresses
 
 instance TranslateEra AllegraEra NewEpochState where
@@ -106,9 +106,8 @@ instance TranslateEra AllegraEra ShelleyGovState where
 instance TranslateEra AllegraEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
-instance TranslateEra AllegraEra UTxO where
-  translateEra ctxt utxo =
-    return $ UTxO (translateEra' ctxt `Map.map` unUTxO utxo)
+instance TranslateEra AllegraEra TxOutMap where
+  translateEra ctxt = pure . TxOutMap . Map.map (translateEra' ctxt) . unTxOutMap
 
 instance TranslateEra AllegraEra Store.UTxOStore where
   translateEra ctxt = pure . Store.translateLegacyStore translateOutput

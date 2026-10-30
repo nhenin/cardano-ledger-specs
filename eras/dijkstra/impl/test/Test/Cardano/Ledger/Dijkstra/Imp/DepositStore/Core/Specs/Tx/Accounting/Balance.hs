@@ -29,7 +29,8 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), MultiAsset (..))
-import Cardano.Ledger.Shelley.LedgerState (UTxO (..))
+import Cardano.Ledger.State.UTxOs.Allocations (Allocations, lookupUTxO)
+import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val (isAdaOnly, (<->)), inject)
@@ -57,8 +58,8 @@ data Balance = Balance
 -- | Sum resolved application inputs and proposed outputs directly, without the
 -- production consumed/produced or deposit-accounting helpers. Missing or repeated
 -- ordinary inputs are fixture errors, not silently omitted values.
-balance :: UTxO DijkstraEra -> Tx TopTx DijkstraEra -> Balance
-balance (UTxO sources) tx =
+balance :: Allocations DijkstraEra -> Tx TopTx DijkstraEra -> Balance
+balance sources tx =
   let children = OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL
       inputs =
         toList (tx ^. bodyTxL . inputsTxBodyL) <> concatMap (toList . (^. bodyTxL . inputsTxBodyL)) children
@@ -73,10 +74,10 @@ balance (UTxO sources) tx =
             (outputValues <> inject (tx ^. bodyTxL . feeTxBodyL) <> inject (Coin $ max 0 declared))
 
 -- | Look up an actual funded input; an unresolved input cannot establish balance.
-inputValue :: Map.Map TxIn (TxOut DijkstraEra) -> TxIn -> MaryValue
+inputValue :: Allocations DijkstraEra -> TxIn -> MaryValue
 inputValue sources input =
-  case Map.lookup input sources of
-    Just output -> outputValue output
+  case lookupUTxO input sources of
+    Just output -> outputValue . Unspent.toTxOut $ output
     Nothing -> error "Balance oracle encountered an unfunded ordinary input"
 
 -- | Application value of this body's own outputs, excluding nested bodies.

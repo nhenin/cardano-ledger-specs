@@ -1814,7 +1814,8 @@ showConwayTxBalance pp certState entries tx =
     ]
   where
     txBody = tx ^. bodyTxL
-    Assets inputs = sumAllAssets . Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) $ entries
+    Assets inputs =
+      sumAllAssets . Allocations.txOuts . Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
     Assets outputs = sumAllAssets (txBody ^. outputsTxBodyL)
     accounts = certState ^. certDStateL . accountsL
     pState = certState ^. certPStateL
@@ -1833,7 +1834,7 @@ logConwayTxBalance ::
 logConwayTxBalance tx = do
   pp <- getsPParams id
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   logString $ showConwayTxBalance pp certState entries tx
 
 submitBootstrapAwareFailingVote ::

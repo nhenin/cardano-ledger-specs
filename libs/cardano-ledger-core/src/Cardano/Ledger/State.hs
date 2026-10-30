@@ -8,7 +8,6 @@ module Cardano.Ledger.State (
   module Cardano.Ledger.State.UTxOs.Deposit,
   module Cardano.Ledger.State.UTxOs.Store.Error,
   module Cardano.Ledger.State.UTxOs.Store,
-  module Cardano.Ledger.State.UTxOs.LegacyUTxOMap,
   module Cardano.Ledger.State.LeiosCommittee,
   module Cardano.Ledger.State.PoolDistr,
   module Cardano.Ledger.State.SnapShots,
@@ -30,6 +29,5 @@ import Cardano.Ledger.State.UTxOs
 import Cardano.Ledger.State.UTxOs.Allocations
 import Cardano.Ledger.State.UTxOs.Allocations.UTxO (Unspent (..))
 import Cardano.Ledger.State.UTxOs.Deposit
-import Cardano.Ledger.State.UTxOs.LegacyUTxOMap
 import Cardano.Ledger.State.UTxOs.Store
 import Cardano.Ledger.State.UTxOs.Store.Error

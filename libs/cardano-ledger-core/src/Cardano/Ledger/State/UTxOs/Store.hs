@@ -22,10 +22,11 @@ module Cardano.Ledger.State.UTxOs.Store (
   fromAllocations,
 
   -- * Updates
-  applyAllocationDelta,
+  allocate,
+  release,
 
   -- * Legacy compatibility
-  fromLegacyUTxO,
+  fromLegacyTxOutMap,
   fromLegacyAllocations,
   translateLegacyStore,
   applyLegacyOutputDelta,
@@ -43,7 +44,6 @@ import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.State.UTxOs.Allocations.UTxO (Unspent (..))
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.State.UTxOs.Deposit
-import Cardano.Ledger.State.UTxOs.LegacyUTxOMap (UTxO (..))
 import Cardano.Ledger.State.UTxOs.Store.Error
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val ((<->))
@@ -73,48 +73,54 @@ emptyUTxOStore =
     , allocations = Allocations {unAllocations = Map.empty}
     }
 
-fromAllocations ::
-  Map TxIn (Unspent (TxOut era)) -> Either OutputStoreError (UTxOStore era)
-fromAllocations entries = do
-  validateAcceptedSizes entries
-  let amount = Allocations.sumDepositAmounts $ Allocations entries
-  pure $
-    UTxOStore
-      { totalDepositAmount = amount
-      , allocations = Allocations {unAllocations = entries}
-      }
+-- | Construct a Store from complete entries and derive its deposit total.
+fromAllocations :: Allocations era -> Either OutputStoreError (UTxOStore era)
+fromAllocations entries = allocate entries emptyUTxOStore
 
 -- Check externally supplied metadata before it becomes part of a Store.
 -- Reading deposits from an accepted Store requires no validation.
-validateAcceptedSizes :: Map TxIn (Unspent (TxOut era)) -> Either OutputStoreError ()
-validateAcceptedSizes = traverse_ $ \entry ->
-  let size = sizedSize $ sizedOutput entry
-   in when (size < 0) $ Left $ NegativeOutputSize size
+validateAcceptedSizes :: Allocations era -> Either OutputStoreError ()
+validateAcceptedSizes = traverse_ validateSize . unAllocations
+  where
+    validateSize entry =
+      let size = sizedSize $ sizedOutput entry
+       in when (size < 0) $ Left $ NegativeOutputSize size
 
--- | Atomically remove consumed entries and insert complete accepted allocations.
--- New entries replace matching keys. Account for those replacements too, so the
--- cached total is correct even when this helper is used outside transaction rules.
--- Unaffected allocations retain their original size and calculation unchanged.
-applyAllocationDelta ::
-  Set TxIn ->
-  Map TxIn (Unspent (TxOut era)) ->
+-- | Insert complete allocations and add their deposits to the total.
+-- Existing entries at the same inputs are replaced: their deposits are released
+-- before the new amounts are added. Unaffected historical metadata is retained.
+allocate ::
+  Allocations era ->
   UTxOStore era ->
   Either OutputStoreError (UTxOStore era)
-applyAllocationDelta consumed created previous = do
-  validateAcceptedSizes created
-  let removedAmount = toCoin $ Allocations.allocatedDepositTotalAmount removedKeys $ allocations previous
-      createdAmount = toCoin $ Allocations.sumDepositAmounts $ Allocations created
-      previousAmount = toCoin $ totalDepositAmount previous
-      newAmount = (previousAmount <-> removedAmount) <> createdAmount
-      newEntries = Map.union created $ Map.withoutKeys previousEntries consumed
+allocate newAllocations previousStore = do
+  validateAcceptedSizes newAllocations
+  let retainedStore = release (Map.keysSet . unAllocations $ newAllocations) previousStore
+      allocatedDepositAmount = toCoin . Allocations.sumDepositAmounts $ newAllocations
   pure $
-    previous
-      { totalDepositAmount = DepositAmount {toCoin = newAmount}
-      , allocations = Allocations {unAllocations = newEntries}
+    retainedStore
+      { totalDepositAmount =
+          DepositAmount {toCoin = (toCoin . totalDepositAmount $ retainedStore) <> allocatedDepositAmount}
+      , allocations =
+          Allocations $
+            Map.union (unAllocations newAllocations) (unAllocations . allocations $ retainedStore)
       }
-  where
-    previousEntries = unAllocations $ allocations previous
-    removedKeys = consumed <> Map.keysSet created
+
+-- | Remove the selected allocations and subtract their historical deposits.
+-- Inputs absent from the Store have no effect; retained entries are unchanged.
+release :: Set TxIn -> UTxOStore era -> UTxOStore era
+release inputs previousStore =
+  case Allocations.extractInputs inputs (allocations previousStore) of
+    (remainingAllocations, releasedAllocations) ->
+      previousStore
+        { totalDepositAmount =
+            DepositAmount
+              { toCoin =
+                  (toCoin . totalDepositAmount $ previousStore)
+                    <-> (toCoin . Allocations.sumDepositAmounts $ releasedAllocations)
+              }
+        , allocations = remainingAllocations
+        }
 
 -- Legacy compatibility
 
@@ -123,24 +129,24 @@ applyAllocationDelta consumed created previous = do
 applyLegacyOutputDelta ::
   EraTxOut era =>
   Set TxIn ->
-  UTxO era ->
+  TxOutMap era ->
   UTxOStore era ->
   Either OutputStoreError (UTxOStore era)
 applyLegacyOutputDelta consumed created previous = do
-  newStore <- fromLegacyUTxO created
-  applyAllocationDelta consumed (unAllocations $ allocations newStore) previous
+  newStore <- fromLegacyTxOutMap created
+  allocate (allocations newStore) . release consumed $ previous
 
 -- | This conversion is only for legacy outputs. It cannot reconstruct the
 -- accepted size or historical rate of an existing store-backed output.
-fromLegacyUTxO :: EraTxOut era => UTxO era -> Either OutputStoreError (UTxOStore era)
-fromLegacyUTxO (UTxO outputs) =
+fromLegacyTxOutMap :: EraTxOut era => TxOutMap era -> Either OutputStoreError (UTxOStore era)
+fromLegacyTxOutMap (TxOutMap outputs) =
   fromLegacyAllocations <$> Map.traverseWithKey requireLegacyOutput outputs
   where
     requireLegacyOutput input = \case
       LegacyTxOut output -> Right output
       NewTxOut _ -> Left $ MissingHistoricalAllocation input
 
--- | Provisional compatibility conversion while legacy migration is undecided.
+-- | Import legacy output payloads without historical deposit metadata.
 -- Re-encoded size and V1 with a zero rate are NOT historical pricing inputs.
 -- Legacy outputs contribute zero to the Store regardless of this metadata.
 -- Outputs accepted in Dijkstra construct 'Unspent' directly, preserving
@@ -221,11 +227,11 @@ instance EraTxOut era => DecShareCBOR (UTxOStore era) where
   decShareCBOR credentials
     | eraProtVerLow @era < natVersion @12 = do
         outputs <- decShareCBOR credentials
-        either (fail . show) pure $ fromLegacyUTxO outputs
+        either (fail . show) pure $ fromLegacyTxOutMap outputs
     | otherwise = decodeRecordNamed "UTxOStore" (const 2) $ do
         supplied <- Coin <$> decCBOR
         entries <- decodeMap decNoShareCBOR (decShareCBOR credentials)
-        store <- either (fail . show) pure $ fromAllocations entries
+        store <- either (fail . show) pure . fromAllocations $ Allocations entries
         let expected = toCoin $ totalDepositAmount store
         unless (supplied == expected) $
           fail $

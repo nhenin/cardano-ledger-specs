@@ -15,10 +15,10 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations (
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.State (UTxO (..))
+import Cardano.Ledger.State.UTxOs.Allocations (Allocations)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
-import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Set as Set
 import Lens.Micro
@@ -71,14 +71,14 @@ outputWithForm address StoreBackedOutput amount =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
 
 -- | Inspect every body's own ordinary inputs and outputs against the captured
--- UTxO. A NewTxOut requires presence regardless of its recorded amount.
+-- allocations. A NewTxOut requires presence regardless of its recorded amount.
 -- This oracle does not call production presence predicates or read declarations.
-requiredDeclarationOwners :: UTxO DijkstraEra -> Tx TopTx DijkstraEra -> [DeclarationOwner]
-requiredDeclarationOwners utxo tx =
-  [TopTxBody | requiresDeclaration utxo tx]
+requiredDeclarationOwners :: Allocations DijkstraEra -> Tx TopTx DijkstraEra -> [DeclarationOwner]
+requiredDeclarationOwners allocations tx =
+  [TopTxBody | requiresDeclaration allocations tx]
     <> [ SubTxBody input
        | child <- OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL
-       , requiresDeclaration utxo child
+       , requiresDeclaration allocations child
        , let input = sourceInput child
        ]
 
@@ -91,10 +91,14 @@ sourceInput child = case Set.toList (child ^. bodyTxL . inputsTxBodyL) of
 
 -- | Store-backed ordinary input or output form triggers the body's obligation.
 -- Reference inputs, collateral and nested children's outputs are excluded.
-requiresDeclaration :: UTxO DijkstraEra -> Tx l DijkstraEra -> Bool
-requiresDeclaration (UTxO outputs) tx =
+requiresDeclaration :: Allocations DijkstraEra -> Tx l DijkstraEra -> Bool
+requiresDeclaration allocations tx =
   any isStoreBacked (tx ^. bodyTxL . outputsTxBodyL)
-    || any isStoreBacked (Map.restrictKeys outputs $ tx ^. bodyTxL . inputsTxBodyL)
+    || ( any isStoreBacked
+           . Allocations.txOuts
+           . Allocations.restrictToInputs (tx ^. bodyTxL . inputsTxBodyL)
+           $ allocations
+       )
 
 isStoreBacked :: TxOut DijkstraEra -> Bool
 isStoreBacked (NewTxOut _) = True
