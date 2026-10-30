@@ -46,6 +46,7 @@ import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON (..), (.=))
 import Data.Coerce
 import Data.Default (Default (..))
+import Data.Foldable (foldl')
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.VMap as VMap
@@ -106,21 +107,21 @@ shelleyInstantStakeCredentialsL ::
 shelleyInstantStakeCredentialsL = lens sisCredentialStake $ \is m -> is {sisCredentialStake = m}
 
 addShelleyInstantStake ::
-  EraTxOut era => UTxO era -> ShelleyInstantStake era -> ShelleyInstantStake era
-addShelleyInstantStake = applyUTxOShelleyInstantStake (coerce ((+) @Word64))
+  (EraTxOut era, Foldable f) => f (TxOut era) -> ShelleyInstantStake era -> ShelleyInstantStake era
+addShelleyInstantStake = applyTxOutsShelleyInstantStake (coerce ((+) @Word64))
 
 deleteShelleyInstantStake ::
-  EraTxOut era => UTxO era -> ShelleyInstantStake era -> ShelleyInstantStake era
-deleteShelleyInstantStake = applyUTxOShelleyInstantStake (coerce ((-) @Word64))
+  (EraTxOut era, Foldable f) => f (TxOut era) -> ShelleyInstantStake era -> ShelleyInstantStake era
+deleteShelleyInstantStake = applyTxOutsShelleyInstantStake (coerce ((-) @Word64))
 
-applyUTxOShelleyInstantStake ::
-  EraTxOut era =>
+applyTxOutsShelleyInstantStake ::
+  (EraTxOut era, Foldable f) =>
   (CompactForm Coin -> CompactForm Coin -> CompactForm Coin) ->
-  UTxO era ->
+  f (TxOut era) ->
   ShelleyInstantStake era ->
   ShelleyInstantStake era
-applyUTxOShelleyInstantStake f (UTxO u) instantStake =
-  Map.foldl' accum instantStake u
+applyTxOutsShelleyInstantStake f outputs instantStake =
+  foldl' accum instantStake outputs
   where
     keepOrDeleteCompact new = \case
       Nothing ->

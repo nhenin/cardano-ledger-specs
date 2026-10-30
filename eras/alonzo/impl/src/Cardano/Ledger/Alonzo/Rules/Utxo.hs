@@ -797,9 +797,11 @@ updateUTxOState pp certState tx utxoState =
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
           let !utxoDel =
-                Allocations.txOutsForInputs
-                  (txBody ^. collateralInputsTxBodyL)
-                  (Store.allocations . utxosUTxOStore $ utxoState)
+                Allocations.txOuts
+                  . Allocations.restrictToInputs (txBody ^. collateralInputsTxBodyL)
+                  . Store.allocations
+                  . utxosUTxOStore
+                  $ utxoState
               store =
                 either (error . ("Alonzo collateral release: " <>) . show) id $
                   applyLegacyOutputDelta
@@ -810,5 +812,5 @@ updateUTxOState pp certState tx utxoState =
                 utxoState
                   { utxosUTxOStore = store
                   , utxosFees = utxosFees utxoState <> sumAllCoin utxoDel
-                  , utxosInstantStake = deleteInstantStake (UTxO utxoDel) (utxoState ^. instantStakeL)
+                  , utxosInstantStake = deleteInstantStake utxoDel (utxoState ^. instantStakeL)
                   }

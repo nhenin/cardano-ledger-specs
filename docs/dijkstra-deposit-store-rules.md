@@ -6600,7 +6600,7 @@ compatibility initialization. The other model modules separate the following res
 
 [`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/LegacyUTxOMap.hs)
 owns the compatibility `UTxO` newtype, instances,
-`EraUTxO` and the remaining map API previously defined in `Cardano.Ledger.State.UTxO`.
+and the remaining map API previously defined in `Cardano.Ledger.State.UTxO`.
 The original `UTxO` type name is retained. All seven modules in the plural
 `Cardano.Ledger.State.UTxOs` namespace are exposed for direct imports.
 `Cardano.Ledger.State` reexports the shared API but only `Unspent(..)` from the
@@ -6662,17 +6662,36 @@ block, following the existing protocol-version rules. This map supports the bloc
 check; it does not construct allocations or invent historical metadata.
 
 Legacy codecs traverse allocation entries directly. Full output-only maps are
-requested by APIs that explicitly return them, initial stake reconstruction, and test
+requested by APIs that explicitly return them, initial-fund merging, and test
 oracles comparing complete output collections. These boundaries still traverse
 their complete collection; no performance-neutrality or benchmark claim is made.
+
+Stake updates consume output collections directly:
+
+```haskell
+addInstantStake, deleteInstantStake ::
+  Foldable f => f (TxOut era) -> InstantStake era -> InstantStake era
+```
+
+Input keys and historical deposits do not enter this calculation. Store reads use
+`Allocations.txOuts`; transaction output deltas retain their existing indexing.
+Shelley pointer handling, Conway credential handling and application-ADA amounts
+are unchanged. Initial stake reconstruction folds the output collection directly.
+The test harness also looks up its funding input directly in allocations.
+
+Address inspection (`getScriptHash`) belongs to `Cardano.Ledger.Address`;
+witness verification (`verifyWitVKey`) belongs to `Cardano.Ledger.Keys.WitVKey`.
+Neither operation depends on an output map.
 
 **Remaining interface work**
 
 - [x] Remove the shared whole-Store projection helpers and migrate their callers.
 - [x] Migrate `EraUTxO`, script contexts, transaction annotations and accepted-input
   validators to `Allocations`, eliminating their legacy-map conversions.
-- [ ] Review stake output-delta contracts separately: their arguments include
-  proposed outputs, so they cannot be replaced by historical allocations blindly.
+- [x] Make stake output-delta contracts consume output collections directly,
+  preserving the distinction between proposed outputs and historical allocations.
+- [ ] Migrate remaining internal map reads in initial-fund merging and test
+  assertion helpers. Keep the public wallet result types unchanged during this pass.
 - [ ] Retire `LegacyUTxOMap` after its remaining contracts, codecs and output
   construction functions have appropriate owners. The module is still present;
   the complete interface cleanup is not finished.

@@ -168,7 +168,7 @@ benchInstantStake ::
   (DState era, PState era, UTxO era) ->
   SnapShot
 benchInstantStake (dstate, pstate, utxo) =
-  let instantStake = addInstantStake utxo mempty
+  let instantStake = addInstantStake (unUTxO utxo) mempty
    in snapShotFromInstantStake instantStake dstate pstate
 
 -- =================================================================

@@ -1102,10 +1102,10 @@ getAccountBalance ra =
 getImpRootTxOut :: ImpTestM era (TxIn, TxOut era)
 getImpRootTxOut = do
   ImpTestState {impRootTxIn} <- get
-  utxo <- getUTxO
-  case txinLookup impRootTxIn utxo of
+  entries <- allocations <$> getsNES utxoStoreG
+  case lookupUTxO impRootTxIn entries of
     Nothing -> error "Root txId no longer points to an existing unspent output"
-    Just rootTxOut -> pure (impRootTxIn, rootTxOut)
+    Just entry -> pure (impRootTxIn, UTxO.toTxOut entry)
 
 impAddNativeScript ::
   forall era.
@@ -1399,7 +1399,7 @@ trySubmitTx tx = do
       modify' $ impRecordedTxsL %~ fmap (SSeq.|> txFixed)
 
       ImpTestState {impRootTxIn} <- get
-      UTxO utxo <- getUTxO
+      entries <- allocations <$> getsNES utxoStoreG
       let
         txId = TxId . hashAnnotated $ txFixed ^. bodyTxL
         outsSize = SSeq.length $ txFixed ^. bodyTxL . outputsTxBodyL
@@ -1411,8 +1411,8 @@ trySubmitTx tx = do
         -- so we need to set the new root to what it was before the submission.
         assumedNewRoot = TxIn txId (mkTxIxPartial (fromIntegral rootIndex))
         newRoot
-          | Map.member assumedNewRoot utxo = assumedNewRoot
-          | Map.member impRootTxIn utxo = impRootTxIn
+          | isJust $ lookupUTxO assumedNewRoot entries = assumedNewRoot
+          | isJust $ lookupUTxO impRootTxIn entries = impRootTxIn
           | otherwise = error "Root not found in UTxO"
       impRootTxInL .= newRoot
 

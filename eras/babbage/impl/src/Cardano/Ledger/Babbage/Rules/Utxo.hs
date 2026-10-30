@@ -504,7 +504,7 @@ updateUTxOState pp certState tx utxoState =
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
           let existingAllocations = Store.allocations . utxosUTxOStore $ utxoState
               !(allocationsKeep, allocationsDel) = Allocations.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
-              utxoDel = Allocations.toTxOutMap allocationsDel
+              utxoDel = Allocations.txOuts allocationsDel
               UTxO collouts = collOuts txBody
               store =
                 either (error . ("Babbage collateral update: " <>) . show) id $
@@ -519,7 +519,7 @@ updateUTxOState pp certState tx utxoState =
                   , {- fees + collateralFees -}
                     utxosFees = utxosFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , utxosInstantStake =
-                      deleteInstantStake (UTxO utxoDel) (addInstantStake (UTxO collouts) (utxoState ^. instantStakeL))
+                      deleteInstantStake utxoDel (addInstantStake collouts (utxoState ^. instantStakeL))
                   }
 
 --------------------------------------------------------------------------------

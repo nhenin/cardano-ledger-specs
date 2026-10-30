@@ -671,15 +671,13 @@ updateUTxOAndInstantStakeWithStore ::
   UTxOState era ->
   m (UTxOState era)
 updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState = do
-  let !utxoAdd = txouts txBody
-      !utxoDel =
+  let UTxO createdOutputs = txouts txBody
+      !consumedOutputs =
         Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) (allocations . utxosUTxOStore $ utxoState)
-      deletedUtxo = UTxO utxoDel
       newInstantStake =
-        deleteInstantStake
-          deletedUtxo
-          (addInstantStake utxoAdd (utxoState ^. instantStakeL))
-  utxoDiffEvent deletedUtxo utxoAdd
+        deleteInstantStake consumedOutputs $
+          addInstantStake createdOutputs (utxoState ^. instantStakeL)
+  utxoDiffEvent (UTxO consumedOutputs) (UTxO createdOutputs)
   pure $!
     utxoState
       & utxosUTxOStoreL .~ store

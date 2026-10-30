@@ -39,6 +39,7 @@ import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON (..), (.=))
 import Data.Coerce
 import Data.Default (Default (..))
+import Data.Foldable (foldl')
 import qualified Data.Map.Strict as Map
 import qualified Data.VMap as VMap
 import Data.Word (Word64)
@@ -85,21 +86,21 @@ conwayInstantStakeCredentialsL ::
 conwayInstantStakeCredentialsL = lens cisCredentialStake $ \is m -> is {cisCredentialStake = m}
 
 addConwayInstantStake ::
-  EraTxOut era => UTxO era -> ConwayInstantStake era -> ConwayInstantStake era
-addConwayInstantStake = applyUTxOConwayInstantStake (coerce ((+) @Word64))
+  (EraTxOut era, Foldable f) => f (TxOut era) -> ConwayInstantStake era -> ConwayInstantStake era
+addConwayInstantStake = applyTxOutsConwayInstantStake (coerce ((+) @Word64))
 
 deleteConwayInstantStake ::
-  EraTxOut era => UTxO era -> ConwayInstantStake era -> ConwayInstantStake era
-deleteConwayInstantStake = applyUTxOConwayInstantStake (coerce ((-) @Word64))
+  (EraTxOut era, Foldable f) => f (TxOut era) -> ConwayInstantStake era -> ConwayInstantStake era
+deleteConwayInstantStake = applyTxOutsConwayInstantStake (coerce ((-) @Word64))
 
-applyUTxOConwayInstantStake ::
-  EraTxOut era =>
+applyTxOutsConwayInstantStake ::
+  (EraTxOut era, Foldable f) =>
   (CompactForm Coin -> CompactForm Coin -> CompactForm Coin) ->
-  UTxO era ->
+  f (TxOut era) ->
   ConwayInstantStake era ->
   ConwayInstantStake era
-applyUTxOConwayInstantStake f (UTxO u) instantInstantStake =
-  Map.foldl' accum instantInstantStake u
+applyTxOutsConwayInstantStake f outputs instantStake =
+  foldl' accum instantStake outputs
   where
     keepOrDeleteCompact new = \case
       Nothing ->

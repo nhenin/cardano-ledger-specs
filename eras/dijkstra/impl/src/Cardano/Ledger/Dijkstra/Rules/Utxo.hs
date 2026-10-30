@@ -543,8 +543,11 @@ dijkstraUtxoTransition = do
           let settlement =
                 DepositStore.collateralDepositSettlement pp previousUTxOStore txBody
               removed =
-                UTxO . Allocations.txOutsForInputs (txBody ^. collateralInputsTxBodyL) . allocations $ utxoStore
-              created = collOuts txBody
+                Allocations.txOuts
+                  . Allocations.restrictToInputs (txBody ^. collateralInputsTxBodyL)
+                  . allocations
+                  $ utxoStore
+              UTxO created = collOuts txBody
            in pure $
                 utxos
                   { utxosUTxOStore = store

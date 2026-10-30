@@ -2,6 +2,7 @@
 
 ## 1.23.0.0
 
+* Let `addInstantStake` and `deleteInstantStake` consume any `Foldable` collection of `TxOut` values rather than a `UTxO` wrapper. Move `getScriptHash` to `Cardano.Ledger.Address` and `verifyWitVKey` to `Cardano.Ledger.Keys.WitVKey`.
 * Extract `TxOut`, `NoNewTxOut`, the three output classes, builders, output lenses and value wrappers into `Cardano.Ledger.TxOut`; retain the existing `Core` exports. Move `sumAllAssets`, `sumAllValue`, `sumAllApplicationAssets`, `sumAllCoin` and `areAllAdaOnly` into that module as well; import these collection queries directly rather than through the ledger-state API.
 * Use `LegacyTxOut` and `NewTxOut` for the two output APIs, with `EraLegacyTxOut`, `EraNewTxOut` and their corresponding basic-output builders.
 * Add `UTxOStore`, reexported from `Cardano.Ledger.State`, with the `UTxOStore` record constructor, `DepositAmount` total and `Allocations` map of `Unspent (TxOut era)` values. The generic `Unspent` record retains a sized output and deposit calculation for both output forms; legacy external refunds remain zero. Provide checked construction, atomic updates and uniform three-field metadata serialization; reject the earlier experimental allocation-entry schemas.

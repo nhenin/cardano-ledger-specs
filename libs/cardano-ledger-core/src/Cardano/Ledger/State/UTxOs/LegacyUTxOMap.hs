@@ -23,8 +23,6 @@ module Cardano.Ledger.State.UTxOs.LegacyUTxOMap (
   txouts,
   sumUTxO,
   sumCoinUTxO,
-  verifyWitVKey,
-  getScriptHash,
 ) where
 
 import Cardano.Ledger.Binary (
@@ -39,15 +37,12 @@ import Cardano.Ledger.Binary (
  )
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core
-import Cardano.Ledger.Credential (Credential (..))
-import Cardano.Ledger.Keys (verifySignedDSIGN)
-import Cardano.Ledger.Keys.WitVKey (WitVKey (..))
+import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllAssets, sumAllCoin)
 import Control.DeepSeq (NFData)
 import Control.Monad ((<$!>))
 import Data.Aeson (ToJSON)
-import Data.Coerce (coerce)
 import Data.Default (Default)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -144,14 +139,6 @@ txInsFilter ::
   UTxO era
 txInsFilter (UTxO utxo') txIns = UTxO (utxo' `Map.restrictKeys` txIns)
 
--- | Verify a transaction body witness
-verifyWitVKey ::
-  Hash HASH EraIndependentTxBody ->
-  WitVKey kr ->
-  Bool
-verifyWitVKey txbodyHash (WitVKey vkey sig) = verifySignedDSIGN vkey txbodyHash (coerce sig)
-{-# INLINE verifyWitVKey #-}
-
 -- | Determine the total balance contained in the UTxO.
 sumUTxO :: EraTxOut era => UTxO era -> Assets era
 sumUTxO = sumAllAssets . unUTxO
@@ -165,8 +152,3 @@ sumUTxO = sumAllAssets . unUTxO
 sumCoinUTxO :: EraTxOut era => UTxO era -> Coin
 sumCoinUTxO = sumAllCoin . unUTxO
 {-# INLINE sumCoinUTxO #-}
-
--- | Extract script hash from value address with script.
-getScriptHash :: Addr -> Maybe ScriptHash
-getScriptHash (Addr _ (ScriptHashObj hs) _) = Just hs
-getScriptHash _ = Nothing

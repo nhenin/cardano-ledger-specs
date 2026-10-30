@@ -235,8 +235,7 @@ deriving stock instance
   Eq (UTxOState era)
 
 instance
-  ( NoThunks (UTxO era)
-  , NoThunks (GovState era)
+  ( NoThunks (GovState era)
   , NoThunks (InstantStake era)
   ) =>
   NoThunks (UTxOState era)
