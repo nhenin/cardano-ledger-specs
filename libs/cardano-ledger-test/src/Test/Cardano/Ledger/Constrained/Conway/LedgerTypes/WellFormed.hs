@@ -90,14 +90,14 @@ csX = do
   context <- genCertContext @era univ
   genFromSpec (conwayCertStateSpec univ context (lit (EpochNo 10)))
 
-utxoX :: forall era. era ~ ConwayEra => Gen (UTxO era)
+utxoX :: forall era. era ~ ConwayEra => Gen (TxOutMap era)
 utxoX = do
   univ <- genWitUniv @era 50
   cs <-
     genFromSpec
       @(Map (Credential Staking) (KeyHash StakePool))
       (hasSize (rangeSize 30 30))
-  genFromSpec @(UTxO era) (utxoSpecWit @era univ (lit cs))
+  genFromSpec @(TxOutMap era) (utxoSpecWit @era univ (lit cs))
 
 utxostateX ::
   forall era.

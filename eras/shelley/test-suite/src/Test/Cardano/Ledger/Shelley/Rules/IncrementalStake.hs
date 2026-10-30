@@ -189,7 +189,7 @@ checkIncrementalStake es =
   let
     LedgerState
       ( UTxOState
-          ((UTxO . Allocations.toTxOutMap . Store.allocations) -> utxo)
+          ((Allocations.toTxOutMap . Store.allocations) -> utxo)
           _
           _
           _
@@ -223,7 +223,7 @@ tersediffincremental message (ActiveStake a) (ActiveStake c) =
 stakeDistr ::
   forall era.
   (EraTxOut era, ShelleyEraAccounts era) =>
-  UTxO era ->
+  TxOutMap era ->
   DState era ->
   PState era ->
   SnapShot
@@ -249,10 +249,10 @@ aggregateUtxoCoinByCredential ::
   forall era.
   EraTxOut era =>
   Map Ptr (Credential Staking) ->
-  UTxO era ->
+  TxOutMap era ->
   Map (Credential Staking) (CompactForm Coin) ->
   Map (Credential Staking) (CompactForm Coin)
-aggregateUtxoCoinByCredential ptrs (UTxO u) initial =
+aggregateUtxoCoinByCredential ptrs (TxOutMap u) initial =
   Map.foldl' accum (Map.filter (/= mempty) initial) u
   where
     accum ans out =

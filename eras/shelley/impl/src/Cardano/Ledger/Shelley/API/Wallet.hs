@@ -15,9 +15,9 @@
 
 module Cardano.Ledger.Shelley.API.Wallet (
   -- * UTxOs
-  getUTxO,
-  getUTxOSubset,
-  getFilteredUTxO,
+  getTxOutMap,
+  getTxOutMapSubset,
+  getFilteredTxOutMap,
 
   -- * Stake Pools
   getPools,
@@ -117,21 +117,21 @@ import NoThunks.Class (NoThunks (..))
 -- UTxOs
 --------------------------------------------------------------------------------
 
--- | Get the full UTxO. This public query explicitly requests every output
+-- | Get the full output map. This public query explicitly requests every output
 -- without its store metadata.
-getUTxO ::
+getTxOutMap ::
   NewEpochState era ->
-  UTxO era
-getUTxO = UTxO . Allocations.toTxOutMap . Store.allocations . (^. EB.utxoStoreG)
+  TxOutMap era
+getTxOutMap = Allocations.toTxOutMap . Store.allocations . (^. EB.utxoStoreG)
 
--- | Get the UTxO filtered by address.
-getFilteredUTxO ::
+-- | Get output payloads filtered by address.
+getFilteredTxOutMap ::
   EraTxOut era =>
   NewEpochState era ->
   Set Addr ->
-  UTxO era
-getFilteredUTxO ss addrSet =
-  UTxO . Allocations.toTxOutMap . Allocations.filterByTxOut checkAddr $ storedAllocations
+  TxOutMap era
+getFilteredTxOutMap ss addrSet =
+  Allocations.toTxOutMap . Allocations.filterByTxOut checkAddr $ storedAllocations
   where
     storedAllocations = Store.allocations . (^. EB.utxoStoreG) $ ss
     compactAddrSet = Set.map compactAddr addrSet
@@ -139,14 +139,14 @@ getFilteredUTxO ss addrSet =
       case out ^. addrEitherTxOutL of
         Left addr -> addr `Set.member` addrSet
         Right cAddr -> cAddr `Set.member` compactAddrSet
-{-# INLINEABLE getFilteredUTxO #-}
+{-# INLINEABLE getFilteredTxOutMap #-}
 
-getUTxOSubset ::
+getTxOutMapSubset ::
   NewEpochState era ->
   Set TxIn ->
-  UTxO era
-getUTxOSubset nes inputs =
-  UTxO . Allocations.txOutsForInputs inputs . Store.allocations . (^. EB.utxoStoreG) $ nes
+  TxOutMap era
+getTxOutMapSubset nes inputs =
+  Allocations.txOutsForInputs inputs . Store.allocations . (^. EB.utxoStoreG) $ nes
 
 --------------------------------------------------------------------------------
 -- Stake pools and pool rewards

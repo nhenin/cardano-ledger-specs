@@ -61,10 +61,10 @@ readEpochState ::
   IO (EpochState CurrentEra)
 readEpochState = readDecCBOR
 
-readHexUTxO ::
+readHexTxOutMap ::
   FilePath ->
-  IO (UTxO CurrentEra)
-readHexUTxO = readDecCBORHex
+  IO (TxOutMap CurrentEra)
+readHexTxOutMap = readDecCBORHex
 
 readDecCBOR :: Binary.DecCBOR a => FilePath -> IO a
 readDecCBOR = either throwIO pure . Binary.decodeFull (eraProtVerHigh @CurrentEra) <=< LBS.readFile
@@ -136,13 +136,13 @@ txIxNestedInsert !im (TxIn !txId !txIx, !v) =
 totalADA :: Map.Map TxIn (TxOut CurrentEra) -> MaryValue
 totalADA = unAssets . sumAllAssets
 
-readBinUTxO ::
+readBinTxOutMap ::
   FilePath ->
-  IO (UTxO CurrentEra)
-readBinUTxO fp = do
+  IO (TxOutMap CurrentEra)
+readBinTxOutMap fp = do
   ls <- readNewEpochState fp
   -- This output-only file API intentionally omits the Store's deposit metadata.
-  pure $! UTxO . Allocations.toTxOutMap . allocations $ ls ^. utxoStoreG
+  pure $! Allocations.toTxOutMap . allocations $ ls ^. utxoStoreG
 
 newtype Count = Count Int
   deriving (Eq, Ord, Enum, Real, Integral, Num, Pretty)

@@ -407,7 +407,7 @@ detectLegacyMode ::
 detectLegacyMode tx = do
   Globals {systemStart, epochInfo} <- gets (^. impGlobalsL)
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   let stAnnTx = mkStAnnTx epochInfo systemStart pp entries mempty tx
   pure $ stAnnTx ^. plutusLegacyModeStAnnTxG
 
@@ -475,7 +475,7 @@ balanceSubTransactions ::
 balanceSubTransactions topTx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   pools <- Map.keysSet <$> getsNES (nesEsL . esLStateL . lsCertStateL . certPStateL . psStakePoolsL)
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   let
     subTransactions = topTx ^. bodyTxL . subTransactionsTxBodyL
     subsCerts = foldMap' (^. bodyTxL . certsTxBodyL) subTransactions

@@ -8,8 +8,6 @@ module Test.Cardano.Ledger.Shelley.Imp.LedgerSpec (
 import Cardano.Ledger.BaseTypes (inject)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Shelley.Core
-import Cardano.Ledger.Shelley.UTxO (UTxO (..))
-import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro ((&), (.~), (^.))
@@ -31,10 +29,8 @@ spec = describe "LEDGER" $ do
           & outputsTxBodyL @era
             .~ SSeq.singleton
               (mkBasicTxOutWithImplicitDeposit addr1 $ inject coin1)
-    UTxO utxo1 <- getUTxO
-    case Map.lookup (txInAt 0 tx1) utxo1 of
-      Just out1 -> out1 ^. coinTxOutL `shouldBe` coin1
-      Nothing -> expectationFailure "Could not find the TxOut of the first transaction"
+    out1 <- impGetUTxO $ txInAt 0 tx1
+    out1 ^. coinTxOutL `shouldBe` coin1
     addr2 <- freshKeyAddr_
     let coin2 = Coin 3000000
     tx2 <-
@@ -45,8 +41,5 @@ spec = describe "LEDGER" $ do
               (txInAt 0 tx1)
           & outputsTxBodyL @era
             .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr2 $ inject coin2)
-    UTxO utxo2 <- getUTxO
-    case Map.lookup (txInAt 0 tx2) utxo2 of
-      Just out1 -> do
-        out1 ^. coinTxOutL `shouldBe` coin2
-      Nothing -> expectationFailure "Could not find the TxOut of the second transaction"
+    out2 <- impGetUTxO $ txInAt 0 tx2
+    out2 ^. coinTxOutL `shouldBe` coin2

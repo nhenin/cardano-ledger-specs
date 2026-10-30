@@ -134,9 +134,9 @@ data AllegraUtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (UTxO era)
+      (TxOutMap era)
       -- | UTxO created (produced)
-      (UTxO era)
+      (TxOutMap era)
   deriving (Generic)
 
 deriving instance
@@ -215,9 +215,9 @@ utxoTransition = do
   {- adaPolicy ∉ supp mint tx
      above check not needed because mint field of type MultiAsset cannot contain ada -}
 
-  let outputs = txouts txBody
+  let outputs = txOutsTxBody txBody
       -- This legacy rule, also used by Mary, has only implicit-deposit outputs.
-      implicitOutputs = [output | LegacyTxOut output <- Map.elems (unUTxO outputs)]
+      implicitOutputs = [output | LegacyTxOut output <- Map.elems (unTxOutMap outputs)]
   {- ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp)) -}
   runTest $ validateImplicitDeposits pp implicitOutputs
 
@@ -226,7 +226,7 @@ utxoTransition = do
   runTest $ validateOutputTooBigUTxO pp implicitOutputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
-  runTest $ Shelley.validateOutputBootAddrAttrsTooBig (Map.elems (unUTxO outputs))
+  runTest $ Shelley.validateOutputBootAddrAttrsTooBig (Map.elems (unTxOutMap outputs))
 
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ Shelley.validateMaxTxSizeUTxO pp tx

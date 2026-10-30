@@ -61,7 +61,7 @@ spec = describe "UTxOStore historical metadata" $ do
           Binary.sizedSize canonical `shouldBe` Binary.sizedSize accepted - 1
           entry
             `shouldSatisfy` (/= Unspent {sizedOutput = canonical, depositCalculation = DepositCalculationV1 oldRate})
-          store <- expectRight $ fromAllocations $ Map.singleton (TxIn txId $ TxIx 0) entry
+          store <- expectRight . fromAllocations . Allocations $ Map.singleton (TxIn txId $ TxIx 0) entry
           mapM_
             ( \encoding -> do
                 restored <-
@@ -79,7 +79,7 @@ spec = describe "UTxOStore historical metadata" $ do
             [Binary.encCBOR store, encodeUTxOStore store]
 
   prop
-    "mixed creationPrices ⇒ refund = sum historical deposits; applied delta preserves unrelated metadata and exact cached total"
+    "mixed creationPrices ⇒ release and allocate preserve unrelated metadata and exact cached total"
     $ \txId ->
       forAll storeOutput $ \output -> do
         accepted <- acceptedOutput output
@@ -89,22 +89,41 @@ spec = describe "UTxOStore historical metadata" $ do
             newInput = TxIn txId $ TxIx 1
             createdInput = TxIn txId $ TxIx 2
         old `shouldSatisfy` (/= newer)
-        store <- expectRight $ fromAllocations $ Map.fromList [(oldInput, old), (newInput, newer)]
+        store <-
+          expectRight . fromAllocations . Allocations $ Map.fromList [(oldInput, old), (newInput, newer)]
         allocatedDepositTotalAmount (Set.fromList [oldInput, newInput]) (allocations store)
           `shouldBe` DepositAmount (price 1000 accepted <> price 2000 accepted)
         allocatedDepositTotalAmount (Set.singleton oldInput) (allocations store)
           `shouldBe` DepositAmount (price 1000 accepted)
+
+        -- Release removes the historical deposit and leaves the newer entry intact.
+        let storeAfterRelease = release (Set.singleton oldInput) store
+        cachedTotal storeAfterRelease `shouldBe` price 2000 accepted
+        allocations storeAfterRelease `shouldBe` Allocations (Map.singleton newInput newer)
+
         updated <-
-          expectRight $ applyAllocationDelta (Set.singleton oldInput) (Map.singleton createdInput newer) store
+          expectRight
+            . allocate (Allocations $ Map.singleton createdInput newer)
+            . release (Set.singleton oldInput)
+            $ store
         cachedTotal updated `shouldBe` price 4000 accepted
         lookupUTxO oldInput (allocations updated) `shouldBe` Nothing
         lookupUTxO newInput (allocations updated) `shouldBe` Just newer
         lookupUTxO createdInput (allocations updated) `shouldBe` Just newer
-        -- A replacement must subtract the old entry exactly once, even when it is
-        -- also explicitly consumed. This keeps the public delta operation atomic.
+        -- Allocation at an existing input replaces its historical deposit.
         replaced <-
-          expectRight $ applyAllocationDelta (Set.singleton oldInput) (Map.singleton oldInput newer) store
+          expectRight $ allocate (Allocations $ Map.singleton oldInput newer) store
         cachedTotal replaced `shouldBe` price 4000 accepted
+        allocations replaced
+          `shouldBe` Allocations (Map.fromList [(oldInput, newer), (newInput, newer)])
+
+        -- Releasing that input first must not subtract its old deposit twice.
+        storeAfterReallocation <-
+          expectRight
+            . allocate (Allocations $ Map.singleton oldInput newer)
+            . release (Set.singleton oldInput)
+            $ store
+        storeAfterReallocation `shouldBe` replaced
 
   prop
     "legacy outputs at any valid price and zero-price new outputs retain metadata with zero external deposits"
@@ -123,7 +142,9 @@ spec = describe "UTxOStore historical metadata" $ do
               { sizedOutput = Binary.mkSized version backed
               , depositCalculation = DepositCalculationV1 $ rate 0
               }
-      store <- expectRight $ fromAllocations $ Map.fromList [(legacyInput, legacy), (backedInput, zero)]
+      store <-
+        expectRight . fromAllocations . Allocations $
+          Map.fromList [(legacyInput, legacy), (backedInput, zero)]
       cachedTotal store `shouldBe` Coin 0
       case (UTxO.toTxOut legacy, UTxO.toTxOut zero) of
         (LegacyTxOut _, NewTxOut _) -> do
@@ -137,21 +158,21 @@ spec = describe "UTxOStore historical metadata" $ do
       Map.keysSet (unAllocations $ allocations store) `shouldBe` Set.fromList [legacyInput, backedInput]
       Binary.decodeFull version (Binary.serialize version store) `shouldBe` Right store
 
-  prop "missing creation metadata cannot be reconstructed from a Store-backed UTxO" $ \txId ->
+  prop "rejects new outputs without creation metadata" $ \txId ->
     forAll storeOutput $ \output -> do
       let input = TxIn txId $ TxIx 0
-      fromLegacyUTxO (UTxO $ Map.singleton input output)
+      fromLegacyTxOutMap (TxOutMap $ Map.singleton input output)
         `shouldBe` Left (MissingHistoricalAllocation input)
 
-  prop "negative acceptedSize is rejected by checked insertion and decoding" $ \txId ->
+  prop "negative acceptedSize ⇒ allocation and decoding rejected" $ \txId ->
     forAll storeOutput $ \backed ->
       forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) mempty, backed] $ \output ->
         forM_ [DepositCalculationV1 oldRate, DepositCalculationV2 oldRate] $ \calculation ->
           forM_ [-1, minBound] $ \size -> do
             let entry = Unspent (Binary.Sized output size) calculation
-                created = Map.singleton (TxIn txId $ TxIx 0) entry
+                created = Allocations $ Map.singleton (TxIn txId $ TxIx 0) entry
             fromAllocations created `shouldBe` Left (NegativeOutputSize size)
-            applyAllocationDelta Set.empty created emptyUTxOStore
+            allocate created emptyUTxOStore
               `shouldBe` Left (NegativeOutputSize size)
             decodeAllocation (unspentEncoding output size calculation) `shouldSatisfy` isLeft
 
@@ -167,7 +188,7 @@ spec = describe "UTxOStore historical metadata" $ do
             calculateDeposit (DepositCalculationV2 calculationRate) (ByteSize size)
               `shouldBe` expected
 
-  prop "V2 allocations retain accepted metadata through checked insertion, updates and codecs" $
+  prop "V2 allocations retain accepted metadata through construction, allocation and codecs" $
     \txId creationRate@(CoinPerByte (CompactCoin coinsPerByte)) ->
       forAll storeOutput $ \backed ->
         forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) mempty, backed] $ \output -> do
@@ -175,14 +196,14 @@ spec = describe "UTxOStore historical metadata" $ do
           let calculation = DepositCalculationV2 creationRate
               entry = Unspent accepted calculation
               input = TxIn txId $ TxIx 0
-              created = Map.singleton input entry
+              created = Allocations $ Map.singleton input entry
               expected = case output of
                 LegacyTxOut _ -> Coin 0
                 NewTxOut _ -> price (toInteger coinsPerByte) accepted
           store <- expectRight $ fromAllocations created
           cachedTotal store `shouldBe` expected
           UTxO.depositAmount entry `shouldBe` expected
-          applyAllocationDelta Set.empty created emptyUTxOStore `shouldBe` Right store
+          allocate created emptyUTxOStore `shouldBe` Right store
           allocatedDepositTotalAmount (Set.singleton input) (allocations store)
             `shouldBe` DepositAmount expected
           Binary.decodeFull @DepositCalculation version (Binary.serialize version calculation)
@@ -241,7 +262,7 @@ spec = describe "UTxOStore historical metadata" $ do
     forAll (arbitrary @(UTxOState DijkstraEra)) $ \state -> do
       let retired =
             Binary.encodeListLen 7
-              <> Binary.encCBOR (UTxO Map.empty :: UTxO DijkstraEra)
+              <> Binary.encCBOR (TxOutMap Map.empty :: TxOutMap DijkstraEra)
               <> Binary.encCBOR (utxosDeposited state)
               <> Binary.encCBOR (utxosFees state)
               <> Binary.encCBOR (utxosGovState state)

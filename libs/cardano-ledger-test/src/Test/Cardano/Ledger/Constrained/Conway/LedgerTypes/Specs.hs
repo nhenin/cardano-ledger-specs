@@ -45,6 +45,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   UTxOState (..),
   lsCertStateL,
  )
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Constrained.API
 import Data.Foldable
 import Data.Map (Map)
@@ -419,7 +420,7 @@ conwayCertStateSpec univ (whodelegates, wdrl) epoch = constrained $ \ [var|convC
     ]
 
 -- ==============================================================
--- Specs for UTxO and UTxOState
+-- Specs for TxOutMap and UTxOState
 -- ==============================================================
 
 utxoSpecWit ::
@@ -427,7 +428,7 @@ utxoSpecWit ::
   EraSpecTxOut era =>
   WitUniv era ->
   Term (Map (Credential Staking) (KeyHash StakePool)) ->
-  Specification (UTxO era)
+  Specification (TxOutMap era)
 utxoSpecWit univ delegs = constrained $ \ [var|utxo|] ->
   match utxo $ \ [var|utxomap|] ->
     [ forAll (rng_ utxomap) (\ [var|out|] -> txOutSpec univ delegs out)
@@ -452,7 +453,7 @@ utxoStateSpec pp univ certstate =
         , assert $ lit (Coin 0) <=. fees
         , reify certstate getDelegs (\ [var|delegs|] -> satisfies utxo (utxoSpecWit univ delegs))
         , satisfies gov (conwayGovStateSpec pp (testGovEnv pp))
-        , reify utxo ((`addInstantStake` mempty) . unUTxO) (\ [var|i|] -> distr ==. i)
+        , reify utxo ((`addInstantStake` mempty) . unTxOutMap) (\ [var|i|] -> distr ==. i)
         ]
 
 getDelegs ::

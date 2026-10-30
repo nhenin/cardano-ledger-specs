@@ -48,14 +48,14 @@ import Cardano.Ledger.DRep (DRep)
 import Cardano.Ledger.State (
   PoolMetadata,
   StakePoolRelay,
-  UTxO,
-  fromLegacyUTxO,
+  fromLegacyTxOutMap,
   toCoin,
   totalDepositAmount,
   utxoStoreG,
   utxoStoreL,
  )
 import Cardano.Ledger.TxIn (TxId)
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Cardano.SCLS.CBOR.Canonical.Encoder (ToCanonicalCBOR (..))
 import Codec.CBOR.Cuddle.CDDL.CTree (CTreeRoot)
 import Codec.CBOR.Cuddle.CDDL.Resolve (MonoReferenced)
@@ -89,10 +89,10 @@ spec mReferenceCDDLs sampleCount = do
 
   describe "Conway UTxO namespace" $
     prop "import(export(outputs)) preserves allocations and zero external deposits" $
-      forAll (resize 5 arbitrary) $ \(outputs :: UTxO ConwayEra) -> do
+      forAll (resize 5 arbitrary) $ \(outputs :: TxOutMap ConwayEra) -> do
         -- Conway's namespace contains outputs only. Import reconstructs their
         -- canonical legacy metadata, with no separately held deposit.
-        store <- expectRight $ fromLegacyUTxO outputs
+        store <- expectRight $ fromLegacyTxOutMap outputs
         let source = def & utxoStoreL .~ store
         restored <-
           importNamespaceEntries @ConwayEra @"utxo/v0" def $

@@ -40,6 +40,7 @@ import Cardano.Ledger.Shelley.Scripts (pattern RequireAllOf, pattern RequireAnyO
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (Val ((<+>), (<->)))
 import Cardano.Slotting.EpochInfo.API (epochInfoSize)
 import Control.Monad.Reader (runReader)
@@ -88,29 +89,29 @@ depositsAndRefunds pp certificates accounts = List.foldl' accum (Coin 0) certifi
 scriptWitsNeeded' :: Proof era -> MUtxo era -> TxBody TopTx era -> Set ScriptHash
 scriptWitsNeeded' Conway utxo txBody = regularScripts `Set.difference` inlineScripts
   where
-    theAllocations = legacyAllocations $ UTxO utxo
+    theAllocations = legacyAllocations $ TxOutMap utxo
     inputs = txBody ^. inputsTxBodyL
     inlineScripts = Map.keysSet $ getReferenceScripts theAllocations inputs
     regularScripts = getScriptsHashesNeeded (getScriptsNeeded theAllocations txBody)
 scriptWitsNeeded' Babbage utxo txBody = regularScripts `Set.difference` inlineScripts
   where
-    theAllocations = legacyAllocations $ UTxO utxo
+    theAllocations = legacyAllocations $ TxOutMap utxo
     inputs = (txBody ^. inputsTxBodyL) `Set.union` (txBody ^. referenceInputsTxBodyL)
     inlineScripts = Map.keysSet $ getReferenceScripts theAllocations inputs
     regularScripts = getScriptsHashesNeeded (getScriptsNeeded theAllocations txBody)
 scriptWitsNeeded' Alonzo utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ TxOutMap utxo) txBody)
 scriptWitsNeeded' Mary utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ TxOutMap utxo) txBody)
 scriptWitsNeeded' Allegra utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ TxOutMap utxo) txBody)
 scriptWitsNeeded' Shelley utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ TxOutMap utxo) txBody)
 {-# NOINLINE scriptWitsNeeded' #-}
 
 scriptsNeeded' :: EraUTxO era => MUtxo era -> TxBody TopTx era -> Set ScriptHash
 scriptsNeeded' utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ TxOutMap utxo) txBody)
 {-# NOINLINE scriptsNeeded' #-}
 
 txInBalance ::
@@ -119,7 +120,7 @@ txInBalance ::
   Set TxIn ->
   MUtxo era ->
   Coin
-txInBalance txinSet m = sumCoinUTxO (UTxO (Map.restrictKeys m txinSet))
+txInBalance txinSet m = sumAllCoin $ Map.restrictKeys m txinSet
 
 injectFee :: EraTxOut era => Coin -> TxOut era -> TxOut era
 injectFee fee txOut = txOut & coinTxOutL %~ (<+> fee)
@@ -278,7 +279,7 @@ languagesUsed ::
   forall era.
   Proof era ->
   Tx TopTx era ->
-  UTxO era ->
+  TxOutMap era ->
   Set ScriptHash ->
   Set Language
 languagesUsed proof tx utxo sNeeded = case proof of
@@ -295,7 +296,7 @@ languages ::
   forall era.
   (EraUTxO era, AlonzoEraScript era) =>
   Tx TopTx era ->
-  UTxO era ->
+  TxOutMap era ->
   Set ScriptHash ->
   Set Language
 languages tx utxo sNeeded = Map.foldl' accum Set.empty allScripts
@@ -327,8 +328,8 @@ instance Reflect era => TotalAda (UTxOState era) where
 -- TODO I'm not sure this is true ^
 -- Imp conformance tests show in logs that totalAda is off by the deposit amount
 
-instance Reflect era => TotalAda (UTxO era) where
-  totalAda (UTxO m) = foldl accum mempty m
+instance Reflect era => TotalAda (TxOutMap era) where
+  totalAda (TxOutMap m) = foldl accum mempty m
     where
       accum ans txOut = (txOut ^. coinTxOutL) <+> ans
 

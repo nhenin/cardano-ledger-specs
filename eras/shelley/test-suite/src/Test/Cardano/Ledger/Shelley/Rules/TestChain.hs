@@ -175,9 +175,9 @@ ledgerTraceFromBlockWithRestrictedUTxO ::
   ) =>
   ChainState era ->
   Block (BHeader MockCrypto) era ->
-  (UTxO era, Trace (EraRule "LEDGER" era))
+  (TxOutMap era, Trace (EraRule "LEDGER" era))
 ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
-  ( UTxO irrelevantUTxO
+  ( irrelevantUTxO
   , runShelleyBase $
       Trace.closureWith @(EraRule "LEDGER" era)
         ledgerEnv
@@ -199,17 +199,13 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
     (_tickedChainSt, ledgerEnv, ledgerSt0, txs) = ledgerTraceBase chainSt block
     txIns = neededTxInsForBlock block
     LedgerState utxoSt delegationSt = ledgerSt0
-    entries = Store.unAllocations . Store.allocations . utxosUTxOStore $ utxoSt
-    irrelevantUTxO = Allocations.toTxOutMap . Allocations.Allocations $ Map.withoutKeys entries txIns
+    previousStore = utxosUTxOStore utxoSt
+    irrelevantUTxO = Allocations.toTxOutMap . Allocations.withoutInputs txIns . Store.allocations $ previousStore
     restrictedSt0 =
       LedgerState
         ( utxoSt
             { utxosUTxOStore =
-                either (error . ("Restricted ledger trace allocations: " <>) . show) id $
-                  applyAllocationDelta
-                    (Map.keysSet irrelevantUTxO)
-                    Map.empty
-                    (utxosUTxOStore utxoSt)
+                Store.release (Map.keysSet . unTxOutMap $ irrelevantUTxO) previousStore
             }
         )
         delegationSt

@@ -357,10 +357,10 @@ instance ToExpr CommitteeAuthorization
 
 instance ToExpr (CommitteeState era)
 
--- UTxO
+-- TxOutMap
 deriving instance (Era era, ToExpr (Script era)) => ToExpr (ScriptsProvided era)
 
-instance ToExpr (TxOut era) => ToExpr (UTxO era)
+instance ToExpr (TxOut era) => ToExpr (TxOutMap era)
 
 instance ToExpr TxOutSource
 

@@ -59,8 +59,8 @@ observeBalance :: Tx TopTx DijkstraEra -> ImpTestM DijkstraEra Balance.Balance
 observeBalance tx = do
   checkSupportedBody tx
   forM_ (OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL) checkSupportedBody
-  utxo <- getUTxO
-  pure $ Balance.balance utxo tx
+  allocations <- getAllocations
+  pure $ Balance.balance allocations tx
 
 -- | These scenarios have application inputs/outputs, fees and Store transfers.
 -- Additional financial flows must extend the independent oracle before use.

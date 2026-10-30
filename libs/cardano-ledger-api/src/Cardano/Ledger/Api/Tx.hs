@@ -105,9 +105,9 @@ import Cardano.Ledger.Api.Tx.Body
 import Cardano.Ledger.Api.Tx.Cert
 import Cardano.Ledger.Api.Tx.Wits
 import Cardano.Ledger.Babbage.Collateral (mkCollateralTxIn)
-import Cardano.Ledger.Core (EraTx (..), TxLevel (..), binaryUpgradeTx, txIdTx)
-import Cardano.Ledger.State (UTxO (..), txouts)
+import Cardano.Ledger.Core (EraTx (..), TxLevel (..), binaryUpgradeTx, txIdTx, txOutsTxBody)
 import Cardano.Ledger.Tools (calcMinFeeTx, estimateMinFeeTx, setMinFeeTx, setMinFeeTxUtxo)
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Control.Monad (join)
 import qualified Data.Map as Map
 import Lens.Micro
@@ -139,15 +139,16 @@ instance AnyEraTx ConwayEra
 
 instance AnyEraTx DijkstraEra
 
--- | Construct all of the unspent outputs that will be produced by this transaction
-producedTxOuts :: AnyEraTx era => Tx TopTx era -> UTxO era
+-- | Index the outputs produced by the selected phase-2 outcome. This payload
+-- view does not include accepted sizes or historical deposit calculations.
+producedTxOuts :: AnyEraTx era => Tx TopTx era -> TxOutMap era
 producedTxOuts tx =
   case tx ^. isPhase2ValidTxG of
     Just Phase2Invalid ->
-      UTxO $
+      TxOutMap $
         case join (txBody ^. collateralReturnTxBodyG) of
           Nothing -> mempty
           Just txOut -> Map.singleton (mkCollateralTxIn txBody) txOut
-    _ -> txouts txBody
+    _ -> txOutsTxBody txBody
   where
     txBody = tx ^. bodyTxL

@@ -173,16 +173,17 @@ newUTxO txb cs = cs {chainNes = nes'}
     utxoSt = lsUTxOState ls
     entries = Store.allocations . utxosUTxOStore $ utxoSt
     utxo = Store.unAllocations entries
-    utxoAdd = txouts @era txb
-    utxoToDel = Allocations.txOutsForInputs (txins @era txb) entries
-    utxoWithout = Map.withoutKeys utxo (txins @era txb)
+    utxoAdd = txOutsTxBody @era txb
+    inputs = txb ^. inputsTxBodyL
+    utxoToDel = Allocations.txOuts . Allocations.restrictToInputs inputs $ entries
+    utxoWithout = Map.withoutKeys utxo inputs
     store' =
       either (error . ("Shelley example output update: " <>) . show) id $
         applyLegacyOutputDelta
-          (txins @era txb)
-          (UTxO $ Map.withoutKeys (unUTxO utxoAdd) $ Map.keysSet utxoWithout)
+          inputs
+          (TxOutMap $ Map.withoutKeys (unTxOutMap utxoAdd) $ Map.keysSet utxoWithout)
           (utxosUTxOStore utxoSt)
-    is' = deleteInstantStake utxoToDel (addInstantStake (unUTxO utxoAdd) (utxoSt ^. instantStakeL))
+    is' = deleteInstantStake utxoToDel (addInstantStake (unTxOutMap utxoAdd) (utxoSt ^. instantStakeL))
     utxoSt' = utxoSt {utxosUTxOStore = store', utxosInstantStake = is'}
     ls' = ls {lsUTxOState = utxoSt'}
     es' = es {esLState = ls'}

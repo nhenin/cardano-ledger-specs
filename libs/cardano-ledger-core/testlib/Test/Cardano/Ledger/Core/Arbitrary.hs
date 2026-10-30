@@ -179,11 +179,11 @@ instance Arbitrary (Sized a) => Arbitrary (Unspent a) where
 instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) where
   arbitrary
     | eraProtVerLow @era >= natVersion @12 =
-        suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations
+        suchThatMap arbitrary $ either (const Nothing) Just . fromAllocations . Allocations
     | otherwise =
-        suchThatMap arbitrary $ either (const Nothing) Just . fromLegacyUTxO
+        suchThatMap arbitrary $ either (const Nothing) Just . fromLegacyTxOutMap
   shrink store =
-    mapMaybe (either (const Nothing) Just . fromAllocations . Map.fromList) $
+    mapMaybe (either (const Nothing) Just . fromAllocations . Allocations . Map.fromList) $
       shrinkList (const []) $
         Map.toList $
           unAllocations $
@@ -615,10 +615,10 @@ instance Arbitrary DRepState where
   arbitrary = DRepState <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.UTxOs.LegacyUTxOMap -------------------------------------------------------------
+-- Cardano.Ledger.TxOut.Map -------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
-deriving instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxO era)
+deriving instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (TxOutMap era)
 
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.Core.PParams -----------------------------------------------------------

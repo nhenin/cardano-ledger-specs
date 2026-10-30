@@ -86,7 +86,7 @@ main = do
 
 -- wgroup "Baseline" $ do
 --   io "DState" loadDStateNoSharing dbFp
---   io "UTxO" loadUTxONoSharing dbFp
+--   io "UTxO" loadTxOutMapNoSharing dbFp
 --   io "LedgerState" getLedgerStateNoSharing dbFp
 -- wgroup "UTxO (No TxOut)" $ do
 --   io "IntMap (KeyMap TxId ())" (loadDbUTxO txIxSharingKeyMap_) dbFp

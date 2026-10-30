@@ -223,7 +223,7 @@ deriving stock instance
 instance
   ( Era era
   , NFData (Value era)
-  , NFData (UTxO era)
+  , NFData (TxOutMap era)
   , NFData (PredicateFailure (EraRule "UTXOS" era))
   , NFData (TxOut era)
   ) =>
@@ -235,9 +235,9 @@ data AlonzoUtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (UTxO era)
+      (TxOutMap era)
       -- | UTxO created
-      (UTxO era)
+      (TxOutMap era)
   deriving (Generic)
 
 deriving instance
@@ -344,7 +344,9 @@ validateScriptsNotPaidUTxO ::
   Test (AlonzoUtxoPredFailure era)
 validateScriptsNotPaidUTxO collateralAllocations =
   failureOnNonEmptyMap
-    (Allocations.toTxOutMap . Allocations.filterByTxOut (not . vKeyLocked) $ collateralAllocations)
+    ( unTxOutMap . Allocations.toTxOutMap . Allocations.filterByTxOut (not . vKeyLocked) $
+        collateralAllocations
+    )
     ScriptsNotPaidUTxO
 
 -- > balance ∗ 100 ≥ txfee txb ∗ (collateralPercent pp)

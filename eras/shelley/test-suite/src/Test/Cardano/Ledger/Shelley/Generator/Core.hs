@@ -446,9 +446,9 @@ genesisChainAccountState =
 genesisCoins ::
   TxId ->
   [TxOut era] ->
-  UTxO era
+  TxOutMap era
 genesisCoins genesisTxId outs =
-  UTxO $
+  TxOutMap $
     Map.fromList [(TxIn genesisTxId idx, out) | (idx, out) <- zip [minBound ..] outs]
 
 -- ==================================================================

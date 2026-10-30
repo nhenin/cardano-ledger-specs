@@ -547,7 +547,7 @@ dijkstraUtxoTransition = do
                   . Allocations.restrictToInputs (txBody ^. collateralInputsTxBodyL)
                   . allocations
                   $ utxoStore
-              UTxO created = collOuts txBody
+              TxOutMap created = collOuts txBody
            in pure $
                 utxos
                   { utxosUTxOStore = store

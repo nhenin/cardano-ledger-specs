@@ -20,6 +20,7 @@ import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut.Map (unTxOutMap)
 import qualified Data.Map.Strict as Map
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM)
 import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
@@ -30,7 +31,7 @@ liveOutputStore = utxosUTxOStore
 -- | Complete output observation for ledger-effect assertions. This projection
 -- belongs to the test oracle; production reads use allocations directly.
 outputs :: UTxOState era -> Map.Map TxIn (TxOut era)
-outputs = Allocations.toTxOutMap . allocations . utxosUTxOStore
+outputs = unTxOutMap . Allocations.toTxOutMap . allocations . utxosUTxOStore
 
 -- | Independent specification formula for both calculation versions. V2 uses
 -- the same formula as V1 for now. This does not call the production calculation

@@ -21,7 +21,6 @@ import Cardano.Ledger.Babbage.TxBody ()
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Plutus.Data (Data (..), Datum (..))
 import Cardano.Ledger.Plutus.Language (SLanguage (..))
-import Cardano.Ledger.State (UTxO (..))
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict
@@ -58,11 +57,11 @@ utxoWithTx ::
   ) =>
   SupportedLanguage era ->
   Tx TopTx era ->
-  Gen (UTxO era)
+  Gen (TxOutMap era)
 utxoWithTx l tx = do
   let allIns = tx ^. bodyTxL ^. allInputsTxBodyF
   outs <- vectorOf (length allIns) (genTxOut @era l)
-  pure $ UTxO (Map.fromList $ Set.toList allIns `zip` outs)
+  pure $ TxOutMap (Map.fromList $ Set.toList allIns `zip` outs)
 
 genTx ::
   forall era.

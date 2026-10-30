@@ -71,12 +71,10 @@ import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.Scripts
 import Cardano.Ledger.State (
   EraUTxO (..),
-  UTxO (..),
   getScriptsNeeded,
-  sumCoinUTxO,
-  txInsFilter,
  )
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (Val ((<+>), (<×>)))
 import Control.Monad (replicateM)
 import Data.Foldable as F
@@ -281,13 +279,13 @@ unTime :: AlonzoScript era -> NativeScript era
 unTime (NativeScript x) = x
 unTime (PlutusScript _) = error "Plutus in Timelock"
 
-okAsCollateral :: UTxO AlonzoEra -> TxIn -> Bool
+okAsCollateral :: TxOutMap AlonzoEra -> TxIn -> Bool
 okAsCollateral utxo inputx =
-  maybe False vKeyLockedAdaOnly $ Map.lookup inputx (unUTxO utxo)
+  maybe False vKeyLockedAdaOnly $ Map.lookup inputx (unTxOutMap utxo)
 
 genAlonzoTxBody ::
   GenEnv c AlonzoEra ->
-  UTxO AlonzoEra ->
+  TxOutMap AlonzoEra ->
   PParams AlonzoEra ->
   SlotNo ->
   Set.Set TxIn ->
@@ -439,13 +437,14 @@ instance EraGen AlonzoEra where
     where
       requiredCollateral = ceiling $ fromIntegral (pp ^. ppCollateralPercentageL) * unCoin coinx % 100
       potentialCollateral = Set.filter (okAsCollateral utxo) txin
-      txInAmounts = List.sortOn snd . Map.toList . Map.map (unCoin . view coinTxOutL) . unUTxO . txInsFilter utxo
+      collateralOutputs = Map.restrictKeys (unTxOutMap utxo) potentialCollateral
+      collateralAmounts = List.sortOn snd . Map.toList . Map.map (unCoin . view coinTxOutL) $ collateralOutputs
       takeUntilSum s = map fst . takeUntil ((s >=) . snd) . scanl1 (\(_, s') (x, n) -> (x, s' + n))
       takeUntil p xs = let (y, n) = span p xs in y ++ take 1 n
       newCollaterals =
         if null $ wits ^. rdmrsTxWitsL . unRedeemersL
           then mempty
-          else Set.fromList . takeUntilSum requiredCollateral $ txInAmounts potentialCollateral
+          else Set.fromList . takeUntilSum requiredCollateral $ collateralAmounts
       newInputs = (txb ^. inputsTxBodyL) <> txin
       newOutputs = (txb ^. outputsTxBodyL) :|> txout
 
@@ -460,12 +459,12 @@ instance EraGen AlonzoEra where
           & addrTxWitsL .~ setWitVKey
           & scriptTxWitsL .~ mapScriptWit
           -- (dataMapFromTxOut (Prelude.foldr (:) [] (outputs' txbody)) (TxDats (getDataMap scriptinfo mapScriptWit)))
-          & datsTxWitsL .~ dataMapFromTxOut smallUtxo (TxDats (getDataMap scriptinfo mapScriptWit))
+          & datsTxWitsL .~ dataMapFromTxOut inputOutputs (TxDats (getDataMap scriptinfo mapScriptWit))
           -- The data hashes come from two places
           & rdmrsTxWitsL .~ Redeemers rdmrMap
       txinputs = txbody ^. inputsTxBodyL
-      smallUtxo :: [TxOut AlonzoEra]
-      smallUtxo = Map.elems (unUTxO (txInsFilter utxo txinputs))
+      inputOutputs :: [TxOut AlonzoEra]
+      inputOutputs = Map.elems $ Map.restrictKeys (unTxOutMap utxo) txinputs
       AlonzoScriptsNeeded purposeHashPairs = getScriptsNeeded @AlonzoEra (legacyAllocations utxo) txbody
       rdmrMap = List.foldl' accum Map.empty purposeHashPairs -- Search through the pairs for Plutus scripts
       accum ans (purpose, hash1) =
@@ -541,9 +540,10 @@ instance EraGen AlonzoEra where
       Phase2Valid -> tx ^. bodyTxL . feeTxBodyL
       Phase2Invalid -> sumCollateral tx utxo
 
-sumCollateral :: (EraTx era, AlonzoEraTxBody era) => Tx TopTx era -> UTxO era -> Coin
-sumCollateral tx utxo =
-  sumCoinUTxO $ txInsFilter utxo $ tx ^. bodyTxL . collateralInputsTxBodyL
+sumCollateral :: (EraTx era, AlonzoEraTxBody era) => Tx TopTx era -> TxOutMap era -> Coin
+sumCollateral tx (TxOutMap outputs) = sumAllCoin collateralOutputs
+  where
+    collateralOutputs = Map.restrictKeys outputs (tx ^. bodyTxL . collateralInputsTxBodyL)
 
 storageCost :: forall era t. (EraPParams era, EncCBOR t) => Integer -> PParams era -> t -> Coin
 storageCost extra pp x = (extra + encodedLen @era x) <×> fromCompact (unCoinPerByte $ pp ^. ppTxFeePerByteL)
@@ -603,7 +603,7 @@ dataMapFromTxOut ::
   [TxOut AlonzoEra] ->
   TxDats AlonzoEra ->
   TxDats AlonzoEra
-dataMapFromTxOut txouts datahashmap = F.foldl' accum datahashmap txouts
+dataMapFromTxOut outputs datahashmap = F.foldl' accum datahashmap outputs
   where
     f dhash info = hashData (getData3 info) == dhash
     accum !ans txout =

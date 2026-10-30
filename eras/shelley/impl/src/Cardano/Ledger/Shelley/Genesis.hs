@@ -95,7 +95,7 @@ import Cardano.Ledger.Keys (GenDelegPair (..))
 import Cardano.Ledger.Shelley.Era (ShelleyEra)
 import Cardano.Ledger.Shelley.PParams (ShelleyPParams (..))
 import Cardano.Ledger.Shelley.StabilityWindow
-import Cardano.Ledger.State (StakePoolParams (..), UTxO (UTxO))
+import Cardano.Ledger.State (StakePoolParams (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -638,9 +638,9 @@ genesisUTxO ::
   forall era.
   EraTxOut era =>
   ShelleyGenesis ->
-  UTxO era
+  TxOutMap era
 genesisUTxO genesis =
-  UTxO $
+  TxOutMap $
     Map.fromList
       [ (txIn, txOut)
       | (addr, amount) <- LM.unListMap (sgInitialFunds genesis)

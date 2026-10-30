@@ -103,9 +103,8 @@ import Cardano.Ledger.Conway.State (
   EraAccounts (accountsMapL),
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
-  UTxO (UTxO),
   csCommitteeCredsL,
-  fromLegacyUTxO,
+  fromLegacyTxOutMap,
   psFutureStakePoolParamsL,
   psRetiringL,
   psStakePoolsL,
@@ -128,6 +127,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   totalObligation,
   utxosDepositedL,
  )
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Cardano.SCLS.Internal.Entry.ChunkEntry (
   ChunkEntry (ChunkEntry),
  )
@@ -152,7 +152,7 @@ instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
       (\utxos (ChunkEntry (UtxoKeyIn k) (UtxoOut v)) -> Map.insert k (getValue v) utxos)
       mempty
       ( \utxos ->
-          case fromLegacyUTxO (UTxO utxos) of
+          case fromLegacyTxOutMap (TxOutMap utxos) of
             Left err -> error $ "importNamespaceEntries: invalid Conway outputs: " <> show err
             Right store -> nes & utxoStoreL .~ store
       )

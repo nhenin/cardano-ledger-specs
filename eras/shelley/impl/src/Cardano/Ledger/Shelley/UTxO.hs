@@ -27,6 +27,8 @@ module Cardano.Ledger.Shelley.UTxO (
   getShelleyWitsVKeyNeeded,
   getShelleyWitsVKeyNeededNoGov,
   module UTxO,
+  TxOutMap (..),
+  txOutsTxBody,
 ) where
 
 import Cardano.Ledger.Address (accountAddressCredentialL, bootstrapKeyHash)
@@ -48,13 +50,6 @@ import Cardano.Ledger.State as UTxO (
   CanSetUTxOStore (..),
   EraUTxO (..),
   ScriptsProvided (..),
-  UTxO (..),
-  sumCoinUTxO,
-  sumUTxO,
-  txInsFilter,
-  txinLookup,
-  txins,
-  txouts,
  )
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as Unspent

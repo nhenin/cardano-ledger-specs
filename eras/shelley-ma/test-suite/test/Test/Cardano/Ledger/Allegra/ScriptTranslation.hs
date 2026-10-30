@@ -53,7 +53,7 @@ testScriptPostTranslation =
               (S.ScriptHashObj scriptHash)
               S.StakeRefNull
           utxo =
-            S.UTxO $
+            S.TxOutMap $
               Map.singleton
                 (S.TxIn bootstrapTxId minBound)
                 (LegacyTxOut $ mkCoinTxOut addr (S.Coin 1))
@@ -68,7 +68,7 @@ testScriptPostTranslation =
             def
               { S.utxosUTxOStore =
                   either (error . ("Script translation fixture: " <>) . show) id $
-                    fromLegacyUTxO utxo
+                    fromLegacyTxOutMap utxo
               }
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =

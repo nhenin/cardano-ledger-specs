@@ -153,9 +153,9 @@ data UtxoEvent era
   | -- | The UTxOs consumed and created by a signal tx
     TxUTxODiff
       -- | UTxO consumed
-      (UTxO era)
+      (TxOutMap era)
       -- | UTxO created
-      (UTxO era)
+      (TxOutMap era)
   deriving (Generic)
 
 deriving instance
@@ -627,7 +627,7 @@ updateUTxOState ::
   TxBody TopTx era ->
   CertState era ->
   (Coin -> m ()) ->
-  (UTxO era -> UTxO era -> m ()) ->
+  (TxOutMap era -> TxOutMap era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState = do
@@ -641,16 +641,16 @@ updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState =
 updateUTxOAndInstantStake ::
   (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
-  (UTxO era -> UTxO era -> m ()) ->
+  (TxOutMap era -> TxOutMap era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOAndInstantStake txBody utxoDiffEvent utxoState =
   let consumed = txBody ^. inputsTxBodyL
       previousStore = utxosUTxOStore utxoState
       remaining = Allocations.withoutInputs consumed . allocations $ previousStore
-      UTxO created = txouts txBody
+      TxOutMap created = txOutsTxBody txBody
       -- Preserve the legacy union's existing-entry bias on colliding keys.
-      createdWithoutCollisions = UTxO . Allocations.excludeAllocatedInputs remaining $ created
+      createdWithoutCollisions = TxOutMap . Allocations.excludeAllocatedInputs remaining $ created
       store =
         either
           (error . ("updateUTxOAndInstantStake: expected legacy created outputs: " <>) . show)
@@ -667,17 +667,17 @@ updateUTxOAndInstantStakeWithStore ::
   (EraTxBody era, EraStake era, Monad m) =>
   UTxOStore era ->
   TxBody l era ->
-  (UTxO era -> UTxO era -> m ()) ->
+  (TxOutMap era -> TxOutMap era -> m ()) ->
   UTxOState era ->
   m (UTxOState era)
 updateUTxOAndInstantStakeWithStore store txBody utxoDiffEvent utxoState = do
-  let UTxO createdOutputs = txouts txBody
-      !consumedOutputs =
+  let TxOutMap createdOutputs = txOutsTxBody txBody
+      TxOutMap !consumedOutputs =
         Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) (allocations . utxosUTxOStore $ utxoState)
       newInstantStake =
         deleteInstantStake consumedOutputs $
           addInstantStake createdOutputs (utxoState ^. instantStakeL)
-  utxoDiffEvent (UTxO consumedOutputs) (UTxO createdOutputs)
+  utxoDiffEvent (TxOutMap consumedOutputs) (TxOutMap createdOutputs)
   pure $!
     utxoState
       & utxosUTxOStoreL .~ store

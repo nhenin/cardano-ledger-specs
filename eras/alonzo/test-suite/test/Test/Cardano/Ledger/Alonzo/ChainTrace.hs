@@ -98,17 +98,17 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
           LedgerState
             UTxOState
               { utxosUTxOStore =
-                (Allocations.toTxOutMap . Store.allocations -> u')
+                (unTxOutMap . Allocations.toTxOutMap . Store.allocations -> u')
               , utxosDeposited = dp'
               , utxosFees = f'
               }
             ds'
         } =
-        let u = Allocations.toTxOutMap . Store.allocations $ store
+        let u = unTxOutMap . Allocations.toTxOutMap . Store.allocations $ store
             tx = stAnnTx ^. txStAnnTxG
             isValid' = tx ^. isPhase2ValidTxL
             noNewUTxO = u' `Map.isSubmapOf` u
-            collateralInFees = f <> sumCollateral tx (UTxO u) == f'
+            collateralInFees = f <> sumCollateral tx (TxOutMap u) == f'
             utxoConsumed = not $ u `Map.isSubmapOf` u'
             allScripts = tx ^. witsTxL . scriptTxWitsL
             hasPlutus = if all (isNativeScript @AlonzoEra) allScripts then NoPlutus else HasPlutus

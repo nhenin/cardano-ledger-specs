@@ -21,7 +21,6 @@ import Cardano.Ledger.Plutus (SLanguage (..), hashPlutusScript)
 import Cardano.Ledger.Shelley.Scripts (
   pattern RequireSignature,
  )
-import Cardano.Ledger.State (allocations, utxoStoreG)
 import Data.Foldable (for_)
 import Data.List (inits)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -136,8 +135,8 @@ spec = describe "BBODY" $ do
     txsWithSizes <- simulateThenRestore $ do
       let mkTxWithExpectedSize expectedSize txAction = do
             tx <- txAction
-            totalRefScriptSizeInBlock protVer [tx] . allocations
-              <$> getsNES utxoStoreG `shouldReturn` expectedSize
+            totalRefScriptSizeInBlock protVer [tx]
+              <$> getAllocations `shouldReturn` expectedSize
             pure (tx, expectedSize)
 
       -- submit reference scripts
@@ -181,8 +180,8 @@ spec = describe "BBODY" $ do
       -- check and return the accumulated reference script size of all transactions,
       -- so we can check that the same sum for the unapplied transactions matches
       let (txs, sizes) = unzip txsWithRefScriptSizes
-      totalRefScriptSizeInBlock protVer (SSeq.fromList txs) . allocations
-        <$> getsNES utxoStoreG `shouldReturn` sum sizes
+      totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
+        <$> getAllocations `shouldReturn` sum sizes
 
       pure txsWithRefScriptSizes
 
@@ -190,8 +189,8 @@ spec = describe "BBODY" $ do
     for_ (drop 1 $ inits txsWithSizes) $ \prefix -> do
       let (txs, sizes) = unzip prefix
           expectedSize = if isPostV10 protVer then sum sizes else 0
-      totalRefScriptSizeInBlock protVer (SSeq.fromList txs) . allocations
-        <$> getsNES utxoStoreG `shouldReturn` expectedSize
+      totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
+        <$> getAllocations `shouldReturn` expectedSize
 
   -- disabled in conformance because submiting phase2-invalid transactions are not supported atm
   -- https://github.com/IntersectMBO/formal-ledger-specifications/issues/910
@@ -230,20 +229,18 @@ spec = describe "BBODY" $ do
                 & inputsTxBodyL .~ [failingPlutusTxIn]
                 & collateralReturnTxBodyL .~ pure collRefScriptTxOut
             )
-      totalRefScriptSizeInBlock protVer [createCollateralTx] . allocations
-        <$> getsNES utxoStoreG `shouldReturn` 0
+      totalRefScriptSizeInBlock protVer [createCollateralTx]
+        <$> getAllocations `shouldReturn` 0
 
       -- consume the script, passing the output from the previous collateral as reference input
       let refScriptTxIn = txInAt 1 createCollateralTx
       useCollateralTx <- submitTxWithRefInputs scriptTxIn [refScriptTxIn]
       totalRefScriptSizeInBlock protVer [createCollateralTx, useCollateralTx]
-        . allocations
-        <$> getsNES utxoStoreG `shouldReturn` scriptSize
+        <$> getAllocations `shouldReturn` scriptSize
       pure [createCollateralTx, useCollateralTx]
 
     totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
-      . allocations
-      <$> getsNES utxoStoreG
+      <$> getAllocations
         `shouldReturn` (if isPostV10 protVer then scriptSize else 0)
   where
     isPostV10 protVer = pvMajor protVer >= natVersion @11

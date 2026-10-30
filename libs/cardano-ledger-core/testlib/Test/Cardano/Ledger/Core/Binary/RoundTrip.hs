@@ -228,4 +228,4 @@ roundTripCoreEraTypesSpec = do
     roundTripShareEraTypeSpec @era @DState
     roundTripShareEraTypeSpec @era @PState
     roundTripShareEraTypeSpec @era @CommitteeState
-    roundTripShareEraTypeSpec @era @UTxO
+    roundTripShareEraTypeSpec @era @TxOutMap

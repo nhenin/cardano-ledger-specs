@@ -69,7 +69,7 @@ import Test.Cardano.Ledger.Shelley.Utils (getBlockNonce)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 
-initUTxO :: UTxO ShelleyEra
+initUTxO :: TxOutMap ShelleyEra
 initUTxO =
   genesisCoins
     genesisId

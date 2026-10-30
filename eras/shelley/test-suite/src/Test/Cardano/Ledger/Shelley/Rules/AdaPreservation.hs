@@ -51,6 +51,7 @@ import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<+>), (<->))
 import Cardano.Protocol.TPraos.BlockHeader (BHeader (..))
 import Control.State.Transition.Extended (BaseM, Environment, STS, Signal, State)
@@ -581,7 +582,7 @@ preserveBalanceRestricted SourceSignalTarget {source = chainSt, signal = block} 
               <> certsTotalRefundsTxBody pp_ accounts txb
               <> fold (unWithdrawals (txb ^. withdrawalsTxBodyL))
           outs =
-            sumCoinUTxO (txouts @era txb)
+            (sumAllCoin . unTxOutMap . txOutsTxBody $ txb)
               <> (txb ^. feeTxBodyL)
               <> certsTotalDepositsTxBody pp_ certState txb
 
@@ -612,7 +613,7 @@ preserveOutputsTx SourceSignalTarget {source = chainSt, signal = block} =
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
-            UTxO outs = txouts @era (tx ^. bodyTxL)
+            TxOutMap outs = txOutsTxBody @era (tx ^. bodyTxL)
          in property $
               hasFailedScripts tx
                 .||. counterexample
@@ -640,14 +641,14 @@ canRestrictUTxO SourceSignalTarget {source = chainSt, signal = block} =
         (sourceSignalTargets ledgerTrRestr)
   where
     (_, ledgerTrFull) = ledgerTraceFromBlock @era chainSt block
-    (UTxO irrelevantUTxO, ledgerTrRestr) =
+    (TxOutMap irrelevantUTxO, ledgerTrRestr) =
       ledgerTraceFromBlockWithRestrictedUTxO @era chainSt block
     outputPreserved
       SourceSignalTarget
         { target =
           LedgerState
             ( UTxOState
-                { utxosUTxOStore = (Allocations.toTxOutMap . Store.allocations -> uFull)
+                { utxosUTxOStore = (unTxOutMap . Allocations.toTxOutMap . Store.allocations -> uFull)
                 }
               )
             _
@@ -656,7 +657,7 @@ canRestrictUTxO SourceSignalTarget {source = chainSt, signal = block} =
         { target =
           LedgerState
             ( UTxOState
-                { utxosUTxOStore = (Allocations.toTxOutMap . Store.allocations -> uRestr)
+                { utxosUTxOStore = (unTxOutMap . Allocations.toTxOutMap . Store.allocations -> uRestr)
                 }
               )
             _
@@ -695,8 +696,7 @@ txFees ledgerTr =
     ( \sst ->
         feeOrCollateral @era
           (signal sst ^. txStAnnTxG :: Tx TopTx era)
-          ( UTxO
-              . Allocations.txOutsForInputs (signal sst ^. txStAnnTxG . bodyTxL . allInputsTxBodyF)
+          ( Allocations.txOutsForInputs (signal sst ^. txStAnnTxG . bodyTxL . allInputsTxBodyF)
               . Store.allocations
               $ source sst ^. Store.utxoStoreG
           )

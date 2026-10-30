@@ -27,6 +27,7 @@ import Cardano.Ledger.State.UTxO
 import qualified Cardano.Ledger.State.UTxOs.Allocations.UTxO as UTxO
 import Cardano.Ledger.State.Vector
 import qualified Cardano.Ledger.TxIn as TxIn
+import Cardano.Ledger.TxOut.Map (TxOutMap (..))
 import Conduit
 import Control.Foldl (Fold (..))
 import Control.Monad
@@ -586,7 +587,7 @@ lsId = LedgerStateKey (SqlBackendKey 1)
 
 getLedgerState ::
   MonadIO m =>
-  Shelley.UTxO CurrentEra ->
+  TxOutMap CurrentEra ->
   LedgerState ->
   Shelley.DState CurrentEra ->
   ReaderT SqlBackend m (Shelley.LedgerState CurrentEra)
@@ -706,10 +707,10 @@ loadDStateNoSharing :: MonadUnliftIO m => T.Text -> m (Shelley.DState CurrentEra
 loadDStateNoSharing fp =
   runSqlite fp $ getDStateNoSharing (DStateKey (SqlBackendKey 1))
 
-loadUTxONoSharing ::
-  MonadUnliftIO m => T.Text -> m (Shelley.UTxO CurrentEra)
-loadUTxONoSharing fp =
-  runSqlite fp (Shelley.UTxO <$> runConduitFold sourceUTxO noSharingMap)
+loadTxOutMapNoSharing ::
+  MonadUnliftIO m => T.Text -> m (TxOutMap CurrentEra)
+loadTxOutMapNoSharing fp =
+  runSqlite fp (TxOutMap <$> runConduitFold sourceUTxO noSharingMap)
 
 loadLedgerStateNoSharing ::
   MonadUnliftIO m => T.Text -> m (Shelley.LedgerState CurrentEra)
@@ -718,7 +719,7 @@ loadLedgerStateNoSharing fp =
     ledgerState@LedgerState {..} <- getJust lsId
     dstate <- getDStateNoSharing ledgerStateDstateId
     m <- runConduitFold sourceUTxO noSharingMap
-    getLedgerState (Shelley.UTxO m) ledgerState dstate
+    getLedgerState (TxOutMap m) ledgerState dstate
 
 loadLedgerStateDStateSharing ::
   MonadUnliftIO m => T.Text -> m (Shelley.LedgerState CurrentEra)
@@ -738,7 +739,7 @@ loadLedgerStateDStateTxIxSharing fp =
   runSqlite fp $ do
     ledgerState@LedgerState {..} <- getJust lsId
     dstate <- getDStateWithSharing ledgerStateDstateId
-    ls <- getLedgerState (Shelley.UTxO mempty) ledgerState dstate
+    ls <- getLedgerState (TxOutMap mempty) ledgerState dstate
     m <- runConduitFold sourceUTxO txIxSharing
     pure (ls, m)
 
@@ -768,7 +769,7 @@ getLedgerStateWithSharing ese = do
       =<< selectFirst [LedgerStateEpochStateId ==. entityKey ese] []
   dstate <- getDStateWithSharing ledgerStateDstateId
   m <- runConduitFold sourceUTxO noSharingMap
-  getLedgerState (Shelley.UTxO m) ledgerState dstate
+  getLedgerState (TxOutMap m) ledgerState dstate
 
 getLedgerStateNoSharing ::
   (MonadUnliftIO m, MonadResource m) =>
@@ -780,7 +781,7 @@ getLedgerStateNoSharing ese = do
       =<< selectFirst [LedgerStateEpochStateId ==. entityKey ese] []
   dstate <- getDStateNoSharing ledgerStateDstateId
   m <- runConduitFold sourceUTxO noSharingMap
-  getLedgerState (Shelley.UTxO m) ledgerState dstate
+  getLedgerState (TxOutMap m) ledgerState dstate
 
 loadEpochState :: MonadUnliftIO m => T.Text -> m (Shelley.EpochState CurrentEra)
 loadEpochState fp = runSqlite fp $ do

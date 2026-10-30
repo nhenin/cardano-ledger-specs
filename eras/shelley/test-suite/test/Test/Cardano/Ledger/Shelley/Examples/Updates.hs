@@ -77,7 +77,7 @@ aliceInitCoin = Coin $ 10 * 1000 * 1000 * 1000 * 1000 * 1000
 bobInitCoin :: Coin
 bobInitCoin = Coin $ 1 * 1000 * 1000 * 1000 * 1000 * 1000
 
-initUTxO :: UTxO ShelleyEra
+initUTxO :: TxOutMap ShelleyEra
 initUTxO =
   genesisCoins
     genesisId

@@ -80,7 +80,6 @@ import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Shelley.UTxO (txouts, unUTxO)
 import Cardano.Ledger.State (Allocations, utxoStoreG)
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
@@ -390,11 +389,11 @@ totalRefScriptSizeInBlock protVer txs allocations
       snd $ F.foldl' accum (initialOutputs, 0) txs
   where
     blockInputs = foldMap (^. bodyTxL . allInputsTxBodyF) txs
-    initialOutputs = Allocations.txOutsForInputs blockInputs allocations
+    initialOutputs = unTxOutMap . Allocations.txOutsForInputs blockInputs $ allocations
     accum (!outputs, !totalSize) tx =
-      let updatedOutputs = outputs `Map.union` unUTxO toAdd
+      let updatedOutputs = outputs `Map.union` unTxOutMap toAdd
           toAdd
-            | Phase2Valid <- tx ^. isPhase2ValidTxL = txouts $ tx ^. bodyTxL
+            | Phase2Valid <- tx ^. isPhase2ValidTxL = txOutsTxBody $ tx ^. bodyTxL
             | otherwise = collOuts $ tx ^. bodyTxL
           inputs = (tx ^. bodyTxL . referenceInputsTxBodyL) `Set.union` (tx ^. bodyTxL . inputsTxBodyL)
           scriptSize =

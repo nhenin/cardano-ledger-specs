@@ -136,9 +136,9 @@ import Cardano.Ledger.State as X (
   Stake (..),
   StakePoolParams (..),
   StakePoolRelay (..),
-  UTxO (..),
   calculatePoolDistr,
   calculatePoolDistr',
   individualPoolStake,
  )
 import Cardano.Ledger.TxIn as X (TxId (..), TxIn (..))
+import Cardano.Ledger.TxOut.Map as X (TxOutMap (..))

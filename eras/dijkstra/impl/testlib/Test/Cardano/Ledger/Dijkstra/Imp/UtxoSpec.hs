@@ -605,7 +605,7 @@ spec = describe "UTXO" $ do
     expectConsumed :: Tx TopTx era -> Value era -> ImpTestM era ()
     expectConsumed tx expected = do
       pp <- getsPParams id
-      entries <- allocations <$> getsNES utxoStoreG
+      entries <- getAllocations
       dijkstraConsumed pp entries (tx ^. bodyTxL) `shouldBe` expected
 
     -- Check that `certsTotalDepositsTxBody` (used to set deposits in `UTxOState` and `AdaPots` calculations)
@@ -624,7 +624,7 @@ spec = describe "UTXO" $ do
     checkRefundCalculation topBody batchRefunds topLevelRefunds = do
       pp <- getsPParams id
       certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-      entries <- allocations <$> getsNES utxoStoreG
+      entries <- getAllocations
       AdaPots.conRefunds (AdaPots.consumedTxBody topBody pp certState entries)
         `shouldBe` batchRefunds
       -- refunds do not depend on the state, hence the deposit lookup is irrelevant

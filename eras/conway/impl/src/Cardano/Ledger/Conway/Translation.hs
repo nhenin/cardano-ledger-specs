@@ -197,6 +197,5 @@ instance TranslateEra ConwayEra UTxOState where
         , API.utxosDonation = API.utxosDonation us
         }
 
-instance TranslateEra ConwayEra API.UTxO where
-  translateEra _ctxt utxo =
-    pure $ API.UTxO $ upgradeTxOut `Map.map` API.unUTxO utxo
+instance TranslateEra ConwayEra API.TxOutMap where
+  translateEra _ = pure . API.TxOutMap . Map.map upgradeTxOut . API.unTxOutMap

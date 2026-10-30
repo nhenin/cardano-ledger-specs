@@ -33,7 +33,6 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Scripts (
   AccountBalanceIntervals (..),
  )
-import Cardano.Ledger.Dijkstra.State (UTxO (..))
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError (..))
 import Cardano.Ledger.Plutus (
   Language (..),
@@ -106,7 +105,7 @@ spec = describe "TxInfo" $ do
       stakeRef <- oneof [StakeRefBase <$> arbitrary, pure StakeRefNull]
       let
         utxo =
-          UTxO
+          TxOutMap
             [ (txIn, mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef) val)
             ]
         tx =
@@ -195,7 +194,7 @@ spec = describe "TxInfo" $ do
           paymentCred2 = ScriptHashObj scriptHash
           txOut = mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
           utxo =
-            UTxO
+            TxOutMap
               [
                 ( txIn
                 , mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)

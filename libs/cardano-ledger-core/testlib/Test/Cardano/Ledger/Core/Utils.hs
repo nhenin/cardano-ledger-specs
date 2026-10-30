@@ -28,9 +28,8 @@ import Cardano.Ledger.State (
   ActiveStake (..),
   Allocations,
   StakeWithDelegation (..),
-  UTxO,
   allocations,
-  fromLegacyUTxO,
+  fromLegacyTxOutMap,
  )
 import Cardano.Ledger.TxIn (TxIn, mkTxInPartial)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
@@ -45,8 +44,8 @@ import Test.Cardano.Ledger.Core.Rational (unsafeBoundRational)
 
 -- | Adapt an output-only legacy fixture to canonical allocation metadata.
 -- Store-backed outputs require their actual historical metadata and are rejected.
-legacyAllocations :: EraTxOut era => UTxO era -> Allocations era
-legacyAllocations = either (error . show) allocations . fromLegacyUTxO
+legacyAllocations :: EraTxOut era => TxOutMap era -> Allocations era
+legacyAllocations = either (error . show) allocations . fromLegacyTxOutMap
 
 testGlobals :: Globals
 testGlobals =

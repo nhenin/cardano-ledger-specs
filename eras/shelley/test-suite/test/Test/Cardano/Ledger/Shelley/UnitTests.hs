@@ -282,7 +282,7 @@ utxoState :: UTxOState ShelleyEra
 utxoState =
   UTxOState
     ( either (error . ("Shelley unit-test genesis outputs: " <>) . show) id $
-        fromLegacyUTxO $
+        fromLegacyTxOutMap $
           genesisCoins
             genesisId
             [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin

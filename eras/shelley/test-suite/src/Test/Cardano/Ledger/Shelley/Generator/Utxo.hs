@@ -141,7 +141,7 @@ genTx
   (LedgerEnv slot _ txIx pparams reserves)
   ( LedgerState
       utxoSt@( UTxOState
-                 ((UTxO . Allocations.toTxOutMap . Store.allocations) -> utxo)
+                 ((Allocations.toTxOutMap . Store.allocations) -> utxo)
                  _
                  _
                  _
@@ -203,7 +203,7 @@ genTx
             spendingBalanceUtxo
               <+> inject ((withdrawals <-> deposits) <+> refunds)
           n =
-            if Map.size (unUTxO utxo) < genTxStableUtxoSize defaultConstants
+            if Map.size (unTxOutMap utxo) < genTxStableUtxoSize defaultConstants
               then -- something moderate 80-120 ^
                 genTxUtxoIncrement defaultConstants -- something small 2-5
               else 0 -- no change at all
@@ -213,7 +213,7 @@ genTx
               -- generating a transaction. If we get unexplained failures one
               -- might investigate changing these constants.
 
-      -- !_ = occaisionally (length inputs * length ksKeyPairs * length ksMSigScripts) 10000 ("UTxOSize = "++show (Map.size (unUTxO utxo)))
+      -- !_ = occaisionally (length inputs * length ksKeyPairs * length ksMSigScripts) 10000 ("UTxOSize = "++show (Map.size (unTxOutMap utxo)))
 
       outputAddrs <-
         genRecipients @era (length inputs + n) ksKeyPairs ksMSigScripts
@@ -368,7 +368,7 @@ genNextDelta ::
   forall era c.
   (EraGen era, EraUTxO era) =>
   ScriptInfo era ->
-  UTxO era ->
+  TxOutMap era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -426,11 +426,11 @@ genNextDelta
                 do
                   let txBody = tx ^. bodyTxL
                       inputsInUse = txBody ^. inputsTxBodyL <> extraInputs
-                      utxo' :: UTxO era
+                      utxo' :: TxOutMap era
                       utxo' =
                         -- Remove possible inputs from Utxo, if they already
                         -- appear in inputs.
-                        UTxO $
+                        TxOutMap $
                           Map.filterWithKey
                             ( \k v ->
                                 (k `Set.notMember` inputsInUse) && genEraGoodTxOut v
@@ -438,7 +438,7 @@ genNextDelta
                             -- filter out UTxO entries where the TxOut are not
                             -- appropriate for this Era (i.e. Keylocked in
                             -- AlonzoEra)
-                            (unUTxO utxo)
+                            (unTxOutMap utxo)
                   (inputs, value, (vkeyPairs, msigPairs)) <-
                     genInputs (1, 1) ksIndexedPaymentKeys ksIndexedPayScripts utxo'
                   -- It is possible that the Utxo has no possible inputs left, so
@@ -490,7 +490,7 @@ genNextDeltaTilFixPoint ::
   Coin ->
   KeyPairs ->
   [(Script era, Script era)] ->
-  UTxO era ->
+  TxOutMap era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -506,7 +506,7 @@ genNextDeltaTilFixPoint scriptinfo initialfee keys scripts utxo pparams keySpace
 applyDelta ::
   forall era c.
   EraGen era =>
-  UTxO era ->
+  TxOutMap era ->
   ScriptInfo era ->
   PParams era ->
   [KeyPair Witness] ->
@@ -568,7 +568,7 @@ converge ::
   Map ScriptHash (Script era) ->
   KeyPairs ->
   [(Script era, Script era)] ->
-  UTxO era ->
+  TxOutMap era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -660,7 +660,7 @@ mkScriptWits payScripts stakeScripts =
 mkTxWits ::
   forall era.
   EraGen era =>
-  (UTxO era, TxBody TopTx era, ScriptInfo era) ->
+  (TxOutMap era, TxBody TopTx era, ScriptInfo era) ->
   Map (KeyHash Payment) (KeyPair Payment) ->
   Map (KeyHash Staking) (KeyPair Staking) ->
   [KeyPair Witness] ->
@@ -742,13 +742,13 @@ genInputs ::
   (Int, Int) ->
   Map (KeyHash Payment) (KeyPair Payment) ->
   Map ScriptHash (Script era, Script era) ->
-  UTxO era ->
+  TxOutMap era ->
   Gen
     ( [TxIn]
     , Value era
     , ([KeyPair Witness], [(Script era, Script era)])
     )
-genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo) = do
+genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (TxOutMap utxo) = do
   numInputs <- QC.choose (minNumGenInputs, maxNumGenInputs)
   selectedUtxo <- pickRandomFromMap numInputs utxo
   let (inputs, witnesses) = unzip (fmap witnessedInput <$> selectedUtxo)

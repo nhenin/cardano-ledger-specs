@@ -15,6 +15,7 @@ import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.State
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
 import Data.Foldable
 import qualified Data.Map.Strict as Map
@@ -78,7 +79,7 @@ evaluateTransactionBalance ::
   (MaryEraTxBody era, ShelleyEraTxCert era, EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  TxOutMap era ->
   TxBody TopTx era ->
   Value era
 evaluateTransactionBalance pp dpstate utxo txBody =
@@ -88,17 +89,18 @@ evaluateTransactionBalanceShelley ::
   (EraTxBody era, ShelleyEraTxCert era, EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  TxOutMap era ->
   TxBody TopTx era ->
   Value era
-evaluateTransactionBalanceShelley pp dpstate utxo txBody = consumed <-> produced
+evaluateTransactionBalanceShelley pp dpstate (TxOutMap outputs) txBody = consumed <-> produced
   where
     produced =
-      unAssets (sumUTxO (txouts txBody))
+      (unAssets . sumAllAssets . unTxOutMap . txOutsTxBody $ txBody)
         <+> inject (txBody ^. feeTxBodyL <+> totalTxDeposits pp dpstate txBody)
     consumed =
-      unAssets (sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL)))
+      (unAssets . sumAllAssets $ consumedOutputs)
         <> inject (refunds <> withdrawals)
+    consumedOutputs = Map.restrictKeys outputs $ txBody ^. inputsTxBodyL
     refunds = keyTxRefunds pp dpstate txBody
     withdrawals = fold . unWithdrawals $ txBody ^. withdrawalsTxBodyL
 
@@ -107,9 +109,9 @@ evaluateTransactionBalanceShelley pp dpstate utxo txBody = consumed <-> produced
 genTxBodyFrom ::
   (EraTxBody era, ShelleyEraTxCert era, Arbitrary (TxBody l era), EraCertState era) =>
   CertState era ->
-  UTxO era ->
+  TxOutMap era ->
   Gen (TxBody l era)
-genTxBodyFrom certState (UTxO u) = do
+genTxBodyFrom certState (TxOutMap u) = do
   txBody <- arbitrary
   inputs <- sublistOf (Map.keys u)
   unDelegCreds <- sublistOf (Map.keys (certState ^. certDStateL . accountsL . accountsMapL))
@@ -139,7 +141,7 @@ propEvalBalanceTxBody ::
   ) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  TxOutMap era ->
   Property
 propEvalBalanceTxBody pp certState utxo = do
   property $
@@ -154,7 +156,7 @@ propEvalBalanceShelleyTxBody ::
   (EraUTxO era, ShelleyEraTxCert era, Arbitrary (TxBody TopTx era), EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  TxOutMap era ->
   Property
 propEvalBalanceShelleyTxBody pp certState utxo =
   property $

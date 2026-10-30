@@ -1562,15 +1562,15 @@ instance
   HasSpec (LedgerState era)
 
 -- Conway generators use the canonical legacy Store representation: zero external
--- deposits and the compatibility metadata supplied by 'fromLegacyUTxO'.
+-- deposits and the compatibility metadata supplied by 'fromLegacyTxOutMap'.
 -- They do not generate new outputs or arbitrary historical deposit metadata.
 instance HasSimpleRep (UTxOStore ConwayEra) where
-  type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[UTxO ConwayEra]]
-  type SimpleRep (UTxOStore ConwayEra) = UTxO ConwayEra
-  toSimpleRep = UTxO . Allocations.toTxOutMap . allocations
+  type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[TxOutMap ConwayEra]]
+  type SimpleRep (UTxOStore ConwayEra) = TxOutMap ConwayEra
+  toSimpleRep = Allocations.toTxOutMap . allocations
   fromSimpleRep =
     either (error . ("fromSimpleRep: invalid Conway outputs: " <>) . show) id
-      . fromLegacyUTxO
+      . fromLegacyTxOutMap
 
 instance HasSpec (UTxOStore ConwayEra)
 
@@ -1594,11 +1594,11 @@ instance HasSimpleRep (ConwayInstantStake era)
 
 instance Typeable era => HasSpec (ConwayInstantStake era)
 
-instance Typeable (TxOut era) => HasSimpleRep (UTxO era)
+instance Typeable (TxOut era) => HasSimpleRep (TxOutMap era)
 
 instance
   (Era era, HasSpec (TxOut era), IsNormalType (TxOut era)) =>
-  HasSpec (UTxO era)
+  HasSpec (TxOutMap era)
 
 instance HasSimpleRep (ConwayGovState ConwayEra)
 

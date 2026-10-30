@@ -61,7 +61,7 @@ module Cardano.Ledger.Alonzo.Tx (
   totExUnits,
   alonzoMinFeeTx,
   --  Figure 5
-  Shelley.txouts,
+  txOutsTxBody,
   -- Other
   toCBORForSizeComputation,
   toCBORForMempoolSubmission,
@@ -131,7 +131,6 @@ import Cardano.Ledger.MemoBytes (EqRaw (..))
 import Cardano.Ledger.Plutus (Data, Language, PlutusWithContext, hashData, nonNativeLanguages)
 import Cardano.Ledger.Shelley.Tx (shelleyTxEqRaw)
 import Cardano.Ledger.State (ScriptsNeeded, ScriptsProvided (..))
-import qualified Cardano.Ledger.State as Shelley
 import Cardano.Ledger.Val (Val ((<+>), (<×>)))
 import Control.DeepSeq (NFData (..), deepseq)
 import Control.Monad.Trans.Fail.String (errorFail)

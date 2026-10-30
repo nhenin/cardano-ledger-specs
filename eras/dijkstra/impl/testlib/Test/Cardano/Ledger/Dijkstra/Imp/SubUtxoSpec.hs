@@ -185,7 +185,8 @@ spec = describe "SUBUTXO" $ do
           [ mkBasicTx $ mkBasicTxBody & inputsTxBodyL .~ [txIn]
           , mkBasicTx $ mkBasicTxBody & referenceInputsTxBodyL .~ [txIn]
           ]
-      getUTxO >>= (`expectUTxOContent` [(txIn, isNothing)])
+      currentAllocations <- getAllocations
+      expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "SubOutputBootAddrAttrsTooBig" $ do
     -- https://github.com/IntersectMBO/formal-ledger-specifications/issues/1280
@@ -286,7 +287,8 @@ spec = describe "SUBUTXO" $ do
       mkBasicTxBody
         & inputsTxBodyL .~ [txIn]
         & referenceInputsTxBodyL .~ [txIn]
-    getUTxO >>= (`expectUTxOContent` [(txIn, isNothing)])
+    currentAllocations <- getAllocations
+    expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "Composite tests" $ do
     -- https://github.com/IntersectMBO/formal-ledger-specifications/issues/1280

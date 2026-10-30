@@ -505,12 +505,12 @@ updateUTxOState pp certState tx utxoState =
           let existingAllocations = Store.allocations . utxosUTxOStore $ utxoState
               !(allocationsKeep, allocationsDel) = Allocations.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
               utxoDel = Allocations.txOuts allocationsDel
-              UTxO collouts = collOuts txBody
+              TxOutMap collouts = collOuts txBody
               store =
                 either (error . ("Babbage collateral update: " <>) . show) id $
                   applyLegacyOutputDelta
                     (txBody ^. collateralInputsTxBodyL)
-                    (UTxO . Allocations.excludeAllocatedInputs allocationsKeep $ collouts)
+                    (TxOutMap . Allocations.excludeAllocatedInputs allocationsKeep $ collouts)
                     (utxosUTxOStore utxoState)
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!

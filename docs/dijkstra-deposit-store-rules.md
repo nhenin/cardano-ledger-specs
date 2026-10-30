@@ -754,8 +754,10 @@ $$
 Construct an allocation directly as
 `Unspent {sizedOutput = acceptedOutput, depositCalculation = calculation}`,
 preserving the accepted full-output size and explicit calculation. Construction is pure;
-`fromAllocations` validates metadata and establishes the cached total, while
-`applyAllocationDelta` validates the delta and preserves the total for a valid store.
+`fromAllocations` accepts `Allocations`, validates metadata and establishes the cached total.
+`allocate` validates incoming entries and adds their deposits; `release` removes
+selected entries and subtracts their historical deposits. Both preserve exact
+cached equality for a valid Store.
 Snapshot decoding validates both metadata and cached equality. The exported record
 selectors also support direct record updates, whose callers must preserve the
 relationship between the two fields.
@@ -5246,7 +5248,7 @@ exists. [Output coin](#ds-tx-settlement-output-coin) checks the separate ADA bou
 <a id="ds-tx-settlement-destination-p01" name="ds-tx-settlement-destination-p01"></a>
 <a id="ds-tx-settlement-output-index-p01" name="ds-tx-settlement-output-index-p01"></a>
 
-###### 2.1.4.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L59) - The index belongs to the declaring body
+###### 2.1.4.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L60) - The index belongs to the declaring body
 
 $$
 \begin{aligned}
@@ -5260,7 +5262,7 @@ Generate ordinary output sequences, including an empty sequence. For TopTx and S
 <a id="ds-tx-settlement-destination-f01" name="ds-tx-settlement-destination-f01"></a>
 <a id="ds-tx-settlement-output-index-f01" name="ds-tx-settlement-output-index-f01"></a>
 
-###### 2.1.4.2.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L76) - The first missing own index is rejected
+###### 2.1.4.2.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L77) - The first missing own index is rejected
 
 $$
 \text{index}=|\text{ownOutputs(body)}|
@@ -5272,7 +5274,7 @@ Starting from a valid proposal, select the index immediately after the final out
 <a id="ds-tx-settlement-destination-f02" name="ds-tx-settlement-destination-f02"></a>
 <a id="ds-tx-settlement-output-index-f02" name="ds-tx-settlement-output-index-f02"></a>
 
-###### 2.1.4.2.3 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L99) - A SubTx cannot select TopTx's output
+###### 2.1.4.2.3 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L100) - A SubTx cannot select TopTx's output
 
 $$
 \begin{aligned}
@@ -5286,7 +5288,7 @@ Give TopTx one more output than its SubTx. The child selects the index that exis
 <a id="ds-tx-settlement-destination-f03" name="ds-tx-settlement-destination-f03"></a>
 <a id="ds-tx-settlement-output-index-f03" name="ds-tx-settlement-output-index-f03"></a>
 
-###### 2.1.4.2.4 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L120) - Collateral return is outside the ordinary output sequence
+###### 2.1.4.2.4 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L121) - Collateral return is outside the ordinary output sequence
 
 $$
 \begin{aligned}
@@ -5301,7 +5303,7 @@ Use a genuinely phase-2-invalid transaction with collateral return. Select the i
 <a id="ds-tx-settlement-destination-f04" name="ds-tx-settlement-destination-f04"></a>
 <a id="ds-tx-settlement-output-index-f04" name="ds-tx-settlement-output-index-f04"></a>
 
-###### 2.1.4.2.5 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L141) - A SubTx without outputs cannot settle locally
+###### 2.1.4.2.5 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L142) - A SubTx without outputs cannot settle locally
 
 $$
 \begin{aligned}
@@ -5316,7 +5318,7 @@ Start with a valid delegated final release. Replace delegation with local output
 <a id="ds-tx-settlement-destination-n01" name="ds-tx-settlement-destination-n01"></a>
 <a id="ds-tx-settlement-output-index-n01" name="ds-tx-settlement-output-index-n01"></a>
 
-###### 2.1.4.2.6 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L160) - The first and last own outputs are valid
+###### 2.1.4.2.6 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L161) - The first and last own outputs are valid
 
 $$
 \begin{aligned}
@@ -5331,7 +5333,7 @@ At both body levels, designate the first output and then the last output. Each c
 <a id="ds-tx-settlement-destination-f05" name="ds-tx-settlement-destination-f05"></a>
 <a id="ds-tx-settlement-output-index-f05" name="ds-tx-settlement-output-index-f05"></a>
 
-###### 2.1.4.2.7 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L174) - TopTx cannot select a SubTx's output
+###### 2.1.4.2.7 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L175) - TopTx cannot select a SubTx's output
 
 $$
 \begin{aligned}
@@ -5345,7 +5347,7 @@ Give a nested SubTx one more output than TopTx. The index exists in the child bu
 <a id="ds-tx-settlement-destination-f06" name="ds-tx-settlement-destination-f06"></a>
 <a id="ds-tx-settlement-output-index-f06" name="ds-tx-settlement-output-index-f06"></a>
 
-###### 2.1.4.2.8 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L193) - A SubTx cannot select a sibling's output
+###### 2.1.4.2.8 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L194) - A SubTx cannot select a sibling's output
 
 $$
 \begin{aligned}
@@ -5359,7 +5361,7 @@ Give the sibling one more output than the declaring SubTx. Both children release
 <a id="ds-tx-settlement-destination-n02" name="ds-tx-settlement-destination-n02"></a>
 <a id="ds-tx-settlement-output-index-n02" name="ds-tx-settlement-output-index-n02"></a>
 
-###### 2.1.4.2.9 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L214) - Valid output indices when phase 2 fails
+###### 2.1.4.2.9 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L215) - Valid output indices when phase 2 fails
 
 $$
 \begin{aligned}
@@ -5374,7 +5376,7 @@ Use a real failing script and designate the final own regular output at both bod
 <a id="ds-tx-settlement-destination-f07" name="ds-tx-settlement-destination-f07"></a>
 <a id="ds-tx-settlement-output-index-f07" name="ds-tx-settlement-output-index-f07"></a>
 
-###### 2.1.4.2.10 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L228) - An invalid output index still fails when phase 2 fails
+###### 2.1.4.2.10 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L229) - An invalid output index still fails when phase 2 fails
 
 $$
 \begin{aligned}
@@ -5389,7 +5391,7 @@ From a valid phase-2-invalid control, replace one index with the first out-of-ra
 <a id="ds-tx-settlement-participation-n09" name="ds-tx-settlement-participation-n09"></a>
 <a id="ds-tx-settlement-output-index-n03" name="ds-tx-settlement-output-index-n03"></a>
 
-###### 2.1.4.2.11 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L252) - A SubTx without outputs delegates its final release
+###### 2.1.4.2.11 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) - A SubTx without outputs delegates its final release
 
 $$
 \begin{aligned}
@@ -5765,7 +5767,7 @@ integration remains a separate coverage obligation.
 
 These links establish test ownership and registration, not a new passing run.
 `disableInConformanceIt` retains the implementation check while disabling its
-[conformance comparison](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/ImpTest.hs#L848).
+[conformance comparison](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/ImpTest.hs#L849).
 Recorded executions remain in the [verification record](dijkstra-deposit-store-verification.md).
 
 The shared trigger is (`subTxRedeemers` is the union of all children’s redeemers):
@@ -5805,7 +5807,7 @@ It is the existing control for Store activity without redeemers. **Remaining
 extension:** explicitly assert empty redeemers and empty collateral inputs in that
 prepared transaction; acceptance alone does not prove both fields are absent.
 Store-backed fixture extensions should reuse the shared rule cases. The existing Babbage
-[return fixup](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/ImpTest.hs#L94)
+[return fixup](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/ImpTest.hs#L93)
 currently rejects `NewTxOut`, so inherited implicit fixtures do not supply
 that extension automatically.
 
@@ -6126,7 +6128,7 @@ repricing policy remains a separate [design question](#ds-pricing-history).
 
 <a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
 **Exact cache invariant.** The former solvency comparison is replaced by equality:
-`fromAllocations` establishes the cached total, `applyAllocationDelta` preserves it for a valid store, and decoding rejects a total that differs from the historical record sum. Raw allocation construction is separate from these checks. Direct record updates must preserve the same equality.
+`fromAllocations` establishes the cached total, `allocate` and `release` preserve it for a valid store, and decoding rejects a total that differs from the historical record sum. Raw allocation construction is separate from these checks. Direct record updates must preserve the same equality.
 The nonnegative-record and live-output correspondence requirements remain in
 [Allocations](#ds-state-allocations).
 
@@ -6258,7 +6260,7 @@ field across two different era types.
 
 | Case | Contract | Scenario axes |
 | --- | --- | --- |
-| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L37)** | **Introduce legacy allocations.** Apply the real era translation; compare the listed fields independently with their source values, require one legacy allocation per output and assert a zero cached total and empty external-deposit view. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
+| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L38)** | **Introduce legacy allocations.** Apply the real era translation; compare the listed fields independently with their source values, require one legacy allocation per output and assert a zero cached total and empty external-deposit view. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
 
 <a id="ds-state-epoch" name="ds-state-epoch"></a>
 
@@ -6598,11 +6600,11 @@ compatibility initialization. The other model modules separate the following res
 | [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Deposit.hs) | `DepositAmount` and `toCoin`, `ByteSize`, `DepositCalculation`, and pure `calculateDeposit`. |
 | [`Store.Error`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/Store/Error.hs) | `OutputStoreError`: `NegativeOutputSize Int64` and `MissingHistoricalAllocation TxIn`, with their instances. |
 
-[`Cardano.Ledger.State.UTxOs.LegacyUTxOMap`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/UTxOs/LegacyUTxOMap.hs)
-owns the compatibility `UTxO` newtype, instances,
-and the remaining map API previously defined in `Cardano.Ledger.State.UTxO`.
-The original `UTxO` type name is retained. All seven modules in the plural
-`Cardano.Ledger.State.UTxOs` namespace are exposed for direct imports.
+[`Cardano.Ledger.TxOut.Map`](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/Map.hs)
+owns `TxOutMap`: output payloads indexed by `TxIn`, without historical metadata.
+It replaces the old `UTxO` type and retains its map-only codecs and credential
+sharing. `LegacyUTxOMap` is removed. The modules under
+`Cardano.Ledger.State.UTxOs` describe accepted allocations and Store operations.
 `Cardano.Ledger.State` reexports the shared API but only `Unspent(..)` from the
 entry module. Consumers import `Allocations.UTxO` qualified as `UTxO` to use
 `UTxO.toTxOut`, `UTxO.depositAmount` and `UTxO.encodeWith`.
@@ -6623,14 +6625,14 @@ inspect allocation keys directly. Only an entry's output-dependent checks use
 Output-only consumers use the collection API:
 
 ```haskell
-Allocations.txOutsForInputs inputs entries -- Select first, then read TxOut payloads.
-Allocations.toTxOutMap entries             -- Read every TxOut payload, keyed by input.
-Allocations.mapTxOuts translate entries    -- Transform payloads in one traversal.
+Allocations.txOutsForInputs inputs entries -- TxOutMap: select before projecting.
+Allocations.toTxOutMap entries             -- TxOutMap: every output payload.
+Allocations.mapTxOuts translate entries    -- Map TxIn output: transformed payloads.
 ```
 
 These views omit historical metadata; accounting and Store updates retain the
-complete allocations. Callers do not unwrap the collection or map `toTxOut`
-themselves. The legacy `UTxO` wrapper remains explicit at its consumer boundary.
+complete allocations. The first two queries return `TxOutMap` directly; callers
+do not wrap a raw map or map `toTxOut` over complete entries themselves.
 `filterByTxOut` and `withoutInputs` retain complete entries when selecting by
 output or excluding inputs; `txOuts` supplies payloads for folds without creating
 an intermediate map. `extractInputs` splits retained and consumed entries in one
@@ -6662,8 +6664,8 @@ block, following the existing protocol-version rules. This map supports the bloc
 check; it does not construct allocations or invent historical metadata.
 
 Legacy codecs traverse allocation entries directly. Full output-only maps are
-requested by APIs that explicitly return them, initial-fund merging, and test
-oracles comparing complete output collections. These boundaries still traverse
+requested by APIs that explicitly return them and test oracles comparing complete
+output collections. These boundaries still traverse
 their complete collection; no performance-neutrality or benchmark claim is made.
 
 Stake updates consume output collections directly:
@@ -6679,35 +6681,69 @@ Shelley pointer handling, Conway credential handling and application-ADA amounts
 are unchanged. Initial stake reconstruction folds the output collection directly.
 The test harness also looks up its funding input directly in allocations.
 
+Initial funding checks the injected inputs against existing allocations and retains
+every unaffected entry's historical metadata. It deducts the supplied funds from
+reserves and reconstructs stake from the funded Store's outputs. Test submission
+assertions also read allocations directly: `getUTxOStore` returns the current Store,
+`getAllocations` returns its allocations, and `expectUTxOContent` projects only the
+requested inputs' output payloads. The Imp test helper `getUTxO` is removed;
+tests read `getAllocations` or look up one input with `impGetUTxO`.
+Public wallet queries explicitly return payload views: `getTxOutMap`,
+`getFilteredTxOutMap` and `getTxOutMapSubset`.
+
 Address inspection (`getScriptHash`) belongs to `Cardano.Ledger.Address`;
 witness verification (`verifyWitVKey`) belongs to `Cardano.Ledger.Keys.WitVKey`.
 Neither operation depends on an output map.
 
-**Remaining interface work**
+**Interface migration**
 
 - [x] Remove the shared whole-Store projection helpers and migrate their callers.
 - [x] Migrate `EraUTxO`, script contexts, transaction annotations and accepted-input
   validators to `Allocations`, eliminating their legacy-map conversions.
 - [x] Make stake output-delta contracts consume output collections directly,
   preserving the distinction between proposed outputs and historical allocations.
-- [ ] Migrate remaining internal map reads in initial-fund merging and test
-  assertion helpers. Keep the public wallet result types unchanged during this pass.
-- [ ] Retire `LegacyUTxOMap` after its remaining contracts, codecs and output
-  construction functions have appropriate owners. The module is still present;
-  the complete interface cleanup is not finished.
+- [x] Migrate initial-fund collision checks and test submission assertions to
+  allocations. Public wallet output queries return `TxOutMap`.
+- [x] Use `Allocations` for Store construction and insertion. Express updates as
+  `allocate` and `release`, preserving historical metadata and the exact total.
+- [x] Remove `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`.
+  Read body inputs through their lens, query accepted entries through
+  `Allocations`, and fold output collections directly with `TxOut` queries.
+- [x] Remove `LegacyUTxOMap`. Output payloads and their codecs belong to
+  `TxOut.Map`; accepted entries belong to `Allocations`.
+- [x] Replace `txouts` with `Core.txOutsTxBody`, explicitly returning indexed
+  output payloads rather than metadata-bearing allocations.
 
-**Deferred: proposed outputs and allocations**
+**Proposed outputs and allocations**
 
-- [ ] Review `txouts :: EraTxBody era => TxBody l era -> UTxO era` and
-  `createdOutputAllocations`: use `Allocations era` when constructing entries to
-  add to the Store, retaining each output's accepted size and supplying its
-  `DepositCalculation` explicitly. Distinguish this construction from merely
-  indexing proposed outputs by `TxIn`; constructing allocations does not itself
-  accept the transaction or insert them into ledger state. Revisit the associated
-  names and signatures together. No API or type rename is applied for this item yet.
+| Value | Contains | Owner |
+| --- | --- | --- |
+| `TxOutMap era` | `TxIn → TxOut era` | `TxOut.Map` |
+| `Allocations era` | `TxIn → Unspent (TxOut era)` | `State.UTxOs.Allocations` |
+| `UTxOStore era` | Complete allocations and their exact deposit total | `State.UTxOs.Store` |
+
+[`Core.txOutsTxBody`](../libs/cardano-ledger-core/src/Cardano/Ledger/Core.hs)
+indexes a body's regular output payloads. It preserves the previous bounded
+output-index enumeration and excludes the collateral return. This query neither
+accepts the transaction nor manufactures historical deposit metadata.
+
+```haskell
+txOutsTxBody :: EraTxBody era => TxBody l era -> TxOutMap era
+```
+
+Dijkstra's `outputAllocations` and `collateralReturnAllocations` now return
+`Allocations`, preserving each supplied `Sized` value and recording an explicit
+`DepositCalculation`. Constructing those entries does not accept the transaction
+or insert them into ledger state. The Store receives the selected effects as:
+
+```haskell
+Store.allocate (outputAllocations calculation body)
+  . Store.release (body ^. inputsTxBodyL)
+  $ previousStore
+```
 
 Read the external-deposit total with `toCoin (totalDepositAmount store)`.
-Legacy allocations contribute zero. `fromLegacyUTxO` checks legacy-only imports;
+Legacy allocations contribute zero. `fromLegacyTxOutMap` checks legacy-only imports;
 `fromLegacyAllocations` accepts typed legacy outputs. `applyLegacyOutputDelta`
 changes only the selected entries and preserves all unaffected metadata.
 
@@ -6724,8 +6760,11 @@ allocations and extract output payloads only for output arithmetic or failure re
 `totalDepositAmount`, `allocations`,
 `toCoin`, `unAllocations`, `sizedOutput` and
 `depositCalculation` are record selectors. Ledger
-updates use `applyAllocationDelta` to replace complete allocations and maintain
-their cached total. Dijkstra's
+updates compose `allocate` and `release` to replace complete allocations and
+maintain their cached total. Allocation at an existing input replaces its old
+deposit; releasing that input first never subtracts the old deposit twice.
+Incoming metadata is checked before allocation succeeds, and the pure composition
+returns no intermediate Store on failure. Dijkstra's
 transaction environment and allocation-update APIs use `UTxOStore`
 directly. The environment retains the previous store while processing child
 transactions, so batch validation can still recover consumed inputs' original allocations.

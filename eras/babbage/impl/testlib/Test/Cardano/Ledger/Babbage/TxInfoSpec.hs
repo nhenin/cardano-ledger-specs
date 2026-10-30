@@ -39,7 +39,10 @@ import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Plutus.Data (Data (..), Datum (..), dataToBinaryData)
 import Cardano.Ledger.Plutus.Language (Language (..), SLanguage (..))
 import Cardano.Ledger.Plutus.TxInfo (TxOutSource (..))
-import Cardano.Ledger.State (Allocations, EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State (
+  Allocations,
+  EraUTxO (..),
+ )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..), mkTxInPartial)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -125,7 +128,7 @@ exampleAllocations ::
   ) =>
   Allocations era
 exampleAllocations =
-  legacyAllocations . UTxO $
+  legacyAllocations . TxOutMap $
     Map.fromList
       [ (byronInput, byronOutput)
       , (shelleyInput, shelleyOutput)

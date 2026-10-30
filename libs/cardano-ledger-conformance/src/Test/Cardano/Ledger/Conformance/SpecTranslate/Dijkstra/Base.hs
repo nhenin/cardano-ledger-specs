@@ -230,12 +230,12 @@ instance SpecTranslate DijkstraEra (BabbageTxOut DijkstraEra) where
     script' <- toSpecRep script
     pure (addr', (val', (datum', script')))
 
-instance SpecTranslate DijkstraEra (UTxO DijkstraEra) where
+instance SpecTranslate DijkstraEra (TxOutMap DijkstraEra) where
   type
-    SpecRep DijkstraEra (UTxO DijkstraEra) =
+    SpecRep DijkstraEra (TxOutMap DijkstraEra) =
       Agda.HSMap (SpecRep DijkstraEra TxIn) (SpecRep DijkstraEra (TxOut DijkstraEra))
 
-  toSpecRep (UTxO m) = toSpecRepMap m
+  toSpecRep (TxOutMap m) = toSpecRepMap m
 
 deriving instance SpecTranslate DijkstraEra OrdExUnits
 

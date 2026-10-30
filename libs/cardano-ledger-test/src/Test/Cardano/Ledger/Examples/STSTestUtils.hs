@@ -47,7 +47,6 @@ import Cardano.Ledger.Shelley.Scripts (
   pattern RequireAllOf,
   pattern RequireSignature,
  )
-import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.Slot (SlotNo (..))
@@ -155,9 +154,9 @@ initUTxO ::
   , AlonzoEraTxOut era
   , EraModel era
   ) =>
-  UTxO era
+  TxOutMap era
 initUTxO =
-  UTxO $
+  TxOutMap $
     Map.fromList $
       [ (mkGenesisTxIn 1, alwaysSucceedsOutput)
       , (mkGenesisTxIn 2, alwaysFailsOutput)

@@ -139,7 +139,7 @@ instance ExecSpecTopLevelRule "LEDGER" ConwayEra where
       , clecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
-            , uecUTxO = UTxO . Allocations.toTxOutMap . allocations $ state ^. utxoStoreG
+            , uecUTxO = Allocations.toTxOutMap . allocations $ state ^. utxoStoreG
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL

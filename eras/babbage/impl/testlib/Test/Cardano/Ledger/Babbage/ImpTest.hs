@@ -34,7 +34,6 @@ import Cardano.Ledger.BaseTypes (Inject, StrictMaybe (..))
 import Cardano.Ledger.Plutus.CostModels (CostModelsUpdate (..), updateCostModels)
 import Cardano.Ledger.Plutus.Language (Language (..), SLanguage (..))
 import Cardano.Ledger.Shelley.LedgerState (
-  UTxO (..),
   curPParamsEpochStateL,
   nesEsL,
  )
@@ -117,15 +116,15 @@ impBabbageExpectTxSuccess ::
 impBabbageExpectTxSuccess tx = do
   impAlonzoExpectTxSuccess tx
   -- Check that the balance of the collateral was returned
-  let returns = Map.toList . unUTxO . collOuts $ tx ^. bodyTxL
-  utxo <- getUTxO
+  let returns = Map.toList . unTxOutMap . collOuts $ tx ^. bodyTxL
+  currentAllocations <- getAllocations
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Collateral return should not be in UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | (txIn, _txOut) <- returns]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | (txIn, _txOut) <- returns]
     else do
       impAnn "Collateral return should be in UTxO" $
-        expectUTxOContent utxo [(txIn, (== Just txOut)) | (txIn, txOut) <- returns]
+        expectUTxOContent currentAllocations [(txIn, (== Just txOut)) | (txIn, txOut) <- returns]
 
 instance AllegraEraImp BabbageEra
 

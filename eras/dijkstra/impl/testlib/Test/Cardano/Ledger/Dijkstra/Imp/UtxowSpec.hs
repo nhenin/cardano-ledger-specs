@@ -48,7 +48,6 @@ import Cardano.Ledger.Plutus (
  )
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.Scripts
-import Cardano.Ledger.State (allocations)
 import Cardano.Ledger.TxIn (TxIn)
 import Control.Monad.Reader (asks)
 import qualified Data.Map.Strict as Map
@@ -350,7 +349,7 @@ spec = describe "UTXOW" $ do
           logToExpr txBorked
 
           pp <- getsNES $ nesEsL . curPParamsEpochStateL
-          entries <- allocations <$> getsNES utxoStoreG
+          entries <- getAllocations
           Globals {epochInfo, systemStart} <- use impGlobalsL
           let report = evalTxExUnits pp txBorked entries epochInfo systemStart
           logToExpr report

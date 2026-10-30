@@ -121,7 +121,7 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
         let tx = stAnnTx ^. txStAnnTxG
          in property $
               hasFailedScripts tx
-                || Set.null (Set.intersection (txins @era (tx ^. bodyTxL)) (Map.keysSet u'))
+                || Set.null (Set.intersection (tx ^. bodyTxL . inputsTxBodyL) (Map.keysSet u'))
 
 -- | Collision-Freeness of new TxIds - checks that all new outputs of a Tx are
 -- included in the new UTxO and that all TxIds are new.
@@ -154,7 +154,7 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
           LedgerState (UTxOState {utxosUTxOStore = (Store.unAllocations . Store.allocations -> u')}) _
         } =
         let tx = stAnnTx ^. txStAnnTxG
-            UTxO outs = txouts @era (tx ^. bodyTxL)
+            TxOutMap outs = txOutsTxBody @era (tx ^. bodyTxL)
             outIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet outs)
             oldIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet u)
          in property $

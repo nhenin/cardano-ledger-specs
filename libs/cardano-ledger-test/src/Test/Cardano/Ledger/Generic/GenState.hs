@@ -653,7 +653,7 @@ instance (Reflect era, ShelleyEraTest era) => Show (GenState era) where
 initialLedgerState :: forall era. Reflect era => GenState era -> LedgerState era
 initialLedgerState gstate = LedgerState utxostate dpstate
   where
-    utxostate = smartUTxOState pp (UTxO (gsInitialUtxo gstate)) deposited (Coin 0) emptyGovState mempty
+    utxostate = smartUTxOState pp (TxOutMap (gsInitialUtxo gstate)) deposited (Coin 0) emptyGovState mempty
     dpstate =
       def
         & certPStateL .~ pstate

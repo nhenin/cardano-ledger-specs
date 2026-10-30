@@ -32,7 +32,9 @@ import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.BaseTypes (ProtVer (ProtVer))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Plutus.Language (SLanguage (..))
-import Cardano.Ledger.State (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State (
+  EraUTxO (..),
+ )
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
@@ -60,7 +62,7 @@ class
   where
   tgRedeemers :: Gen (Redeemers era)
   tgTx :: SupportedLanguage era -> Gen (Tx TopTx era)
-  tgUtxo :: SupportedLanguage era -> Tx TopTx era -> Gen (UTxO era)
+  tgUtxo :: SupportedLanguage era -> Tx TopTx era -> Gen (TxOutMap era)
 
 instance TranslatableGen AlonzoEra where
   tgRedeemers = arbitrary
@@ -68,7 +70,7 @@ instance TranslatableGen AlonzoEra where
   tgUtxo _ tx = do
     let ins = tx ^. bodyTxL ^. inputsTxBodyL
     outs <- vectorOf (length ins) (arbitrary :: Gen (TxOut AlonzoEra))
-    pure $ UTxO (Map.fromList $ Set.toList ins `zip` outs)
+    pure $ TxOutMap (Map.fromList $ Set.toList ins `zip` outs)
 
 translationInstances ::
   TranslatableGen era =>

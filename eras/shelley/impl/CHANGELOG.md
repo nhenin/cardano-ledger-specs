@@ -2,7 +2,12 @@
 
 ## 1.21.0.0
 
-* Store outputs in `UTxOState` through the `UTxOs` bridge and `utxosUTxOsL`, with read-only `utxosUtxo`/`utxoG` access. Retain pre-Dijkstra snapshot encoding and include Dijkstra's cached output-deposit total in ADA pots.
+* Remove the `Shelley.UTxO` reexports of `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`.
+* Replace the output-view type `UTxO` with `TxOutMap` and `txouts` with `txOutsTxBody`. Rename wallet queries to `getTxOutMap`, `getFilteredTxOutMap` and `getTxOutMapSubset`; their output-map encodings remain unchanged.
+* Store complete allocations in `UTxOState.utxosUTxOStore`, with `utxosUTxOStoreL` and the shared `utxoStoreG`/`utxoStoreL` accessors. Retain pre-Dijkstra snapshot encoding and include Dijkstra's cached output-deposit total in ADA pots.
+* Check initial-fund collisions directly against allocations and reconstruct stake from the funded Store's outputs, preserving existing entries and historical deposit metadata.
+* Add `getUTxOStore` and `getAllocations` to the Imp test API for direct access to the current store and its allocations. Remove the output-only `getUTxO` helper; single-input reads remain available through `impGetUTxO`.
+* Change `expectUTxOContent` to accept `Allocations`; test submission assertions look up only the requested outputs.
 * Remove `nesPd` field from `NewEpochState` and `nesPdL`:
   - Add `nesStakePoolDistrG`, which reads the stake pool distribution from the set snapshot instead
   - Remove the re-export of `ssStakeMarkPoolDistrL` from `Cardano.Ledger.Shelley.LedgerState`

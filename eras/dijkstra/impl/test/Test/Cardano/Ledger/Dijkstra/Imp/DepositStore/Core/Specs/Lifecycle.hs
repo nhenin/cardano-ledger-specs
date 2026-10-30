@@ -50,7 +50,7 @@ conwayStates = do
           zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (take 1 outputs <> outputs)
       outputStore =
         either (error . ("Conway lifecycle fixture: " <>) . show) id $
-          fromLegacyUTxO (UTxO outputMap)
+          fromLegacyTxOutMap (TxOutMap outputMap)
       utxoStateL = nesEsL . esLStateL . lsUTxOStateL
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =

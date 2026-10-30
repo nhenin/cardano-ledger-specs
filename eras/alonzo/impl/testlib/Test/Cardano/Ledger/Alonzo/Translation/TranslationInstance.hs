@@ -32,7 +32,6 @@ import Cardano.Ledger.Binary (
   fromPlainEncoding,
  )
 import Cardano.Ledger.Core
-import Cardano.Ledger.State (UTxO (..))
 import qualified Codec.Serialise as Cborg (Serialise (..))
 import qualified Data.ByteString.Lazy as BSL
 import GHC.Generics (Generic)
@@ -52,7 +51,7 @@ data VersionedTxInfo
 data TranslationInstance era = TranslationInstance
   { tiProtVer :: ProtVer
   , tiLanguage :: SupportedLanguage era
-  , tiUtxo :: UTxO era
+  , tiUtxo :: TxOutMap era
   , tiTx :: Tx TopTx era
   , tiPlutusPurpose :: PlutusPurpose AsIx era
   , tiResult :: VersionedTxInfo
@@ -60,11 +59,11 @@ data TranslationInstance era = TranslationInstance
   deriving (Generic)
 
 deriving instance
-  (AlonzoEraScript era, Eq (PParams era), Eq (UTxO era), Eq (Tx TopTx era)) =>
+  (AlonzoEraScript era, Eq (PParams era), Eq (TxOutMap era), Eq (Tx TopTx era)) =>
   Eq (TranslationInstance era)
 
 deriving instance
-  (AlonzoEraScript era, Show (PParams era), Show (UTxO era), Show (Tx TopTx era)) =>
+  (AlonzoEraScript era, Show (PParams era), Show (TxOutMap era), Show (Tx TopTx era)) =>
   Show (TranslationInstance era)
 
 instance Cborg.Serialise PV1.DCert
@@ -211,7 +210,7 @@ instance DecCBOR VersionedTxInfo where
 
 instance
   ( AlonzoEraScript era
-  , EncCBOR (UTxO era)
+  , EncCBOR (TxOutMap era)
   , EncCBOR (Tx TopTx era)
   ) =>
   EncCBOR (TranslationInstance era)
@@ -227,7 +226,7 @@ instance
 
 instance
   ( DecCBOR (PParams era)
-  , DecCBOR (UTxO era)
+  , DecCBOR (TxOutMap era)
   , DecCBOR (Tx TopTx era)
   , EraPlutusContext era
   ) =>
@@ -246,7 +245,7 @@ instance
 deserializeTranslationInstances ::
   forall era.
   ( DecCBOR (PParams era)
-  , DecCBOR (UTxO era)
+  , DecCBOR (TxOutMap era)
   , DecCBOR (Tx TopTx era)
   , EraPlutusContext era
   ) =>

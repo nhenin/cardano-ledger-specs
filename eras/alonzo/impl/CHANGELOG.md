@@ -2,6 +2,7 @@
 
 ## 1.17.1.0
 
+* Replace the output-only `UTxO` type with `TxOutMap` in era translation and `TxUTxODiff` event payloads. `Cardano.Ledger.Alonzo.Tx` reexports `txOutsTxBody` instead of `txouts`. These source-API changes preserve ledger behavior and serialized map formats.
 * Initialize the new UTxO DepositStore state to empty during era translation.
 
 ### `testlib`

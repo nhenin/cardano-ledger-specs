@@ -99,8 +99,8 @@ import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
  )
-import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..), UTxO (..), txouts)
-import Cardano.Ledger.State (Allocations, allocations, utxoStoreG)
+import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..))
+import Cardano.Ledger.State (Allocations)
 import Cardano.Ledger.TxIn (TxIn)
 import Control.Monad (forM)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -184,7 +184,7 @@ impGetPlutusContexts ::
   ImpTestM era [(PlutusPurpose AsIxItem era, ScriptHash, ScriptTestContext)]
 impGetPlutusContexts tx = do
   let txBody = tx ^. bodyTxL
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   let AlonzoScriptsNeeded asn = getScriptsNeeded entries txBody
   mbyContexts <- forM asn $ \(prp, sh) -> do
     pure $ (prp,sh,) <$> impLookupScriptContext @era sh
@@ -216,7 +216,7 @@ fixupRedeemers tx = impAnn "fixupRedeemers" $ do
   let oldRedeemers = tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL
   txWithMaxExUnits <- txWithMaxRedeemers tx
   let newMaxRedeemers = txWithMaxExUnits ^. witsTxL . rdmrsTxWitsL . unRedeemersL
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   Globals {systemStart, epochInfo} <- use impGlobalsL
   let reports = evalTxExUnits pp txWithMaxExUnits entries epochInfo systemStart
   exUnitsPerPurpose <-
@@ -266,7 +266,7 @@ fixupScriptWits ::
   ImpTestM era (Tx l era)
 fixupScriptWits tx = impAnn "fixupScriptWits" $ do
   contexts <- impGetPlutusContexts tx
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   let ScriptsProvided provided = getScriptsProvided entries tx
   let contextsToAdd = filter (\(_, sh, _) -> not (Map.member sh provided)) contexts
   scriptWits <- forM contextsToAdd $ \(_, sh, ScriptTestContext plutus _) ->
@@ -487,7 +487,7 @@ impPlutusWithContexts ::
 impPlutusWithContexts tx = do
   globals <- use impGlobalsL
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  entries <- allocations <$> getsNES utxoStoreG
+  entries <- getAllocations
   case collectPlutusScriptsWithContext (epochInfo globals) (systemStart globals) pp tx entries of
     Left errs ->
       assertFailure $
@@ -546,25 +546,25 @@ impAlonzoExpectTxSuccess ::
   ) =>
   Tx TopTx era -> ImpTestM era ()
 impAlonzoExpectTxSuccess tx = do
-  utxo <- getUTxO
+  currentAllocations <- getAllocations
   let inputs = tx ^. bodyTxL . inputsTxBodyL
       collaterals = tx ^. bodyTxL . collateralInputsTxBodyL
-      outputs = Map.toList . unUTxO . txouts $ tx ^. bodyTxL
+      outputs = Map.toList . unTxOutMap . txOutsTxBody $ tx ^. bodyTxL
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Inputs should be gone from UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | txIn <- Set.toList inputs]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | txIn <- Set.toList inputs]
       impAnn "Collateral inputs should still be in UTxO" $
-        expectUTxOContent utxo [(txIn, isJust) | txIn <- Set.toList $ collaterals \\ inputs]
+        expectUTxOContent currentAllocations [(txIn, isJust) | txIn <- Set.toList $ collaterals \\ inputs]
       impAnn "Outputs should be in UTxO" $
-        expectUTxOContent utxo [(txIn, (== Just txOut)) | (txIn, txOut) <- outputs]
+        expectUTxOContent currentAllocations [(txIn, (== Just txOut)) | (txIn, txOut) <- outputs]
     else do
       impAnn "Non-collateral inputs should still be in UTxO" $
-        expectUTxOContent utxo [(txIn, isJust) | txIn <- Set.toList $ inputs \\ collaterals]
+        expectUTxOContent currentAllocations [(txIn, isJust) | txIn <- Set.toList $ inputs \\ collaterals]
       impAnn "Collateral inputs should not be in UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | txIn <- Set.toList collaterals]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | txIn <- Set.toList collaterals]
       impAnn "Outputs should not be in UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | (txIn, _txOut) <- outputs]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | (txIn, _txOut) <- outputs]
 
 computeScriptIntegrity ::
   AlonzoEraImp era =>
@@ -584,7 +584,7 @@ impComputeScriptIntegrity ::
   Tx l era ->
   ImpTestM era (StrictMaybe (ScriptIntegrity era))
 impComputeScriptIntegrity tx =
-  computeScriptIntegrity <$> getsPParams id <*> (allocations <$> getsNES utxoStoreG) <*> pure tx
+  computeScriptIntegrity <$> getsPParams id <*> getAllocations <*> pure tx
 
 computeScriptIntegrityHash ::
   AlonzoEraImp era => Tx l era -> ImpTestM era (StrictMaybe ScriptIntegrityHash)

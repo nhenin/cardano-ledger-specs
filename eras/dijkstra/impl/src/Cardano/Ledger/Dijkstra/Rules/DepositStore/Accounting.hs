@@ -25,6 +25,8 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   validateTopTxSettlement,
   validateSettlementOutput,
   validateOrdinaryDepositStore,
+  outputAllocations,
+  collateralReturnAllocations,
   applyBodyAllocations,
   applyCollateralAllocations,
   CollateralDepositSettlement (..),
@@ -41,9 +43,10 @@ import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State (
+  Allocations,
+  DepositCalculation,
   OutputStoreError,
   UTxOStore,
-  Unspent,
  )
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
@@ -55,7 +58,6 @@ import Control.DeepSeq (NFData)
 import Control.Monad (when)
 import Data.Foldable (sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
-import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.Generics (Generic)
@@ -294,51 +296,60 @@ validateSettlementOutput body index required =
             (supplied >= required)
             (InsufficientSettlementOutput (txIdTxBody body) index supplied required)
 
--- | Keep accepted serialized sizes when creating records. The output-reference
--- enumeration is identical to the regular UTxO output enumeration.
-createdOutputAllocations ::
+-- | Construct allocations from this body's regular outputs, preserving their
+-- supplied sizes and recording the chosen calculation. Output references use
+-- the same indices as the body's regular UTxO outputs.
+outputAllocations ::
   DijkstraEraTxBody era =>
-  PParams era -> TxBody l era -> Map TxIn (Unspent (TxOut era))
-createdOutputAllocations pp body =
-  let calculation = Store.DepositCalculationV1 $ pp ^. ppCoinsPerUTxOByteL
-   in Map.fromList
-        [ ( TxIn (txIdTxBody body) index
-          , Store.Unspent {Store.sizedOutput = output, Store.depositCalculation = calculation}
-          )
-        | (index, output) <- zip [minBound .. maxBound] (toList $ body ^. sizedOutputsTxBodyL)
-        ]
+  DepositCalculation -> TxBody l era -> Allocations era
+outputAllocations calculation body =
+  Allocations.Allocations . Map.fromList $
+    [ ( TxIn (txIdTxBody body) index
+      , Store.Unspent {Store.sizedOutput = output, Store.depositCalculation = calculation}
+      )
+    | (index, output) <- zip [minBound .. maxBound] (toList $ body ^. sizedOutputsTxBodyL)
+    ]
 
--- | Apply only this body's effects. SubTxs and TopTx each update their own
--- inputs/outputs once; complete-batch validation reads the original store.
--- The accepted size and current rate are captured for every new allocation.
+-- | Construct the collateral return's allocation, or an empty collection when
+-- no return exists. Preserve the return's supplied size and record the calculation.
+collateralReturnAllocations ::
+  DijkstraEraTxBody era =>
+  DepositCalculation -> TxBody TopTx era -> Allocations era
+collateralReturnAllocations calculation body =
+  Allocations.Allocations $ case body ^. sizedCollateralReturnTxBodyL of
+    SNothing -> Map.empty
+    SJust output ->
+      Map.singleton (mkCollateralTxIn body) $
+        Store.Unspent {Store.sizedOutput = output, Store.depositCalculation = calculation}
+
+-- | Release this body's inputs and allocate its regular outputs. SubTxs and
+-- TopTx each apply their own effects once; complete-batch validation reads the
+-- original store. Every new allocation records its accepted size and current rate.
 applyBodyAllocations ::
   DijkstraEraTxBody era =>
   PParams era ->
   TxBody l era ->
   UTxOStore era ->
   Either OutputStoreError (UTxOStore era)
-applyBodyAllocations pp body store =
-  Store.applyAllocationDelta (body ^. inputsTxBodyL) (createdOutputAllocations pp body) store
+applyBodyAllocations pp body =
+  Store.allocate (outputAllocations calculation body)
+    . Store.release (body ^. inputsTxBodyL)
+  where
+    calculation = Store.DepositCalculationV1 $ pp ^. ppCoinsPerUTxOByteL
 
--- | On phase-2 failure only the collateral inputs and return are applied.
--- The return retains the accepted size from the signed body, just like a
--- regular output. Ordinary TopTx/SubTx allocations remain untouched.
+-- | On phase-2 failure, release only the collateral inputs and allocate the
+-- collateral return. Ordinary TopTx/SubTx allocations remain untouched.
 applyCollateralAllocations ::
   DijkstraEraTxBody era =>
   PParams era ->
   TxBody TopTx era ->
   UTxOStore era ->
   Either OutputStoreError (UTxOStore era)
-applyCollateralAllocations pp body store =
-  let created = case body ^. sizedCollateralReturnTxBodyL of
-        SNothing -> mempty
-        SJust output ->
-          Map.singleton (mkCollateralTxIn body) $
-            Store.Unspent
-              { Store.sizedOutput = output
-              , Store.depositCalculation = Store.DepositCalculationV1 $ pp ^. ppCoinsPerUTxOByteL
-              }
-   in Store.applyAllocationDelta (body ^. collateralInputsTxBodyL) created store
+applyCollateralAllocations pp body =
+  Store.allocate (collateralReturnAllocations calculation body)
+    . Store.release (body ^. collateralInputsTxBodyL)
+  where
+    calculation = Store.DepositCalculationV1 $ pp ^. ppCoinsPerUTxOByteL
 
 -- | Collateral funding distinguishes the coin-funded minimum fee from the
 -- complete fee credit. Released deposit surplus is credited to fees but cannot

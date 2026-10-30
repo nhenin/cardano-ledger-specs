@@ -190,7 +190,7 @@ initialShelleyState ::
   ) =>
   WithOrigin LastAppliedBlock ->
   EpochNo ->
-  UTxO era ->
+  TxOutMap era ->
   Coin ->
   Map (KeyHash GenesisRole) GenDelegPair ->
   PParams era ->
