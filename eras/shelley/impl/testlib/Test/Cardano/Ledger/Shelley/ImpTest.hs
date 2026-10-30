@@ -967,14 +967,13 @@ impWitsVKeyNeeded ::
 impWitsVKeyNeeded txBody = do
   ls <- getsNES (nesEsL . esLStateL)
   let entries = allocations . (^. utxoStoreG) $ ls
-      utxo = UTxO . Allocations.txOutsForInputs (txBody ^. spendableInputsTxBodyF) $ entries
       toBootAddr txIn = do
         entry <- lookupUTxO txIn entries
         UTxO.toTxOut entry ^. bootAddrTxOutF
       bootAddrs = Set.fromList $ mapMaybe toBootAddr $ Set.toList (txBody ^. spendableInputsTxBodyF)
       bootKeyHashes = Set.map (coerceKeyRole . bootstrapKeyHash) bootAddrs
       allKeyHashes =
-        getWitsVKeyNeeded (ls ^. lsCertStateL) utxo txBody
+        getWitsVKeyNeeded (ls ^. lsCertStateL) entries txBody
   pure (bootAddrs, allKeyHashes Set.\\ bootKeyHashes)
 
 data ImpTestEnv era = ImpTestEnv
@@ -1124,9 +1123,9 @@ impNativeScriptsRequired ::
   Tx l era ->
   ImpTestM era (Map ScriptHash (NativeScript era))
 impNativeScriptsRequired tx = do
-  utxo <- getUTxO
+  entries <- allocations <$> getsNES utxoStoreG
   ImpTestState {impNativeScripts} <- get
-  let needed = getScriptsNeeded utxo (tx ^. bodyTxL)
+  let needed = getScriptsNeeded entries (tx ^. bodyTxL)
       hashesNeeded = getScriptsHashesNeeded needed
   pure $ impNativeScripts `Map.restrictKeys` hashesNeeded
 
@@ -1137,8 +1136,8 @@ addNativeScriptTxWits ::
   ImpTestM era (Tx l era)
 addNativeScriptTxWits tx = impAnn "addNativeScriptTxWits" $ do
   scriptsRequired <- impNativeScriptsRequired tx
-  utxo <- getUTxO
-  let ScriptsProvided provided = getScriptsProvided utxo tx
+  entries <- allocations <$> getsNES utxoStoreG
+  let ScriptsProvided provided = getScriptsProvided entries tx
       scriptsToAdd = scriptsRequired Map.\\ provided
   pure $
     tx
@@ -1251,7 +1250,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   -- Fee will be overwritten later on, unless it wasn't set to zero to begin with:
   let tx = txOriginal & bodyTxL . feeTxBodyL .~ zero
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getUTxO
+  entries <- allocations <$> getsNES utxoStoreG
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
   addr <-
     if eraProtVerLow @era < natVersion @12
@@ -1263,7 +1262,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   let
     nativeScriptKeyWits = Map.keysSet nativeScriptKeyPairs
     accounts = certState ^. certDStateL . accountsL
-    consumedValue = shelleyConsumed pp accounts utxo (tx ^. bodyTxL)
+    consumedValue = shelleyConsumed pp accounts entries (tx ^. bodyTxL)
     producedValue = produced pp (certState ^. certPStateL) (tx ^. bodyTxL)
     ensureNonNegativeCoin v
       | pointwise (<=) zero v = pure v
@@ -1279,7 +1278,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
     outsBeforeFee = tx ^. bodyTxL . outputsTxBodyL
     suppliedFee = txOriginal ^. bodyTxL . feeTxBodyL
     fee0
-      | suppliedFee == zero = calcMinFeeTxNativeScriptWits utxo pp txNoWits nativeScriptKeyWits
+      | suppliedFee == zero = calcMinFeeTxNativeScriptWits entries pp txNoWits nativeScriptKeyWits
       | otherwise = suppliedFee
     fee = rationalToCoinViaCeiling $ coinToRational fee0 * (11 % 10)
   logString "Validating change"
@@ -1341,9 +1340,8 @@ logFeeMismatch :: (EraGov era, EraUTxO era, HasCallStack) => Tx TopTx era -> Imp
 logFeeMismatch tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   entries <- allocations <$> getsNES utxoStoreG
-  let utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ entries
-      Coin feeUsed = tx ^. bodyTxL . feeTxBodyL
-      Coin feeMin = getMinFeeTxUtxo pp tx utxo
+  let Coin feeUsed = tx ^. bodyTxL . feeTxBodyL
+      Coin feeMin = getMinFeeTxUtxo pp tx entries
   when (feeUsed /= feeMin) $ do
     logDoc $
       "Estimated fee " <> ansiExpr feeUsed <> " while required fee is " <> ansiExpr feeMin
@@ -1378,11 +1376,8 @@ trySubmitTx tx = do
           (epochInfo globals)
           (systemStart globals)
           (lEnv ^. ledgerPpL)
-          ( UTxO
-              . Allocations.txOutsForInputs (txFixed ^. bodyTxL . allInputsTxBodyF)
-              . allocations
-              . (^. utxoStoreG)
-              $ lState
+          ( Allocations.restrictToInputs (txFixed ^. bodyTxL . allInputsTxBodyF) . allocations $
+              lState ^. utxoStoreG
           )
           mempty
           txFixed

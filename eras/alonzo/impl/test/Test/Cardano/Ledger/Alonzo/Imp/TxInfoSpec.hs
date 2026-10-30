@@ -13,6 +13,7 @@ import Cardano.Ledger.Alonzo.Plutus.Context (
 import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Plutus (SLanguage (..))
+import Cardano.Ledger.State (allocations, utxoStoreG)
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro ((&), (.~))
@@ -30,7 +31,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       (_, shelleyAddr) <- freshKeyAddr
       byronAddr <- AddrBootstrap <$> freshBootstrapAddress
       shelleyTxIn <- sendCoinTo shelleyAddr mempty
-      utxo <- getUTxO
+      entries <- allocations <$> getsNES utxoStoreG
       let
         byronTxOut = mkBasicTxOutWithImplicitDeposit byronAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
@@ -42,7 +43,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton byronTxOut
-        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+        lti = mkTestLedgerTxInfo pv epochInfo systemStart entries tx $ LedgerTopTxInfo mempty
       void $ expectRight $ unPlutusTxInfoResult $ toPlutusTxInfo SPlutusV1 lti
     it "toPlutusTxInfo does not fail when Byron scripts are present in TxIns" $ do
       pv <- getProtVer
@@ -50,7 +51,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       (_, shelleyAddr) <- freshKeyAddr
       byronAddr <- AddrBootstrap <$> freshBootstrapAddress
       byronTxIn <- sendCoinTo byronAddr mempty
-      utxo <- getUTxO
+      entries <- allocations <$> getsNES utxoStoreG
       let
         shelleyTxOut = mkBasicTxOutWithImplicitDeposit shelleyAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
@@ -62,5 +63,5 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton shelleyTxOut
-        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+        lti = mkTestLedgerTxInfo pv epochInfo systemStart entries tx $ LedgerTopTxInfo mempty
       void $ expectRight $ unPlutusTxInfoResult $ toPlutusTxInfo SPlutusV1 lti

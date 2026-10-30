@@ -77,8 +77,7 @@ import Cardano.Ledger.Shelley.API (incrBlocks)
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (slotToEpochBoundary)
-import Cardano.Ledger.State (UTxO (..), allocations, utxoStoreG)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.State (allocations, utxoStoreG)
 import Control.DeepSeq (NFData)
 import Control.State.Transition
 import Data.Sequence (Seq)
@@ -393,12 +392,7 @@ dijkstraBbodyTransition = do
 
   Alonzo.validateExUnits @era txs $ pp ^. ppMaxBlockExUnitsL
 
-  -- The inherited block check adds proposed outputs as it walks transactions.
-  -- Its initial output view needs only the inputs referenced anywhere in this block.
-  let blockInputs = foldMap (^. bodyTxL . allInputsTxBodyF) txs
-      initialOutputs =
-        UTxO . Allocations.txOutsForInputs blockInputs . allocations $ ls ^. utxoStoreG
-  Conway.validateBodyRefScriptsSizeTooBig @era pp blockBody initialOutputs
+  Conway.validateBodyRefScriptsSizeTooBig @era pp blockBody (allocations $ ls ^. utxoStoreG)
 
   case blockBody ^. perasCertBlockBodyL of
     SNothing -> pure ()

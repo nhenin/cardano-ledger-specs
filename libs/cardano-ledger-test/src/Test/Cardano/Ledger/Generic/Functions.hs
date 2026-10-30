@@ -55,6 +55,7 @@ import qualified Data.Set as Set
 import Lens.Micro
 import Numeric.Natural
 import Test.Cardano.Ledger.Alonzo.Arbitrary (alwaysFailsLang, alwaysSucceedsLang)
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.Generic.ModelState (MUtxo, Model, ModelNewEpochState (..))
 import Test.Cardano.Ledger.Generic.Proof (Proof (..), Reflect (..))
 import Test.Cardano.Ledger.Shelley.Rewards (RewardUpdateOld, createRUpdOld_)
@@ -87,29 +88,29 @@ depositsAndRefunds pp certificates accounts = List.foldl' accum (Coin 0) certifi
 scriptWitsNeeded' :: Proof era -> MUtxo era -> TxBody TopTx era -> Set ScriptHash
 scriptWitsNeeded' Conway utxo txBody = regularScripts `Set.difference` inlineScripts
   where
-    theUtxo = UTxO utxo
+    theAllocations = legacyAllocations $ UTxO utxo
     inputs = txBody ^. inputsTxBodyL
-    inlineScripts = Map.keysSet $ getReferenceScripts theUtxo inputs
-    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theUtxo txBody)
+    inlineScripts = Map.keysSet $ getReferenceScripts theAllocations inputs
+    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theAllocations txBody)
 scriptWitsNeeded' Babbage utxo txBody = regularScripts `Set.difference` inlineScripts
   where
-    theUtxo = UTxO utxo
+    theAllocations = legacyAllocations $ UTxO utxo
     inputs = (txBody ^. inputsTxBodyL) `Set.union` (txBody ^. referenceInputsTxBodyL)
-    inlineScripts = Map.keysSet $ getReferenceScripts theUtxo inputs
-    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theUtxo txBody)
+    inlineScripts = Map.keysSet $ getReferenceScripts theAllocations inputs
+    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theAllocations txBody)
 scriptWitsNeeded' Alonzo utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
 scriptWitsNeeded' Mary utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
 scriptWitsNeeded' Allegra utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
 scriptWitsNeeded' Shelley utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
 {-# NOINLINE scriptWitsNeeded' #-}
 
 scriptsNeeded' :: EraUTxO era => MUtxo era -> TxBody TopTx era -> Set ScriptHash
 scriptsNeeded' utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyAllocations $ UTxO utxo) txBody)
 {-# NOINLINE scriptsNeeded' #-}
 
 txInBalance ::
@@ -299,7 +300,7 @@ languages ::
   Set Language
 languages tx utxo sNeeded = Map.foldl' accum Set.empty allScripts
   where
-    allScripts = Map.restrictKeys (unScriptsProvided $ getScriptsProvided utxo tx) sNeeded
+    allScripts = Map.restrictKeys (unScriptsProvided $ getScriptsProvided (legacyAllocations utxo) tx) sNeeded
     accum ans script =
       case toPlutusScript script of
         Nothing -> ans

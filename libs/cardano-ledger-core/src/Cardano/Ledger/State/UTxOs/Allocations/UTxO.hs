@@ -89,8 +89,7 @@ decodeUnspent decodeOutput = decodeRecordNamed "Unspent" (const 3) $ do
   output <- decodeOutput
   size <- decCBOR
   when (size < 0) $ fail $ show $ NegativeOutputSize size
-  calculation <- decCBOR
-  pure $ Unspent (Sized output size) calculation
+  Unspent (Sized output size) <$> decCBOR
 
 encodeWith :: (a -> Encoding) -> Unspent a -> Encoding
 encodeWith encodeOutput (Unspent (Sized output size) calculation) =

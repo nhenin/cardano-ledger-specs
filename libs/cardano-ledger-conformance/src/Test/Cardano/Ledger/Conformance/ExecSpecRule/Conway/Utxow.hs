@@ -17,8 +17,7 @@ import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Conway.UTxO (getConwayWitsVKeyNeeded)
 import Cardano.Ledger.Shelley.LedgerState (utxosUTxOStore)
 import Cardano.Ledger.Shelley.Rules (utxoEnvCertStateL)
-import Cardano.Ledger.State (UTxO (..), allocations)
-import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
+import Cardano.Ledger.State (allocations)
 import Control.State.Transition.Extended (TRC (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Coerce (coerce)
@@ -79,9 +78,8 @@ instance ExecSpecRule "UTXOW" ConwayEra where
         , "witsVKeyNeeded"
         , PP.pretty . showExpr $
             let body = sig ^. txStAnnTxG . bodyTxL
-                inputs =
-                  Allocations.txOutsForInputs (body ^. allInputsTxBodyF) . allocations . utxosUTxOStore $ st
-             in getConwayWitsVKeyNeeded @ConwayEra (UTxO inputs) body
+                entries = allocations . utxosUTxOStore $ st
+             in getConwayWitsVKeyNeeded @ConwayEra entries body
         , "witsVKeyHashes"
         , "Spec:"
         , PP.pretty result

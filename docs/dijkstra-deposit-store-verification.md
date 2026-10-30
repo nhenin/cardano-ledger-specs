@@ -60,8 +60,10 @@ source links follow the current modules. Previous documentation anchors still re
 Shared `UTxOState` owns `utxosUTxOStore :: UTxOStore era` directly.
 `CanGetUTxOStore` / `CanSetUTxOStore` replace both old accessor-class pairs;
 the `UTxOs` sum type is removed. The current working tree also removes
-`toUTxO`, `utxoG` and `utxosUtxo`. Reads use allocations directly, selecting
-inputs before conversion at inherited validator boundaries. Earlier-era codecs
+`toUTxO`, `utxoG` and `utxosUtxo`. `EraUTxO`, Plutus contexts, transaction
+annotations and accepted-input validators now receive `Allocations` directly.
+Annotations retain only their relevant inputs. `EraUTxO` and `ScriptsProvided`
+are owned by `State.UTxOs`, rather than the legacy output-map module. Earlier-era codecs
 retain their map formats and traverse stored entries directly; Dijkstra persists
 the complete Store. The dated results below distinguish these changes from
 earlier checkpoints.
@@ -115,9 +117,10 @@ Types suite was not completed, as recorded below.
 The preceding module-only move passed its core test-target build and formatting
 checks. The earlier layout passed all 11 selected build targets and 158 executed
 examples on 27 October.
-The 209 business contracts were registered by a dry run; their full runtime was
-not repeated for these naming changes. Earlier-layout checks, style-cleanup runs
-and the 26 October results remain separate evidence for their respective revisions.
+The earlier naming-only checks registered the 209 business contracts by dry run.
+The allocation-based read-contract revision below now reruns all 209 successfully.
+Earlier-layout checks, style-cleanup runs and the 26 October results remain
+separate evidence for their respective revisions.
 
 **Unified Store revision on 26 October:** the live Dijkstra state now owns outputs
 and their historical deposit metadata in `UTxOStore`. A cached
@@ -231,6 +234,63 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Allocation-based read contracts on 29 October 2026
+
+Baseline: `1b8f9c263`, with the working-tree interface migration.
+
+`EraUTxO` and `ScriptsProvided` now belong to `State.UTxOs`. Accepted-input
+contracts use `Allocations`: value, fee, witness, datum, collateral and script
+queries, Plutus input translation, execution-budget evaluation and transaction
+annotations. `LedgerTxInfo` retains `ltiAllocations`. Annotation callers select
+relevant inputs before constructing lazy contexts, avoiding retention of the full
+Store. Dijkstra preserves the distinction between original batch allocations and
+the threaded state used to check whether an input remains spendable.
+
+The Conway block reference-script check accepts allocations but keeps a local
+output map for outputs proposed earlier in the block. It preserves protocol-version
+behavior, existing-entry priority, script multiplicity and spending/reference-input
+deduplication. It does not fabricate historical allocations. Legacy test fixtures
+use a checked test-only adapter; ledger-backed tests use actual Store entries.
+
+| Executed scope | Examples | Failures | Time |
+| --- | ---: | ---: | ---: |
+| Complete DepositStore executable specification | 209 | 0 | 455.53 s |
+| Additional Dijkstra input, context, datum, mempool and reference-script checks | 73 | 0 | 4.55 s |
+| Legacy-era context goldens, translation, collateral, block checks, mempool and API balance | 94 | 0 | 12.92 s |
+| **Total** | **376** | **0** | **473.00 s** |
+
+Times are sums of the individual Hspec elapsed times, excluding compilation and
+process startup. The Dijkstra and legacy groups ran concurrently; the total is not
+overall wall-clock time or a performance comparison. Runs used seed `739231514`
+and the default 100 QuickCheck samples; the legacy script-translation selector
+used maximum generator size 10. The three historical-price/snapshot balance
+properties took approximately 60 seconds each for their 100 samples.
+
+All **15 requested build targets passed** with GHC 9.6.7, offline mode, tests and
+benchmarks enabled, and eight Cabal jobs: core, Shelley, Alonzo, Babbage, Conway,
+Dijkstra, ledger API and canonical-state tests; Shelley, Shelley-MA and Alonzo
+legacy test suites; shared ledger-test and conformance libraries; ledger-state
+and Shelley benchmark targets. Benchmarks were compiled, not executed. This is
+not a full run of every era suite or the conformance suite; prior unrelated
+SubTx script failures remain documented in the preceding-revision record below.
+
+Formatting passed for all 72 changed Haskell files, `git diff --check` passed,
+source links were checked, and ctags were regenerated. No test expectations or
+golden files were changed. The test source contents remained unchanged during
+execution.
+
+Local evidence:
+
+- `/private/tmp/utxo-allocation-contracts-build.log`
+- `/private/tmp/utxo-allocation-contracts-dijkstra-results.json`
+- `/private/tmp/utxo-allocation-contracts-legacy-results.json`
+- `/private/tmp/utxo-allocation-contracts-*.log` (individual selectors, formatting and ctags)
+
+`LegacyUTxOMap` is not yet retired: proposed-output construction, stake output
+deltas and explicit output-map APIs still use its representation. These remain
+separate from the accepted-input contracts migrated here; the deferred `txouts`
+design has not been changed.
 
 ## Store translations and composed reads on 29 October 2026
 

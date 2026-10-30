@@ -154,9 +154,9 @@ spec = describe "UTXO" $ do
         refIns <- produceRefScripts (NE.fromList refScripts)
         tx <- submitTxWithRefInputs scriptTxIn refIns
         minFeeDiff <- do
-          utxo <- getUTxO
+          entries <- allocations <$> getsNES utxoStoreG
           pp <- getsNES $ nesEsL . curPParamsEpochStateL
-          pure $ getMinFeeTxUtxo pp tx utxo <-> getShelleyMinFeeTxUtxo pp tx
+          pure $ getMinFeeTxUtxo pp tx entries <-> getShelleyMinFeeTxUtxo pp tx
         refScriptFee <- getsPParams ppMinFeeRefScriptCostPerByteL
         -- we check that the difference between conway and shelleyMinFee computation is exactly
         -- the size of the sizes of the reference scripts

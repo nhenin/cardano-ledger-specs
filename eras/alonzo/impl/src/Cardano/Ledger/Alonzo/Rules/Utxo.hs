@@ -114,7 +114,6 @@ import Data.Either (isRight)
 import Data.Foldable as F (foldl', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
-import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
@@ -297,15 +296,15 @@ feesOK ::
   ) =>
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  Allocations era ->
   Test (AlonzoUtxoPredFailure era)
-feesOK pp tx u@(UTxO utxo) =
+feesOK pp tx entries =
   let txBody = tx ^. bodyTxL
       collateral = txBody ^. collateralInputsTxBodyL -- Inputs allocated to pay txfee
-      -- restrict Utxo to those inputs we use to pay fees.
-      utxoCollateral = Map.restrictKeys utxo collateral
+      -- Resolve only the collateral outputs used to pay fees.
+      collateralAllocations = Allocations.restrictToInputs collateral entries
       theFee = txBody ^. feeTxBodyL
-      minFee = getMinFeeTxUtxo pp tx u
+      minFee = getMinFeeTxUtxo pp tx entries
    in sequenceA_
         [ -- Part 1: minfee pp tx ≤ txfee txb
           failureUnless
@@ -313,7 +312,7 @@ feesOK pp tx u@(UTxO utxo) =
             (FeeTooSmallUTxO Mismatch {mismatchSupplied = theFee, mismatchExpected = minFee})
         , -- Part 2: (txrdmrs tx ≠ ∅ ⇒ validateCollateral)
           unless (null $ tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL) $
-            validateCollateral pp txBody utxoCollateral
+            validateCollateral pp txBody collateralAllocations
         ]
 
 validateCollateral ::
@@ -322,29 +321,31 @@ validateCollateral ::
   ) =>
   PParams era ->
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
+  Allocations era ->
   Test (AlonzoUtxoPredFailure era)
-validateCollateral pp txb utxoCollateral =
+validateCollateral pp txb collateralAllocations =
   sequenceA_
     [ -- Part 3: (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
-      validateScriptsNotPaidUTxO utxoCollateral
+      validateScriptsNotPaidUTxO collateralAllocations
     , -- Part 4: balance ∗ 100 ≥ txfee txb ∗ (collateralPercent pp)
       validateInsufficientCollateral pp txb bal
     , -- Part 5: isAdaOnly balance
-      validateCollateralContainsNonADA utxoCollateral
+      validateCollateralContainsNonADA $ Allocations.txOuts collateralAllocations
     , -- Part 6: (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
-      failureIf (null utxoCollateral) NoCollateralInputs
+      failureIf (null $ Allocations.unspentOutputs collateralAllocations) NoCollateralInputs
     ]
   where
-    bal = toDeltaCoin $ sumAllCoin utxoCollateral
+    bal = toDeltaCoin . sumAllCoin . Allocations.txOuts $ collateralAllocations
 
 -- > (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
 validateScriptsNotPaidUTxO ::
   EraTxOut era =>
-  Map.Map TxIn (TxOut era) ->
+  Allocations era ->
   Test (AlonzoUtxoPredFailure era)
-validateScriptsNotPaidUTxO utxoCollateral =
-  failureOnNonEmptyMap (Map.filter (not . vKeyLocked) utxoCollateral) ScriptsNotPaidUTxO
+validateScriptsNotPaidUTxO collateralAllocations =
+  failureOnNonEmptyMap
+    (Allocations.toTxOutMap . Allocations.filterByTxOut (not . vKeyLocked) $ collateralAllocations)
+    ScriptsNotPaidUTxO
 
 -- > balance ∗ 100 ≥ txfee txb ∗ (collateralPercent pp)
 validateInsufficientCollateral ::
@@ -523,7 +524,7 @@ utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       storedAllocations = Store.allocations . utxosUTxOStore $ utxos
-      utxo = UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      inputAllocations = Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -546,7 +547,7 @@ utxoTransition = do
   runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txBody
 
   {-   feesOK pp tx utxo   -}
-  runTest $ feesOK pp tx utxo -- Generalizes the fee to small from earlier Era's
+  runTest $ feesOK pp tx inputAllocations -- Generalizes the fee to small from earlier Era's
 
   {- inputsAndCollateral = txins txb ∪ collateral txb -}
   {- (txins txb) ∪ (collateral txb) ⊆ dom utxo   -}
@@ -554,7 +555,7 @@ utxoTransition = do
     Shelley.validateBadInputsUTxO storedAllocations inputsAndCollateral
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ Shelley.validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   {- adaPolicy ∉ supp mint tx
      above check not needed because mint field of type MultiAsset cannot contain ada -}

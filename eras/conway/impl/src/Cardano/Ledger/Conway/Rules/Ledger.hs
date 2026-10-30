@@ -382,8 +382,7 @@ conwayLedgerTransitionTRC
           runTest $
             validateRefScriptSize
               pp
-              ( UTxO
-                  . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                   . Store.allocations
                   . (^. utxoStoreG)
                   $ utxoState
@@ -480,9 +479,9 @@ validateRefScriptSize ::
   , BabbageEraTxBody era
   , ConwayEraPParams era
   ) =>
-  PParams era -> UTxO era -> Tx l era -> Test (ConwayLedgerPredFailure era)
-validateRefScriptSize pp utxo tx =
-  let totalRefScriptSize = txNonDistinctRefScriptsSize utxo tx
+  PParams era -> Allocations era -> Tx l era -> Test (ConwayLedgerPredFailure era)
+validateRefScriptSize pp inputAllocations tx =
+  let totalRefScriptSize = txNonDistinctRefScriptsSize inputAllocations tx
       maxRefScriptSizePerTx = fromIntegral @Word32 @Int $ pp ^. ppMaxRefScriptSizePerTxG
    in failureUnless (totalRefScriptSize <= maxRefScriptSizePerTx) $
         ConwayTxRefScriptsSizeTooBig

@@ -126,14 +126,13 @@ alonzoLedgersTransition = do
   (finalLedgerState, _) <-
     foldM -- cache is lazy on purpose, since it is unused when validation is off
       ( \(!curLedgerState, stAnnTxCache) (ix, tx) -> do
-          let utxo =
-                UTxO
-                  . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          let inputAllocations =
+                Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                   . Store.allocations
                   . (^. utxoStoreG)
                   $ curLedgerState
               stAnnTx =
-                mkStAnnTx (unsafeLinearExtendEpochInfo slot ei) sysStart pp utxo stAnnTxCache tx
+                mkStAnnTx (unsafeLinearExtendEpochInfo slot ei) sysStart pp inputAllocations stAnnTxCache tx
           newLedgerState <-
             trans @(EraRule "LEDGER" era) $
               TRC (Shelley.LedgerEnv slot (Just epochNo) ix pp account, curLedgerState, stAnnTx)

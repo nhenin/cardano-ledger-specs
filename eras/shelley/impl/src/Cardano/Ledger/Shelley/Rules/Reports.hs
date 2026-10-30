@@ -21,7 +21,7 @@ import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Shelley.AdaPots (consumedTxBody, producedTxBody)
-import Cardano.Ledger.State (EraCertState (..), InstantaneousRewards (..), UTxO (..))
+import Cardano.Ledger.State (Allocations, EraCertState (..), InstantaneousRewards (..))
 import Data.Foldable (fold, toList)
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
@@ -56,11 +56,11 @@ produceEqualsConsumed ::
   (EraTxBody era, EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  Allocations era ->
   TxBody TopTx era ->
   String
-produceEqualsConsumed pp dpstate utxo txb =
-  let consumedValue = consumedTxBody txb pp dpstate utxo
+produceEqualsConsumed pp dpstate inputAllocations txb =
+  let consumedValue = consumedTxBody txb pp dpstate inputAllocations
       producedValue = producedTxBody txb pp dpstate
    in ( "\n (Produce = Consumed) Report\n  certificates\n"
           ++ showTxCerts txb

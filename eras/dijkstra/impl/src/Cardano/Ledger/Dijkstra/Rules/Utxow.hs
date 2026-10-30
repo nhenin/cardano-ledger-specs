@@ -68,7 +68,6 @@ import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (
   EraUTxO (..),
   ScriptsProvided (..),
-  UTxO (..),
   allocations,
  )
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
@@ -246,12 +245,12 @@ dijkstraUtxowTransition = do
 
   let txBody = tx ^. bodyTxL
       -- Preserve pre-batch inputs for inherited datum, script and witness checks.
-      originalUtxo =
-        UTxO . Allocations.txOutsForInputs (txBody ^. allInputsTxBodyF) . allocations $ previousUTxOStore
+      originalAllocations =
+        Allocations.restrictToInputs (txBody ^. allInputsTxBodyF) . allocations $ previousUTxOStore
       subTxs = OMap.elems $ txBody ^. subTransactionsTxBodyL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
 
-  -- All lookups use originalUtxo.
+  -- All lookups use originalAllocations.
   -- A subtx may consume a txout that the top-level tx references, so the UTXO threaded in the state may not contain it.
 
   -- scriptsNeeded for the top-level tx
@@ -283,13 +282,13 @@ dijkstraUtxowTransition = do
                   <> subTx ^. bodyTxL . inputsTxBodyL
             )
             subTxs
-      refScripts = Map.keysSet $ getReferenceScripts originalUtxo allRefScriptInputs
+      refScripts = Map.keysSet $ getReferenceScripts originalAllocations allRefScriptInputs
   runTest $ Babbage.babbageMissingScripts pp allScriptHashesNeeded refScripts witnessScripts
 
   {-  inputHashes ⊆  dom(txdats txw) ⊆  allowed -}
   -- Per-level: datum check for top-level tx's own spend inputs
   runTest $
-    Alonzo.missingRequiredDatums scriptsProvided originalUtxo $
+    Alonzo.missingRequiredDatums scriptsProvided originalAllocations $
       if stAnnTx ^. plutusLegacyModeStAnnTxG
         then tx & bodyTxL . subTransactionsTxBodyL .~ mempty
         else tx
@@ -304,7 +303,7 @@ dijkstraUtxowTransition = do
   runTestOnSignal $ Shelley.validateVerifiedWits tx
 
   {- witsVKeyNeeded utxo tx genDelegs ⊆ witsKeyHashes -}
-  runTest $ Shelley.validateNeededWitnesses witsKeyHashes originalCertState originalUtxo txBody
+  runTest $ Shelley.validateNeededWitnesses witsKeyHashes originalCertState originalAllocations txBody
 
   -- check metadata hash
   {- ((adh = ◇) ∧ (ad= ◇)) ∨ (adh = hashAD ad) -}

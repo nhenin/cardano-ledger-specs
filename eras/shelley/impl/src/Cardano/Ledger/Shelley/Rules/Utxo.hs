@@ -323,10 +323,9 @@ instance
                   (tx ^. bodyTxL)
                   pp
                   certState
-                  ( UTxO $
-                      Allocations.txOutsForInputs
-                        (tx ^. bodyTxL . inputsTxBodyL)
-                        (allocations . utxosUTxOStore $ utxoState)
+                  ( Allocations.restrictToInputs
+                      (tx ^. bodyTxL . inputsTxBodyL)
+                      (allocations . utxosUTxOStore $ utxoState)
                   )
               )
             <> "\n Produced\n"
@@ -381,7 +380,7 @@ utxoInductive = do
   TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       entries = allocations . utxosUTxOStore $ utxoState
-      utxo = UTxO . Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) $ entries
+      inputAllocations = Allocations.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
       UTxOState _ _ _ ppup _ _ = utxoState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
@@ -394,7 +393,7 @@ utxoInductive = do
   runTest $ validateInputSetEmptyUTxO txBody
 
   {- minfee pp tx ≤ txfee txb -}
-  runTest $ validateFeeTooSmallUTxO pp tx utxo
+  runTest $ validateFeeTooSmallUTxO pp tx inputAllocations
 
   {- txins txb ⊆ dom utxo -}
   runTest $ validateBadInputsUTxO entries $ txBody ^. inputsTxBodyL
@@ -408,7 +407,7 @@ utxoInductive = do
   runTest $ validateWrongNetworkWithdrawal netId txBody
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   -- process Protocol Parameter Update Proposals
   govStateAfterPPUP <-
@@ -469,9 +468,9 @@ validateFeeTooSmallUTxO ::
   EraUTxO era =>
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  Allocations era ->
   Test (ShelleyUtxoPredFailure era)
-validateFeeTooSmallUTxO pp tx utxo =
+validateFeeTooSmallUTxO pp tx inputAllocations =
   failureUnless (minFee <= txFee) $
     FeeTooSmallUTxO
       Mismatch
@@ -479,7 +478,7 @@ validateFeeTooSmallUTxO pp tx utxo =
         , mismatchExpected = minFee
         }
   where
-    minFee = getMinFeeTxUtxo pp tx utxo
+    minFee = getMinFeeTxUtxo pp tx inputAllocations
     txFee = txb ^. feeTxBodyL
     txb = tx ^. bodyTxL
 
@@ -534,16 +533,16 @@ validateWrongNetworkWithdrawal netId txb =
 validateValueNotConservedUTxO ::
   (EraUTxO era, EraCertState era) =>
   PParams era ->
-  UTxO era ->
+  Allocations era ->
   CertState era ->
   TxBody TopTx era ->
   Test (ShelleyUtxoPredFailure era)
-validateValueNotConservedUTxO pp utxo certState txBody =
+validateValueNotConservedUTxO pp inputAllocations certState txBody =
   failureUnless (consumedValue == producedValue) $
     ValueNotConservedUTxO Mismatch {mismatchSupplied = consumedValue, mismatchExpected = producedValue}
   where
     accounts = certState ^. certDStateL . accountsL
-    consumedValue = shelleyConsumed pp accounts utxo txBody
+    consumedValue = shelleyConsumed pp accounts inputAllocations txBody
     producedValue = produced pp (certState ^. certPStateL) txBody
 
 -- | Ensure an implicit-deposit output has at least @minUTxOValue@.

@@ -117,8 +117,7 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        ( UTxO
-            . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
             . Store.allocations
             . utxosUTxOStore
             . lsUTxOState
@@ -169,9 +168,8 @@ ledgersSigGen
         let ledgerEnv = LedgerEnv slotNo (Just epochNo) txIx pParams reserves
         tx <- genTx ge ledgerEnv ls'
 
-        let utxo =
-              UTxO
-                . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+        let entries =
+              Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
                 . utxosUTxOStore
                 . lsUTxOState
@@ -181,7 +179,7 @@ ledgersSigGen
                 (epochInfo testGlobals)
                 (systemStart testGlobals)
                 pParams
-                utxo
+                entries
                 mempty
                 tx
             res =

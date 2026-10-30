@@ -48,6 +48,7 @@ import Cardano.Ledger.Plutus (
  )
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.Scripts
+import Cardano.Ledger.State (allocations)
 import Cardano.Ledger.TxIn (TxIn)
 import Control.Monad.Reader (asks)
 import qualified Data.Map.Strict as Map
@@ -349,9 +350,9 @@ spec = describe "UTXOW" $ do
           logToExpr txBorked
 
           pp <- getsNES $ nesEsL . curPParamsEpochStateL
-          utxo <- getUTxO
+          entries <- allocations <$> getsNES utxoStoreG
           Globals {epochInfo, systemStart} <- use impGlobalsL
-          let report = evalTxExUnits pp txBorked utxo epochInfo systemStart
+          let report = evalTxExUnits pp txBorked entries epochInfo systemStart
           logToExpr report
           -- PlutusV4+ script purposes embed their script hash, so translating the dangling
           -- redeemer also fails the context of the valid one

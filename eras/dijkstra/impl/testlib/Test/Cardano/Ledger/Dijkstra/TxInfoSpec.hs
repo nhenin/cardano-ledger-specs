@@ -61,7 +61,7 @@ import Lens.Micro ((&), (.~))
 import qualified PlutusLedgerApi.V4 as PV4
 import Test.Cardano.Ledger.Alonzo.Era (mkTestLedgerTxInfo)
 import Test.Cardano.Ledger.Common
-import Test.Cardano.Ledger.Core.Utils (testGlobals)
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations, testGlobals)
 import Test.Cardano.Ledger.Dijkstra.Arbitrary ()
 import qualified Test.Cardano.Ledger.Plutus.Examples as Plutus
 
@@ -84,7 +84,7 @@ spec = describe "TxInfo" $ do
   let mkLocalLedgerTxInfo utxo tx =
         let ei = epochInfo testGlobals
             ss = systemStart testGlobals
-         in mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss utxo tx
+         in mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss (legacyAllocations utxo) tx
   describe "PlutusV4" $ do
     prop "Threads the sub-transaction index into txInfoSubTxIx" $ \(txIx :: TxIx) -> do
       let

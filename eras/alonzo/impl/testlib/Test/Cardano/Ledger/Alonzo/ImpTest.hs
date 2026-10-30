@@ -100,6 +100,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..), UTxO (..), txouts)
+import Cardano.Ledger.State (Allocations, allocations, utxoStoreG)
 import Cardano.Ledger.TxIn (TxIn)
 import Control.Monad (forM)
 import qualified Data.List.NonEmpty as NonEmpty
@@ -183,8 +184,8 @@ impGetPlutusContexts ::
   ImpTestM era [(PlutusPurpose AsIxItem era, ScriptHash, ScriptTestContext)]
 impGetPlutusContexts tx = do
   let txBody = tx ^. bodyTxL
-  utxo <- getUTxO
-  let AlonzoScriptsNeeded asn = getScriptsNeeded utxo txBody
+  entries <- allocations <$> getsNES utxoStoreG
+  let AlonzoScriptsNeeded asn = getScriptsNeeded entries txBody
   mbyContexts <- forM asn $ \(prp, sh) -> do
     pure $ (prp,sh,) <$> impLookupScriptContext @era sh
   pure $ catMaybes mbyContexts
@@ -215,9 +216,9 @@ fixupRedeemers tx = impAnn "fixupRedeemers" $ do
   let oldRedeemers = tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL
   txWithMaxExUnits <- txWithMaxRedeemers tx
   let newMaxRedeemers = txWithMaxExUnits ^. witsTxL . rdmrsTxWitsL . unRedeemersL
-  utxo <- getUTxO
+  entries <- allocations <$> getsNES utxoStoreG
   Globals {systemStart, epochInfo} <- use impGlobalsL
-  let reports = evalTxExUnits pp txWithMaxExUnits utxo epochInfo systemStart
+  let reports = evalTxExUnits pp txWithMaxExUnits entries epochInfo systemStart
   exUnitsPerPurpose <-
     fmap (Map.mapMaybe id) $ forM reports $ \case
       Left err -> do
@@ -265,8 +266,8 @@ fixupScriptWits ::
   ImpTestM era (Tx l era)
 fixupScriptWits tx = impAnn "fixupScriptWits" $ do
   contexts <- impGetPlutusContexts tx
-  utxo <- getUTxO
-  let ScriptsProvided provided = getScriptsProvided utxo tx
+  entries <- allocations <$> getsNES utxoStoreG
+  let ScriptsProvided provided = getScriptsProvided entries tx
   let contextsToAdd = filter (\(_, sh, _) -> not (Map.member sh provided)) contexts
   scriptWits <- forM contextsToAdd $ \(_, sh, ScriptTestContext plutus _) ->
     (sh,) . fromPlutusScript <$> mkPlutusScript plutus
@@ -486,8 +487,8 @@ impPlutusWithContexts ::
 impPlutusWithContexts tx = do
   globals <- use impGlobalsL
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getUTxO
-  case collectPlutusScriptsWithContext (epochInfo globals) (systemStart globals) pp tx utxo of
+  entries <- allocations <$> getsNES utxoStoreG
+  case collectPlutusScriptsWithContext (epochInfo globals) (systemStart globals) pp tx entries of
     Left errs ->
       assertFailure $
         "Did not expect to get context translation failures: " ++ unlines (map show $ NonEmpty.toList errs)
@@ -568,13 +569,13 @@ impAlonzoExpectTxSuccess tx = do
 computeScriptIntegrity ::
   AlonzoEraImp era =>
   PParams era ->
-  UTxO era ->
+  Allocations era ->
   Tx l era ->
   StrictMaybe (ScriptIntegrity era)
-computeScriptIntegrity pp utxo tx = mkScriptIntegrity pp tx langs
+computeScriptIntegrity pp entries tx = mkScriptIntegrity pp tx langs
   where
-    ScriptsProvided scriptsProvided = getScriptsProvided utxo tx
-    scriptsNeeded = getScriptsHashesNeeded . getScriptsNeeded utxo $ tx ^. bodyTxL
+    ScriptsProvided scriptsProvided = getScriptsProvided entries tx
+    scriptsNeeded = getScriptsHashesNeeded . getScriptsNeeded entries $ tx ^. bodyTxL
     scriptsUsed = Map.elems $ Map.restrictKeys scriptsProvided scriptsNeeded
     langs = Set.fromList $ plutusScriptLanguage <$> mapMaybe toPlutusScript scriptsUsed
 
@@ -583,7 +584,7 @@ impComputeScriptIntegrity ::
   Tx l era ->
   ImpTestM era (StrictMaybe (ScriptIntegrity era))
 impComputeScriptIntegrity tx =
-  computeScriptIntegrity <$> getsPParams id <*> getUTxO <*> pure tx
+  computeScriptIntegrity <$> getsPParams id <*> (allocations <$> getsNES utxoStoreG) <*> pure tx
 
 computeScriptIntegrityHash ::
   AlonzoEraImp era => Tx l era -> ImpTestM era (StrictMaybe ScriptIntegrityHash)

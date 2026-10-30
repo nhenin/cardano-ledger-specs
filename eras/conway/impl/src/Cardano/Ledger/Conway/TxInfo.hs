@@ -340,7 +340,7 @@ transTxOutV1 txOutSource txOut = do
     Nothing -> Left $ inject $ Babbage.ByronTxOutInContext @era txOutSource
     Just plutusTxOut -> Right plutusTxOut
 
--- | Given a TxIn, look it up in the UTxO. If it exists, translate it to the V1 context
+-- | Given a TxIn, look it up in the allocations. If it exists, translate it to the V1 context
 transTxInInfoV1 ::
   forall era.
   ( Inject (Alonzo.AlonzoContextError era) (ContextError era)
@@ -348,15 +348,15 @@ transTxInInfoV1 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  UTxO era ->
+  Allocations era ->
   TxIn ->
   Either (ContextError era) PV1.TxInInfo
-transTxInInfoV1 utxo txIn = do
-  txOut <- Alonzo.transLookupTxOut utxo txIn
+transTxInInfoV1 entries txIn = do
+  txOut <- Alonzo.transLookupTxOut entries txIn
   plutusTxOut <- transTxOutV1 (TxOutFromInput txIn) txOut
   Right (PV1.TxInInfo (TxInfo.transTxIn txIn) plutusTxOut)
 
--- | Given a TxIn, look it up in the UTxO. If it exists, translate it to the V3 context
+-- | Given a TxIn, look it up in the allocations. If it exists, translate it to the V3 context
 transTxInInfoV3 ::
   forall era.
   ( Inject (Alonzo.AlonzoContextError era) (ContextError era)
@@ -364,11 +364,11 @@ transTxInInfoV3 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  UTxO era ->
+  Allocations era ->
   TxIn ->
   Either (ContextError era) PV3.TxInInfo
-transTxInInfoV3 utxo txIn = do
-  txOut <- Alonzo.transLookupTxOut utxo txIn
+transTxInInfoV3 entries txIn = do
+  txOut <- Alonzo.transLookupTxOut entries txIn
   plutusTxOut <- Babbage.transTxOutV2 (TxOutFromInput txIn) txOut
   Right (PV3.TxInInfo (transTxIn txIn) plutusTxOut)
 
@@ -422,14 +422,14 @@ instance EraPlutusTxInfo 'PlutusV1 ConwayEra where
 
   toPlutusScriptPurpose proxy lti = Alonzo.transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     PlutusTxInfoResult $ withTopTxLevelOnly ltiTx $ \tx -> do
       let txBody = tx ^. bodyTxL
       guardConwayFeaturesForPlutusV1V2 tx
       timeRange <-
         transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputs <- mapM (transTxInInfoV1 ltiUTxO) (Set.toList (txBody ^. inputsTxBodyL))
-      mapM_ (transTxInInfoV1 ltiUTxO) (Set.toList (txBody ^. referenceInputsTxBodyL))
+      inputs <- mapM (transTxInInfoV1 ltiAllocations) (Set.toList (txBody ^. inputsTxBodyL))
+      mapM_ (transTxInInfoV1 ltiAllocations) (Set.toList (txBody ^. referenceInputsTxBodyL))
       outputs <-
         zipWithM
           (transTxOutV1 . TxOutFromOutput)
@@ -459,14 +459,15 @@ instance EraPlutusTxInfo 'PlutusV2 ConwayEra where
 
   toPlutusScriptPurpose proxy lti = Alonzo.transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     PlutusTxInfoResult $ withTopTxLevelOnly ltiTx $ \tx -> do
       let txBody = tx ^. bodyTxL
       guardConwayFeaturesForPlutusV1V2 tx
       timeRange <-
         transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputs <- mapM (Babbage.transTxInInfoV2 ltiUTxO) (Set.toList (txBody ^. inputsTxBodyL))
-      refInputs <- mapM (Babbage.transTxInInfoV2 ltiUTxO) (Set.toList (txBody ^. referenceInputsTxBodyL))
+      inputs <- mapM (Babbage.transTxInInfoV2 ltiAllocations) (Set.toList (txBody ^. inputsTxBodyL))
+      refInputs <-
+        mapM (Babbage.transTxInInfoV2 ltiAllocations) (Set.toList (txBody ^. referenceInputsTxBodyL))
       outputs <-
         zipWithM
           (Babbage.transTxOutV2 . TxOutFromOutput)
@@ -499,7 +500,7 @@ instance EraPlutusTxInfo 'PlutusV3 ConwayEra where
 
   toPlutusScriptPurpose proxy lti = transPlutusPurposeV3 proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     PlutusTxInfoResult $ withTopTxLevelOnly ltiTx $ \tx -> do
       let
         txBody = tx ^. bodyTxL
@@ -507,8 +508,8 @@ instance EraPlutusTxInfo 'PlutusV3 ConwayEra where
         refInputs = txBody ^. referenceInputsTxBodyL
       timeRange <-
         transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputsInfo <- mapM (transTxInInfoV3 ltiUTxO) (Set.toList txInputs)
-      refInputsInfo <- mapM (transTxInInfoV3 ltiUTxO) (Set.toList refInputs)
+      inputsInfo <- mapM (transTxInInfoV3 ltiAllocations) (Set.toList txInputs)
+      refInputsInfo <- mapM (transTxInInfoV3 ltiAllocations) (Set.toList refInputs)
       when (pvMajor ltiProtVer >= natVersion @11) $ checkReferenceInputsNotDisjointFromInputs txBody
       outputs <-
         zipWithM
@@ -753,7 +754,7 @@ toPlutusV3Args proxy lti@LedgerTxInfo {..} txInfo plutusPurpose redeemerData = d
   scriptPurpose <- toPlutusScriptPurpose proxy lti plutusPurpose
   let
     maybeSpendingData =
-      getSpendingDatum ltiUTxO ltiTx $ hoistPlutusPurpose toAsItem plutusPurpose
+      getSpendingDatum ltiAllocations ltiTx $ hoistPlutusPurpose toAsItem plutusPurpose
     scriptInfo =
       scriptPurposeToScriptInfo
         scriptPurpose

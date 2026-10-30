@@ -52,7 +52,7 @@ import Cardano.Ledger.Binary.Coders (
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (UTxOState (..), dsGenDelegsL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..), UTxO (..))
+import Cardano.Ledger.State (EraCertState (..), EraUTxO (..), ScriptsProvided (..))
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import qualified Cardano.Ledger.State.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
@@ -350,9 +350,8 @@ babbageUtxowTransition = do
   {-  txb := txbody tx  -}
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo =
-        UTxO
-          . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF)
+  let inputAllocations =
+        Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
           . utxosUTxOStore
           $ u
@@ -372,11 +371,11 @@ babbageUtxowTransition = do
 
   {- neededHashes − dom(refScripts tx utxo) = dom(txwitscripts txw) -}
   let sReceived = Map.keysSet $ tx ^. witsTxL . scriptTxWitsL
-      sRefs = Map.keysSet $ getReferenceScripts utxo inputs
+      sRefs = Map.keysSet $ getReferenceScripts inputAllocations inputs
   runTest $ babbageMissingScripts pp scriptHashesNeeded sRefs sReceived
 
   {-  inputHashes ⊆  dom(txdats txw) ⊆  allowed -}
-  runTest $ Alonzo.missingRequiredDatums scriptsProvided utxo tx
+  runTest $ Alonzo.missingRequiredDatums scriptsProvided inputAllocations tx
 
   {-  dom (txrdmrs tx) = { rdptr txb sp | (sp, h) ∈ scriptsNeeded utxo tx,
                            h ↦ s ∈ txscripts txw, s ∈ Scriptph2}     -}
@@ -388,7 +387,7 @@ babbageUtxowTransition = do
   runTestOnSignal $ Shelley.validateVerifiedWits tx
 
   {-  witsVKeyNeeded utxo tx genDelegs ⊆ witsKeyHashes                   -}
-  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState utxo txBody
+  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState inputAllocations txBody
 
   -- check metadata hash
   {-   adh := txADhash txb;  ad := auxiliaryData tx                      -}

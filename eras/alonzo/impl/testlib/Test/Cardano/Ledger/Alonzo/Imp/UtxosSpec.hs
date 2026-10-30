@@ -42,6 +42,7 @@ import Cardano.Ledger.Plutus (
   withSLanguage,
  )
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
+import Cardano.Ledger.State (allocations, utxoStoreG)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Monad.Reader (asks)
 import Data.Either (isLeft)
@@ -74,7 +75,7 @@ spec = describe "UTXOS" $ do
       ss@(SystemStart sysStart) <- use $ impGlobalsL . to systemStart
       SlotNo currentSlot <- use impCurSlotNoG
       protVer <- getProtVer
-      utxo <- getUTxO
+      entries <- allocations <$> getsNES utxoStoreG
       let txValidity = 7200
           -- We must provide a non-Nothing upper bound so that the "closed" vs "open" case can be tested.
           interval = ValidityInterval SNothing $ SJust $ SlotNo $ currentSlot + txValidity
@@ -82,7 +83,7 @@ spec = describe "UTXOS" $ do
           expectedUpperBound = (startPOSIX + fromIntegral (currentSlot + txValidity)) * 1000
           tx :: Tx TopTx era
           tx = mkBasicTx mkBasicTxBody & bodyTxL . vldtTxBodyL .~ interval
-          lti = mkTestLedgerTxInfo protVer ei ss utxo tx $ LedgerTopTxInfo mempty
+          lti = mkTestLedgerTxInfo protVer ei ss entries tx $ LedgerTopTxInfo mempty
       case toPlutusTxInfoForPurpose SPlutusV1 lti (SpendingPurpose AsPurpose) of
         Left e -> assertFailure $ "No translation error was expected, but got: " <> show e
         Right txInfo ->
@@ -114,11 +115,11 @@ spec = describe "UTXOS" $ do
             let
               overrideExUnits tx = do
                 pp <- getsNES $ nesEsL . curPParamsEpochStateL
-                utxo <- getUTxO
+                entries <- allocations <$> getsNES utxoStoreG
                 Globals {epochInfo, systemStart} <- use impGlobalsL
                 purposeUnits <-
                   either (fail . show) pure . sequence $
-                    evalTxExUnits pp tx utxo epochInfo systemStart
+                    evalTxExUnits pp tx entries epochInfo systemStart
                 pure $ tx & witsTxL . rdmrsTxWitsL . unRedeemersL %~ spliceUnits purposeUnits
               spliceUnits =
                 Map.merge
@@ -151,9 +152,9 @@ spec = describe "UTXOS" $ do
             logToExpr txBorked
 
             pp <- getsNES $ nesEsL . curPParamsEpochStateL
-            utxo <- getUTxO
+            entries <- allocations <$> getsNES utxoStoreG
             Globals {epochInfo, systemStart} <- use impGlobalsL
-            let report = evalTxExUnits pp txBorked utxo epochInfo systemStart
+            let report = evalTxExUnits pp txBorked entries epochInfo systemStart
             logToExpr report
 
             Map.filter isLeft report

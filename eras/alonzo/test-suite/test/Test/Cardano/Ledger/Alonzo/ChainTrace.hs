@@ -88,7 +88,7 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
         { source =
           LedgerState
             UTxOState
-              { utxosUTxOStore = (Allocations.toTxOutMap . Store.allocations -> u)
+              { utxosUTxOStore = store
               , utxosDeposited = dp
               , utxosFees = f
               }
@@ -104,7 +104,8 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
               }
             ds'
         } =
-        let tx = stAnnTx ^. txStAnnTxG
+        let u = Allocations.toTxOutMap . Store.allocations $ store
+            tx = stAnnTx ^. txStAnnTxG
             isValid' = tx ^. isPhase2ValidTxL
             noNewUTxO = u' `Map.isSubmapOf` u
             collateralInFees = f <> sumCollateral tx (UTxO u) == f'
@@ -121,7 +122,7 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
                 (SystemStart $ posixSecondsToUTCTime 0) -- arbitrary
                 pp
                 tx
-                (UTxO u) of
+                (Store.allocations store) of
                 Left e -> error $ "Plutus script collection error: " <> show e
                 Right c -> c
             collectedScripts =

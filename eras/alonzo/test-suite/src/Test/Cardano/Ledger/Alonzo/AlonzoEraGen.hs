@@ -99,6 +99,7 @@ import Test.Cardano.Ledger.Alonzo.Arbitrary ()
 import Test.Cardano.Ledger.Alonzo.ImpTest (computeScriptIntegrity)
 import Test.Cardano.Ledger.Binary.Random
 import Test.Cardano.Ledger.Common (tracedDiscard)
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.Cardano.Ledger.MaryEraGen (addTokens, genMint, maryGenesisValue, policyIndex)
 import Test.Cardano.Ledger.Plutus (alwaysFailsPlutus, alwaysSucceedsPlutus, zeroTestingCostModel)
 import Test.Cardano.Ledger.Plutus.Examples
@@ -432,7 +433,7 @@ instance EraGen AlonzoEra where
         .~ ( hashScriptIntegrity
                <$> computeScriptIntegrity
                  pp
-                 utxo
+                 (legacyAllocations utxo)
                  (mkBasicTx txb & witsTxL .~ wits)
            )
     where
@@ -465,7 +466,7 @@ instance EraGen AlonzoEra where
       txinputs = txbody ^. inputsTxBodyL
       smallUtxo :: [TxOut AlonzoEra]
       smallUtxo = Map.elems (unUTxO (txInsFilter utxo txinputs))
-      AlonzoScriptsNeeded purposeHashPairs = getScriptsNeeded @AlonzoEra utxo txbody
+      AlonzoScriptsNeeded purposeHashPairs = getScriptsNeeded @AlonzoEra (legacyAllocations utxo) txbody
       rdmrMap = List.foldl' accum Map.empty purposeHashPairs -- Search through the pairs for Plutus scripts
       accum ans (purpose, hash1) =
         case Map.lookup hash1 mapScriptWit of
@@ -509,8 +510,8 @@ instance EraGen AlonzoEra where
   --    method of the EraGen class in the AlonzoEra instance.
   genEraDone utxo pp tx =
     let theFee = tx ^. bodyTxL . feeTxBodyL -- Coin supplied to pay fees
-        minimumFee = getMinFeeTxUtxo @AlonzoEra pp tx utxo
-        neededHashes = getScriptsHashesNeeded $ getScriptsNeeded utxo (tx ^. bodyTxL)
+        minimumFee = getMinFeeTxUtxo @AlonzoEra pp tx (legacyAllocations utxo)
+        neededHashes = getScriptsHashesNeeded $ getScriptsNeeded (legacyAllocations utxo) (tx ^. bodyTxL)
         oldScriptWits = tx ^. witsTxL . scriptTxWitsL
         newWits = oldScriptWits `Map.restrictKeys` neededHashes
      in if minimumFee <= theFee

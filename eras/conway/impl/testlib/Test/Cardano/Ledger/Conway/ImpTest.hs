@@ -205,6 +205,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
+import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
 import Cardano.Ledger.TxIn (TxId (..))
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (Val (..), (<->))
@@ -1792,16 +1793,16 @@ showConwayTxBalance ::
   ) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  Allocations era ->
   Tx TopTx era ->
   String
-showConwayTxBalance pp certState utxo tx =
+showConwayTxBalance pp certState entries tx =
   unlines
     [ "Consumed:"
     , "\tInputs:     \t" <> show (coin inputs)
     , "\tRefunds:    \t" <> show refunds
     , "\tWithdrawals \t" <> show withdrawals
-    , "\tTotal:      \t" <> show (coin $ shelleyConsumed pp accounts utxo txBody)
+    , "\tTotal:      \t" <> show (coin $ shelleyConsumed pp accounts entries txBody)
     , ""
     , "Produced:"
     , "\tOutputs:   \t" <> show (coin outputs)
@@ -1812,7 +1813,7 @@ showConwayTxBalance pp certState utxo tx =
     ]
   where
     txBody = tx ^. bodyTxL
-    Assets inputs = sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+    Assets inputs = sumAllAssets . Allocations.txOutsForInputs (txBody ^. inputsTxBodyL) $ entries
     Assets outputs = sumAllAssets (txBody ^. outputsTxBodyL)
     accounts = certState ^. certDStateL . accountsL
     pState = certState ^. certPStateL
@@ -1831,8 +1832,8 @@ logConwayTxBalance ::
 logConwayTxBalance tx = do
   pp <- getsPParams id
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-  utxo <- getUTxO
-  logString $ showConwayTxBalance pp certState utxo tx
+  entries <- allocations <$> getsNES utxoStoreG
+  logString $ showConwayTxBalance pp certState entries tx
 
 submitBootstrapAwareFailingVote ::
   ConwayEraImp era =>

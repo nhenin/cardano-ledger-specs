@@ -143,7 +143,7 @@ import Cardano.Ledger.Mary.Value (MultiAsset)
 import Cardano.Ledger.Shelley.Core (ShelleyEraTxBody (..))
 import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.UTxO (getProducedValue)
-import Cardano.Ledger.State (EraUTxO (getConsumedValue), UTxO)
+import Cardano.Ledger.State (Allocations, EraUTxO (getConsumedValue))
 import Cardano.Ledger.StrictlyPositiveCoin (
   StrictlyPositiveCoin,
   mkStrictlyPositiveCoin,
@@ -397,7 +397,7 @@ instance AnyEraTxBody DijkstraEra
 --
 -- > let lookupRefund = lookupDepositDState (certDState dpState)
 -- > let isRegPoolId = (`Map.member` psStakePools (certPState dpState))
--- > evalBalanceTxBody pp lookupRefund isRegPoolId utxo txBody
+-- > evalBalanceTxBody pp lookupRefund isRegPoolId allocations txBody
 evalBalanceTxBody ::
   EraUTxO era =>
   -- | Current protocol parameters
@@ -412,12 +412,12 @@ evalBalanceTxBody ::
   -- requirement to answer this question for all stake pool credentials, just for the ones
   -- that have the registration certificates included in the supplied `TxBody`
   (KeyHash StakePool -> Bool) ->
-  -- | The UTxO relevant to the transaction.
-  UTxO era ->
+  -- | Accepted allocations relevant to the transaction.
+  Allocations era ->
   -- | The transaction being evaluated for balance.
   TxBody TopTx era ->
   -- | The difference between what the transaction consumes and what it produces.
   Value era
-evalBalanceTxBody pp lookupKeyRefund isRegPoolId utxo txBody =
-  getConsumedValue pp lookupKeyRefund utxo txBody
+evalBalanceTxBody pp lookupKeyRefund isRegPoolId allocations txBody =
+  getConsumedValue pp lookupKeyRefund allocations txBody
     <-> getProducedValue pp isRegPoolId txBody

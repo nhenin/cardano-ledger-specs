@@ -73,7 +73,7 @@ class AlonzoEraUTxO era => DijkstraEraUTxO era where
 dijkstraConsumed ::
   EraUTxO era =>
   PParams era ->
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Value era
 dijkstraConsumed pp = getConsumedValue pp (const Nothing)
@@ -87,10 +87,10 @@ getConsumedDijkstraValue ::
   ) =>
   PParams era ->
   (Credential Staking -> Maybe Coin) ->
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Value era
-getConsumedDijkstraValue pp lookupStakingDeposit utxo txBody =
+getConsumedDijkstraValue pp lookupStakingDeposit inputAllocations txBody =
   withBothTxLevels
     txBody
     ( \topTxBody ->
@@ -101,10 +101,10 @@ getConsumedDijkstraValue pp lookupStakingDeposit utxo txBody =
     txBodyConsumedValue
   where
     txBodyConsumedValue :: forall m. TxBody m era -> Value era
-    txBodyConsumedValue = getConsumedMaryValue pp lookupStakingDeposit utxo
+    txBodyConsumedValue = getConsumedMaryValue pp lookupStakingDeposit inputAllocations
     subTransactionsConsumedValue topTxBody =
       foldMap'
-        (getConsumedValue pp lookupStakingDeposit utxo . view bodyTxL)
+        (getConsumedValue pp lookupStakingDeposit inputAllocations . view bodyTxL)
         (topTxBody ^. subTransactionsTxBodyL)
 
 dijkstraProducedValue ::
@@ -187,27 +187,27 @@ getDijkstraScriptsProvided ::
   , DijkstraEraTxBody era
   , STxLevel l era ~ STxBothLevels l era
   ) =>
-  UTxO era ->
+  Allocations era ->
   Tx l era ->
   ScriptsProvided era
-getDijkstraScriptsProvided utxo tx =
+getDijkstraScriptsProvided inputAllocations tx =
   withBothTxLevels
     tx
     ( \topTx ->
         ScriptsProvided $
           Map.unions $
-            unScriptsProvided (getBabbageScriptsProvided utxo topTx)
-              : [ unScriptsProvided (getBabbageScriptsProvided utxo subTx)
+            unScriptsProvided (getBabbageScriptsProvided inputAllocations topTx)
+              : [ unScriptsProvided (getBabbageScriptsProvided inputAllocations subTx)
                 | subTx <- OMap.elems (topTx ^. bodyTxL . subTransactionsTxBodyL)
                 ]
     )
-    (getBabbageScriptsProvided utxo)
+    (getBabbageScriptsProvided inputAllocations)
 
 getDijkstraScriptsNeeded ::
   (DijkstraEraTxBody era, DijkstraEraScript era) =>
-  UTxO era -> TxBody l era -> AlonzoScriptsNeeded era
-getDijkstraScriptsNeeded utxo txb =
-  getConwayScriptsNeeded utxo txb
+  Allocations era -> TxBody l era -> AlonzoScriptsNeeded era
+getDijkstraScriptsNeeded inputAllocations txb =
+  getConwayScriptsNeeded inputAllocations txb
     <> guardingScriptsNeeded
   where
     guardingScriptsNeeded = AlonzoScriptsNeeded $
@@ -233,19 +233,19 @@ getDijkstraSupplementalDataHashes ::
   , DijkstraEraTxBody era
   , STxLevel l era ~ STxBothLevels l era
   ) =>
-  UTxO era ->
+  Allocations era ->
   TxBody l era ->
   Set DataHash
-getDijkstraSupplementalDataHashes utxo txBody =
+getDijkstraSupplementalDataHashes inputAllocations txBody =
   withBothTxLevels
     txBody
     ( \topTxBody ->
-        getBabbageSupplementalDataHashes utxo topTxBody
+        getBabbageSupplementalDataHashes inputAllocations topTxBody
           <> foldMap'
-            (getBabbageSupplementalDataHashes utxo . view bodyTxL)
+            (getBabbageSupplementalDataHashes inputAllocations . view bodyTxL)
             (topTxBody ^. subTransactionsTxBodyL)
     )
-    (getBabbageSupplementalDataHashes utxo)
+    (getBabbageSupplementalDataHashes inputAllocations)
 
 scriptsProvidedDijkstraStAnnTx ::
   ( EraTxLevel era
@@ -314,13 +314,13 @@ batchNonDistinctRefScriptsSize ::
   ( EraTx era
   , DijkstraEraTxBody era
   ) =>
-  UTxO era ->
+  Allocations era ->
   Tx TopTx era ->
   Int
-batchNonDistinctRefScriptsSize utxo tx =
-  txNonDistinctRefScriptsSize utxo tx
+batchNonDistinctRefScriptsSize inputAllocations tx =
+  txNonDistinctRefScriptsSize inputAllocations tx
     + getSum
       ( foldMap'
-          (Sum . txNonDistinctRefScriptsSize utxo)
+          (Sum . txNonDistinctRefScriptsSize inputAllocations)
           (tx ^. bodyTxL . subTransactionsTxBodyL)
       )

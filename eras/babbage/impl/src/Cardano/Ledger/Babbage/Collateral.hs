@@ -29,10 +29,10 @@ import Lens.Micro
 -- ============================================================
 
 collAdaBalance ::
-  forall era.
-  BabbageEraTxBody era =>
+  forall era f.
+  (BabbageEraTxBody era, Foldable f) =>
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
+  f (TxOut era) ->
   DeltaCoin
 collAdaBalance txBody utxoCollateral = toDeltaCoin $
   case txBody ^. collateralReturnTxBodyL of

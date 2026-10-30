@@ -123,7 +123,7 @@ genTxAndLEDGERState sizes = do
                 (epochInfo testGlobals)
                 (systemStart testGlobals)
                 pp
-                ( UTxO . Allocations.txOutsForInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
+                ( Allocations.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
                     ledgerState ^. utxoStoreG
                 )
                 mempty

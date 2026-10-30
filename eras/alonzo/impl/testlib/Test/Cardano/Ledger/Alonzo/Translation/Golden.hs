@@ -28,6 +28,7 @@ import Test.Cardano.Ledger.Alonzo.Translation.TranslationInstance (
   deserializeTranslationInstances,
  )
 import Test.Cardano.Ledger.Common
+import Test.Cardano.Ledger.Core.Utils (legacyAllocations)
 import Test.HUnit (Assertion, assertEqual)
 
 -- | Generates arguments for `ExtendedUTxO.txInfo`, applies them to it
@@ -69,7 +70,9 @@ assertTranslationComparison (TranslationInstance protVer supportedLanguage utxo 
       let actual = mkPlutusTxInfo slang lti plutusPurpose
       assertEqual errorMessage expected $ toVersionedTxInfo slang actual
   where
-    lti = mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+    lti =
+      mkTestLedgerTxInfo protVer epochInfo systemStart (legacyAllocations utxo) tx $
+        LedgerTopTxInfo mempty
     errorMessage =
       unlines
         [ "Unexpected TxInfo with arguments: "

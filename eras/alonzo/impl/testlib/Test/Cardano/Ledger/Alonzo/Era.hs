@@ -97,14 +97,14 @@ mkTestLedgerTxInfo ::
   ProtVer ->
   EpochInfo (Either Text) ->
   SystemStart ->
-  UTxO era ->
+  Allocations era ->
   Tx level era ->
   LedgerLevelTxInfo level era ->
   LedgerTxInfo level era
-mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx levelTxInfo =
+mkTestLedgerTxInfo protVer epochInfo systemStart entries tx levelTxInfo =
   let
-    scriptsProvided = getScriptsProvided utxo tx
-    scriptsNeeded = getScriptsNeeded utxo (tx ^. bodyTxL)
+    scriptsProvided = getScriptsProvided entries tx
+    scriptsNeeded = getScriptsNeeded entries (tx ^. bodyTxL)
     (_, plutusScriptsUsed) =
       resolveNeededPlutusScriptsWithPurpose protVer scriptsProvided scriptsNeeded mempty
    in
@@ -112,7 +112,7 @@ mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx levelTxInfo =
       { ltiProtVer = protVer
       , ltiEpochInfo = epochInfo
       , ltiSystemStart = systemStart
-      , ltiUTxO = utxo
+      , ltiAllocations = entries
       , ltiTx = tx
       , ltiScriptsUsed = plutusScriptsUsed
       , ltiScriptHashesUsed = toScriptHashByPurpose plutusScriptsUsed

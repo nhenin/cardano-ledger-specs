@@ -61,7 +61,6 @@ import Cardano.Ledger.Shelley.LedgerState (UTxOState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraUTxO (..))
 import qualified Cardano.Ledger.State.UTxOs.Allocations as Allocations
-import Cardano.Ledger.State.UTxOs.LegacyUTxOMap (UTxO (..))
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
@@ -238,10 +237,9 @@ dijkstraSubUtxowTransition = do
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
       -- Inherited witness and datum checks read only this body's spending and reference inputs.
-      originalUtxo =
-        UTxO
-          . Allocations.txOutsForInputs
-            ((txBody ^. spendableInputsTxBodyF) <> (txBody ^. referenceInputsTxBodyL))
+      inputAllocations =
+        Allocations.restrictToInputs
+          ((txBody ^. spendableInputsTxBodyF) <> (txBody ^. referenceInputsTxBodyL))
           $ originalAllocations
 
   {- ∀[ (vk , σ) ∈ vKeySigs ] isSigned vk (txidBytes txId) σ -}
@@ -254,10 +252,10 @@ dijkstraSubUtxowTransition = do
   runTest $ Babbage.validateFailedBabbageScripts tx scriptsProvided scriptHashesNeeded
 
   {- vKeyHashesNeeded ⊆ vKeyHashesProvided -}
-  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState originalUtxo txBody
+  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState inputAllocations txBody
 
   {- dataHashesNeeded ⊆ mapˢ hash dataProvided -}
-  runTest $ Alonzo.missingRequiredDatums scriptsProvided originalUtxo tx
+  runTest $ Alonzo.missingRequiredDatums scriptsProvided inputAllocations tx
 
   {- txADhash ≡ map hash txAuxData -}
   runTestOnSignal $ Shelley.validateMetadata pp stAnnTx
