@@ -19,7 +19,7 @@
 module Cardano.Ledger.Shelley.LedgerState.IncrementalStake (
   applyRUpd,
   applyRUpdFiltered,
-  smartUTxOState,
+  smartAccountingState,
   filterAllRewards,
   FilteredRewards (..),
 ) where
@@ -37,7 +37,7 @@ import Cardano.Ledger.Shelley.Rewards (
   filterRewards,
  )
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData (rnf), deepseq)
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
@@ -49,21 +49,19 @@ import Lens.Micro
 
 -- | Initialize output storage from complete unspent entries and compute its
 -- cached instant stake. Preserve each entry's size and historical calculation.
-smartUTxOState ::
+smartAccountingState ::
   EraStake era =>
   PParams era ->
   IndexedUTxOs era ->
   Coin ->
   Coin ->
-  GovState era ->
   Coin ->
-  UTxOState era
-smartUTxOState _pp utxo c1 c2 st donation =
-  UTxOState
+  AccountingState era
+smartAccountingState _pp utxo c1 c2 donation =
+  AccountingState
     (mkUTxOStore legacyDepositCalculation utxo)
     c1
     c2
-    st
     (addInstantStake (IndexedUTxOs.txOuts utxo) mempty)
     donation
 
@@ -75,7 +73,7 @@ smartUTxOState _pp utxo c1 c2 st donation =
 --   1) Adds reward coins to Rewards component of the UMap field of the DState,
 --      for actively delegated Stake
 --   2) Adds to the Treasury of the ChainAccountState for non-actively delegated stake
---   3) Adds fees to the UTxOState
+--   3) Adds fees to the AccountingState
 applyRUpd ::
   (EraGov era, EraCertState era) =>
   RewardUpdate ->
@@ -117,7 +115,7 @@ applyRUpdFiltered
           }
       ls' =
         ls
-          & lsUTxOStateL . utxosFeesL %~ (`addDeltaCoin` deltaF ru)
+          & lsAccountingStateL . asFeesL %~ (`addDeltaCoin` deltaF ru)
           & lsCertStateL . certDStateL . accountsL %~ addToBalanceAccounts registeredAggregated
       nm' = nonMyopic ru
 

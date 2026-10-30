@@ -14,7 +14,7 @@
 * Extract `TxOut`, `NoNewTxOut`, the three output classes, builders, output lenses and value wrappers into `Cardano.Ledger.TxOut`; retain the existing `Core` exports. Move `sumAllAssets`, `sumAllValue`, `sumAllApplicationAssets`, `sumAllCoin` and `areAllAdaOnly` into that module as well; import these collection queries directly rather than through the ledger-state API.
 * Use `LegacyTxOut` and `NewTxOut` for the two output APIs, with `EraLegacyTxOut`, `EraNewTxOut` and their corresponding basic-output builders.
 * Add `UTxOStore`, reexported from `Cardano.Ledger.State`, with record fields for the `DepositAmount` total and `IndexedUTxOs` collection of `Unspent (TxOut era)` values. The generic `Unspent` record retains a sized output and deposit calculation for both output forms; legacy external refunds remain zero. Provide pure construction, atomic updates and uniform three-field metadata serialization; reject the earlier experimental allocation-entry schemas.
-* Expose complete Store access through `CanGetUTxOStore` / `CanSetUTxOStore` in `Cardano.Ledger.State.UTxOs`, alongside `EraUTxO` and `ScriptsProvided`. Keep the model and operations in `State.UTxOs.Store`; remove the experimental `UTxOs` sum type and whole-Store output projections.
+* Expose complete Store access through `CanGetUTxOStore` / `CanSetUTxOStore` in `Cardano.Ledger.State.Accounting.UTxOs`, alongside `EraUTxO` and `ScriptsProvided`. Keep the model and operations in `State.UTxOs.Store`; remove the experimental `UTxOs` sum type and whole-Store output projections.
 * Place the indexed collection in `State.UTxOs.IndexedUTxOs` and the generic `Unspent` entry in `State.UTxOs.Unspent`; `lookupUTxO`, `allocatedDepositTotalAmount` and `sumDepositAmounts` accept `IndexedUTxOs`. Place `DepositAmount` with `toCoin` and its instances, `DepositCalculation`, `ByteSize` and `calculateDeposit` in `State.UTxOs.Deposit`. `Cardano.Ledger.State` reexports only `Unspent(..)` from the entry module, whose `toTxOut`, `depositAmount` and `encodeWith` operations are imported directly.
 * Make `calculateDeposit :: DepositCalculation -> ByteSize -> Coin` pure, with `ByteSize {unByteSize :: Int64}`. Individual entry deposits return `Coin`; `sumDepositAmounts` and `allocatedDepositTotalAmount` return `DepositAmount`, converted explicitly with `toCoin` for Coin arithmetic. Accept V2 with provisional V1 formula parity; production still selects V1.
 * Remove `OutputStoreError` and the ambiguous `fromLegacyTxOutMap` import. `mkUTxOStore` and `allocate` return a Store directly and rely on measured output sizes. `fromLegacyAllocations` and `IndexedUTxOs.fromLegacyTxOuts` accept only `LegacyTxOut` payloads. Malformed persisted sizes, unknown calculation versions and cached-total mismatches are rejected by their decoders.
@@ -31,7 +31,7 @@
 
 ## 1.22.0.0
 
-* Add `maxKeyAgeEpochs` accessor in `Cardano.Ledger.State.SnapShots` module
+* Add `maxKeyAgeEpochs` accessor in `Cardano.Ledger.State.Epoch.SnapShots` module
 * Move `allInputsTxBodyF` from `EraTxBody` to `EraTx` in order to workaround a GHC bug
 * Add `assocMapToList`, `assocMapKeys` and `assocMapElems`
 * Add `ToPlutusData` instance for `SlotInterval`
@@ -47,7 +47,7 @@
 * Remove `BbodySignal`
 * Add `TPraosBbodySignal`, `PraosBbodySignal` and `LeiosBbodySignal` instead of `BbodySignal`
 * Add `EraIndependentTx` and `EraIndependentTxWits` phantom types to `Cardano.Ledger.Hashes`.
-* Add `addVRFKeyHashOccurrence`, `removeVRFKeyHashOccurrence` and `populateVRFKeyHashes` to `Cardano.Ledger.State.CertState`
+* Add `addVRFKeyHashOccurrence`, `removeVRFKeyHashOccurrence` and `populateVRFKeyHashes` to `Cardano.Ledger.State.Certificates`
 * Remove `poolDistrDistrL`, `poolDistrTotalL`
 * Remove `EraDecoder` and add `EraCodec` to be used in its place
 * Remove `ppEraDecoder` from `PParam` and add `ppuEraCodec` to `PParamUpdate`
@@ -464,7 +464,7 @@
 * Export `credToDRep` and `dRepToCred`
 * Add `ppVrfL`, `ppCostL`, `ppMetadataL`, `spsVrfL` to `StakePool` module
 * Deprecate `PoolParams` in favor of `StakePoolState`. #5196
-  - Move the `PoolParams` module to `Cardano.Ledger.State.StakePool` and export from there.
+  - Move the `PoolParams` module to `Cardano.Ledger.State.Certificates.StakePool` and export from there.
   - Add the `StakePoolState` data type to the new module.
   - Reexport `PoolParams` from its original module and deprecate it.
   - Replace `PoolParams` with `StatekPoolState` in `PState` and rename the fields and lenses.

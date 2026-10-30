@@ -17,7 +17,7 @@ import Cardano.Ledger.Metadata (Metadatum (I))
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Data.Aeson as Aeson
 import qualified Data.Text as T
 import Test.Cardano.Base.Bytes (genByteString)
@@ -64,36 +64,41 @@ roundTripStateEraTypesSpec = do
   describe "State Types Families" $ do
     roundTripShareEraSpec @era @(GovState era)
   describe "State Types" $ do
-    roundTripShareEraTypeSpec @era @UTxOState
+    roundTripShareEraTypeSpec @era @AccountingState
+    roundTripShareEraTypeSpec @era @LedgerState
     when (eraProtVerLow @era < natVersion @12) $ do
-      prop "preserves the six-field UTxOState snapshot encoding before Dijkstra" $ \(state :: UTxOState era) ->
+      prop "preserves the original LedgerState snapshot layout before Dijkstra" $ \(state :: LedgerState era) ->
         forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
-          serialize version state `shouldBe` serialize version (legacyUTxOStateEncoding state)
-      prop "preserves legacy output-map CBOR and JSON encodings" $ \(state :: UTxOState era) -> do
-        let store = utxosUTxOStore state
-            outputs = IndexedUTxOs.mapTxOuts id . Store.allocations . utxosUTxOStore $ state
+          serialize version state `shouldBe` serialize version (legacyLedgerStateEncoding state)
+      prop "preserves legacy output-map CBOR and JSON encodings" $ \(state :: AccountingState era) -> do
+        let store = asUTxOStore state
+            outputs = IndexedUTxOs.mapTxOuts id . Store.allocations . asUTxOStore $ state
         forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
           serialize version store `shouldBe` serialize version outputs
         Aeson.toJSON store `shouldBe` Aeson.toJSON outputs
     roundTripEraTypeSpec @era @EpochState
     roundTripEraTypeSpec @era @NewEpochState
 
--- | The pre-Dijkstra snapshot layout, retained as a compatibility oracle.
-legacyUTxOStateEncoding ::
-  (EraTxOut era, EraStake era, EncCBOR (GovState era)) =>
-  UTxOState era ->
+-- | Independent oracle for the original certificate + six-field snapshot layout.
+legacyLedgerStateEncoding ::
+  (EraTxOut era, EraStake era, EncCBOR (GovState era), EncCBOR (CertState era)) =>
+  LedgerState era ->
   Encoding
-legacyUTxOStateEncoding state =
-  encodeListLen 6
+legacyLedgerStateEncoding ledgerState =
+  encodeListLen 2
+    <> encCBOR (lsCertState ledgerState)
+    <> encodeListLen 6
     <> encodeMap
       encodeMemPack
       encodeMemPack
-      (IndexedUTxOs.mapTxOuts id . Store.allocations . utxosUTxOStore $ state)
-    <> encCBOR (utxosDeposited state)
-    <> encCBOR (utxosFees state)
-    <> encCBOR (utxosGovState state)
-    <> encCBOR (utxosInstantStake state)
-    <> encCBOR (utxosDonation state)
+      (IndexedUTxOs.mapTxOuts id . Store.allocations . asUTxOStore $ state)
+    <> encCBOR (asDeposited state)
+    <> encCBOR (asFees state)
+    <> encCBOR (lsGovState ledgerState)
+    <> encCBOR (asInstantStake state)
+    <> encCBOR (asDonation state)
+  where
+    state = lsAccountingState ledgerState
 
 metadatumSizeLimitSpec :: Version -> Spec
 metadatumSizeLimitSpec v = do

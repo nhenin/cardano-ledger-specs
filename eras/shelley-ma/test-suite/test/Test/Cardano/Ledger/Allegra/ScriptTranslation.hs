@@ -67,7 +67,7 @@ testScriptPostTranslation =
               (ChainAccountState (S.Coin 0) (S.Coin 0))
           utxoStShelley =
             def
-              { S.utxosUTxOStore = mkUTxOStore legacyDepositCalculation utxo
+              { S.asUTxOStore = mkUTxOStore legacyDepositCalculation utxo
               }
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =
@@ -81,7 +81,7 @@ testScriptPostTranslation =
           result =
             runShelleyBase $
               applySTSTest @(Shelley.LEDGER AllegraEra)
-                (TRC (env, LedgerState utxoStAllegra def, txa))
+                (TRC (env, LedgerState utxoStAllegra def def, txa))
        in case result of
             Left e -> error $ show e
             Right _ -> pure ()

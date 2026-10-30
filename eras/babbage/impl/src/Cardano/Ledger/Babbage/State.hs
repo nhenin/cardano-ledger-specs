@@ -3,6 +3,6 @@ module Cardano.Ledger.Babbage.State (
 ) where
 
 import Cardano.Ledger.Alonzo.State
-import Cardano.Ledger.Babbage.State.Account ()
-import Cardano.Ledger.Babbage.State.CertState ()
-import Cardano.Ledger.Babbage.State.Stake ()
+import Cardano.Ledger.Babbage.State.Accounting.InstantStake ()
+import Cardano.Ledger.Babbage.State.Certificates ()
+import Cardano.Ledger.Babbage.State.Certificates.Account ()

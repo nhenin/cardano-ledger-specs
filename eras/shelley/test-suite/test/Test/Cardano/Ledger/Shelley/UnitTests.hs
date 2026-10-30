@@ -25,7 +25,6 @@ import Cardano.Ledger.Shelley.API (
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules (
   LEDGER,
@@ -278,9 +277,9 @@ aliceGivesBobLovelace
           & ttlTxBodyL .~ ttl
       awits = mkWitnessesVKey (hashAnnotated txbody) signers
 
-utxoState :: UTxOState ShelleyEra
-utxoState =
-  UTxOState
+accountingState :: AccountingState ShelleyEra
+accountingState =
+  AccountingState
     ( mkUTxOStore legacyDepositCalculation $
         genesisCoins
           genesisId
@@ -290,7 +289,6 @@ utxoState =
     )
     (Coin 0)
     (Coin 0)
-    def
     mempty
     mempty
 
@@ -298,7 +296,7 @@ dpState :: CertState ShelleyEra
 dpState = def
 
 ledgerState :: LedgerState ShelleyEra
-ledgerState = LedgerState utxoState dpState
+ledgerState = LedgerState accountingState dpState def
 
 addReward :: CertState ShelleyEra -> Credential Staking -> Coin -> CertState ShelleyEra
 addReward dp cred c =
@@ -423,7 +421,7 @@ testEmptyInputSet =
           (mkVKeyAccountAddress Testnet aliceStake ^. accountAddressCredentialL)
           (Coin 2000)
    in testLEDGER
-        (LedgerState utxoState dpState')
+        (LedgerState accountingState dpState' def)
         tx
         ledgerEnv
         (Left [UtxowFailure (UtxoFailure InputSetEmptyUTxO)])
@@ -510,7 +508,7 @@ testWithdrawalNoWit =
           dpState
           (mkVKeyAccountAddress Testnet bobStake ^. accountAddressCredentialL)
           (Coin 10)
-   in testLEDGER (LedgerState utxoState dpState') tx ledgerEnv (Left errs)
+   in testLEDGER (LedgerState accountingState dpState' def) tx ledgerEnv (Left errs)
 
 testWithdrawalWrongAmt :: Assertion
 testWithdrawalWrongAmt =
@@ -539,7 +537,7 @@ testWithdrawalWrongAmt =
             NEM.singleton rAccount $
               Mismatch (Coin 11) (Coin 10)
         ]
-   in testLEDGER (LedgerState utxoState dpState') tx ledgerEnv (Left errs)
+   in testLEDGER (LedgerState accountingState dpState' def) tx ledgerEnv (Left errs)
 
 testOutputTooSmall :: Assertion
 testOutputTooSmall =

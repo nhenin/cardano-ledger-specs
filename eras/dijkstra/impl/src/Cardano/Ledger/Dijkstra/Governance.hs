@@ -21,7 +21,7 @@ import Cardano.Ledger.Conway.Governance (
 import Cardano.Ledger.Conway.State (Obligations (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.PParams ()
-import Cardano.Ledger.Dijkstra.State.Stake ()
+import Cardano.Ledger.Dijkstra.State.Accounting.InstantStake ()
 import Data.Foldable (Foldable (..))
 import Lens.Micro ((^.))
 

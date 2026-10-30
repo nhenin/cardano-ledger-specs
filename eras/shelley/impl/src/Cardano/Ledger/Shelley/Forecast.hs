@@ -41,7 +41,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesStakePoolDistrG,
  )
 import Cardano.Ledger.Shelley.Rules ()
-import Cardano.Ledger.Shelley.State.CertState ()
+import Cardano.Ledger.Shelley.State.Certificates ()
 import Cardano.Ledger.State (EraCertState (..), PoolDistr (..))
 import Control.DeepSeq (NFData)
 import Data.Word (Word16, Word32)

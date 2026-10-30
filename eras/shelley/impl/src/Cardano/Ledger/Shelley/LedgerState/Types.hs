@@ -50,9 +50,9 @@ import Cardano.Ledger.Shelley.PoolRank (NonMyopic (..))
 import Cardano.Ledger.Shelley.RewardUpdate (PulsingRewUpdate (..))
 import Cardano.Ledger.State
 import Control.DeepSeq (NFData)
-import Control.Monad.State.Strict (evalStateT)
+import Control.Monad.State.Strict (evalStateT, get)
 import Control.Monad.Trans (MonadTrans (lift))
-import Data.Aeson (ToJSON (..), (.=))
+import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Default (Default, def)
 import Data.Map.Strict (Map)
 import GHC.Generics (Generic)
@@ -187,110 +187,6 @@ instance
         ]
 
 -- =============================
-
--- | The output storage owns both live outputs and their historical allocation
--- metadata. Its output-only view determines the cached instant stake.
--- Transaction rules update outputs and instant stake together.
-data UTxOState era = UTxOState
-  { utxosUTxOStore :: !(UTxOStore era)
-  , utxosDeposited :: !Coin
-  , utxosFees :: !Coin
-  , utxosGovState :: !(GovState era)
-  , utxosInstantStake :: !(InstantStake era)
-  , utxosDonation :: !Coin
-  }
-  deriving (Generic)
-
-instance CanGetUTxOStore UTxOState
-
-instance CanSetUTxOStore UTxOState where
-  utxoStoreL = utxosUTxOStoreL
-  {-# INLINE utxoStoreL #-}
-
-instance CanGetInstantStake UTxOState
-
-instance CanSetInstantStake UTxOState where
-  instantStakeL = lens utxosInstantStake $ \s is -> s {utxosInstantStake = is}
-  {-# INLINE instantStakeL #-}
-
-instance
-  ( EraTxOut era
-  , NFData (GovState era)
-  , NFData (InstantStake era)
-  ) =>
-  NFData (UTxOState era)
-
-deriving stock instance
-  ( EraTxOut era
-  , Show (GovState era)
-  , Show (InstantStake era)
-  ) =>
-  Show (UTxOState era)
-
-deriving stock instance
-  ( EraTxOut era
-  , Eq (GovState era)
-  , Eq (InstantStake era)
-  ) =>
-  Eq (UTxOState era)
-
-instance
-  ( NoThunks (GovState era)
-  , NoThunks (InstantStake era)
-  ) =>
-  NoThunks (UTxOState era)
-
-instance
-  ( EraTxOut era
-  , EraStake era
-  , EncCBOR (GovState era)
-  ) =>
-  EncCBOR (UTxOState era)
-  where
-  encCBOR UTxOState {..} =
-    encodeListLen 6
-      <> encodeUTxOStore utxosUTxOStore
-      <> encCBOR utxosDeposited
-      <> encCBOR utxosFees
-      <> encCBOR utxosGovState
-      <> encCBOR utxosInstantStake
-      <> encCBOR utxosDonation
-
-instance (EraTxOut era, EraGov era, EraStake era) => DecShareCBOR (UTxOState era) where
-  type
-    Share (UTxOState era) =
-      ( Interns (Credential Staking)
-      , Interns (KeyHash StakePool)
-      , Interns (Credential DRepRole)
-      , Interns (Credential HotCommitteeRole)
-      )
-  decShareCBOR is@(cs, _, _, _) =
-    decodeRecordNamed "UTxOState" (const 6) $ do
-      utxosUTxOStore <- decShareCBOR cs
-      utxosDeposited <- decCBOR
-      utxosFees <- decCBOR
-      utxosGovState <- decShareCBOR is
-      utxosInstantStake <- decShareCBOR cs
-      utxosDonation <- decCBOR
-      pure UTxOState {..}
-
-deriving via
-  KeyValuePairs (UTxOState era)
-  instance
-    (EraTxOut era, EraGov era, EraStake era) => ToJSON (UTxOState era)
-
-instance (EraTxOut era, EraGov era, EraStake era) => ToKeyValuePairs (UTxOState era) where
-  toKeyValuePairs utxoState@(UTxOState _ _ _ _ _ _) =
-    let UTxOState {..} = utxoState
-        outputs
-          | eraProtVerLow @era < natVersion @12 = ["utxo" .= utxosUTxOStore]
-          | otherwise = ["outputStorage" .= utxosUTxOStore]
-     in outputs
-          <> [ "deposited" .= utxosDeposited
-             , "fees" .= utxosFees
-             , "ppups" .= utxosGovState
-             , "stake" .= utxosInstantStake
-             ]
 
 -- | New Epoch state and environment
 data NewEpochState era = NewEpochState
@@ -435,22 +331,22 @@ instance
 
 -- | The state associated with a 'Ledger'.
 data LedgerState era = LedgerState
-  { lsUTxOState :: !(UTxOState era)
-  -- ^ The current unspent transaction outputs.
+  { lsAccountingState :: !(AccountingState era)
   , lsCertState :: !(CertState era)
+  , lsGovState :: !(GovState era)
   }
   deriving (Generic)
 
 instance CanGetUTxOStore LedgerState
 
 instance CanSetUTxOStore LedgerState where
-  utxoStoreL = lens lsUTxOState (\state value -> state {lsUTxOState = value}) . utxoStoreL
+  utxoStoreL = lsAccountingStateL . utxoStoreL
   {-# INLINE utxoStoreL #-}
 
 instance CanGetInstantStake LedgerState
 
 instance CanSetInstantStake LedgerState where
-  instantStakeL = lens lsUTxOState (\s us -> s {lsUTxOState = us}) . instantStakeL
+  instantStakeL = lsAccountingStateL . instantStakeL
   {-# INLINE instantStakeL #-}
 
 deriving stock instance
@@ -493,10 +389,17 @@ instance
   ) =>
   EncCBOR (LedgerState era)
   where
-  encCBOR LedgerState {lsUTxOState, lsCertState} =
+  -- Preserve the existing snapshot layout despite the separated in-memory state.
+  encCBOR LedgerState {lsAccountingState = AccountingState {..}, ..} =
     encodeListLen 2
       <> encCBOR lsCertState -- encode delegation state first to improve sharing
-      <> encCBOR lsUTxOState
+      <> encodeListLen 6
+      <> encodeUTxOStore asUTxOStore
+      <> encCBOR asDeposited
+      <> encCBOR asFees
+      <> encCBOR lsGovState
+      <> encCBOR asInstantStake
+      <> encCBOR asDonation
 
 instance
   ( EraTxOut era
@@ -516,8 +419,19 @@ instance
   decSharePlusCBOR =
     decodeRecordNamedT "LedgerState" (const 2) $ do
       lsCertState <- decSharePlusCBOR
-      lsUTxOState <- decSharePlusCBOR
-      pure LedgerState {lsUTxOState, lsCertState}
+      -- The nested six-field record is retained only as a wire-format boundary.
+      -- Certificate decoding populated the interning tables used by these fields.
+      shared@(credentials, _, _, _) <- get
+      (lsAccountingState, lsGovState) <- lift $
+        decodeRecordNamed "UTxOState" (const 6) $ do
+          asUTxOStore <- decShareCBOR credentials
+          asDeposited <- decCBOR
+          asFees <- decCBOR
+          lsGovState <- decShareCBOR shared
+          asInstantStake <- decShareCBOR credentials
+          asDonation <- decCBOR
+          pure (AccountingState {..}, lsGovState)
+      pure LedgerState {..}
 
 deriving via
   KeyValuePairs (LedgerState era)
@@ -532,9 +446,20 @@ instance
   ) =>
   ToKeyValuePairs (LedgerState era)
   where
-  toKeyValuePairs ls@(LedgerState _ _) =
-    let LedgerState {..} = ls
-     in [ "utxoState" .= lsUTxOState
+  toKeyValuePairs LedgerState {lsAccountingState = AccountingState {..}, ..} =
+    let outputs
+          | eraProtVerLow @era < natVersion @12 = ["utxo" .= asUTxOStore]
+          | otherwise = ["outputStorage" .= asUTxOStore]
+        -- Keep the external JSON structure used before the state separation.
+        accountingAndGovernance =
+          object $
+            outputs
+              <> [ "deposited" .= asDeposited
+                 , "fees" .= asFees
+                 , "ppups" .= lsGovState
+                 , "stake" .= asInstantStake
+                 ]
+     in [ "utxoState" .= accountingAndGovernance
         , "delegationState" .= lsCertState
         ]
 
@@ -544,17 +469,14 @@ instance
 -- Default instances
 --------------------------------------------------------------------------------
 
-instance (EraGov era, EraStake era) => Default (UTxOState era) where
-  def = UTxOState def mempty mempty def mempty mempty
-
 instance
   Default (LedgerState era) =>
   Default (EpochState era)
   where
   def = EpochState def def def def
 
-instance (Default (UTxOState era), Default (CertState era)) => Default (LedgerState era) where
-  def = LedgerState def def
+instance (EraGov era, EraStake era, Default (CertState era)) => Default (LedgerState era) where
+  def = LedgerState def def def
 
 -- =============================================================
 -- Lenses for types found inside NewEpochState and its fields
@@ -609,29 +531,14 @@ futurePParamsEpochStateL = epochStateGovStateL . futurePParamsGovStateL
 -- ====================================================
 -- LedgerState
 
-lsUTxOStateL :: Lens' (LedgerState era) (UTxOState era)
-lsUTxOStateL = lens lsUTxOState (\x y -> x {lsUTxOState = y})
+lsAccountingStateL :: Lens' (LedgerState era) (AccountingState era)
+lsAccountingStateL = lens lsAccountingState (\state accounting -> state {lsAccountingState = accounting})
+
+lsGovStateL :: Lens' (LedgerState era) (GovState era)
+lsGovStateL = lens lsGovState (\state governance -> state {lsGovState = governance})
 
 lsCertStateL :: Lens' (LedgerState era) (CertState era)
 lsCertStateL = lens lsCertState (\x y -> x {lsCertState = y})
-
--- ================ UTxOState ===========================
-
-utxosDepositedL :: Lens' (UTxOState era) Coin
-utxosDepositedL = lens utxosDeposited (\x y -> x {utxosDeposited = y})
-
-utxosFeesL :: Lens' (UTxOState era) Coin
-utxosFeesL = lens utxosFees (\x y -> x {utxosFees = y})
-
-utxosGovStateL :: Lens' (UTxOState era) (GovState era)
-utxosGovStateL = lens utxosGovState (\x y -> x {utxosGovState = y})
-
-utxosUTxOStoreL :: Lens' (UTxOState era) (UTxOStore era)
-utxosUTxOStoreL = lens utxosUTxOStore (\state storage -> state {utxosUTxOStore = storage})
-{-# INLINE utxosUTxOStoreL #-}
-
-utxosDonationL :: Lens' (UTxOState era) Coin
-utxosDonationL = lens utxosDonation (\x y -> x {utxosDonation = y})
 
 -- ====================  Compound Lenses =======================
 
@@ -642,10 +549,10 @@ nesStakePoolDistrG :: SimpleGetter (NewEpochState era) PoolDistr
 nesStakePoolDistrG = nesEsL . esSnapshotsL . ssStakeSetL . to ssStakePoolDistr
 
 epochStateGovStateL :: Lens' (EpochState era) (GovState era)
-epochStateGovStateL = esLStateL . lsUTxOStateL . utxosGovStateL
+epochStateGovStateL = esLStateL . lsGovStateL
 
 epochStateDonationL :: Lens' (EpochState era) Coin
-epochStateDonationL = esLStateL . lsUTxOStateL . utxosDonationL
+epochStateDonationL = esLStateL . lsAccountingStateL . asDonationL
 
 epochStateStakePoolsL ::
   EraCertState era => Lens' (EpochState era) (Map (KeyHash StakePool) StakePoolState)
@@ -658,12 +565,11 @@ epochStateStakeDistrL = esSnapshotsL . ssStakeMarkL . msSnapShotL . ssActiveStak
 potEqualsObligation ::
   (EraGov era, EraCertState era) =>
   CertState era ->
-  UTxOState era ->
+  GovState era ->
+  AccountingState era ->
   Bool
-potEqualsObligation certState utxoSt = obligations == pot
-  where
-    obligations = totalObligation certState (utxoSt ^. utxosGovStateL)
-    pot = utxoSt ^. utxosDepositedL
+potEqualsObligation certState govState accounting =
+  totalObligation certState govState == asDeposited accounting
 
 allObligations :: (EraGov era, EraCertState era) => CertState era -> GovState era -> Obligations
 allObligations certState govState =

@@ -56,9 +56,9 @@ library
     Cardano.Ledger.Mary.Rules.Utxo
     Cardano.Ledger.Mary.Rules.Utxow
     Cardano.Ledger.Mary.Scripts
-    Cardano.Ledger.Mary.State.Account
-    Cardano.Ledger.Mary.State.CertState
-    Cardano.Ledger.Mary.State.Stake
+    Cardano.Ledger.Mary.State.Certificates.Account
+    Cardano.Ledger.Mary.State.Certificates
+    Cardano.Ledger.Mary.State.Accounting.InstantStake
     Cardano.Ledger.Mary.Translation
     Cardano.Ledger.Mary.Tx
     Cardano.Ledger.Mary.TxAuxData

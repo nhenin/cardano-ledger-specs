@@ -42,7 +42,7 @@ import Cardano.Ledger.Conway.Era (ConwayEra, UTXO, UTXOW)
 import Cardano.Ledger.Conway.Rules.Utxo (ConwayUtxoPredFailure)
 import Cardano.Ledger.Conway.Rules.Utxos (ConwayUtxosPredFailure)
 import Cardano.Ledger.Keys (VKey)
-import qualified Cardano.Ledger.Shelley.LedgerState as Shelley (UTxOState)
+import qualified Cardano.Ledger.Shelley.LedgerState as Shelley (LedgerState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.TxIn (TxIn)
@@ -193,14 +193,14 @@ instance
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ Shelley.UTxOState era
+  , State (EraRule "UTXO" era) ~ Shelley.LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , Eq (PredicateFailure (EraRule "UTXOS" era))
   , Show (PredicateFailure (EraRule "UTXOS" era))
   ) =>
   STS (UTXOW era)
   where
-  type State (UTXOW era) = Shelley.UTxOState era
+  type State (UTXOW era) = Shelley.LedgerState era
   type Signal (UTXOW era) = StAnnTx TopTx era
   type Environment (UTXOW era) = Shelley.UtxoEnv era
   type BaseM (UTXOW era) = ShelleyBase

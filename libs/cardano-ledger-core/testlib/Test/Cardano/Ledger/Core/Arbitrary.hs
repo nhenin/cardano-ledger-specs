@@ -104,7 +104,7 @@ import Cardano.Ledger.Plutus.ExUnits (ExUnits (..), Prices (..))
 import Cardano.Ledger.Plutus.Language (Language (..), nonNativeLanguages)
 import Cardano.Ledger.Rewards (Reward (..), RewardType (..))
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (
   StrictlyPositiveCoin,
   mkStrictlyPositiveCoin,
@@ -584,7 +584,7 @@ instance Arbitrary ChainAccountState where
   shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.PoolDistr --------------------------------------------------------
+-- Cardano.Ledger.State.Epoch.PoolDistr --------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 instance Arbitrary PoolDistr where
@@ -608,7 +608,7 @@ instance Arbitrary DRepState where
   arbitrary = DRepState <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.UTxOs.IndexedUTxOs -------------------------------------------------------------
+-- Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs -------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (IndexedUTxOs era) where

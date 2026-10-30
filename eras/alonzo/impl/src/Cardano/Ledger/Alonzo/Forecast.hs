@@ -5,8 +5,8 @@ module Cardano.Ledger.Alonzo.Forecast () where
 
 import Cardano.Ledger.Alonzo.Era (AlonzoEra)
 import Cardano.Ledger.Alonzo.PParams ()
-import Cardano.Ledger.Alonzo.State.CertState ()
-import Cardano.Ledger.Alonzo.State.Stake ()
+import Cardano.Ledger.Alonzo.State.Accounting.InstantStake ()
+import Cardano.Ledger.Alonzo.State.Certificates ()
 import Cardano.Ledger.Alonzo.TxOut ()
 import Cardano.Ledger.Shelley (
   ShelleyForecast (..),

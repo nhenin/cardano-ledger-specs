@@ -25,9 +25,9 @@ import Cardano.Ledger.Shelley.Genesis (
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Slot
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as UTxO
 import Cardano.Ledger.State.UTxO (CurrentEra, readHexIndexedUTxOs, readNewEpochState)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as UTxO
 import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)

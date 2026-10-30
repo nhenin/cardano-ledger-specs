@@ -15,7 +15,7 @@ import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
 import Data.Foldable

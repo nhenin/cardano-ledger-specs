@@ -26,7 +26,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   completeRupd,
   curPParamsEpochStateL,
   deltaF,
@@ -49,8 +48,8 @@ import Cardano.Ledger.Shelley.Rules.Reports (
  )
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxOut (sumAllCoin)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<+>), (<->))
@@ -245,7 +244,7 @@ checkPreservation SourceSignalTarget {source, target, signal = block} count =
     oldPoolDeposit = spsDeposit <$> lsOld ^. lsCertStateL . certPStateL . psStakePoolsL
     newPoolDeposit = spsDeposit <$> lsNew ^. lsCertStateL . certPStateL . psStakePoolsL
 
-    proposal = votedFuturePParams (sgsCurProposals . utxosGovState $ lsUTxOState lsOld) currPP 5
+    proposal = votedFuturePParams (sgsCurProposals . lsGovState $ lsOld) currPP 5
     obligationMsgs = case proposal of
       Nothing -> []
       Just proposal' ->
@@ -337,9 +336,9 @@ utxoDepositsIncreaseByFeesWithdrawals SourceSignalTarget {source, signal, target
       === withdrawals signal
         <-> txFees ledgerTr
   where
-    us = lsUTxOState . esLState . nesEs . chainNes
+    us = lsAccountingState . esLState . nesEs . chainNes
     circulation chainSt =
-      let UTxOState {utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u), utxosDeposited = d} = us chainSt
+      let AccountingState {asUTxOStore = (Store.unspentOutputs . Store.allocations -> u), asDeposited = d} = us chainSt
        in foldMap ((^. coinTxOutL) . Unspent.toTxOut) u <+> d
     (_, ledgerTr) = ledgerTraceFromBlock @era source signal
 
@@ -355,12 +354,12 @@ potsSumIncreaseWithdrawalsPerBlock SourceSignalTarget {source, signal, target} =
     $ potsSum target <-> potsSum source === withdrawals signal
   where
     potsSum chainSt =
-      let UTxOState
-            { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
-            , utxosDeposited = d
-            , utxosFees = f
+      let AccountingState
+            { asUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
+            , asDeposited = d
+            , asFees = f
             } =
-              lsUTxOState . esLState . nesEs . chainNes $ chainSt
+              lsAccountingState . esLState . nesEs . chainNes $ chainSt
        in foldMap ((^. coinTxOutL) . Unspent.toTxOut) u <+> d <+> f
 
 -- | If we are not at an Epoch Boundary, then (Utxo + Deposits + Fees)
@@ -390,20 +389,22 @@ potsSumIncreaseWithdrawalsPerTx SourceSignalTarget {source = chainSt, signal = b
       SourceSignalTarget
         { source =
           LedgerState
-            UTxOState
-              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
-              , utxosDeposited = d
-              , utxosFees = f
+            AccountingState
+              { asUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
+              , asDeposited = d
+              , asFees = f
               }
+            _
             _
         , signal = stAnnTx
         , target =
           LedgerState
-            UTxOState
-              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u')
-              , utxosDeposited = d'
-              , utxosFees = f'
+            AccountingState
+              { asUTxOStore = (Store.unspentOutputs . Store.allocations -> u')
+              , asDeposited = d'
+              , asFees = f'
               }
+            _
             _
         } =
         let tx = stAnnTx ^. txStAnnTxG
@@ -436,20 +437,22 @@ potsSumIncreaseByRewardsPerTx SourceSignalTarget {source = chainSt, signal = blo
       SourceSignalTarget
         { source =
           LedgerState
-            UTxOState
-              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
-              , utxosDeposited = d
-              , utxosFees = f
+            AccountingState
+              { asUTxOStore = (Store.unspentOutputs . Store.allocations -> u)
+              , asDeposited = d
+              , asFees = f
               }
             cState1
+            _
         , target =
           LedgerState
-            UTxOState
-              { utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u')
-              , utxosDeposited = d'
-              , utxosFees = f'
+            AccountingState
+              { asUTxOStore = (Store.unspentOutputs . Store.allocations -> u')
+              , asDeposited = d'
+              , asFees = f'
               }
             cState2
+            _
         } =
         (foldMap ((^. coinTxOutL) . Unspent.toTxOut) u' <+> d' <+> f')
           <-> (foldMap ((^. coinTxOutL) . Unspent.toTxOut) u <+> d <+> f)
@@ -478,9 +481,9 @@ potsRewardsDecreaseByWithdrawalsPerTx SourceSignalTarget {source = chainSt, sign
     (_, ledgerTr) = ledgerTraceFromBlock @era chainSt block
     rewardsDecreaseByWithdrawals
       SourceSignalTarget
-        { source = LedgerState _ dpstate
+        { source = LedgerState _ dpstate _
         , signal = stAnnTx
-        , target = LedgerState _ dpstate'
+        , target = LedgerState _ dpstate' _
         } =
         let tx = stAnnTx ^. txStAnnTxG
             totalRewards = sumAccountsBalances dpstate
@@ -529,8 +532,11 @@ preserveBalance SourceSignalTarget {source = chainSt, signal = block} =
       where
         tx = stAnnTx ^. txStAnnTxG
         failedScripts = property $ hasFailedScripts tx
-        LedgerState (UTxOState {utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u)}) certState = ledgerSt
-        LedgerState (UTxOState {utxosUTxOStore = (Store.unspentOutputs . Store.allocations -> u')}) _ = ledgerSt'
+        LedgerState
+          (AccountingState {asUTxOStore = (Store.unspentOutputs . Store.allocations -> u)})
+          certState
+          _ = ledgerSt
+        LedgerState (AccountingState {asUTxOStore = (Store.unspentOutputs . Store.allocations -> u')}) _ _ = ledgerSt'
         txb = tx ^. bodyTxL
         created =
           foldMap ((^. coinTxOutL) . Unspent.toTxOut) u'
@@ -567,7 +573,7 @@ preserveBalanceRestricted SourceSignalTarget {source = chainSt, signal = block} 
     createdIsConsumed
       SourceSignalTarget
         { source =
-          LedgerState (UTxOState {utxosUTxOStore = (Store.allocations -> entries)}) certState
+          LedgerState (AccountingState {asUTxOStore = (Store.allocations -> entries)}) certState _
         , signal = stAnnTx
         } =
         inps === outs
@@ -611,7 +617,8 @@ preserveOutputsTx SourceSignalTarget {source = chainSt, signal = block} =
       SourceSignalTarget
         { target =
           LedgerState
-            (UTxOState {utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> entries)})
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> entries)})
+            _
             _
         , signal = stAnnTx
         } =
@@ -650,19 +657,21 @@ canRestrictUTxO SourceSignalTarget {source = chainSt, signal = block} =
       SourceSignalTarget
         { target =
           LedgerState
-            ( UTxOState
-                { utxosUTxOStore = (IndexedUTxOs.mapTxOuts id . Store.allocations -> uFull)
+            ( AccountingState
+                { asUTxOStore = (IndexedUTxOs.mapTxOuts id . Store.allocations -> uFull)
                 }
               )
+            _
             _
         }
       SourceSignalTarget
         { target =
           LedgerState
-            ( UTxOState
-                { utxosUTxOStore = (IndexedUTxOs.mapTxOuts id . Store.allocations -> uRestr)
+            ( AccountingState
+                { asUTxOStore = (IndexedUTxOs.mapTxOuts id . Store.allocations -> uRestr)
                 }
               )
+            _
             _
         } =
         counterexample
@@ -712,7 +721,7 @@ nonNegativeDeposits ::
   Property
 nonNegativeDeposits SourceSignalTarget {source = chainSt} =
   let es = (nesEs . chainNes) chainSt
-      UTxOState {utxosDeposited = d} = (lsUTxOState . esLState) es
+      AccountingState {asDeposited = d} = (lsAccountingState . esLState) es
    in counterexample ("nonNegativeDeposits: " ++ show d) (d >= mempty)
 
 -- | Checks that the fees are non-decreasing when not at an epoch boundary
@@ -724,8 +733,8 @@ feesNonDecreasing SourceSignalTarget {source, target} =
     fees_ source <= fees_ target
   where
     fees_ chainSt =
-      let UTxOState {utxosFees = fees} =
-            lsUTxOState . esLState . nesEs . chainNes $ chainSt
+      let AccountingState {asFees = fees} =
+            lsAccountingState . esLState . nesEs . chainNes $ chainSt
        in fees
 
 sameEpoch ::

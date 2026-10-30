@@ -15,7 +15,7 @@ module Test.Cardano.Ledger.Conformance.ExecSpecRule.Conway.Utxow () where
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Conway.UTxO (getConwayWitsVKeyNeeded)
-import Cardano.Ledger.Shelley.LedgerState (utxosUTxOStore)
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..))
 import Cardano.Ledger.Shelley.Rules (utxoEnvCertStateL)
 import Cardano.Ledger.State (allocations)
 import Control.State.Transition.Extended (TRC (..))
@@ -50,15 +50,19 @@ import Test.Cardano.Ledger.Shelley.Utils (runSTS)
 
 instance ExecSpecRule "UTXOW" ConwayEra where
   type ExecContext "UTXOW" ConwayEra = UtxoExecContext ConwayEra
+  type SpecState "UTXOW" ConwayEra = Agda.UTxOState
 
   translateInputs (TRC (env, st, sig)) = do
     agdaEnv <- withCtxSpecTransM () $ toSpecRep env
-    agdaSt <- withSpecTransM (view utxoEnvCertStateL . uecUtxoEnv) $ toSpecRep st
+    agdaSt <-
+      withSpecTransM (\ctx -> (view utxoEnvCertStateL $ uecUtxoEnv ctx, lsGovState st)) $
+        toSpecRep (lsAccountingState st)
     agdaSig <- withCtxSpecTransM () $ toSpecRep sig
     pure $ SpecTRC agdaEnv agdaSt agdaSig
 
-  translateOutput _ =
-    withSpecTransM (view utxoEnvCertStateL . uecUtxoEnv) . toSpecRep
+  translateOutput _ st =
+    withSpecTransM (\ctx -> (view utxoEnvCertStateL $ uecUtxoEnv ctx, lsGovState st)) $
+      toSpecRep (lsAccountingState st)
 
   runAgdaRule = runFromAgdaFunction (Agda.utxowStep externalFunctions)
 
@@ -66,7 +70,9 @@ instance ExecSpecRule "UTXOW" ConwayEra where
     let
       result = either show T.unpack $ do
         agdaEnv <- runSpecTransM () $ toSpecRep @ConwayEra env
-        agdaSt <- runSpecTransM (uecUtxoEnv ctx ^. utxoEnvCertStateL) $ toSpecRep @ConwayEra st
+        agdaSt <-
+          runSpecTransM (uecUtxoEnv ctx ^. utxoEnvCertStateL, lsGovState st) $
+            toSpecRep @ConwayEra (lsAccountingState st)
         agdaSig <- runSpecTransM () $ toSpecRep @ConwayEra sig
         pure $ Agda.utxowDebug externalFunctions agdaEnv agdaSt agdaSig
       stFinal = first (T.pack . show) $ runSTS @"UTXO" @ConwayEra globals env st sig
@@ -78,7 +84,7 @@ instance ExecSpecRule "UTXOW" ConwayEra where
         , "witsVKeyNeeded"
         , PP.pretty . showExpr $
             let body = sig ^. txStAnnTxG . bodyTxL
-                entries = allocations . utxosUTxOStore $ st
+                entries = allocations . asUTxOStore . lsAccountingState $ st
              in getConwayWitsVKeyNeeded @ConwayEra entries body
         , "witsVKeyHashes"
         , "Spec:"

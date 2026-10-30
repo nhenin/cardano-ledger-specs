@@ -95,8 +95,8 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import qualified Cardano.Ledger.Val as Val
@@ -525,7 +525,7 @@ utxoTransition ::
 utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      storedAllocations = Store.allocations . utxosUTxOStore $ utxos
+      storedAllocations = Store.allocations . asUTxOStore . lsAccountingState $ utxos
       inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
@@ -595,9 +595,10 @@ utxoTransition = do
 
   updatedGovState <-
     trans @(EraRule "UTXOS" era) $
-      TRC (UtxosEnv slot pp certState, utxosGovState utxos, stAnnTx)
+      TRC (UtxosEnv slot pp certState, lsGovState utxos, stAnnTx)
 
-  updateUTxOState pp certState tx (utxos & utxosGovStateL .~ updatedGovState)
+  accountingState <- updateAccountingState pp certState tx (lsAccountingState utxos)
+  pure utxos {lsAccountingState = accountingState, lsGovState = updatedGovState}
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -623,7 +624,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = Shelley.UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase
@@ -772,7 +773,7 @@ allegraToAlonzoUtxoPredFailure = \case
   Allegra.OutputBootAddrAttrsTooBig xs -> OutputBootAddrAttrsTooBig xs
   Allegra.OutputTooBigUTxO xs -> OutputTooBigUTxO (fmap (0,0,) xs)
 
-updateUTxOState ::
+updateAccountingState ::
   forall era.
   ( AlonzoEraTx era
   , EraStake era
@@ -782,13 +783,13 @@ updateUTxOState ::
   PParams era ->
   CertState era ->
   Tx TopTx era ->
-  UTxOState era ->
-  Rule (EraRule "UTXO" era) 'Transition (UTxOState era)
-updateUTxOState pp certState tx utxoState =
+  AccountingState era ->
+  Rule (EraRule "UTXO" era) 'Transition (AccountingState era)
+updateAccountingState pp certState tx utxoState =
   let txBody = tx ^. bodyTxL
    in case tx ^. isPhase2ValidTxL of
         Phase2Valid ->
-          Shelley.updateUTxOState
+          Shelley.updateAccountingState
             pp
             txBody
             certState
@@ -802,13 +803,13 @@ updateUTxOState pp certState tx utxoState =
                 IndexedUTxOs.txOuts
                   . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
                   . Store.allocations
-                  . utxosUTxOStore
+                  . asUTxOStore
                   $ utxoState
               store =
-                Store.release (txBody ^. collateralInputsTxBodyL) $ utxosUTxOStore utxoState
+                Store.release (txBody ^. collateralInputsTxBodyL) $ asUTxOStore utxoState
            in pure $!
                 utxoState
-                  { utxosUTxOStore = store
-                  , utxosFees = utxosFees utxoState <> sumAllCoin utxoDel
-                  , utxosInstantStake = deleteInstantStake utxoDel (utxoState ^. instantStakeL)
+                  { asUTxOStore = store
+                  , asFees = asFees utxoState <> sumAllCoin utxoDel
+                  , asInstantStake = deleteInstantStake utxoDel (utxoState ^. instantStakeL)
                   }

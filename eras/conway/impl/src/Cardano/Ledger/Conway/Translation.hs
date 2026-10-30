@@ -37,16 +37,14 @@ import Cardano.Ledger.Shelley.API (
   EpochState (..),
   NewEpochState (..),
   StrictMaybe (..),
-  UTxOState (..),
  )
 import qualified Cardano.Ledger.Shelley.API as API
 import Cardano.Ledger.Shelley.LedgerState (
   epochStateGovStateL,
   lsCertStateL,
-  lsUTxOStateL,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import Data.Default (Default (def))
 import qualified Data.Map.Strict as Map
@@ -151,8 +149,9 @@ instance TranslateEra ConwayEra API.LedgerState where
   translateEra conwayGenesis ls =
     pure
       API.LedgerState
-        { API.lsUTxOState = translateEra' conwayGenesis $ ls ^. lsUTxOStateL
+        { API.lsAccountingState = translateEra' conwayGenesis . API.lsAccountingState $ ls
         , API.lsCertState = translateCertState conwayGenesis $ ls ^. lsCertStateL
+        , API.lsGovState = translateGovState conwayGenesis . API.lsGovState $ ls
         }
 
 translateCertState ::
@@ -186,16 +185,15 @@ instance TranslateEra ConwayEra Store.UTxOStore where
       translateOutput output = case upgradeTxOut output of
         LegacyTxOut translated -> translated
 
-instance TranslateEra ConwayEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra ConwayEra AccountingState where
+  translateEra ctxt accountingState =
     pure
-      UTxOState
-        { API.utxosUTxOStore = translateEra' ctxt . API.utxosUTxOStore $ us
-        , API.utxosDeposited = API.utxosDeposited us
-        , API.utxosFees = API.utxosFees us
-        , API.utxosGovState = translateGovState ctxt . API.utxosGovState $ us
-        , API.utxosInstantStake = ConwayInstantStake . sisCredentialStake . API.utxosInstantStake $ us
-        , API.utxosDonation = API.utxosDonation us
+      AccountingState
+        { API.asUTxOStore = translateEra' ctxt . API.asUTxOStore $ accountingState
+        , API.asDeposited = API.asDeposited accountingState
+        , API.asFees = API.asFees accountingState
+        , API.asInstantStake = ConwayInstantStake . sisCredentialStake . API.asInstantStake $ accountingState
+        , API.asDonation = API.asDonation accountingState
         }
 
 instance TranslateEra ConwayEra IndexedUTxOs where

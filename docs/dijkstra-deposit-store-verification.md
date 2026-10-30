@@ -57,7 +57,15 @@ source links follow the current modules. Previous documentation anchors still re
 
 ## Current implementation status
 
-Shared `UTxOState` owns `utxosUTxOStore :: UTxOStore era` directly.
+`LedgerState` separates `AccountingState`, `CertState` and `GovState`.
+`AccountingState` owns `asUTxOStore :: UTxOStore era`, collected certificate/governance
+deposits, fees, instant stake and pending donations. The former implementation
+`UTxOState` is removed. Full ledger snapshots retain their original nested CBOR layout.
+
+Shared modules now follow `State.Accounting`, `State.Certificates`,
+`State.Governance` and `State.Epoch`. `State.Stake` contains common stake values;
+`Cardano.Ledger.UTxO` owns transaction queries. Era-specific certificate and
+instant-stake implementations use corresponding domain paths.
 `CanGetUTxOStore` / `CanSetUTxOStore` expose that Store throughout ledger state.
 The `UTxOs` sum type, legacy map module and whole-Store payload projection helpers
 remain removed.
@@ -66,7 +74,7 @@ remain removed.
 no additional `Allocations` wrapper or `TxOutMap` payload type. The collection owns
 lookup, selection, filtering, traversal and historical deposit totals. The Store
 owns `currentCalculation`, `activateNewCalculation`, `allocate`, `release` and its exact cached `DepositAmount`.
-`State.UTxOs.Unspent` holds each output's accepted `Sized` value and creation-time
+`State.Accounting.UTxOs.Unspent` holds each output's accepted `Sized` value and creation-time
 `DepositCalculation`. Selecting entries preserves this metadata.
 
 Input validators, transaction annotations, wallet queries and test helpers
@@ -239,7 +247,7 @@ have been replaced by real ledger submissions.
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
 | [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
 | [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | Two generated properties cross real epoch boundaries with live records. N01 preserves the complete Store with unchanged parameters. N02 activates a scheduled byte-price update for V1 and V2 while preserving historical allocations, the formula version and the independently checked total. |
-| [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Inherited binary round trips cover Dijkstra UTxOState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore a reachable UTxOState and spend its retained noncanonical-byte allocation after repricing. Consensus rollback remains outside this ledger API. |
+| [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Binary round trips cover Dijkstra AccountingState, LedgerState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore reachable accounting state and spend its retained noncanonical-byte allocation after repricing. Consensus rollback remains outside this ledger API. |
 | [DS-STAKE](dijkstra-deposit-store-rules.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
 | [DS-VOTING](dijkstra-deposit-store-rules.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
 
@@ -250,6 +258,69 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Ledger state domains on 30 October 2026
+
+**Baseline:** `4d04747e8`, with the state-domain experiment on
+`experiment/flatten-utxo-state`.
+
+`LedgerState` now owns three sibling states: accounting, certificates and governance.
+The implementation `UTxOState` is removed. Rules thread `LedgerState`, while output,
+fee and stake helpers update `AccountingState`. Refunds and witness validation retain
+the original certificate snapshot; phase-2 failure applies only collateral effects.
+The module paths follow these domains, with epoch-owned data under `State.Epoch`.
+
+Full ledger CBOR retains its original nested layout, independently checked against
+an encoder for the previous layout. The old `UTxOState` decoder label exists only
+at that wire boundary. Standalone `AccountingState` has its own five-field encoding.
+Full-ledger JSON retains its keys and values; byte ordering of JSON keys is not a
+compatibility guarantee. The SQL schema remains unchanged.
+
+The consolidated incremental build passed **18 targets** in **55.65 s** after
+fixing the remaining test-generator and benchmark imports. Targets cover core,
+all seven Shelley-based eras, legacy test libraries, API, conformance, canonical
+state, persistence and both affected benchmark components. Build flags:
+`--offline --enable-tests --enable-benchmarks --jobs=8 --keep-going`.
+
+The completed runtime checks passed **391 examples / properties, with zero failures**:
+
+| Check | Completed examples / properties | Process wall time |
+| --- | ---: | ---: |
+| DepositStore business contracts | 210 | 251.66 s |
+| Historical Store metadata | 16 | 106.31 s |
+| Shelley / Allegra / Mary state codecs | 33 | 40.00 s |
+| Alonzo state codecs | 6 | 652.64 s |
+| Babbage state codecs | 6 | 653.35 s |
+| Conway accounting / ledger codecs and independent legacy layout checks | 4 | 676.20 s (Hspec) |
+| Conway enclosing epoch codecs (10 generated cases each) | 2 | 98.42 s |
+| Dijkstra state codecs | 4 | 864.12 s |
+| Translation goldens and legacy translation codecs | 23 | 19.33 s |
+| Canonical output namespace | 1 | 1.84 s |
+| Core certificate / epoch modules | 17 | 2.16 s |
+| API metadata, balance and initial funds | 25 | 65.20 s |
+| Shelley chain examples | 32 | 2.04 s |
+| Registration/refunds and invalid phase 2 | 9 | 4.26 s |
+| Conformance UTXO / UTXOW and historical refund | 3 | 238.95 s |
+
+Times for grouped runs are summed process wall times, not total elapsed time;
+several groups ran concurrently. The four Conway properties use their individually
+logged Hspec times because the enclosing run was stopped after they passed.
+
+Generated properties use seed `739231514` and 100 cases, except the two enclosing
+Conway epoch properties, which use 10. Alonzo through Dijkstra state checks use
+maximum generator size 20. The large full-state generators include governance
+cost-model data; their timings are verification costs, not ledger benchmarks.
+The interrupted broad Alonzo/Babbage attempts are superseded by complete exact-group
+runs. The interrupted Conway group is not counted as a group pass: only its four
+explicitly completed properties and the fresh ancestor checks are recorded above.
+The full repository test suite was not run.
+
+Formatting passed for all 233 changed Haskell files; whitespace checks passed.
+Ctags were regenerated. Local commands and detailed results are retained in
+`/private/tmp/accounting-domains-build-command.json`,
+`/private/tmp/accounting-domains-build.log`, and the timestamped
+`/private/tmp/accounting-domains-*/results.json` reports, including individual test
+commands, counts and timings.
 
 ## Stored entries in output events on 30 October 2026
 
@@ -778,7 +849,7 @@ Ctags were regenerated; output definitions now resolve to `TxOut.hs`.
 ## UTxOs module extraction and deposit calculation on 27 October 2026
 
 The wrapper module is now
-`Cardano.Ledger.State.UTxOs`. Its `Store` child retains the Store model, cached
+`Cardano.Ledger.State.Accounting.UTxOs`. Its `Store` child retains the Store model, cached
 total and checked updates. `Allocations` owns the collection and its
 `lookupUTxO`, `allocatedDepositTotalAmount` and `sumDepositAmounts` functions, which
 now accept `Allocations era`; callers pass the Store's `allocations` field.

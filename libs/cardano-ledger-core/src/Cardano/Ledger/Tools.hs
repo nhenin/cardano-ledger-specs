@@ -42,9 +42,9 @@ import Cardano.Ledger.Keys (
   asWitness,
  )
 import Cardano.Ledger.State (EraCertState)
-import Cardano.Ledger.State.UTxOs (EraUTxO (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
+import Cardano.Ledger.UTxO (EraUTxO (..))
 import Cardano.Ledger.Val (coin, modifyCoin)
 import Data.Bits (Bits (..), shiftR)
 import Data.ByteString (ByteString)

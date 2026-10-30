@@ -19,8 +19,8 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.Era (NEWPP)
 import Cardano.Ledger.Shelley.Governance
 import Cardano.Ledger.Shelley.LedgerState (
+  AccountingState,
   CertState,
-  UTxOState,
  )
 import Cardano.Ledger.Shelley.PParams (
   ProposedPPUpdates (ProposedPPUpdates),
@@ -45,7 +45,7 @@ data ShelleyNewppState era
 
 data NewppEnv era = NewppEnv
   { neCertState :: CertState era
-  , neUTxOState :: UTxOState era
+  , neAccountingState :: AccountingState era
   }
 
 instance

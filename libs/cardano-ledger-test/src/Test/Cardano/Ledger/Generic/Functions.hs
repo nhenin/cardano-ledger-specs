@@ -35,11 +35,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Scripts (pattern RequireAllOf, pattern RequireAnyOf)
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (Val ((<+>), (<->)))
@@ -315,11 +314,10 @@ class TotalAda t where
 instance TotalAda ChainAccountState where
   totalAda (ChainAccountState treasury reserves) = treasury <+> reserves
 
-instance Reflect era => TotalAda (UTxOState era) where
-  totalAda (UTxOState store _deposits fees gs _ donations) =
+instance Reflect era => TotalAda (AccountingState era) where
+  totalAda (AccountingState store _deposits fees _ donations) =
     (foldMap (^. coinTxOutL) . IndexedUTxOs.txOuts . allocations $ store)
       <+> fees
-      <+> govStateTotalAda gs
       <+> donations
       <+> toCoin (totalDepositAmount store)
 
@@ -371,7 +369,8 @@ certStateTotalAda = case reify @era of
   Conway -> mempty
 
 instance Reflect era => TotalAda (LedgerState era) where
-  totalAda (LedgerState utxos dps) = totalAda utxos <+> certStateTotalAda dps
+  totalAda (LedgerState accountingState certState govState) =
+    totalAda accountingState <+> certStateTotalAda certState <+> govStateTotalAda govState
 
 instance Reflect era => TotalAda (EpochState era) where
   totalAda eps = totalAda (esLState eps) <+> totalAda (esChainAccountState eps)

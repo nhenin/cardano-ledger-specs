@@ -21,10 +21,8 @@ import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState,
   genesisState,
-  lsUTxOState,
-  utxosUTxOStore,
+  lsAccountingState,
  )
 import Cardano.Ledger.Shelley.Rules (
   DELPL,
@@ -40,7 +38,7 @@ import Cardano.Ledger.Shelley.Rules (
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo (..))
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.Crypto (Crypto)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (runReaderT)
@@ -94,7 +92,7 @@ instance
   , Embed (EraRule "DELEGS" era) (LEDGER era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Environment (EraRule "DELEGS" era) ~ DelegsEnv era
   , State (EraRule "DELEGS" era) ~ CertState era
@@ -119,8 +117,8 @@ instance
         pParams
         ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
             . Store.allocations
-            . utxosUTxOStore
-            . lsUTxOState
+            . asUTxOStore
+            . lsAccountingState
             $ ls
         )
         mempty
@@ -171,8 +169,8 @@ ledgersSigGen
         let entries =
               IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
                 . Store.allocations
-                . utxosUTxOStore
-                . lsUTxOState
+                . asUTxOStore
+                . lsAccountingState
                 $ ls'
             stAnnTx =
               mkStAnnTx

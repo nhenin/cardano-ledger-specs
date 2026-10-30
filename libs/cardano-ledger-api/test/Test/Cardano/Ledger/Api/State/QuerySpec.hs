@@ -179,7 +179,7 @@ committeeMembersStateSpec =
                   & nesEpochStateL . esLStateL . lsCertStateL . certVStateL . vsCommitteeStateL
                     .~ committeeState
                   & newEpochStateDRepPulsingStateL .~ DRComplete def nextRatifyState
-                  & nesEpochStateL . esLStateL . lsUTxOStateL . utxosGovStateL . committeeGovStateL
+                  & nesEpochStateL . esLStateL . lsGovStateL . committeeGovStateL
                     .~ maybeToStrictMaybe committee
               nextRatifyState =
                 (def @(RatifyState era))
@@ -521,7 +521,7 @@ committeeInfo ::
   )
 committeeInfo nes =
   let ledgerState = nes ^. nesEpochStateL . esLStateL
-      govState = ledgerState ^. lsUTxOStateL . utxosGovStateL
+      govState = ledgerState ^. lsGovStateL
       comMembers =
         foldMap' committeeMembers $
           strictMaybeToMaybe (govState ^. committeeGovStateL)

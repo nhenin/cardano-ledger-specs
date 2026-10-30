@@ -20,7 +20,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   buildAndSignPhase2InvalidTx,
   buildAndSignStandaloneReleaseTx,
   preparePhase2InvalidSingleBodyRelease,
-  readLedger,
+  readAccountingState,
   submitTx,
   isAccepted,
   isRejectedWith,
@@ -47,18 +47,18 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (SLanguage (..), hashPlutusScript)
 import Cardano.Ledger.Shelley.LedgerState (
-  UTxOState,
+  AccountingState,
   curPParamsEpochStateL,
   esLStateL,
-  lsUTxOStateL,
+  lsAccountingStateL,
   nesEsL,
  )
 import Cardano.Ledger.State (
   allocations,
   lookupUTxO,
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -225,7 +225,7 @@ forAllSubTxZeroNetChangeTx scenarios check =
 recreateFundedInputs ::
   Standalone.LedgerState -> Tx l DijkstraEra -> ImpTestM DijkstraEra (Tx l DijkstraEra)
 recreateFundedInputs ledgerState tx = do
-  let sourceAllocations = allocations . liveOutputStore . Standalone.utxoState $ ledgerState
+  let sourceAllocations = allocations . liveOutputStore . Standalone.accountingState $ ledgerState
   outputs <-
     traverse (fmap Unspent.toTxOut . expectJust . (`lookupUTxO` sourceAllocations)) $
       Set.toList (tx ^. bodyTxL . inputsTxBodyL)
@@ -265,9 +265,9 @@ fundReleaseScenario scenario = do
       fundingTx =
         Standalone.declareNetDeposit allocation $
           mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
-  before <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
+  before <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   funded <- ImpTest.submitTx fundingTx
-  after <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
+  after <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   let fundingAllocations =
         Map.fromList
           [(txInAt index funded, Standalone.outputDeposit pp output) | (index, output) <- zip [0 ..] outputs]
@@ -335,9 +335,9 @@ checkPreservedReleaseProposal ledgerState tx fixed = do
   Set.intersection suppliedInputs (fixed ^. bodyTxL . collateralInputsTxBodyL)
     `shouldBe` Set.empty
   checkAddedOrdinaryInputsUseImplicitDeposits tx fixed
-  currentUTxOState <- readLedger
-  let currentStore = liveOutputStore currentUTxOState
-      originalStore = liveOutputStore . Standalone.utxoState $ ledgerState
+  currentAccountingState <- readAccountingState
+  let currentStore = liveOutputStore currentAccountingState
+      originalStore = liveOutputStore . Standalone.accountingState $ ledgerState
   IndexedUTxOs.restrictToInputs suppliedInputs (allocations currentStore)
     `shouldBe` IndexedUTxOs.restrictToInputs suppliedInputs (allocations originalStore)
   Map.restrictKeys (recordedAmounts currentStore) suppliedInputs
@@ -351,8 +351,8 @@ submitTxAndExpectSuccess ::
   Standalone.LedgerState -> Tx TopTx DijkstraEra -> ImpTestM DijkstraEra ()
 submitTxAndExpectSuccess ledgerState tx = do
   fixed <- buildAndSignStandaloneReleaseTx ledgerState tx
-  previousUTxOState <- readLedger
-  let before = liveOutputStore previousUTxOState
+  previousAccountingState <- readAccountingState
+  let before = liveOutputStore previousAccountingState
       consumed = fixed ^. bodyTxL . inputsTxBodyL
       newAllocations =
         Map.fromList
@@ -363,7 +363,7 @@ submitTxAndExpectSuccess ledgerState tx = do
       released = foldMap id $ Map.restrictKeys (recordedAmounts before) consumed
       retainedOutputs = IndexedUTxOs.withoutInputs consumed . allocations $ before
   withNoFixup $ submitTx_ fixed
-  afterState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
+  afterState <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   let after = liveOutputStore afterState
       allocationsAfter = allocations after
   recordedAmounts after
@@ -395,9 +395,9 @@ fundSubTxReleaseScenario scenario = do
       fundingTx =
         Standalone.declareNetDeposit allocation $
           mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
-  before <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
+  before <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   funded <- ImpTest.submitTx fundingTx
-  after <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
+  after <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   let allocationRecords = recordedAmounts $ liveOutputStore after
       fundedInputs = [txInAt index funded | index <- [0 .. length outputs - 1]]
       ownInput = listToMaybe $ take (length ownSources) fundedInputs
@@ -467,7 +467,7 @@ subTxSettlingItsSource address source input deposit =
 checkAddedOrdinaryInputsUseImplicitDeposits ::
   Tx TopTx DijkstraEra -> Tx TopTx DijkstraEra -> ImpTestM DijkstraEra ()
 checkAddedOrdinaryInputsUseImplicitDeposits prepared submitted = do
-  records <- recordedAmounts . liveOutputStore <$> readLedger
+  records <- recordedAmounts . liveOutputStore <$> readAccountingState
   let addedInputs = ordinarySpendingInputs submitted `Set.difference` ordinarySpendingInputs prepared
   forM_ addedInputs $ \input -> do
     output <- impGetUTxO input
@@ -566,8 +566,8 @@ prepareSingleBodyReleaseWith prepare owner scenario declarationsForDeposit = do
       }
 
 -- | Observe the actual UTxO and Store state at this point in the ledger test.
-readLedger :: ImpTestM DijkstraEra (UTxOState DijkstraEra)
-readLedger = getsNES $ nesEsL . esLStateL . lsUTxOStateL
+readAccountingState :: ImpTestM DijkstraEra (AccountingState DijkstraEra)
+readAccountingState = getsNES $ nesEsL . esLStateL . lsAccountingStateL
 
 -- | Allocate the source deposit by a real funding transaction, then consume the
 -- output into an implicit settlement output containing application ADA plus the
@@ -637,7 +637,7 @@ checkPreservedReleaseFixture fixture submitted = do
   checkPreservedOutputsAndDeclarations prepared submitted
   resolved <- impGetUTxO input
   isImplicitOutput resolved `shouldBe` False
-  records <- recordedAmounts . liveOutputStore <$> readLedger
+  records <- recordedAmounts . liveOutputStore <$> readAccountingState
   Map.lookup input records `shouldBe` Just (sourceDeposit fixture)
   all isImplicitOutput outputs `shouldBe` True
   Set.member input (submitted ^. bodyTxL . collateralInputsTxBodyL) `shouldBe` False
@@ -708,7 +708,7 @@ forAllReferenceOnlyStoreTx scenarios check =
         proposal =
           mkBasicTx mkBasicTxBody
             & bodyTxL . referenceInputsTxBodyL .~ references
-        records = recordedAmounts . liveOutputStore . Standalone.utxoState $ ledgerState
+        records = recordedAmounts . liveOutputStore . Standalone.accountingState $ ledgerState
         context = Context.ReleaseTx ledgerState proposal
     Set.null references `shouldBe` False
     forM_ references $ \input -> do
@@ -756,7 +756,7 @@ buildAndSignCollateralOnlyTx scenario declarations = do
   scriptInput <- produceScript . hashPlutusScript $ case validity of
     Phase2Valid -> alwaysSucceedsWithDatum SPlutusV4
     Phase2Invalid -> alwaysFailsWithDatum SPlutusV4
-  ledgerState <- (`Standalone.LedgerState` pp) <$> readLedger
+  ledgerState <- (`Standalone.LedgerState` pp) <$> readAccountingState
   let proposal =
         mkBasicTx mkBasicTxBody
           & bodyTxL . inputsTxBodyL .~ Set.singleton scriptInput
@@ -779,7 +779,7 @@ buildAndSignCollateralOnlyTx scenario declarations = do
       . totalCollateralTxBodyL
       `shouldBe` SJust (Release.collateralInputCoins scenario <-> Release.collateralReturnCoins scenario)
   let context = Context.ReleaseTx ledgerState signed
-      records = recordedAmounts . liveOutputStore . Standalone.utxoState $ ledgerState
+      records = recordedAmounts . liveOutputStore . Standalone.accountingState $ ledgerState
   Map.lookup collateralInput records
     `shouldBe` if inputHasStoreDeposit then Just allocation else Nothing
   (Context.allocatedDeposits context, Context.releasedDeposits context) `shouldBe` (Coin 0, Coin 0)

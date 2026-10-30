@@ -252,7 +252,7 @@ dijkstraSubLedgersTransition = do
         originalAllocations
         originalAccounts
         topIsPhase2Valid
-      , LedgerState utxoState certState
+      , ledgerState@LedgerState {lsCertState = certState}
       , stAnnTx
       ) <-
     judgmentContext
@@ -260,11 +260,11 @@ dijkstraSubLedgersTransition = do
   let tx = stAnnTx ^. txStAnnTxG
   curEpochNo <- maybe (liftSTS $ epochFromSlot slot) pure mbCurEpochNo
   let txBody = tx ^. bodyTxL
-  let govState = utxoState ^. utxosGovStateL
+  let govState = ledgerState ^. lsGovStateL
   let committee = govState ^. committeeGovStateL
   let proposals = govState ^. proposalsGovStateL
 
-  (utxoStateBeforeSubUtxow, certStateFinal) <-
+  (ledgerStateBeforeSubUtxow, certStateFinal) <-
     if topIsPhase2Valid == Phase2Valid
       then do
         runTest $ Conway.validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
@@ -303,19 +303,19 @@ dijkstraSubLedgersTransition = do
               , govSignal
               )
         pure
-          ( utxoState & utxosGovStateL . proposalsGovStateL .~ proposalsState
+          ( ledgerState & lsGovStateL . proposalsGovStateL .~ proposalsState
           , certStateAfterSubEntities
           )
-      else pure (utxoState, certState)
+      else pure (ledgerState, certState)
 
-  utxoStateAfterSubUtxow <-
+  ledgerStateAfterSubUtxow <-
     trans @(EraRule "SUBUTXOW" era) $
       TRC
         ( SubUtxoEnv slot pp certState originalAllocations topIsPhase2Valid
-        , utxoStateBeforeSubUtxow
+        , ledgerStateBeforeSubUtxow
         , stAnnTx
         )
-  pure $ LedgerState utxoStateAfterSubUtxow certStateFinal
+  pure $ ledgerStateAfterSubUtxow {lsCertState = certStateFinal}
 
 instance
   ( STS (SUBGOV era)

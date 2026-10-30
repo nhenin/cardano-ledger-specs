@@ -64,7 +64,7 @@ import Cardano.Ledger.Rules.ValidationMode (
  )
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.Era (ShelleyEra, UTXOW)
-import Cardano.Ledger.Shelley.LedgerState.Types (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState.Types (LedgerState (..))
 import Cardano.Ledger.Shelley.Rules.Ppup (ShelleyPpupPredFailure)
 import Cardano.Ledger.Shelley.Rules.Utxo (
   ShelleyUtxoPredFailure,
@@ -78,9 +78,9 @@ import Cardano.Ledger.Shelley.UTxO (
   ScriptsProvided (..),
   ShelleyScriptsNeeded (..),
  )
-import Cardano.Ledger.State (EraCertState (..), dsGenDelegs)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import Cardano.Ledger.State (AccountingState (..), EraCertState (..), dsGenDelegs)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.DeepSeq
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition (
@@ -269,7 +269,7 @@ initialLedgerStateUTXOW ::
   forall era.
   ( Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   ) =>
   InitialRule (UTXOW era)
 initialLedgerStateUTXOW = do
@@ -287,10 +287,10 @@ transitionRulesUTXOW ::
   , BaseM (EraRule "UTXOW" era) ~ ShelleyBase
   , Embed (EraRule "UTXO" era) (EraRule "UTXOW" era)
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , InjectRuleFailure "UTXOW" ShelleyUtxowPredFailure era
   , STS (EraRule "UTXOW" era)
@@ -306,7 +306,8 @@ transitionRulesUTXOW = do
   let inputAllocations =
         IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
           . Store.allocations
-          . utxosUTxOStore
+          . asUTxOStore
+          . lsAccountingState
           $ u
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
       scriptsProvided = getScriptsProvided inputAllocations tx
@@ -360,7 +361,7 @@ instance
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , EraRule "UTXOW" era ~ UTXOW era
   , InjectRuleFailure "UTXOW" ShelleyUtxowPredFailure era
@@ -369,7 +370,7 @@ instance
   ) =>
   STS (UTXOW era)
   where
-  type State (UTXOW era) = UTxOState era
+  type State (UTXOW era) = LedgerState era
   type Signal (UTXOW era) = StAnnTx TopTx era
   type Environment (UTXOW era) = UtxoEnv era
   type BaseM (UTXOW era) = ShelleyBase

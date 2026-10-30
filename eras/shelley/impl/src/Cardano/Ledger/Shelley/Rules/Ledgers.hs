@@ -48,8 +48,8 @@ import Cardano.Ledger.Shelley.Rules.Utxo (ShelleyUtxoPredFailure)
 import Cardano.Ledger.Shelley.Rules.Utxow (ShelleyUtxowPredFailure)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (asks)

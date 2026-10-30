@@ -24,8 +24,8 @@ import Cardano.Ledger.Shelley.Genesis (
 import Cardano.Ledger.Shelley.LedgerState (NewEpochState)
 import Cardano.Ledger.Shelley.Transition (EraTransition (..), registerInitialFunds)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.Val (inject)
 import Data.Default (def)
 import qualified Data.ListMap as ListMap

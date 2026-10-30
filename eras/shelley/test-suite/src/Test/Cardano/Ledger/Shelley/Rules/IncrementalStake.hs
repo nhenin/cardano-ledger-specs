@@ -27,14 +27,13 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   curPParamsEpochStateL,
  )
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Control.Monad.Reader (ReaderT)
 import Control.State.Transition (STS (..))
 import Data.Foldable (fold, foldl')
@@ -119,19 +118,21 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
       SourceSignalTarget
         { source =
           LedgerState
-            UTxOState
-              { utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)
-              , utxosInstantStake = is
+            AccountingState
+              { asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)
+              , asInstantStake = is
               }
             dp
+            _
         , signal = stAnnTx
         , target =
           LedgerState
-            UTxOState
-              { utxosUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')
-              , utxosInstantStake = is'
+            AccountingState
+              { asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')
+              , asInstantStake = is'
               }
             dp'
+            _
         } =
         let tx = stAnnTx ^. txStAnnTxG
          in counterexample
@@ -191,15 +192,12 @@ checkIncrementalStake ::
 checkIncrementalStake es =
   let
     LedgerState
-      ( UTxOState
-          ((Store.allocations) -> utxo)
-          _
-          _
-          _
-          instantStake
-          _
-        )
-      certState = esLState es
+      AccountingState
+        { asUTxOStore = (Store.allocations -> utxo)
+        , asInstantStake = instantStake
+        }
+      certState
+      _ = esLState es
     dstate = certState ^. certDStateL
     pstate = certState ^. certPStateL
     stake = stakeDistr @era utxo dstate pstate

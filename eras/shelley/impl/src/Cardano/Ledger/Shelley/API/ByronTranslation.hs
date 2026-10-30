@@ -29,8 +29,8 @@ import Cardano.Ledger.Shelley.LedgerState.Types (curPParamsEpochStateL, prevPPar
 import Cardano.Ledger.Shelley.Rules ()
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (FromByronTranslationContext (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val (zero, (<->))
 import qualified Data.ByteString.Short as SBS
@@ -115,7 +115,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       -- Shelley/Allegra boundary.
       stashedAVVMAddresses =
         let storedAllocations =
-              Store.allocations . utxosUTxOStore . lsUTxOState . esLState $ epochState
+              Store.allocations . asUTxOStore . lsAccountingState . esLState $ epochState
             redeemers =
               IndexedUTxOs.filterByTxOut
                 (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
@@ -164,16 +164,16 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
     ledgerState :: LedgerState ShelleyEra
     ledgerState =
       LedgerState
-        { lsUTxOState =
-            UTxOState
-              { utxosUTxOStore = mkUTxOStore legacyDepositCalculation utxoShelley
-              , utxosDeposited = Coin 0
-              , utxosFees = Coin 0
-              , utxosGovState = emptyGovState
-              , utxosInstantStake = mempty
-              , utxosDonation = mempty
+        { lsAccountingState =
+            AccountingState
+              { asUTxOStore = mkUTxOStore legacyDepositCalculation utxoShelley
+              , asDeposited = Coin 0
+              , asFees = Coin 0
+              , asInstantStake = mempty
+              , asDonation = mempty
               }
         , lsCertState = mkShelleyCertState def dState
+        , lsGovState = emptyGovState
         }
 
     dState :: DState ShelleyEra

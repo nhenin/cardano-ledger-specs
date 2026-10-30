@@ -17,7 +17,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules.Reports (synopsisCoinMap)
 import Cardano.Ledger.Shelley.State
@@ -66,7 +65,7 @@ nonNegativeDeposits ::
   Property
 nonNegativeDeposits SourceSignalTarget {source = chainSt} =
   let es = (nesEs . chainNes) chainSt
-      UTxOState {utxosDeposited = d} = (lsUTxOState . esLState) es
+      AccountingState {asDeposited = d} = (lsAccountingState . esLState) es
    in counterexample ("nonNegativeDeposits: " ++ show d) (d >= mempty)
 
 -- | Check that the sum of key Deposits (in the UMap) and the pool Depoits (in psDeposits) are equal to the utxosDeposits
@@ -75,10 +74,10 @@ depositInvariant ::
   SourceSignalTarget (CHAIN era) ->
   Property
 depositInvariant SourceSignalTarget {source = chainSt} =
-  let LedgerState {lsUTxOState = utxost, lsCertState = certState} = esLState . nesEs $ chainNes chainSt
+  let LedgerState {lsAccountingState = utxost, lsCertState = certState} = esLState . nesEs $ chainNes chainSt
       dstate = certState ^. certDStateL
       pstate = certState ^. certPStateL
-      allDeposits = utxosDeposited utxost
+      allDeposits = asDeposited utxost
       keyDeposits = sumDepositsAccounts (dstate ^. accountsL)
       poolDeposits = foldMap (fromCompact . spsDeposit) (psStakePools pstate)
    in counterexample

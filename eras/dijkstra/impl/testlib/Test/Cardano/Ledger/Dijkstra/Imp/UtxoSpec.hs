@@ -334,10 +334,10 @@ spec = describe "UTXO" $ do
       expectProduced topTx $ inject (keyDeposit <> dRepDeposit)
       checkRefundCalculation (topTx ^. bodyTxL) (keyDeposit <> dRepDeposit) (keyDeposit <> dRepDeposit)
 
-      depositedBefore <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL
+      depositedBefore <- getsNES $ nesEsL . esLStateL . lsAccountingStateL . asDepositedL
       submitTx_ topTx
       expectStakeCredNotRegistered cred
-      depositedAfter <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL
+      depositedAfter <- getsNES $ nesEsL . esLStateL . lsAccountingStateL . asDepositedL
       depositedAfter `shouldBe` depositedBefore
 
     it "refunds the deposit in the certificate, not the one in the protocol parameters" $ do
@@ -608,7 +608,7 @@ spec = describe "UTXO" $ do
       entries <- getIndexedUTxOs
       dijkstraConsumed pp entries (tx ^. bodyTxL) `shouldBe` expected
 
-    -- Check that `certsTotalDepositsTxBody` (used to set deposits in `UTxOState` and `AdaPots` calculations)
+    -- Check that `certsTotalDepositsTxBody` (used to set deposits in `AccountingState` and `AdaPots` calculations)
     -- returns the batch deposits, while `getTotalDepositsTxBody` returns the top-level deposits
     checkDepositCalculation topBody batchDeposits topLevelDeposits = do
       pp <- getsPParams id
@@ -618,7 +618,7 @@ spec = describe "UTXO" $ do
       let isPoolReg = (`Map.member` (certState ^. certPStateL . psStakePoolsL))
       getTotalDepositsTxBody pp isPoolReg topBody `shouldBe` topLevelDeposits
 
-    -- Check that `certsTotalRefundsTxBody` (used to update the deposits in `UTxOState` and in
+    -- Check that `certsTotalRefundsTxBody` (used to update the deposits in `AccountingState` and in
     -- `AdaPots` calculations) returns the batch refunds, while `getTotalRefundsTxBody` returns
     -- the top-level refunds
     checkRefundCalculation topBody batchRefunds topLevelRefunds = do

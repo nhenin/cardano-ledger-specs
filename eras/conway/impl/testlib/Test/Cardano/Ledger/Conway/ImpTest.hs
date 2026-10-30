@@ -195,17 +195,16 @@ import Cardano.Ledger.Shelley.LedgerState (
   epochStateStakePoolsL,
   esLStateL,
   lsCertStateL,
-  lsUTxOStateL,
+  lsGovStateL,
   nesELL,
   nesEpochStateL,
   nesEsL,
   nesStakePoolDistrG,
   newEpochStateGovStateL,
-  utxosGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..))
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (Val (..), (<->))
@@ -1682,8 +1681,7 @@ lastEpochProposals =
     <$> getsNES
       ( nesEsL
           . esLStateL
-          . lsUTxOStateL
-          . utxosGovStateL
+          . lsGovStateL
           . drepPulsingStateGovStateL
           . pulsingStateSnapshotL
       )

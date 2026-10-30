@@ -10,8 +10,8 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import qualified Data.Aeson as Aeson
 import qualified Data.Map.Strict as Map
 import Lens.Micro ((^.))
@@ -40,10 +40,10 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
     forAll Lifecycle.conwayStates $ \states ->
       forM_ states $ \previousState -> do
         let translatedState = translateEra' @DijkstraEra exampleDijkstraGenesis previousState
-            previousUTxOState = previousState ^. nesEsL . esLStateL . lsUTxOStateL
-            utxoState = translatedState ^. nesEsL . esLStateL . lsUTxOStateL
-            previousOutputs = outputs previousUTxOState
-            translatedOutputs = outputs utxoState
+            previousAccountingState = previousState ^. nesEsL . esLStateL . lsAccountingStateL
+            accountingState = translatedState ^. nesEsL . esLStateL . lsAccountingStateL
+            previousOutputs = outputs previousAccountingState
+            translatedOutputs = outputs accountingState
         Map.keysSet translatedOutputs `shouldBe` Map.keysSet previousOutputs
         forM_ (Map.toList previousOutputs) $ \(input, previousOutput) ->
           case (previousOutput, Map.lookup input translatedOutputs) of
@@ -55,12 +55,12 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
               fmap hashScript (output ^. referenceScriptTxOutL)
                 `shouldBe` fmap hashScript (previousOutput ^. referenceScriptTxOutL)
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
-        recordedAmounts (liveOutputStore utxoState) `shouldBe` Map.empty
+        recordedAmounts (liveOutputStore accountingState) `shouldBe` Map.empty
         -- Translation activates the effective Dijkstra rate for future outputs;
         -- imported legacy outputs retain their zero-deposit historical metadata.
-        currentCalculation (liveOutputStore utxoState)
+        currentCalculation (liveOutputStore accountingState)
           `shouldBe` DepositCalculationV1 (translatedState ^. nesEsL . curPParamsEpochStateL . ppCoinsPerUTxOByteL)
-        let entries = allocations $ liveOutputStore utxoState
+        let entries = allocations $ liveOutputStore accountingState
         IndexedUTxOs.inputIds entries `shouldBe` Map.keysSet translatedOutputs
         forM_ (IndexedUTxOs.unspentOutputs entries) $ \entry -> case Unspent.toTxOut entry of
           LegacyTxOut _ -> do
@@ -69,14 +69,14 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
             sizedOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (Unspent.toTxOut entry)
             depositCalculation entry `shouldBe` DepositCalculationV1 (CoinPerByte $ CompactCoin 0)
           NewTxOut _ -> expectationFailure "Every translated Conway output must remain a LegacyTxOut"
-        toCoin (totalDepositAmount $ liveOutputStore utxoState)
-          `shouldBe` expectedDepositTotal (liveOutputStore utxoState)
+        toCoin (totalDepositAmount $ liveOutputStore accountingState)
+          `shouldBe` expectedDepositTotal (liveOutputStore accountingState)
         -- Check each actual monetary pot, so a swapped or reset pot is visible.
         translatedState ^. treasuryL `shouldBe` previousState ^. treasuryL
         translatedState ^. reservesL `shouldBe` previousState ^. reservesL
-        utxosDeposited utxoState `shouldBe` utxosDeposited previousUTxOState
-        utxosFees utxoState `shouldBe` utxosFees previousUTxOState
-        utxosDonation utxoState `shouldBe` utxosDonation previousUTxOState
+        asDeposited accountingState `shouldBe` asDeposited previousAccountingState
+        asFees accountingState `shouldBe` asFees previousAccountingState
+        asDonation accountingState `shouldBe` asDonation previousAccountingState
         let previousAccounts = previousState ^. nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL . accountsMapL
             accounts = translatedState ^. nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL . accountsMapL
         Map.map (\account -> (account ^. balanceAccountStateL, account ^. depositAccountStateL)) accounts

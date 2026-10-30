@@ -15,22 +15,21 @@ import Cardano.Ledger.Binary (sizedSize)
 import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core (TxOut (..))
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosUTxOStore)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Data.Map.Strict as Map
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM)
 import Test.Cardano.Ledger.Imp.Common (expectJust, expectationFailure, shouldBe)
 
-liveOutputStore :: UTxOState DijkstraEra -> UTxOStore DijkstraEra
-liveOutputStore = utxosUTxOStore
+liveOutputStore :: AccountingState DijkstraEra -> UTxOStore DijkstraEra
+liveOutputStore = asUTxOStore
 
 -- | Complete output observation for ledger-effect assertions. This projection
 -- belongs to the test oracle; production reads use allocations directly.
-outputs :: UTxOState era -> Map.Map TxIn (TxOut era)
-outputs = IndexedUTxOs.mapTxOuts id . allocations . utxosUTxOStore
+outputs :: AccountingState era -> Map.Map TxIn (TxOut era)
+outputs = IndexedUTxOs.mapTxOuts id . allocations . asUTxOStore
 
 -- | Independent specification formula for both calculation versions. V2 uses
 -- the same formula as V1 for now. This does not call the production calculation
@@ -61,13 +60,13 @@ storedDepositTotal = toCoin . totalDepositAmount
 expectedDepositTotal :: UTxOStore DijkstraEra -> Coin
 expectedDepositTotal = foldMap expectedAllocationDeposit . IndexedUTxOs.unspentOutputs . allocations
 
-assertDepositTotal :: UTxOState DijkstraEra -> ImpTestM DijkstraEra ()
+assertDepositTotal :: AccountingState DijkstraEra -> ImpTestM DijkstraEra ()
 assertDepositTotal state =
   let store = liveOutputStore state
    in toCoin (totalDepositAmount store) `shouldBe` expectedDepositTotal store
 
 retainsCreationMetadata ::
-  TxIn -> Int -> CoinPerByte -> UTxOState DijkstraEra -> ImpTestM DijkstraEra ()
+  TxIn -> Int -> CoinPerByte -> AccountingState DijkstraEra -> ImpTestM DijkstraEra ()
 retainsCreationMetadata input acceptedBytes rate state = do
   entry <- expectJust $ lookupUTxO input $ allocations $ liveOutputStore state
   case Unspent.toTxOut entry of

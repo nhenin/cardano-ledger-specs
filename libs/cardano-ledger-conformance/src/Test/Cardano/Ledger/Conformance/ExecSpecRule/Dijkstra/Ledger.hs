@@ -233,8 +233,8 @@ instance ExecSpecTopLevelRule "LEDGER" DijkstraEra where
   mkRuleExecContext globals (TRC (env, state, signal)) =
     DijkstraLedgerExecContext
       { dlecGuardrailsScriptHash =
-          state ^. lsUTxOStateL . utxosGovStateL . constitutionGovStateL . constitutionGuardrailsScriptHashL
-      , dlecEnactState = mkEnactState $ state ^. lsUTxOStateL . utxosGovStateL
+          state ^. lsGovStateL . constitutionGovStateL . constitutionGuardrailsScriptHashL
+      , dlecEnactState = mkEnactState $ state ^. lsGovStateL
       , dlecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
@@ -242,7 +242,7 @@ instance ExecSpecTopLevelRule "LEDGER" DijkstraEra where
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL
-                  , Shelley.uePParams = state ^. lsUTxOStateL . utxosGovStateL . curPParamsGovStateL
+                  , Shelley.uePParams = state ^. lsGovStateL . curPParamsGovStateL
                   , Shelley.ueCertState = state ^. lsCertStateL
                   }
             }

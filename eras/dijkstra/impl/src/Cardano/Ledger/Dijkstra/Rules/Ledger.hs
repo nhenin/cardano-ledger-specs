@@ -80,13 +80,12 @@ import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest)
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
   lsCertState,
-  utxosGovStateL,
+  lsGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
 import Data.Word (Word32)
@@ -309,7 +308,7 @@ instance
   , Embed (EraRule "GOV" era) (LEDGER era)
   , Embed (EraRule "ENTITIES" era) (LEDGER era)
   , Embed (EraRule "SUBLEDGERS" era) (LEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "ENTITIES" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
@@ -372,7 +371,7 @@ dijkstraLedgerTransition ::
   , Embed (EraRule "GOV" era) (LEDGER era)
   , Embed (EraRule "ENTITIES" era) (LEDGER era)
   , Embed (EraRule "SUBLEDGERS" era) (LEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "ENTITIES" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
@@ -407,7 +406,7 @@ dijkstraLedgerTransition = do
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 
   -- Process all subtransactions first
-  LedgerState utxoStateAfterSubLedgers certStateAfterSubLedgers <-
+  ledgerStateAfterSubLedgers <-
     trans @(EraRule "SUBLEDGERS" era) $
       TRC
         ( SubLedgerEnv
@@ -422,16 +421,17 @@ dijkstraLedgerTransition = do
         , subStAnnTxs
         )
 
+  let certStateAfterSubLedgers = lsCertState ledgerStateAfterSubLedgers
   curEpochNo <- maybe (liftSTS $ epochFromSlot slot) pure mbCurEpochNo
 
-  (utxoStateBeforeUtxow, certStateFinal) <-
+  (ledgerStateBeforeUtxow, certStateFinal) <-
     if tx ^. isPhase2ValidTxL == Phase2Valid
       then do
         let txBody = tx ^. bodyTxL
         runTest $ Conway.validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
         runTest $ validateAllRefScriptSize pp originalAllocations tx
 
-        let govState = utxoStateAfterSubLedgers ^. utxosGovStateL
+        let govState = ledgerStateAfterSubLedgers ^. lsGovStateL
             committee = govState ^. committeeGovStateL
             proposals = govState ^. proposalsGovStateL
             committeeProposals = proposalsWithPurpose grCommitteeL proposals
@@ -469,15 +469,15 @@ dijkstraLedgerTransition = do
               , govSignal
               )
         pure
-          ( utxoStateAfterSubLedgers
-              & utxosGovStateL . proposalsGovStateL .~ proposalsState
+          ( ledgerStateAfterSubLedgers
+              & lsGovStateL . proposalsGovStateL .~ proposalsState
           , certStateAfterENTITIES
           )
-      else pure (utxoStateAfterSubLedgers, certStateAfterSubLedgers)
+      else pure (ledgerStateAfterSubLedgers, certStateAfterSubLedgers)
 
   -- Call UTXOW with UtxoEnv, passing the previous store, the original certState,
   -- and the PState updated by all sub-ledgers
-  utxoStateFinal <-
+  ledgerStateFinal <-
     trans @(EraRule "UTXOW" era) $
       TRC
         ( UtxoEnv
@@ -486,17 +486,17 @@ dijkstraLedgerTransition = do
             (certStateAfterSubLedgers ^. certPStateL)
             (lsCertState ledgerState)
             previousUTxOStore
-        , utxoStateBeforeUtxow
+        , ledgerStateBeforeUtxow
         , stAnnTx
         )
-  pure $ LedgerState utxoStateFinal certStateFinal
+  pure $ ledgerStateFinal {lsCertState = certStateFinal}
 
 instance
   ( AlonzoEraTx era
   , EraUTxO era
   , BabbageEraTxBody era
   , Embed (EraRule "UTXO" era) (UTXOW era)
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
   , Script era ~ AlonzoScript era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era

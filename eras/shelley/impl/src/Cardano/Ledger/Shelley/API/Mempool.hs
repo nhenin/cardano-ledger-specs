@@ -61,8 +61,8 @@ import Cardano.Ledger.Shelley.Rules.Ledger (
   ledgerSlotNoL,
  )
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
 import Control.DeepSeq (NFData)
@@ -450,7 +450,7 @@ reapplyValidatedTx globals env ledgerState vtx
           ledgerState
           (vtStAnnTx vtx ^. txStAnnTxG)
   where
-    currentPv = ledgerState ^. lsUTxOStateL . utxosGovStateL . curPParamsGovStateL . ppProtocolVersionL
+    currentPv = ledgerState ^. lsGovStateL . curPParamsGovStateL . ppProtocolVersionL
 
 -- | Validate a transaction against a mempool state using default STS options
 -- and return both the new mempool state and a "validated" 'TxInBlock'.

@@ -45,19 +45,18 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   StashedAVVMAddresses,
-  UTxOState (..),
   completeRupd,
   curPParamsEpochStateL,
   esSnapshotsL,
   nesEsL,
   nesStakePoolDistrG,
   prevPParamsEpochStateL,
-  smartUTxOState,
+  smartAccountingState,
  )
 import Cardano.Ledger.Shelley.PoolRank (NonMyopic (..))
 import Cardano.Ledger.Shelley.RewardUpdate (PulsingRewUpdate (..), RewardUpdate (..))
 import Cardano.Ledger.Slot (EpochNo (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Control.Monad.Trans ()
 import Data.Default (Default (def))
@@ -94,7 +93,7 @@ data ModelNewEpochState era = ModelNewEpochState
   , --  _fGenDelegs,  _genDelegs, and _irwd, are for
     --  changing the PParams and are abstracted away
 
-    -- UTxO state fields (and extra stuff)
+    -- Accounting fields and transaction-generation data
     mUTxO :: !(Map TxIn (TxOut era))
   , mMutFee :: !(Map TxIn (TxOut era))
   -- ^ The current UTxO
@@ -179,11 +178,11 @@ dPStateZero =
 nonMyopicZero :: NonMyopic
 nonMyopicZero = NonMyopic mempty mempty
 
-uTxOStateZero :: forall era. Reflect era => UTxOState era
-uTxOStateZero = UTxOState def mempty mempty emptyGovState mempty mempty
+accountingStateZero :: forall era. Reflect era => AccountingState era
+accountingStateZero = AccountingState def mempty mempty mempty mempty
 
 ledgerStateZero :: forall era. Reflect era => LedgerState era
-ledgerStateZero = LedgerState uTxOStateZero dPStateZero
+ledgerStateZero = LedgerState accountingStateZero dPStateZero emptyGovState
 
 epochStateZero :: Reflect era => EpochState era
 epochStateZero =
@@ -267,14 +266,13 @@ instance Extract (PState era) era where
 instance Extract (VState era) era where
   extract _ = VState def def (EpochNo 0)
 
-instance Reflect era => Extract (UTxOState era) era where
+instance Reflect era => Extract (AccountingState era) era where
   extract x =
-    smartUTxOState
+    smartAccountingState
       (mPParams x)
       (legacyIndexedUTxOs (mUTxO x))
       (mDeposited x)
       (mFees x)
-      emptyGovState
       mempty
 
 extractCertState ::
@@ -291,7 +289,7 @@ extractCertState x = case whichCertState (reify @era) of
       & (certVStateL .~ extract x)
 
 instance Reflect era => Extract (LedgerState era) era where
-  extract x = LedgerState (extract x) (extractCertState x)
+  extract x = LedgerState (extract x) (extractCertState x) emptyGovState
 
 instance Reflect era => Extract (EpochState era) era where
   extract x =
@@ -333,8 +331,8 @@ abstract x =
     , mChainAccountState = (esChainAccountState . nesEs) x
     , mPoolDistr = (unPoolDistr . view nesStakePoolDistrG) x
     , mPParams = (view curPParamsEpochStateL . nesEs) x
-    , mDeposited = (utxosDeposited . lsUTxOState . esLState . nesEs) x
-    , mFees = (utxosFees . lsUTxOState . esLState . nesEs) x
+    , mDeposited = (asDeposited . lsAccountingState . esLState . nesEs) x
+    , mFees = (asFees . lsAccountingState . esLState . nesEs) x
     , mCount = 0
     , mIndex = Map.empty
     , -- below here NO EFFECT until we model EpochBoundary

@@ -27,11 +27,10 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState,
   PulsingRewUpdate,
-  UTxOState,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.Slot (EpochNo, SlotNo (..))
 import Control.Monad.Trans.RWS.Strict (gets)
 import Control.State.Transition.Extended hiding (Assertion)
@@ -88,14 +87,14 @@ genTxAndUTXOState ::
   , State (EraRule "LEDGER" era) ~ LedgerState era
   , Environment (EraRule "LEDGER" era) ~ Shelley.LedgerEnv era
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , StAnnTx TopTx era ~ Signal (EraRule "UTXOW" era)
   , EraGenericGen era
   ) =>
   GenSize -> Gen (TRC (EraRule "UTXOW" era), GenState era)
 genTxAndUTXOState gsize = do
   (TRC (Shelley.LedgerEnv slotNo _ _ pp _, ledgerState, vtx), genState) <- genTxAndLEDGERState gsize
-  pure (TRC (Shelley.UtxoEnv slotNo pp def, lsUTxOState ledgerState, vtx), genState)
+  pure (TRC (Shelley.UtxoEnv slotNo pp def, ledgerState, vtx), genState)
 
 genTxAndLEDGERState ::
   forall era.
@@ -153,7 +152,7 @@ testTxValidForLEDGER (trc@(TRC (env, ledgerState, vstAnnTx)), _genstate) =
   let vtx = vstAnnTx ^. txStAnnTxG
    in case runSTSWithContext @era trc of
         Right ledgerState' ->
-          -- UTxOState and CertState after applying the transaction $$$
+          -- Total ADA across accounting, certificates and governance is preserved.
           classify (isValid' (reify @era) vtx == Phase2Valid) "TxValid" $
             totalAda ledgerState' === totalAda ledgerState
         Left errs ->

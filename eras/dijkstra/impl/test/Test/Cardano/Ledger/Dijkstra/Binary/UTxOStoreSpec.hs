@@ -11,10 +11,10 @@ import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import qualified Data.ByteString as BS
@@ -321,20 +321,23 @@ spec = describe "UTxOStore historical metadata" $ do
             `shouldSatisfy` isLeft
 
   prop "rejects retired seven-field Dijkstra snapshots, including an empty old deposit store" $
-    forAll (arbitrary @(UTxOState DijkstraEra)) $ \state -> do
-      let retired =
-            Binary.encodeListLen 7
+    forAll (arbitrary @(LedgerState DijkstraEra)) $ \ledgerState -> do
+      let state = lsAccountingState ledgerState
+          retired =
+            Binary.encodeListLen 2
+              <> Binary.encCBOR (lsCertState ledgerState)
+              <> Binary.encodeListLen 7
               <> Binary.encCBOR (IndexedUTxOs Map.empty :: IndexedUTxOs DijkstraEra)
-              <> Binary.encCBOR (utxosDeposited state)
-              <> Binary.encCBOR (utxosFees state)
-              <> Binary.encCBOR (utxosGovState state)
-              <> Binary.encCBOR (utxosInstantStake state)
-              <> Binary.encCBOR (utxosDonation state)
+              <> Binary.encCBOR (asDeposited state)
+              <> Binary.encCBOR (asFees state)
+              <> Binary.encCBOR (lsGovState ledgerState)
+              <> Binary.encCBOR (asInstantStake state)
+              <> Binary.encCBOR (asDonation state)
               <> Binary.encCBOR (Map.empty :: Map.Map TxIn Coin)
       Binary.decodeFullDecoder
         version
-        "retired Dijkstra UTxOState"
-        (Binary.decNoShareCBOR @(UTxOState DijkstraEra))
+        "retired Dijkstra LedgerState"
+        (Binary.decNoShareCBOR @(LedgerState DijkstraEra))
         (Binary.serialize version retired)
         `shouldSatisfy` isLeft
 

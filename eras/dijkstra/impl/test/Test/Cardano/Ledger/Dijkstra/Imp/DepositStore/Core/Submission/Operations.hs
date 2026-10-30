@@ -13,7 +13,7 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   esLStateL,
-  lsUTxOStateL,
+  lsAccountingStateL,
   nesEsL,
  )
 import Cardano.Ledger.TxIn (TxIn)
@@ -62,7 +62,7 @@ fundOperations scenario = do
   length (proposal ^. bodyTxL . subTransactionsTxBodyL)
     `shouldBe` length (Operations.subTxOperations scenario)
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-  state <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
+  state <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   forM_ (zip [0 ..] sourceOutputs) $ \(index, source) -> do
     let input = txInAt index funded
     impGetUTxO input >>= (`shouldBe` source)

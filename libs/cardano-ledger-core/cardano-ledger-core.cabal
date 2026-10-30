@@ -84,12 +84,24 @@ library
     Cardano.Ledger.Rewards
     Cardano.Ledger.Rules.ValidationMode
     Cardano.Ledger.Slot
+    Cardano.Ledger.UTxO
     Cardano.Ledger.State
-    Cardano.Ledger.State.UTxOs
-    Cardano.Ledger.State.UTxOs.IndexedUTxOs
-    Cardano.Ledger.State.UTxOs.Unspent
-    Cardano.Ledger.State.UTxOs.Deposit
-    Cardano.Ledger.State.UTxOs.Store
+    Cardano.Ledger.State.Accounting
+    Cardano.Ledger.State.Accounting.InstantStake
+    Cardano.Ledger.State.Accounting.UTxOs
+    Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs
+    Cardano.Ledger.State.Accounting.UTxOs.Unspent
+    Cardano.Ledger.State.Accounting.UTxOs.Deposit
+    Cardano.Ledger.State.Accounting.UTxOs.Store
+    Cardano.Ledger.State.Certificates
+    Cardano.Ledger.State.Certificates.Account
+    Cardano.Ledger.State.Certificates.StakePool
+    Cardano.Ledger.State.Epoch.ChainAccount
+    Cardano.Ledger.State.Epoch.LeiosCommittee
+    Cardano.Ledger.State.Epoch.PoolDistr
+    Cardano.Ledger.State.Epoch.SnapShots
+    Cardano.Ledger.State.Governance
+    Cardano.Ledger.State.Stake
     Cardano.Ledger.StrictlyPositiveCoin
     Cardano.Ledger.Tools
     Cardano.Ledger.TxIn
@@ -105,15 +117,6 @@ library
     Cardano.Ledger.Core.TxCert
     Cardano.Ledger.Core.TxLevel
     Cardano.Ledger.Keys.Internal
-    Cardano.Ledger.State.Account
-    Cardano.Ledger.State.CertState
-    Cardano.Ledger.State.ChainAccount
-    Cardano.Ledger.State.Governance
-    Cardano.Ledger.State.LeiosCommittee
-    Cardano.Ledger.State.PoolDistr
-    Cardano.Ledger.State.SnapShots
-    Cardano.Ledger.State.Stake
-    Cardano.Ledger.State.StakePool
 
   default-language: Haskell2010
   build-depends:
@@ -333,9 +336,9 @@ test-suite tests
     Test.Cardano.Ledger.BinarySpec
     Test.Cardano.Ledger.JsonSpec
     Test.Cardano.Ledger.PlutusSpec
-    Test.Cardano.Ledger.State.LeiosCommitteeSpec
-    Test.Cardano.Ledger.State.SnapShotsSpec
-    Test.Cardano.Ledger.State.StakePoolSpec
+    Test.Cardano.Ledger.State.Epoch.LeiosCommitteeSpec
+    Test.Cardano.Ledger.State.Epoch.SnapShotsSpec
+    Test.Cardano.Ledger.State.Certificates.StakePoolSpec
     Test.Cardano.Ledger.StorableSpec
     Test.Cardano.Ledger.StrictlyPositiveCoinSpec
     Test.Cardano.Ledger.ToolsSpec

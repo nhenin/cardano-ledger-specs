@@ -99,7 +99,7 @@ import Cardano.Ledger.Plutus.Data (Data (..), hashData)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  smartUTxOState,
+  smartAccountingState,
   totalObligation,
  )
 import Cardano.Ledger.Shelley.Scripts (
@@ -652,15 +652,14 @@ instance (Reflect era, ShelleyEraTest era) => Show (GenState era) where
 -- logically be applied one after another)
 
 initialLedgerState :: forall era. Reflect era => GenState era -> LedgerState era
-initialLedgerState gstate = LedgerState utxostate dpstate
+initialLedgerState gstate = LedgerState accountingState dpstate emptyGovState
   where
-    utxostate =
-      smartUTxOState
+    accountingState =
+      smartAccountingState
         pp
         (legacyIndexedUTxOs (gsInitialUtxo gstate))
         deposited
         (Coin 0)
-        emptyGovState
         mempty
     dpstate =
       def

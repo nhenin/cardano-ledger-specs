@@ -224,7 +224,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   epochStateStakePoolsL,
   esLStateL,
   lsCertState,
-  lsUTxOState,
   newEpochStateGovStateL,
  )
 import Cardano.Ledger.Val (Val (..))
@@ -482,8 +481,7 @@ setFreshDRepPulsingState epochNo stakePoolDistr epochState = do
   -- approximately `4k` blocks created during that period.
   globals <- ask
   let ledgerState = epochState ^. esLStateL
-      utxoState = lsUTxOState ledgerState
-      instantStake = utxoState ^. instantStakeG
+      instantStake = ledgerState ^. instantStakeG
       certState = lsCertState ledgerState
       dState = certState ^. certDStateL
       vState = certState ^. certVStateL

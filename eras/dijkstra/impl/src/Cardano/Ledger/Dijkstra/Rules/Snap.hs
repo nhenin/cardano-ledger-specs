@@ -37,7 +37,7 @@ import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Era (SNAP)
 import Cardano.Ledger.Dijkstra.PParams (DijkstraEraPParams, ppLeiosCommitteeSizeL)
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..))
 import Cardano.Ledger.Shelley.Rules (SnapEnv (..), SnapEvent (..))
 import Cardano.Ledger.Slot (EpochNo)
 import Cardano.Ledger.State (
@@ -121,7 +121,9 @@ snapTransition = do
   -- when we entered Shelley era.
   maxKeyAge <- liftSTS $ asks (`maxKeyAgeEpochs` eNo)
 
-  let SnapEnv ls@(LedgerState UTxOState {utxosFees = fees} certState) pp = snapEnv
+  let SnapEnv
+        ls@(LedgerState {lsAccountingState = AccountingState {asFees = fees}, lsCertState = certState})
+        pp = snapEnv
       instantStake = ls ^. instantStakeG
       istakeSnap =
         snapShotFromInstantStake instantStake (certState ^. certDStateL) (certState ^. certPStateL)

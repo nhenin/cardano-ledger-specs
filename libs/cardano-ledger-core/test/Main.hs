@@ -6,9 +6,9 @@ import qualified Test.Cardano.Ledger.BinarySpec as BinarySpec
 import Test.Cardano.Ledger.Common
 import qualified Test.Cardano.Ledger.JsonSpec as JsonSpec
 import qualified Test.Cardano.Ledger.PlutusSpec as PlutusSpec
-import qualified Test.Cardano.Ledger.State.LeiosCommitteeSpec as LeiosCommitteeSpec
-import qualified Test.Cardano.Ledger.State.SnapShotsSpec as SnapShotsSpec
-import qualified Test.Cardano.Ledger.State.StakePoolSpec as StakePoolSpec
+import qualified Test.Cardano.Ledger.State.Certificates.StakePoolSpec as StakePoolSpec
+import qualified Test.Cardano.Ledger.State.Epoch.LeiosCommitteeSpec as LeiosCommitteeSpec
+import qualified Test.Cardano.Ledger.State.Epoch.SnapShotsSpec as SnapShotsSpec
 import qualified Test.Cardano.Ledger.StorableSpec as StorableSpec
 import qualified Test.Cardano.Ledger.StrictlyPositiveCoinSpec as StrictlyPositiveCoinSpec
 import qualified Test.Cardano.Ledger.ToolsSpec as ToolsSpec

@@ -22,7 +22,7 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   esLStateL,
-  lsUTxOStateL,
+  lsAccountingStateL,
   nesEsL,
  )
 import Cardano.Ledger.Val (inject)
@@ -99,7 +99,7 @@ forAllPostConwayAllocationTx scenarios check =
     let sourceInput = txInAt 0 funded
     impGetUTxO sourceInput >>= (`shouldBe` translatedOutput)
     records <-
-      recordedAmounts . liveOutputStore <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
+      recordedAmounts . liveOutputStore <$> getsNES (nesEsL . esLStateL . lsAccountingStateL)
     Map.lookup sourceInput records `shouldBe` Nothing
     check $
       TopTx.AllocationTx parameters $
@@ -153,7 +153,7 @@ buildAndSignTx proposal = do
   map (^. bodyTxL . inputsTxBodyL) (OMap.elems $ signed ^. bodyTxL . subTransactionsTxBodyL)
     `shouldBe` map (^. bodyTxL . inputsTxBodyL) (OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL)
   records <-
-    recordedAmounts . liveOutputStore <$> getsNES (nesEsL . esLStateL . lsUTxOStateL)
+    recordedAmounts . liveOutputStore <$> getsNES (nesEsL . esLStateL . lsAccountingStateL)
   forM_ (ordinarySpendingInputs signed) $ \input -> do
     output <- impGetUTxO input
     isImplicitOutput output `shouldBe` True

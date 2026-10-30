@@ -6,9 +6,9 @@ module Cardano.Ledger.Dijkstra.UTxOs.Deposit (
 ) where
 
 import Cardano.Ledger.Babbage.Core (BabbageEraPParams, PParams, ppCoinsPerUTxOByteL)
-import Cardano.Ledger.State.UTxOs.Deposit (DepositCalculation (..))
-import Cardano.Ledger.State.UTxOs.Store (UTxOStore)
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositCalculation (..))
+import Cardano.Ledger.State.Accounting.UTxOs.Store (UTxOStore)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Lens.Micro ((^.))
 
 -- | Apply the effective byte price to the Store's active formula version.

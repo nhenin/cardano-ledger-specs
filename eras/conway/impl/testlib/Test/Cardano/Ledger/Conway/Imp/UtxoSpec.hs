@@ -31,7 +31,7 @@ import Cardano.Ledger.Shelley.Scripts (
  )
 import Cardano.Ledger.Shelley.UTxO (getShelleyMinFeeTxUtxo)
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
 import qualified Data.List.NonEmpty as NE
@@ -104,7 +104,7 @@ spec = describe "UTXO" $ do
                 ]
       Assets valueAfterUnRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       let totalFees = (txRegister ^. bodyTxL . feeTxBodyL) <+> (txUnRegister ^. bodyTxL . feeTxBodyL)
-      fees <- getsNES (nesEsL . esLStateL . lsUTxOStateL . utxosFeesL)
+      fees <- getsNES (nesEsL . esLStateL . lsAccountingStateL . asFeesL)
       totalFees `shouldBe` fees
       -- only deposits for stake pool and its account are not refunded at this point
       (initialValue <-> valueAfterUnRegister)
@@ -255,7 +255,7 @@ conwayOnlySpec = describe "UTXO" $ do
                 ]
       Assets valueAfterUnRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       let totalFees = (txRegister ^. bodyTxL . feeTxBodyL) <+> (txUnRegister ^. bodyTxL . feeTxBodyL)
-      fees <- getsNES (nesEsL . esLStateL . lsUTxOStateL . utxosFeesL)
+      fees <- getsNES (nesEsL . esLStateL . lsAccountingStateL . asFeesL)
       totalFees `shouldBe` fees
       -- only deposits for stake pool and its account are not refunded at this point
       (initialValue <-> valueAfterUnRegister)

@@ -18,11 +18,11 @@ import Cardano.Ledger.Alonzo.Core
 import Cardano.Ledger.Alonzo.Rules (LEDGER, LEDGERS)
 import Cardano.Ledger.BaseTypes (Globals, epochInfo, systemStart)
 import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, lsUTxOState, utxosUTxOStore)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState, lsAccountingState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.Crypto (Crypto)
 import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..))
 import Control.Monad.Trans.Reader (runReaderT)
@@ -61,7 +61,7 @@ instance
   , Embed (EraRule "DELEGS" era) (LEDGER era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Environment (EraRule "DELEGS" era) ~ Shelley.DelegsEnv era
   , State (EraRule "DELEGS" era) ~ CertState era
@@ -88,8 +88,8 @@ instance
         pParams
         ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
             . Store.allocations
-            . utxosUTxOStore
-            . lsUTxOState
+            . asUTxOStore
+            . lsAccountingState
             $ ls
         )
         mempty

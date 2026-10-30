@@ -80,8 +80,8 @@ import Cardano.Ledger.Mary.Value (
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.Rules.ValidationMode (Inject (..))
 import Cardano.Ledger.State (StakePoolParams (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..), txInToText)
 import Cardano.Ledger.Val (zero)
 import Cardano.Slotting.EpochInfo (EpochInfo)

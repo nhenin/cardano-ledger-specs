@@ -58,7 +58,7 @@ getLeaderElectionStake pool =
 
 getActiveProposalDeposits :: ConwayEraImp era => KeyHash StakePool -> ImpTestM era Coin
 getActiveProposalDeposits pool = do
-  proposals <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosGovStateL . proposalsGovStateL
+  proposals <- getsNES $ nesEsL . esLStateL . lsGovStateL . proposalsGovStateL
   accounts <- getsNES $ nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
   pure $
     foldMap fromCompact $

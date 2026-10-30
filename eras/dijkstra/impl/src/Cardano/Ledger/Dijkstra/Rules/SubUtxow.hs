@@ -57,10 +57,10 @@ import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (DijkstraEraUTxO (..))
 import Cardano.Ledger.Keys (VKey)
 import Cardano.Ledger.Rules.ValidationMode
-import Cardano.Ledger.Shelley.LedgerState (UTxOState)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..))
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.State (EraCertState, EraUTxO (..))
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
@@ -186,6 +186,7 @@ instance NFData (Event (EraRule "SUBUTXO" era)) => NFData (DijkstraSubUtxowEvent
 
 instance
   ( AlonzoEraTx era
+  , EraCertState era
   , DijkstraEraUTxO era
   , BabbageEraTxOut era
   , ConwayEraGov era
@@ -204,7 +205,7 @@ instance
   ) =>
   STS (SUBUTXOW era)
   where
-  type State (SUBUTXOW era) = UTxOState era
+  type State (SUBUTXOW era) = LedgerState era
   type Signal (SUBUTXOW era) = StAnnTx SubTx era
   type Environment (SUBUTXOW era) = SubUtxoEnv era
   type BaseM (SUBUTXOW era) = ShelleyBase

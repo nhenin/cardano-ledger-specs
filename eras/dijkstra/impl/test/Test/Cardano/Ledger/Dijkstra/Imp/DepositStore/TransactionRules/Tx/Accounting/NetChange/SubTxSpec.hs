@@ -118,7 +118,7 @@ spec =
                 Just failures -> Failure failures
             ledgerState = TopTx.ledgerState proposal
             actual = traverse_ (validateSubTxExactness
-              (liveOutputStore $ Ledger.utxoState ledgerState) . (^. bodyTxL)) children
+              (liveOutputStore $ Ledger.accountingState ledgerState) . (^. bodyTxL)) children
         actual `shouldBe` expected
 
     -- Exact own change, with any allocation and release combination.
@@ -387,7 +387,7 @@ spec =
         unrelatedProposal <- fundAccountingScenario unrelatedFunding
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
-            records = recordedAmounts $ liveOutputStore $ Ledger.utxoState $ TopTx.ledgerState proposal
+            records = recordedAmounts $ liveOutputStore $ Ledger.accountingState $ TopTx.ledgerState proposal
             unspentRecords = Map.restrictKeys records $ ordinarySpendingInputs $ TopTx.unsignedTx unrelatedProposal
         Coin unrelatedRelease `shouldSatisfy` (\amount -> amount > Coin 0 && amount <= foldMap id unspentRecords)
         signedTx <- buildAndSignTx $ TopTx.addDeclaration

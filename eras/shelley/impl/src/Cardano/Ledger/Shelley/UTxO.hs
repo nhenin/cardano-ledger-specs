@@ -52,8 +52,8 @@ import Cardano.Ledger.State as UTxO (
   EraUTxO (..),
   ScriptsProvided (..),
  )
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Unspent as Unspent
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllAssets, sumAllCoin)
 import Cardano.Ledger.Val ((<+>))

@@ -178,10 +178,9 @@ instance
 
 instance
   ( ToExpr (TxOut era)
-  , ToExpr (GovState era)
   , ToExpr (InstantStake era)
   ) =>
-  ToExpr (UTxOState era)
+  ToExpr (AccountingState era)
 
 instance ToExpr (ShelleyInstantStake era)
 

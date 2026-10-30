@@ -63,9 +63,9 @@ library
     Cardano.Ledger.Alonzo.Rules.Utxo
     Cardano.Ledger.Alonzo.Rules.Utxos
     Cardano.Ledger.Alonzo.Rules.Utxow
-    Cardano.Ledger.Alonzo.State.Account
-    Cardano.Ledger.Alonzo.State.CertState
-    Cardano.Ledger.Alonzo.State.Stake
+    Cardano.Ledger.Alonzo.State.Certificates.Account
+    Cardano.Ledger.Alonzo.State.Certificates
+    Cardano.Ledger.Alonzo.State.Accounting.InstantStake
     Cardano.Ledger.Alonzo.TxCert
 
   default-language: Haskell2010

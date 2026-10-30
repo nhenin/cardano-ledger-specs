@@ -39,13 +39,13 @@ import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), serialize)
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest)
-import Cardano.Ledger.Shelley.LedgerState (utxosGovStateL)
+import Cardano.Ledger.Shelley.LedgerState (lsGovStateL)
 import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.Shelley.PParams (Update)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import qualified Cardano.Ledger.Val as Val
@@ -177,9 +177,9 @@ utxoTransition ::
 utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      storedAllocations = Store.allocations . Shelley.utxosUTxOStore $ utxos
+      storedAllocations = Store.allocations . Shelley.asUTxOStore . Shelley.lsAccountingState $ utxos
       inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
-      ppup = Shelley.utxosGovState utxos
+      ppup = Shelley.lsGovState utxos
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
 
@@ -231,13 +231,15 @@ utxoTransition = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ Shelley.validateMaxTxSizeUTxO pp tx
 
-  Shelley.updateUTxOState
-    pp
-    txBody
-    certState
-    (tellEvent . TotalDeposits (hashAnnotated txBody))
-    (\a b -> tellEvent $ TxUTxODiff a b)
-    (utxos & utxosGovStateL .~ govStateAfterPPUP)
+  accountingState <-
+    Shelley.updateAccountingState
+      pp
+      txBody
+      certState
+      (tellEvent . TotalDeposits (hashAnnotated txBody))
+      (\a b -> tellEvent $ TxUTxODiff a b)
+      (Shelley.lsAccountingState utxos)
+  pure $ utxos & Shelley.lsAccountingStateL .~ accountingState & lsGovStateL .~ govStateAfterPPUP
 
 -- | Ensure the transaction is within the validity window.
 --
@@ -316,7 +318,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = Shelley.UTxOState era
+  type State (UTXO era) = Shelley.LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = Shelley.UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase

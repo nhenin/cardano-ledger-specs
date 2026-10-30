@@ -140,26 +140,22 @@ utxoEnvSpec UtxoExecContext {..} =
 utxoStateSpec ::
   UtxoExecContext ConwayEra ->
   UtxoEnv ConwayEra ->
-  Specification (UTxOState ConwayEra)
+  Specification (LedgerState ConwayEra)
 utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState} =
-  constrained $ \utxoState ->
-    match utxoState $
-      \utxosUTxOStore
-       _utxosDeposited
-       _utxosFees
-       utxosGovState
-       _utxosStakeDistr
-       _utxosDonation ->
-          [ assert $ utxosUTxOStore ==. lit initialStore
-          , match utxosGovState $ \props _ constitution _ _ _ _ ->
-              match constitution $ \_ policy ->
-                satisfies props $
-                  proposalsSpec
-                    (lit curEpoch)
-                    (lit (succVersionOrCurrent (uePParams ^. ppProtocolVersionL)))
-                    policy
-                    (lit ueCertState)
-          ]
+  constrained $ \ledgerState ->
+    match ledgerState $ \accountingState certState govState ->
+      [ assert $ certState ==. lit ueCertState
+      , match accountingState $ \store _deposited _fees _stake _donation ->
+          assert $ store ==. lit initialStore
+      , match govState $ \props _ constitution _ _ _ _ ->
+          match constitution $ \_ policy ->
+            satisfies props $
+              proposalsSpec
+                (lit curEpoch)
+                (lit (succVersionOrCurrent (uePParams ^. ppProtocolVersionL)))
+                policy
+                certState
+      ]
   where
     curEpoch = runReader (epochFromSlot ueSlot) testGlobals
     initialStore = mkUTxOStore legacyDepositCalculation uecUTxO

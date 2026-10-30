@@ -28,7 +28,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.State (allocations, restrictToInputs)
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -76,7 +76,7 @@ fundAccountingScenario plan = do
     submitTx $
       Pricing.declareNetDeposit sourceAllocation $
         mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList sources
-  state <- Release.readLedger
+  state <- Release.readAccountingState
   let (_, inputGroups) =
         mapAccumL
           ( \offset outputs ->
@@ -208,7 +208,7 @@ balanceChild state child =
             restrictToInputs (child ^. bodyTxL . inputsTxBodyL)
               . allocations
               . liveOutputStore
-              . Pricing.utxoState
+              . Pricing.accountingState
               $ state
           inputCoins = foldMap (^. coinTxOutL) . IndexedUTxOs.txOuts $ sources
           outputCoins = foldMap (^. coinTxOutL) rest

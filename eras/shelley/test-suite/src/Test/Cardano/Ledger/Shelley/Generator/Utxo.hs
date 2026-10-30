@@ -29,11 +29,11 @@ import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
 import Cardano.Ledger.Keys (asWitness)
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import Cardano.Ledger.Shelley.Rules (DelplEnv, LedgerEnv (..))
 import Cardano.Ledger.Shelley.State hiding (txOuts)
 import qualified Cardano.Ledger.State as Store
-import qualified Cardano.Ledger.State.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.TxOut (sumAllValue)
 import Cardano.Ledger.Val (Val (..), sumVal, (<+>), (<->), (<×>))
@@ -139,15 +139,9 @@ genTx
        )
   (LedgerEnv slot _ txIx pparams reserves)
   ( LedgerState
-      utxoSt@( UTxOState
-                 ((Store.allocations) -> utxo)
-                 _
-                 _
-                 _
-                 _
-                 _
-               )
+      utxoSt@(AccountingState {asUTxOStore = (Store.allocations -> utxo)})
       dpState
+      _
     ) =
     do
       -------------------------------------------------------------------------

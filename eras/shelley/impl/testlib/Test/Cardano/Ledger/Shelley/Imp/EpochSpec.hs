@@ -12,10 +12,12 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Shelley.API.Forecast (futureForecast, poolDistrForecastL)
 import Cardano.Ledger.Shelley.LedgerState (
+  asDepositedL,
   esLStateL,
   esSnapshotsL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOStateL,
+  lsGovStateL,
   msSnapShotL,
   nesELL,
   nesEsL,
@@ -24,8 +26,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   ssStakeMarkL,
   ssStakeSetL,
   totalObligation,
-  utxosDepositedL,
-  utxosGovStateL,
  )
 import Cardano.Ledger.Slot (epochInfoFirst)
 import Cardano.Ledger.Val (Val (..))
@@ -42,10 +42,10 @@ spec = describe "EPOCH" $ do
   it "Runs basic transaction" $ do
     do
       certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-      govState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosGovStateL
+      govState <- getsNES $ nesEsL . esLStateL . lsGovStateL
       totalObligation certState govState `shouldBe` zero
     do
-      deposited <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL
+      deposited <- getsNES $ nesEsL . esLStateL . lsAccountingStateL . asDepositedL
       deposited `shouldBe` zero
     submitTxAnn_ "simple transaction" $ mkBasicTx mkBasicTxBody
     passEpoch

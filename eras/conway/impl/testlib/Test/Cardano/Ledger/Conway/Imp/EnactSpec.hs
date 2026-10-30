@@ -432,7 +432,7 @@ actionPrioritySpec =
 
         committee <-
           getsNES $
-            nesEsL . esLStateL . lsUTxOStateL . utxosGovStateL . committeeGovStateL
+            nesEsL . esLStateL . lsGovStateL . committeeGovStateL
         committee `shouldBe` SNothing
 
     -- distinct constitutional values for minFee

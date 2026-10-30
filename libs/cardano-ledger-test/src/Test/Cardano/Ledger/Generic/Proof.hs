@@ -214,11 +214,11 @@ runSTS' x = runShelleyBase (applySTSTest x)
 --   :t goSTS (UTXOW Babbage)
 --   goSTS (LEDGER Babbage)
 --     :: LedgerEnv (BabbageEra )
---        -> (UTxOState (BabbageEra ), CertState )
+--        -> (AccountingState (BabbageEra ), CertState )
 --        -> Cardano.Ledger.Alonzo.Tx.AlonzoTx (BabbageEra )
 --        -> (Either
 --              [LedgerPredicateFailure (BabbageEra )]
---              (UTxOState (BabbageEra ), CertState )
+--              (AccountingState (BabbageEra ), CertState )
 --        -> ans)
 --        -> ans
 -- @@@

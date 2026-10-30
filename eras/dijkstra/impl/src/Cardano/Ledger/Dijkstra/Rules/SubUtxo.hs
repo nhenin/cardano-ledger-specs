@@ -52,9 +52,7 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody)
 import Cardano.Ledger.Rules.ValidationMode
 import Cardano.Ledger.Shelley.LedgerState (
-  UTxOState,
-  utxosDonationL,
-  utxosUTxOStore,
+  LedgerState (..),
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
@@ -211,7 +209,7 @@ instance
   ) =>
   STS (SUBUTXO era)
   where
-  type State (SUBUTXO era) = UTxOState era
+  type State (SUBUTXO era) = LedgerState era
   type Signal (SUBUTXO era) = StAnnTx SubTx era
   type Environment (SUBUTXO era) = SubUtxoEnv era
   type BaseM (SUBUTXO era) = ShelleyBase
@@ -240,7 +238,7 @@ dijkstraSubUtxoTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXO" era)
 dijkstraSubUtxoTransition = do
-  TRC (SubUtxoEnv slot pp _ originalAllocations topTxIsPhase2Valid, utxoState, stAnnTx) <-
+  TRC (SubUtxoEnv slot pp _ originalAllocations topTxIsPhase2Valid, ledgerState, stAnnTx) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
@@ -262,7 +260,8 @@ dijkstraSubUtxoTransition = do
   runTest $ Shelley.validateInputSetEmptyUTxO txBody
 
   let inputs = txBody ^. inputsTxBodyL
-  runTest $ Shelley.validateBadInputsUTxO (allocations . utxosUTxOStore $ utxoState) inputs
+  runTest $
+    Shelley.validateBadInputsUTxO (allocations . asUTxOStore . lsAccountingState $ ledgerState) inputs
 
   -- Check releases against the allocations from before any SubTx executed.
   validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $
@@ -280,13 +279,15 @@ dijkstraSubUtxoTransition = do
   runTestOnSignal $ Alonzo.validateWrongNetworkInTxBody netId txBody
 
   case topTxIsPhase2Valid of
-    Phase2Valid ->
-      Shelley.updateUTxOsAndInstantStakeWithTxBody
-        txBody
-        (\a b -> tellEvent $ TxUTxODiff a b)
-        (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
+    Phase2Valid -> do
+      accountingState <-
+        Shelley.updateUTxOsAndInstantStakeWithTxBody
+          txBody
+          (\a b -> tellEvent $ TxUTxODiff a b)
+          (lsAccountingState ledgerState & asDonationL <>~ txBody ^. treasuryDonationTxBodyL)
+      pure ledgerState {lsAccountingState = accountingState}
     Phase2Invalid ->
-      pure utxoState
+      pure ledgerState
 
 instance
   ( Era era

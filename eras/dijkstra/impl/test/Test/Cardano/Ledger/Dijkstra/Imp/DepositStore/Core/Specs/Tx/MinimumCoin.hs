@@ -157,7 +157,7 @@ fund generated@Scenario {body, content, bytePrice, sourceCoins} = do
                 ]
       allocation = Pricing.outputDeposit parameters output
       minimumAmount = if content == Implicit then minimumCoins parameters output else Coin 0
-  state <- Release.readLedger
+  state <- Release.readAccountingState
   output ^. coinTxOutL `shouldBe` minimumAmount
   pure $ Fixture (ReleaseTx (Pricing.LedgerState state parameters) tx) allocation minimumAmount
 

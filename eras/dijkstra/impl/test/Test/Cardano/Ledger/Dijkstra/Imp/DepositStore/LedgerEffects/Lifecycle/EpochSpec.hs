@@ -30,17 +30,17 @@ spec = describe "DS-STATE-EPOCH - Epoch" $ do
       _ <- fundAccountingScenario fundingScenario
       forM_ [1 :: Int, 2] $ \_ -> do
         previousState <- getsNES id
-        let previousUTxOState = previousState ^. nesEsL . esLStateL . lsUTxOStateL
-            previousStore = liveOutputStore previousUTxOState
-        Map.null (recordedAmounts $ liveOutputStore previousUTxOState) `shouldBe` False
-        assertDepositTotal previousUTxOState
+        let previousAccountingState = previousState ^. nesEsL . esLStateL . lsAccountingStateL
+            previousStore = liveOutputStore previousAccountingState
+        Map.null (recordedAmounts $ liveOutputStore previousAccountingState) `shouldBe` False
+        assertDepositTotal previousAccountingState
         passEpoch
         state <- getsNES id
         state ^. nesELL `shouldBe` succ (previousState ^. nesELL)
         state ^. nesEsL . curPParamsEpochStateL `shouldBe` previousState ^. nesEsL . curPParamsEpochStateL
-        let utxoState = state ^. nesEsL . esLStateL . lsUTxOStateL
-        liveOutputStore utxoState `shouldBe` previousStore
-        assertDepositTotal utxoState
+        let accountingState = state ^. nesEsL . esLStateL . lsAccountingStateL
+        liveOutputStore accountingState `shouldBe` previousStore
+        assertDepositTotal accountingState
 
   -- A scheduled parameter update becomes effective at the real epoch boundary.
   -- Activation keeps the formula version and changes only its parameter;
@@ -60,11 +60,11 @@ spec = describe "DS-STATE-EPOCH - Epoch" $ do
 
         passEpoch
 
-        utxoState <- getsNES $ nesEsL . esLStateL . lsUTxOStateL
-        let store = liveOutputStore utxoState
+        accountingState <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
+        let store = liveOutputStore accountingState
         getsNES (nesEsL . curPParamsEpochStateL) >>= (`shouldBe` nextParameters)
         currentCalculation store `shouldBe` version nextRate
         allocations store `shouldBe` allocations previousStore
         totalDepositAmount store `shouldBe` totalDepositAmount previousStore
-        assertDepositTotal utxoState
+        assertDepositTotal accountingState
 {- FOURMOLU_ENABLE -}

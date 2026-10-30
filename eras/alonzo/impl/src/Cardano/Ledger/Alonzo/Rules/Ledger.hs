@@ -27,7 +27,6 @@ import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   CertState,
   LedgerState (..),
-  UTxOState (..),
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
@@ -103,7 +102,7 @@ ledgerTransition ::
   , State (EraRule "DELEGS" era) ~ CertState era
   , Signal (EraRule "DELEGS" era) ~ Seq (TxCert era)
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , AlonzoEraTx era
   , EraCertState era
@@ -112,7 +111,11 @@ ledgerTransition ::
   ) =>
   TransitionRule (someLEDGER era)
 ledgerTransition = do
-  TRC (Shelley.LedgerEnv slot mbCurEpochNo txIx pp account, LedgerState utxoSt certState, stAnnTx) <-
+  TRC
+    ( Shelley.LedgerEnv slot mbCurEpochNo txIx pp account
+      , ledgerState@LedgerState {lsCertState = certState}
+      , stAnnTx
+      ) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       txBody = tx ^. bodyTxL
@@ -132,14 +135,14 @@ ledgerTransition = do
             )
       else pure certState
 
-  utxoSt' <-
+  ledgerStateAfterUtxow <-
     trans @(EraRule "UTXOW" era) $
       TRC
         ( Shelley.UtxoEnv @era slot pp certState
-        , utxoSt
+        , ledgerState
         , stAnnTx
         )
-  pure $ LedgerState utxoSt' certState'
+  pure $ ledgerStateAfterUtxow {lsCertState = certState'}
 
 instance
   ( AlonzoEraTx era
@@ -147,7 +150,7 @@ instance
   , Embed (EraRule "DELEGS" era) (LEDGER era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Environment (EraRule "DELEGS" era) ~ Shelley.DelegsEnv era
   , State (EraRule "DELEGS" era) ~ CertState era

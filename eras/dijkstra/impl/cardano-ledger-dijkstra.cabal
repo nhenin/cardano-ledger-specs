@@ -87,9 +87,9 @@ library
     Cardano.Ledger.Dijkstra.Rules.Utxo
     Cardano.Ledger.Dijkstra.Rules.Utxos
     Cardano.Ledger.Dijkstra.Rules.Utxow
-    Cardano.Ledger.Dijkstra.State.Account
-    Cardano.Ledger.Dijkstra.State.CertState
-    Cardano.Ledger.Dijkstra.State.Stake
+    Cardano.Ledger.Dijkstra.State.Certificates.Account
+    Cardano.Ledger.Dijkstra.State.Certificates
+    Cardano.Ledger.Dijkstra.State.Accounting.InstantStake
     Cardano.Ledger.Dijkstra.Translation
 
   hs-source-dirs: src

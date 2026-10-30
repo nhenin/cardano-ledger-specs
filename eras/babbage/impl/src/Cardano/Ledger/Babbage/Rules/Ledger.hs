@@ -23,7 +23,6 @@ import Cardano.Ledger.BaseTypes (ShelleyBase)
 import Cardano.Ledger.Shelley.LedgerState (
   CertState,
   LedgerState (..),
-  UTxOState (..),
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState)
@@ -87,7 +86,7 @@ instance
   , Embed (EraRule "DELEGS" era) (LEDGER era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Environment (EraRule "DELEGS" era) ~ Shelley.DelegsEnv era
   , State (EraRule "DELEGS" era) ~ CertState era

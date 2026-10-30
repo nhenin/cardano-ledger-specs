@@ -55,8 +55,8 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraMempoolPredFailure (LedgerFailure),
  )
 import Cardano.Ledger.Dijkstra.Scripts ()
-import Cardano.Ledger.Dijkstra.State.CertState ()
-import Cardano.Ledger.Dijkstra.State.Stake ()
+import Cardano.Ledger.Dijkstra.State.Accounting.InstantStake ()
+import Cardano.Ledger.Dijkstra.State.Certificates ()
 import Cardano.Ledger.Dijkstra.Transition ()
 import Cardano.Ledger.Dijkstra.Translation ()
 import Cardano.Ledger.Dijkstra.Tx (DijkstraStAnnTx (..))

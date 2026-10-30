@@ -53,7 +53,7 @@ allegraTranslationTests =
     , testProperty "ShelleyGovState compatibility" (testTranslation @S.ShelleyGovState)
     , testProperty "TxOut compatibility" (testTranslation @TxOut)
     , testProperty "IndexedUTxOs compatibility" (testTranslation @S.IndexedUTxOs)
-    , testProperty "UTxOState compatibility" (testTranslation @S.UTxOState)
+    , testProperty "AccountingState compatibility" (testTranslation @S.AccountingState)
     , testProperty "LedgerState compatibility" (testTranslation @S.LedgerState)
     , testProperty "EpochState compatibility" (testTranslation @S.EpochState)
     , testProperty "ShelleyTxWits compatibility" (testTranslation @S.ShelleyTxWits)

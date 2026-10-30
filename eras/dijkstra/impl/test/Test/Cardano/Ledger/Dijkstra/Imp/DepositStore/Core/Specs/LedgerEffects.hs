@@ -15,7 +15,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects (
   buildAndSignNoncanonicalAllocationAtRate,
   buildAndSignNoncanonicalSubAllocation,
   withNoncanonicalOutput,
-  restoreUTxOState,
+  restoreAccountingState,
 ) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
@@ -25,7 +25,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, esLStateL, lsUTxOStateL, nesEsL)
+import Cardano.Ledger.Shelley.LedgerState (AccountingState, esLStateL, lsAccountingStateL, nesEsL)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import qualified Data.ByteString as BS
@@ -248,17 +248,16 @@ withNoncanonicalOutput prepared output = do
   Binary.serialize version (signed ^. bodyTxL) `shouldBe` BSL.fromStrict modifiedBytes
   pure (signed, acceptedBytes)
 
--- | Restore a real snapshot through the ledger's state CBOR codec. UTxO state
--- decoding uses sharing; starting with an empty interning table changes no data.
--- Replace only that state, preserving the test's signing keys and source references.
-restoreUTxOState :: UTxOState DijkstraEra -> ImpTestM DijkstraEra ()
-restoreUTxOState snapshot = do
+-- | Restore the accounting snapshot through its CBOR codec. Sharing starts with
+-- an empty interning table; certificate and governance state remain unchanged.
+restoreAccountingState :: AccountingState DijkstraEra -> ImpTestM DijkstraEra ()
+restoreAccountingState snapshot = do
   let version = eraProtVerLow @DijkstraEra
   restored <-
     expectRight
       $ Binary.decodeFullDecoder
         version
-        "UTxOState"
-        (Binary.decNoShareCBOR @(UTxOState DijkstraEra))
+        "AccountingState"
+        (Binary.decNoShareCBOR @(AccountingState DijkstraEra))
       $ Binary.serialize version snapshot
-  modifyNES $ nesEsL . esLStateL . lsUTxOStateL .~ restored
+  modifyNES $ nesEsL . esLStateL . lsAccountingStateL .~ restored
