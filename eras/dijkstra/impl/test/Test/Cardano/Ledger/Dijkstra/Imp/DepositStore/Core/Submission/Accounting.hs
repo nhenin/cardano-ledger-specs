@@ -35,10 +35,13 @@ import Cardano.Ledger.Val (Val ((<->)), inject)
 import qualified Data.ByteString as BS
 import Data.Foldable (toList)
 import Data.List (find)
+import Data.List.NonEmpty (NonEmpty (..))
+import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
+import Data.Traversable (mapAccumL)
 import Data.Typeable (Typeable)
 import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
@@ -65,21 +68,26 @@ fundAccountingScenario plan = do
       . (ppMaxTxSizeL .~ 100_000)
   address <- freshKeyAddrNoPtr_
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-  let operations = Accounting.topOperations plan : Accounting.subOperations plan
-      sourceGroups = map (sourcesForBody address $ Accounting.applicationCoins plan) operations
-      sources = concat sourceGroups
+  let operations = Accounting.topOperations plan :| Accounting.subOperations plan
+      sourceGroups = fmap (sourcesForBody address $ Accounting.applicationCoins plan) operations
+      sources = concat $ NE.toList sourceGroups
       sourceAllocation = foldMap (Pricing.outputDeposit parameters) sources
   funded <-
     submitTx $
       Pricing.declareNetDeposit sourceAllocation $
         mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList sources
   state <- Release.readLedger
-  let inputGroups =
-        [ [txInAt index funded | index <- [offset .. offset + length outputs - 1]]
-        | (offset, outputs) <- zip (scanl (+) 0 $ map length sourceGroups) sourceGroups
-        ]
-      top = proposalBody address (head inputGroups) (Accounting.topOperations plan)
-      children = zipWith (proposalBody address) (tail inputGroups) (Accounting.subOperations plan)
+  let (_, inputGroups) =
+        mapAccumL
+          ( \offset outputs ->
+              ( offset + length outputs
+              , [txInAt index funded | index <- [offset .. offset + length outputs - 1]]
+              )
+          )
+          0
+          sourceGroups
+      top = proposalBody address (NE.head inputGroups) (Accounting.topOperations plan)
+      children = zipWith (proposalBody address) (NE.tail inputGroups) (Accounting.subOperations plan)
       tx = top & bodyTxL . subTransactionsTxBodyL .~ OMap.fromFoldable children
       context = ReleaseTx (Pricing.LedgerState state parameters) tx
       records = recordedAmounts $ liveOutputStore state

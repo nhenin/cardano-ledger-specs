@@ -2,7 +2,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeApplications #-}
 
 -- | Real funding and generated output forms for minimum-coin specifications.
@@ -32,7 +31,7 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), PolicyID (..), multiAssetFromList)
 import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
-import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
+import Cardano.Ledger.Shelley.Scripts (ShelleyEraScript (mkRequireSignature))
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
 import qualified Data.ByteString as BS
@@ -129,7 +128,7 @@ fund generated@Scenario {body, content, bytePrice, sourceCoins} = do
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
   assets <- case content of
     NativeAssets -> do
-      policy <- PolicyID <$> (impAddNativeScript . RequireSignature =<< freshKeyHash)
+      policy <- PolicyID <$> (impAddNativeScript . mkRequireSignature =<< freshKeyHash)
       pure $ multiAssetFromList [(policy, AssetName "minimum-coin", tokenQuantity generated)]
     _ -> pure mempty
   let source = mkBasicTxOutWithImplicitDeposit address $ MaryValue sourceCoins assets
@@ -181,7 +180,7 @@ outputForScenario generated parameters address assets =
       scriptKey <- freshKeyHash
       pure $
         mkBasicTxOutWithStoreBackedDeposit address mempty
-          & referenceScriptTxOutL .~ SJust (fromNativeScript $ RequireSignature scriptKey)
+          & referenceScriptTxOutL .~ SJust (fromNativeScript $ mkRequireSignature scriptKey)
     AddressOnly -> pure $ mkBasicTxOutWithStoreBackedDeposit address mempty
     Implicit ->
       pure $ atMinimum parameters $ withDatum generated $ mkBasicTxOutWithImplicitDeposit address mempty

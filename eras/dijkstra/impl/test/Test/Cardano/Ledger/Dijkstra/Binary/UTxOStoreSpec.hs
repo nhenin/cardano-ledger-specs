@@ -330,8 +330,8 @@ acceptedOutput output = do
   BS.null suffix `shouldBe` False
   Binary.decodeFull @(TxOut DijkstraEra) version (BSL.fromStrict indefinite) `shouldBe` Right output
   bodies <- decodedBodies @TopTx wireBody
-  case toList $ head bodies ^. sizedOutputsTxBodyL of
-    [accepted] -> do
+  case map (toList . (^. sizedOutputsTxBodyL)) bodies of
+    [accepted] : _ -> do
       Binary.sizedSize accepted `shouldBe` acceptedBytes
       acceptedBytes `shouldBe` Binary.sizedSize (Binary.mkSized version output) + 1
       pure accepted

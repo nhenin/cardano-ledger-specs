@@ -47,7 +47,7 @@ conwayStates = do
         ]
       outputMap =
         Map.fromList $
-          zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (head outputs : outputs)
+          zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (take 1 outputs <> outputs)
       outputStore =
         either (error . ("Conway lifecycle fixture: " <>) . show) id $
           fromLegacyUTxO (UTxO outputMap)

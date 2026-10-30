@@ -22,6 +22,7 @@ import Cardano.Ledger.Dijkstra.Rules (
 import qualified Cardano.Ledger.Dijkstra.Rules as Rules
 import Cardano.Ledger.Val (inject)
 import Data.List.NonEmpty (NonEmpty (..))
+import Data.Maybe (listToMaybe)
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as SSeq
 import Lens.Micro
@@ -47,7 +48,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting 
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance as Balance
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release as Release
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM, freshKeyAddrNoPtr_)
-import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
+import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe, shouldSatisfy)
 import Validation (Validation (..))
 
 {- FOURMOLU_DISABLE -}
@@ -106,8 +107,8 @@ spec =
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
             [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput $ TxIx 0) | Coin amount <- childReleases]) proposal)
           >>= Balance.resignTx . Index.resizeOutputs (count + 1) [count, count]
+        Coin released <- expectJust $ listToMaybe childReleases
         let index = TxIx $ fromIntegral count
-            Coin released = head childReleases
         (Index.childOutputCount 0 control, Index.topOutputCount control) `shouldBe` (count, count + 1)
         invalid <- mutateSubTxDeclaration 0
           (SubTx.DeclaresNetUTxODepositRelease (positiveAmount released) (SubTx.SubTxSettlementOutput index)) control
@@ -200,8 +201,8 @@ spec =
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
             [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput $ TxIx 0) | Coin amount <- childReleases]) proposal)
           >>= Balance.resignTx . Index.resizeOutputs count [count, count + 1]
+        Coin released <- expectJust $ listToMaybe childReleases
         let index = TxIx $ fromIntegral count
-            Coin released = head childReleases
         (Index.childOutputCount 0 control, Index.childOutputCount 1 control) `shouldBe` (count, count + 1)
         invalid <- mutateSubTxDeclaration 0
           (SubTx.DeclaresNetUTxODepositRelease (positiveAmount released) (SubTx.SubTxSettlementOutput index)) control

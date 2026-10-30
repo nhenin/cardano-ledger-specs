@@ -35,6 +35,7 @@ import Cardano.Ledger.Dijkstra.Rules (
 import Cardano.Ledger.Val ((<->))
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
+import Data.Maybe (listToMaybe)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import Lens.Micro
@@ -53,7 +54,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance (
   resignTx,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM)
-import Test.Cardano.Ledger.Imp.Common (shouldBe)
+import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 import Validation (Validation)
 
 -- | Owner of the selected ordinary output; every scenario has at most one child.
@@ -125,8 +126,8 @@ largerTopTxShare = do
 fund :: Scenario -> ImpTestM DijkstraEra ReleaseTx
 fund generated = do
   proposal <- fundAccountingScenario $ operations generated
-  let firstOutput = head $ toList $ unsignedTx proposal ^. bodyTxL . outputsTxBodyL
-      surplus = firstOutput & coinTxOutL .~ Coin 10_000_000
+  firstOutput <- expectJust . listToMaybe . toList $ unsignedTx proposal ^. bodyTxL . outputsTxBodyL
+  let surplus = firstOutput & coinTxOutL .~ Coin 10_000_000
   pure
     proposal
       { unsignedTx = unsignedTx proposal & bodyTxL . outputsTxBodyL %~ (<> SSeq.singleton surplus)
