@@ -1,6 +1,6 @@
 # Dijkstra DepositStore verification record
 
-**Updated:** 30 October 2026
+**Updated:** 2 November 2026
 
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -258,6 +258,36 @@ unchanged. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Leios integration checkpoint on 2 November 2026
+
+`v2-minutxo` now includes the state-domain experiment and is rebased onto
+`leios-prototype` at `9df9f98cce86c5f2195142b2c02dd9b39dd9dc7c`, the base of
+[PR #3](https://github.com/nhenin/cardano-ledger-specs/pull/3). All 63 upstream
+commits after the previous `8a15ddc07` baseline are included.
+
+The integration preserves whole-batch script evaluation and execution budgets,
+phase-2-independent validation, and Leios pool retirement and genesis behavior.
+These coexist with the historical deposit Store and the separation of accounting,
+certificates and governance. The conformance adapter uses the current BLS proof
+verification API, whose domain separation is selected by the crypto implementation.
+
+| Completed local check | Result | Process wall time |
+| --- | --- | ---: |
+| `cabal build all --enable-tests --enable-benchmarks --jobs=8 --keep-going` | Passed with GHC 9.6.7; incremental completion after correcting the conformance API call | 75.16 s |
+| Complete `cardano-ledger-core` suite | 159 examples, zero failures; seed `739231514`, normal generator limits | 63.50 s |
+| DepositStore business contracts in the Dijkstra package run | All 210 completed without failures; generated properties use 100 trials | — |
+| Previously failing SubTx scenarios | All 27 historical failure paths completed without failures | — |
+| Complete doctest script | 177 examples across 27 target summaries, zero errors or failures | 405.19 s |
+| CDDL generation | All seven era schemas match the checked-in files | — |
+| Plutus example generation | Matches the checked-in files | 3.64 s |
+| Formatting, source pins, Nix hashes, changelogs and branch history | Passed | — |
+
+This checkpoint records those completed checks only. Results for the full Dijkstra,
+conformance and remote compiler/package matrix are tracked on PR #3. Historical
+results below retain their original revisions; the former 27 SubTx failures are
+not an expected-failure baseline for this integration. Local commands and logs are
+under `/private/tmp/leios-integration-20261102/`.
 
 ## Ledger state domains on 30 October 2026
 
