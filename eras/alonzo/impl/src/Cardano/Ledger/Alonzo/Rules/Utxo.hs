@@ -54,7 +54,7 @@ import Cardano.Ledger.Alonzo.Rules.Utxos (
   UtxosEnv (..),
  )
 import Cardano.Ledger.Alonzo.Scripts (OrdExUnits (..), pointWiseExUnits)
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..), IsPhase2Valid (..))
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..))
 import Cardano.Ledger.Alonzo.TxBody (
   AllegraEraTxBody (..),
   AlonzoEraTxBody (..),
@@ -802,11 +802,9 @@ updateAccountingState pp certState tx utxoState =
                   . Store.allocations
                   . asUTxOStore
                   $ utxoState
-              store =
-                Store.release (txBody ^. collateralInputsTxBodyL) $ asUTxOStore utxoState
            in pure $!
                 utxoState
-                  { asUTxOStore = store
+                  { asUTxOStore = Store.projectTx tx $ asUTxOStore utxoState
                   , asFees = asFees utxoState <> sumAllCoin utxoDel
                   , asInstantStake = deleteInstantStake utxoDel (utxoState ^. instantStakeL)
                   }

@@ -73,7 +73,15 @@ remain removed.
 `UTxOStore.allocations :: IndexedUTxOs era` owns the recorded unspent entries. There is
 no additional `Allocations` wrapper or `TxOutMap` payload type. The collection owns
 lookup, selection, filtering, traversal and historical deposit totals. The Store
-owns `currentCalculation`, `activateNewCalculation`, `allocate`, `release` and its exact cached `DepositAmount`.
+exposes construction, record queries, `activateNewCalculation` and `projectTx` through
+`Store`. `Store.Internals` contains `projectValidTxBody`, `projectInvalidTxBody`,
+`allocate` and `release`; these are not reexported by `Store` or `Cardano.Ledger.State`.
+`projectTx` selects the body projection from the TopTx's phase-2 validity tag.
+`projectValidTxBody` applies regular inputs and outputs; `projectInvalidTxBody`
+selects collateral inputs and the return from the body. Both compose `allocate` and `release`;
+`allocate` preserves occupied references and their historical deposits in every
+era, matching the original map union. Reallocation requires release first. The earlier
+pre-Dijkstra-only collision filter was a refactoring mistake, now corrected.
 `State.Accounting.UTxOs.Unspent` holds each output's accepted `Sized` value and creation-time
 `DepositCalculation`. Selecting entries preserves this metadata.
 
@@ -84,7 +92,7 @@ both sides: consumed entries from the previous Store and created entries from
 the updated Store, including their recorded calculations. Wallet queries are `getIndexedUTxOs`,
 `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset`; Imp tests use `getUTxOStore`,
 `getIndexedUTxOs` or an individual `impGetUTxO` lookup. Body and produced-output
-builders retain the body's sizes without a calculation. `Store.allocate` records
+builders retain the body's sizes without a calculation. `Store.Internals.allocate` records
 the Store's current calculation when inserting outputs. `activateNewCalculation` affects
 future allocations only; existing entries and their exact total remain unchanged.
 Genesis, translation and effective parameter changes initialize or update the active
@@ -261,6 +269,45 @@ rule awaiting an executable ledger check is distinct from a business question wh
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
 
+## Store transaction projection on 2 November 2026
+
+Working-tree validation on `0c4f97a27221a653f6ebf8fbafb210c3465efadc` covers
+`Store.projectTx`, both body projections, and collision preservation inside
+`allocate`. The Dijkstra and API test components and their dependencies compiled.
+
+| Executed group | Examples | Seconds |
+| --- | ---: | ---: |
+| IndexedUTxOs metadata and transaction projection | 15 | 2.32 |
+| Store historical metadata and codecs | 16 | 77.45 |
+| Live phase-2 failure: `DS-STATE-UTXO-N03` | 1 | 1.43 |
+| **Total** | **32** | **81.20** |
+
+All examples passed, with no pending tests, using seed `739231514` and the normal
+QuickCheck limits. Coverage includes overlapping regular/collateral inputs,
+collateral-return indexing and sizes, retained entries on collisions, allocation
+idempotence, and explicit release followed by reallocation at the active price.
+This is focused verification, not a full-suite result.
+
+The tested source hashes and commands are recorded in
+`/private/tmp/leios-integration-20261102/store-body-projection-summary.json`.
+
+### Public Store interface and Internals
+
+The subsequent module split implements construction, calculation activation and
+`projectTx` in `Store.hs`. Body projections, `allocate` and `release` live in
+`Store.Internals`; callers import these operations explicitly. The representation
+and its instances remain together in Internals, with unchanged snapshot formats
+and deposit-total validation.
+
+Dijkstra tests, API tests, the Shelley test suite and the generic test library
+compiled in **497.13 s**. The same 32 focused examples passed with no failures or
+pending tests in **82.51 s**: API metadata 1.94 s, Store metadata 79.10 s, and the
+live collateral case 1.47 s. Seed and QuickCheck limits were unchanged. Code and
+Cabal hashes matched throughout the build and test runs; formatting and whitespace
+checks passed, and ctags were refreshed.
+
+Evidence: `/private/tmp/leios-integration-20261102/store-internals-split-summary.json`.
+
 ## Leios integration checkpoint on 2 November 2026
 
 `v2-minutxo` now includes the state-domain experiment and is rebased onto
@@ -389,16 +436,19 @@ Evidence: `/private/tmp/utxo-diff-event-build.log`,
 
 ## Shared body update on 30 October 2026
 
-`updateUTxOsAndInstantStakeWithTxBody` now applies `Store.update` internally and
+`updateUTxOsAndInstantStakeWithTxBody` now applies `Store.projectValidTxBody` internally and
 derives stake changes and the output-difference event from the incoming state.
 The Dijkstra TopTx and SubTx callers no longer prepare a replacement Store.
 The two previous shared helpers are consolidated into this one operation.
 Collateral execution remains unchanged.
 
-`Store.update` now owns the existing legacy collision rule: an unconsumed entry
+At this checkpoint, `Store.projectValidTxBody` preserved the original map-union behavior for earlier eras: an unconsumed entry
 already at a proposed output reference takes precedence. Generated Babbage and
 Conway regressions check this alongside input consumption and new-output insertion.
-Dijkstra retains its existing allocation replacement semantics.
+Dijkstra still used allocation replacement semantics at this checkpoint. This
+era split was introduced by the refactor, not by an upstream rule; the later
+correction applies retained-entry priority to valid and collateral projections
+in every era.
 
 All **three build targets passed** in **476.95 seconds**: Dijkstra tests, API tests
 and the Shelley test-suite executable, including their rebuilt dependencies.
@@ -423,7 +473,7 @@ Evidence: `/private/tmp/store-body-helper-build.log`,
 
 ## Store body updates on 30 October 2026
 
-`Store.update body` applies one body's regular inputs and outputs. Dijkstra's
+`Store.projectValidTxBody body` applies one body's regular inputs and outputs. Dijkstra's
 successful TopTx and SubTx paths call it directly; the duplicated
 `applyBodyAllocations` helper is removed. Collateral selection and SubTx ordering
 remain the ledger's responsibility. Legacy-era collision handling is unchanged.

@@ -88,7 +88,7 @@ import Cardano.Ledger.Allegra.Scripts (
  )
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts hiding (Script)
-import Cardano.Ledger.Alonzo.Tx (IsPhase2Valid (..), ScriptIntegrityHash)
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrityHash)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
 import Cardano.Ledger.BaseTypes (EpochNo (..), Network (Testnet), inject)
 import Cardano.Ledger.Coin (Coin (..), compactCoinOrError)

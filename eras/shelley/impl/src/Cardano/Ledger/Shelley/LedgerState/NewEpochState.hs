@@ -24,6 +24,7 @@ import Cardano.Ledger.Shelley.LedgerState.Types
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<+>), (<->))
 import Data.Default (def)
@@ -148,6 +149,6 @@ returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'
     us' =
       us
         { asUTxOStore =
-            Store.release (IndexedUTxOs.inputIds redeemers) $ asUTxOStore us
+            StoreInternals.release (IndexedUTxOs.inputIds redeemers) $ asUTxOStore us
         }
     ls' = ls {lsAccountingState = us'}

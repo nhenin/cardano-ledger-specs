@@ -117,13 +117,22 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.TxBody (ConwayEraTxBody (..))
 import Cardano.Ledger.Core (
-  EraTx (..),
-  EraTxBody (..),
+  EraTx (Tx, allInputsTxBodyF),
+  EraTxBody (
+    TxBody,
+    auxDataHashTxBodyL,
+    certsTxBodyL,
+    feeTxBodyL,
+    inputsTxBodyL,
+    mkBasicTxBody,
+    outputsTxBodyL,
+    spendableInputsTxBodyF,
+    withdrawalsTxBodyL
+  ),
   PParams,
   TxAuxDataHash (..),
   TxLevel (..),
   Value,
-  allInputsTxBodyF,
   binaryUpgradeTxBody,
   txIdTxBody,
  )

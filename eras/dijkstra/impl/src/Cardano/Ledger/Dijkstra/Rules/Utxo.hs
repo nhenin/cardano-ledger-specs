@@ -517,8 +517,7 @@ dijkstraUtxoTransition = do
             withDeposits
         pure $ withOutputs & asFeesL <>~ txBody ^. feeTxBodyL
       Phase2Invalid ->
-        let store = Store.updateWithCollateral (txBody ^. collateralInputsTxBodyL) created utxoStore
-            settlement = DepositStore.collateralDepositSettlement previousUTxOStore txBody
+        let settlement = DepositStore.collateralDepositSettlement previousUTxOStore txBody
             removed =
               IndexedUTxOs.txOuts
                 . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
@@ -527,7 +526,7 @@ dijkstraUtxoTransition = do
             created = collOuts txBody
          in pure $
               previousAccountingState
-                { asUTxOStore = store
+                { asUTxOStore = Store.projectTx tx utxoStore
                 , asFees = asFees previousAccountingState <> DepositStore.collateralFee settlement
                 , asInstantStake =
                     deleteInstantStake removed $

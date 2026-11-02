@@ -43,6 +43,7 @@ import Cardano.Ledger.Shelley.Rules
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Protocol.TPraos.BlockHeader (
   BHeader (..),
   bhbody,
@@ -202,7 +203,7 @@ ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
       LedgerState
         ( utxoSt
             { asUTxOStore =
-                Store.release (IndexedUTxOs.inputIds $ irrelevantUTxO) previousStore
+                StoreInternals.release (IndexedUTxOs.inputIds $ irrelevantUTxO) previousStore
             }
         )
         delegationSt

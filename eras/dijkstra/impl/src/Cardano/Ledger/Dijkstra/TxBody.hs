@@ -1283,6 +1283,12 @@ instance
   sizedOutputsTxBodyG = sizedOutputsTxBodyL
   {-# INLINE sizedOutputsTxBodyG #-}
 
+  collateralInputsTxBodyG = collateralInputsTxBodyL
+  {-# INLINE collateralInputsTxBodyG #-}
+
+  sizedCollateralReturnTxBodyG = sizedCollateralReturnTxBodyL
+  {-# INLINE sizedCollateralReturnTxBodyG #-}
+
   outputsTxBodyL = memoRawTypeL @DijkstraEra . outputsDijkstraTxBodyRawL
   {-# INLINE outputsTxBodyL #-}
 

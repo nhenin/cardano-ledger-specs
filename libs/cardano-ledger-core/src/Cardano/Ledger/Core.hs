@@ -30,6 +30,7 @@ module Cardano.Ledger.Core (
 
   -- * Era-changing types
   EraTx (..),
+  IsPhase2Valid (..),
   txIdTx,
   TxOut (..),
   IndexedUTxOs (..),
@@ -44,6 +45,8 @@ module Cardano.Ledger.Core (
   EraTxBody (..),
   txIdTxBody,
   outputsTxBody,
+  collateralOutputsTxBody,
+  mkCollateralTxIn,
   EraTxAuxData (..),
   modifyTxAuxData,
   hashTxAuxData,
@@ -89,7 +92,7 @@ import Cardano.Ledger.Address (
   Addr (..),
   Withdrawals (..),
  )
-import Cardano.Ledger.BaseTypes (ProtVer (..), integralToBounded)
+import Cardano.Ledger.BaseTypes (ProtVer (..), TxIx (..), integralToBounded, txIxFromIntegral)
 import Cardano.Ledger.Binary (
   Annotator,
   DecCBOR,
@@ -106,6 +109,7 @@ import Cardano.Ledger.Core.PParams
 import Cardano.Ledger.Core.Translation
 import Cardano.Ledger.Core.TxCert
 import Cardano.Ledger.Core.TxLevel
+import Cardano.Ledger.Core.TxValidity (IsPhase2Valid (..))
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes hiding (GenDelegPair (..), GenDelegs (..), unsafeMakeSafeHash)
 import Cardano.Ledger.Keys.Bootstrap (BootstrapWitness, bootstrapWitKeyHash)
@@ -129,7 +133,7 @@ import Data.Map (Map)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (isJust)
 import Data.Maybe.Strict (
-  StrictMaybe (SJust),
+  StrictMaybe (..),
   fromSMaybe,
   maybeToStrictMaybe,
   strictMaybe,
@@ -142,7 +146,7 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable
-import Data.Word (Word32, Word64)
+import Data.Word (Word16, Word32, Word64)
 import GHC.Stack (HasCallStack)
 import Lens.Micro
 import NoThunks.Class (NoThunks)
@@ -193,6 +197,11 @@ class
   mkBasicTx :: TxBody l era -> Tx l era
 
   bodyTxL :: Lens' (Tx l era) (TxBody l era)
+
+  -- | Read the phase-2 validity tag. Eras before Alonzo have no phase-2 failure path.
+  isPhase2ValidTxG :: SimpleGetter (Tx TopTx era) IsPhase2Valid
+  default isPhase2ValidTxG :: AtMostEra "Mary" era => SimpleGetter (Tx TopTx era) IsPhase2Valid
+  isPhase2ValidTxG = atMostEra @"Mary" @era `seq` to (const Phase2Valid)
 
   witsTxL :: Lens' (Tx l era) (TxWits era)
 
@@ -262,6 +271,20 @@ class
   -- Each era specifies its representation: legacy-only bodies reconstruct the
   -- canonical count, while bodies with stored sizes expose those sizes directly.
   sizedOutputsTxBodyG :: SimpleGetter (TxBody l era) (StrictSeq (Sized (TxOut era)))
+
+  -- | Inputs consumed on phase-2 failure, including any overlap with regular inputs.
+  -- Eras before Alonzo have no collateral inputs.
+  collateralInputsTxBodyG :: SimpleGetter (TxBody TopTx era) (Set TxIn)
+  default collateralInputsTxBodyG ::
+    AtMostEra "Mary" era => SimpleGetter (TxBody TopTx era) (Set TxIn)
+  collateralInputsTxBodyG = atMostEra @"Mary" @era `seq` to (const mempty)
+
+  -- | The collateral return with its supplied byte count. Eras before Babbage
+  -- have no collateral return.
+  sizedCollateralReturnTxBodyG :: SimpleGetter (TxBody TopTx era) (StrictMaybe (Sized (TxOut era)))
+  default sizedCollateralReturnTxBodyG ::
+    AtMostEra "Alonzo" era => SimpleGetter (TxBody TopTx era) (StrictMaybe (Sized (TxOut era)))
+  sizedCollateralReturnTxBodyG = atMostEra @"Alonzo" @era `seq` to (const SNothing)
 
   feeTxBodyL :: Lens' (TxBody TopTx era) Coin
 
@@ -512,7 +535,7 @@ txIdTxBody = TxId . hashAnnotated
 -- | Index proposed regular outputs, retaining the body's supplied sizes.
 -- This assigns output references without recording a deposit calculation.
 -- The bounded indices retain the existing @TxIx@ limit; collateral returns
--- are indexed by the era-specific collateral rule.
+-- are indexed separately by 'collateralOutputsTxBody'.
 outputsTxBody :: forall era l. EraTxBody era => TxBody l era -> IndexedTxOs era
 outputsTxBody txBody =
   IndexedTxOs.fromList
@@ -521,6 +544,23 @@ outputsTxBody txBody =
     ]
   where
     transId = txIdTxBody txBody
+
+-- | Index the proposed collateral return, preserving its supplied size.
+-- No deposit calculation is assigned until the Store allocates it.
+collateralOutputsTxBody :: EraTxBody era => TxBody TopTx era -> IndexedTxOs era
+collateralOutputsTxBody txBody =
+  case txBody ^. sizedCollateralReturnTxBodyG of
+    SNothing -> mempty
+    SJust output -> IndexedTxOs.singleton (mkCollateralTxIn txBody) output
+
+-- | The collateral return follows this body's regular outputs. Preserve the
+-- existing maximum-index fallback when their count does not fit in Word16.
+mkCollateralTxIn :: EraTxBody era => TxBody l era -> TxIn
+mkCollateralTxIn txBody =
+  TxIn (txIdTxBody txBody) $
+    case txIxFromIntegral (length $ txBody ^. outputsTxBodyL) of
+      Just index -> index
+      Nothing -> TxIx (maxBound :: Word16)
 
 -- | txsize computes the length of the serialised bytes (actual size)
 wireSizeTxF :: forall era l. EraTx era => SimpleGetter (Tx l era) Word32

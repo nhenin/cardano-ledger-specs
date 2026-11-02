@@ -27,6 +27,7 @@ import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
@@ -43,6 +44,10 @@ spec :: Spec
 spec = describe "IndexedUTxOs metadata" $ do
   legacyAllocationSpec @BabbageEra
   legacyAllocationSpec @ConwayEra
+  bodyProjectionCollisionSpec "TopTx" (mkBasicTxBody @BabbageEra @TopTx)
+  bodyProjectionCollisionSpec "TopTx" (mkBasicTxBody @ConwayEra @TopTx)
+  bodyProjectionCollisionSpec "TopTx" (mkBasicTxBody @DijkstraEra @TopTx)
+  bodyProjectionCollisionSpec "SubTx" (mkBasicTxBody @DijkstraEra @SubTx)
   bodyUpdateEventSpec "TopTx" (mkBasicTxBody @DijkstraEra @TopTx)
   bodyUpdateEventSpec "SubTx" (mkBasicTxBody @DijkstraEra @SubTx)
 
@@ -91,7 +96,7 @@ spec = describe "IndexedUTxOs metadata" $ do
         let proposed = outputsTxBody body
         proposed `shouldBe` IndexedTxOs.singleton input accepted
         producedTxOuts (mkBasicTx body) `shouldBe` proposed
-        let store = Store.update body (Store.mkEmptyUTxOStore calculation)
+        let store = StoreInternals.projectValidTxBody body (Store.mkEmptyUTxOStore calculation)
         Store.allocations store `shouldBe` expected
         IndexedUTxOs.toIndexedTxOs (Store.allocations store) `shouldBe` proposed
 
@@ -108,9 +113,115 @@ spec = describe "IndexedUTxOs metadata" $ do
           input = TxIn (txIdTxBody body) (TxIx 2)
       let proposed = producedTxOuts tx
       proposed `shouldBe` IndexedTxOs.singleton input accepted
-      let store = Store.allocate proposed (Store.mkEmptyUTxOStore calculation)
+      let store = StoreInternals.projectInvalidTxBody body (Store.mkEmptyUTxOStore calculation)
       Store.allocations store
         `shouldBe` IndexedUTxOs.singleton input Unspent {sizedOutput = accepted, depositCalculation = calculation}
+
+  -- The return reference comes from the body hash and follows its regular outputs.
+  -- An existing entry may occupy that reference, or it may be available.
+  prop
+    "collateral projection preserves retained collisions and allocates fresh body-derived returns at current prices"
+    $ \sourceId ->
+      forAll (choose (1, 1000)) $ \extraBytes -> do
+        let address = mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1)
+            accepted coins extra =
+              let output = mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
+                  canonical = mkSized (eraProtVerLow @DijkstraEra) output
+               in canonical {sizedSize = sizedSize canonical + extra}
+            historicalCalculation = DepositCalculationV1 $ CoinPerByte $ CompactCoin 3
+            activeCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 13
+            consumedInput = TxIn sourceId (TxIx 0)
+            untouchedInput = TxIn sourceId (TxIx 2)
+            consumedEntry = Unspent (accepted 40 extraBytes) historicalCalculation
+            collidingEntry = Unspent (accepted 10 (extraBytes + 1)) historicalCalculation
+            untouchedEntry = Unspent (accepted 50 (extraBytes + 2)) historicalCalculation
+            returnOutput = accepted 20 (extraBytes + 3)
+            createdEntry = Unspent returnOutput activeCalculation
+            body =
+              mkBasicTxBody @DijkstraEra @TopTx
+                & collateralInputsTxBodyL .~ Set.singleton consumedInput
+                & sizedOutputsTxBodyL .~ SSeq.fromList [returnOutput, returnOutput]
+                & sizedCollateralReturnTxBodyL .~ SJust returnOutput
+            returnInput = TxIn (txIdTxBody body) (TxIx 2)
+            historicalDeposit entry = Coin $ (160 + toInteger (sizedSize $ sizedOutput entry)) * 3
+            createdDeposit = Coin $ (160 + toInteger (sizedSize returnOutput)) * 13
+        forM_ [False, True] $ \hasCollision -> do
+          let retainedEntries = (untouchedInput, untouchedEntry) : [(returnInput, collidingEntry) | hasCollision]
+              previousStore =
+                Store.mkUTxOStore activeCalculation . IndexedUTxOs.fromList $
+                  (consumedInput, consumedEntry) : retainedEntries
+              store = StoreInternals.projectInvalidTxBody body previousStore
+              expectedDeposit =
+                historicalDeposit untouchedEntry
+                  <> if hasCollision then historicalDeposit collidingEntry else createdDeposit
+          Store.allocations store
+            `shouldBe` IndexedUTxOs.fromList (retainedEntries <> [(returnInput, createdEntry) | not hasCollision])
+          toCoin (Store.totalDepositAmount store) `shouldBe` expectedDeposit
+          Store.currentCalculation store `shouldBe` activeCalculation
+
+  prop
+    "transaction projection dispatches phase-2 validity with overlapping regular and collateral inputs"
+    $ \sourceId ->
+      forAll (choose (1, 1000)) $ \extraBytes -> do
+        let address = mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1)
+            accepted coins extra =
+              let output = mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
+                  canonical = mkSized (eraProtVerLow @DijkstraEra) output
+               in canonical {sizedSize = sizedSize canonical + extra}
+            historicalCalculation = DepositCalculationV1 $ CoinPerByte $ CompactCoin 3
+            activeCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 13
+            regularInput = TxIn sourceId (TxIx 0)
+            sharedInput = TxIn sourceId (TxIx 1)
+            collateralInput = TxIn sourceId (TxIx 2)
+            untouchedInput = TxIn sourceId (TxIx 3)
+            regularEntry = Unspent (accepted 40 extraBytes) historicalCalculation
+            sharedEntry = Unspent (accepted 50 (extraBytes + 1)) historicalCalculation
+            collateralEntry = Unspent (accepted 60 (extraBytes + 2)) historicalCalculation
+            untouchedEntry = Unspent (accepted 70 (extraBytes + 3)) historicalCalculation
+            ordinaryOutputs = [accepted 20 (extraBytes + 4), accepted 21 (extraBytes + 5)]
+            returnOutput = accepted 22 (extraBytes + 6)
+            body =
+              mkBasicTxBody @DijkstraEra @TopTx
+                & inputsTxBodyL .~ Set.fromList [regularInput, sharedInput]
+                & collateralInputsTxBodyL .~ Set.fromList [sharedInput, collateralInput]
+                & sizedOutputsTxBodyL .~ SSeq.fromList ordinaryOutputs
+                & sizedCollateralReturnTxBodyL .~ SJust returnOutput
+            txId = txIdTxBody body
+            previousStore =
+              Store.mkUTxOStore activeCalculation . IndexedUTxOs.fromList $
+                [ (regularInput, regularEntry)
+                , (sharedInput, sharedEntry)
+                , (collateralInput, collateralEntry)
+                , (untouchedInput, untouchedEntry)
+                ]
+            price rate outputWithSize = Coin $ (160 + toInteger (sizedSize outputWithSize)) * rate
+        forM_ [Phase2Valid, Phase2Invalid] $ \validity -> do
+          let tx = mkBasicTx body & isPhase2ValidTxL .~ validity
+              store = Store.projectTx tx previousStore
+              (expectedEntries, expectedDeposit) = case validity of
+                Phase2Valid ->
+                  ( [(collateralInput, collateralEntry), (untouchedInput, untouchedEntry)]
+                      <> zipWith
+                        (\index output -> (TxIn txId (TxIx index), Unspent output activeCalculation))
+                        [0, 1]
+                        ordinaryOutputs
+                  , price 3 (sizedOutput collateralEntry)
+                      <> price 3 (sizedOutput untouchedEntry)
+                      <> foldMap (price 13) ordinaryOutputs
+                  )
+                Phase2Invalid ->
+                  (
+                    [ (regularInput, regularEntry)
+                    , (untouchedInput, untouchedEntry)
+                    , (TxIn txId (TxIx 2), Unspent returnOutput activeCalculation)
+                    ]
+                  , price 3 (sizedOutput regularEntry)
+                      <> price 3 (sizedOutput untouchedEntry)
+                      <> price 13 returnOutput
+                  )
+          Store.allocations store `shouldBe` IndexedUTxOs.fromList expectedEntries
+          toCoin (Store.totalDepositAmount store) `shouldBe` expectedDeposit
+          Store.currentCalculation store `shouldBe` activeCalculation
 
 bodyUpdateEventSpec :: String -> TxBody l DijkstraEra -> Spec
 bodyUpdateEventSpec bodyName emptyBody = describe bodyName $
@@ -169,7 +280,7 @@ legacyAllocationSpec = describe (eraName @era) $ do
               & sizedOutputsTxBodyL .~ SSeq.singleton supplied
               & sizedCollateralReturnTxBodyL .~ SJust supplied
       forM_ [outputsTxBody body, collOuts body] $ \proposed -> do
-        let store = Store.allocate proposed (Store.mkEmptyUTxOStore calculation)
+        let store = StoreInternals.allocate proposed (Store.mkEmptyUTxOStore calculation)
         IndexedUTxOs.inputIds (Store.allocations store) `shouldBe` IndexedTxOs.inputIds proposed
         forM_ (IndexedUTxOs.unspentOutputs $ Store.allocations store) $ \entry -> do
           sizedOutput entry `shouldBe` canonical
@@ -197,38 +308,46 @@ legacyAllocationSpec = describe (eraName @era) $ do
       readIORef events `shouldReturn` [(mempty, expected)]
       (Store.allocations . asUTxOStore $ updatedState) `shouldBe` expected
 
-  -- Preserve the old UTxO map union's existing-entry priority, even for a
-  -- deliberately colliding output reference at this Store-operation boundary.
-  prop "body update consumes inputs and preserves existing entries at colliding output references" $ \sourceId (output :: TxOut era) -> do
-    let version = eraProtVerLow @era
-        legacyEntry coins =
-          Unspent
-            { sizedOutput = mkSized version $ output & coinTxOutL .~ Coin coins
-            , depositCalculation = legacyDepositCalculation
-            }
-        consumedInput = TxIn sourceId (TxIx 2)
-        untouchedInput = TxIn sourceId (TxIx 3)
-        consumedEntry = legacyEntry 40
-        collidingEntry = legacyEntry 10
-        untouchedEntry = legacyEntry 50
-        createdEntry = legacyEntry 30
-        body =
-          mkBasicTxBody @era @TopTx
-            & inputsTxBodyL .~ Set.singleton consumedInput
-            & sizedOutputsTxBodyL .~ SSeq.fromList [sizedOutput $ legacyEntry 20, sizedOutput createdEntry]
-        collidingInput = TxIn (txIdTxBody body) (TxIx 0)
-        createdInput = TxIn (txIdTxBody body) (TxIx 1)
-        previousStore =
-          Store.mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromList $
-            [ (consumedInput, consumedEntry)
-            , (collidingInput, collidingEntry)
-            , (untouchedInput, untouchedEntry)
-            ]
-        store = Store.update body previousStore
-    Store.allocations store
-      `shouldBe` IndexedUTxOs.fromList
-        [ (collidingInput, collidingEntry)
-        , (createdInput, createdEntry)
-        , (untouchedInput, untouchedEntry)
-        ]
-    toCoin (Store.totalDepositAmount store) `shouldBe` Coin 0
+-- Preserve the upstream map union's retained-entry priority in every era, even
+-- for a deliberately colliding output reference at this Store-operation boundary.
+bodyProjectionCollisionSpec ::
+  forall era l.
+  (BabbageEraTxBody era, Arbitrary (TxOut era)) =>
+  String ->
+  TxBody l era ->
+  Spec
+bodyProjectionCollisionSpec bodyName emptyBody = describe (eraName @era) $
+  describe bodyName $
+    prop "body update consumes inputs and preserves existing entries at colliding output references" $ \sourceId (output :: TxOut era) -> do
+      let version = eraProtVerLow @era
+          entry coins =
+            Unspent
+              { sizedOutput = mkSized version $ output & coinTxOutL .~ Coin coins
+              , depositCalculation = legacyDepositCalculation
+              }
+          consumedInput = TxIn sourceId (TxIx 2)
+          untouchedInput = TxIn sourceId (TxIx 3)
+          consumedEntry = entry 40
+          collidingEntry = entry 10
+          untouchedEntry = entry 50
+          createdEntry = entry 30
+          body =
+            emptyBody
+              & inputsTxBodyL .~ Set.singleton consumedInput
+              & sizedOutputsTxBodyL .~ SSeq.fromList [sizedOutput $ entry 20, sizedOutput createdEntry]
+          collidingInput = TxIn (txIdTxBody body) (TxIx 0)
+          createdInput = TxIn (txIdTxBody body) (TxIx 1)
+          previousStore =
+            Store.mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromList $
+              [ (consumedInput, consumedEntry)
+              , (collidingInput, collidingEntry)
+              , (untouchedInput, untouchedEntry)
+              ]
+          store = StoreInternals.projectValidTxBody body previousStore
+      Store.allocations store
+        `shouldBe` IndexedUTxOs.fromList
+          [ (collidingInput, collidingEntry)
+          , (createdInput, createdEntry)
+          , (untouchedInput, untouchedEntry)
+          ]
+      toCoin (Store.totalDepositAmount store) `shouldBe` Coin 0

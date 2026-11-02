@@ -79,6 +79,7 @@ import Cardano.Ledger.Shelley.Rules (emptyInstantaneousRewards, votedFuturePPara
 import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<+>), (<->))
 import Cardano.Protocol.TPraos.BlockHeader (
@@ -174,8 +175,8 @@ newUTxO txb cs = cs {chainNes = nes'}
     utxoToDel = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs inputs $ entries
     remaining = IndexedUTxOs.withoutInputs inputs entries
     store' =
-      Store.allocate (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) utxoAdd)
-        . Store.release inputs
+      StoreInternals.allocate (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) utxoAdd)
+        . StoreInternals.release inputs
         $ asUTxOStore utxoSt
     is' =
       deleteInstantStake

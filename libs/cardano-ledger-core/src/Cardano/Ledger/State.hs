@@ -42,7 +42,7 @@ import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs hiding (
   size,
   toList,
  )
-import Cardano.Ledger.State.Accounting.UTxOs.Store hiding (update)
+import Cardano.Ledger.State.Accounting.UTxOs.Store
 import Cardano.Ledger.State.Accounting.UTxOs.Unspent (Unspent (..))
 import Cardano.Ledger.State.Certificates
 import Cardano.Ledger.State.Certificates.Account

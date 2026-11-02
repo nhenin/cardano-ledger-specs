@@ -9,7 +9,6 @@
 
 module Test.Cardano.Ledger.Generic.AggPropTests where
 
-import Cardano.Ledger.Alonzo.Tx (IsPhase2Valid (..))
 import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState (

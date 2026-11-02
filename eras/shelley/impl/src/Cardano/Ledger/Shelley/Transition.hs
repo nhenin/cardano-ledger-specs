@@ -73,6 +73,7 @@ import Cardano.Ledger.Shelley.Translation (
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val
 import Control.Monad (unless, when)
@@ -681,7 +682,7 @@ registerInitialFunds hasFS tc newEpochState = do
   (initialOutputs, totalInitialFunds) <-
     foldInjectionData hasFS initialFundsSource addInitialFund (Map.empty, mempty)
 
-  let fundedStore = Store.allocate (IndexedTxOs.IndexedTxOs initialOutputs) previousStore
+  let fundedStore = StoreInternals.allocate (IndexedTxOs.IndexedTxOs initialOutputs) previousStore
   -- Check only the injected inputs; existing outputs and their historical
   -- metadata remain in the Store throughout initialization.
   case find (`IndexedUTxOs.member` existingAllocations) . Map.keys $ initialOutputs of

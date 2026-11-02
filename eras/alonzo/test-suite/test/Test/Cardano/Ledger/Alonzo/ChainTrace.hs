@@ -22,7 +22,7 @@ import Cardano.Ledger.Alonzo.Plutus.Evaluate (
  )
 import Cardano.Ledger.Alonzo.Rules (BBODY, LEDGER)
 import Cardano.Ledger.Alonzo.Scripts (AlonzoScript (..), ExUnits (..), mkPlutusScript)
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..), IsPhase2Valid (..))
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..), ScriptResult (..))
 import Cardano.Ledger.Plutus.Language (plutusFromRunnable)

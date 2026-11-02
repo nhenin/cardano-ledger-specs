@@ -14,6 +14,7 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
@@ -79,18 +80,19 @@ spec = describe "UTxOStore historical metadata" $ do
             newInput = TxIn txId $ TxIx 1
             oldCalculation = DepositCalculationV1 oldRate
             oldEntry = Unspent accepted oldCalculation
-            previous = allocate (IndexedTxOs.singleton oldInput accepted) (mkEmptyUTxOStore oldCalculation)
+            previous =
+              StoreInternals.allocate (IndexedTxOs.singleton oldInput accepted) (mkEmptyUTxOStore oldCalculation)
         forM_ [DepositCalculationV1 newRate, DepositCalculationV2 newRate] $ \newCalculation -> do
           let activated = activateNewCalculation newCalculation previous
           currentCalculation activated `shouldBe` newCalculation
           allocations activated `shouldBe` allocations previous
           totalDepositAmount activated `shouldBe` totalDepositAmount previous
-          let updated = allocate (IndexedTxOs.singleton newInput accepted) activated
+          let updated = StoreInternals.allocate (IndexedTxOs.singleton newInput accepted) activated
           lookupUTxO oldInput (allocations updated) `shouldBe` Just oldEntry
           lookupUTxO newInput (allocations updated) `shouldBe` Just (Unspent accepted newCalculation)
           allocatedDepositTotalAmount (Set.singleton oldInput) (allocations updated)
             `shouldBe` DepositAmount (price 1000 accepted)
-          let released = release (Set.singleton oldInput) updated
+          let released = StoreInternals.release (Set.singleton oldInput) updated
           cachedTotal released `shouldBe` price 2000 accepted
           currentCalculation released `shouldBe` newCalculation
           Binary.decodeFull version (Binary.serialize version released) `shouldBe` Right released
@@ -151,30 +153,36 @@ spec = describe "UTxOStore historical metadata" $ do
           `shouldBe` DepositAmount (price 1000 accepted)
 
         -- Release removes the historical deposit and leaves the newer entry intact.
-        let storeAfterRelease = release (Set.singleton oldInput) store
+        let storeAfterRelease = StoreInternals.release (Set.singleton oldInput) store
         cachedTotal storeAfterRelease `shouldBe` price 2000 accepted
         allocations storeAfterRelease `shouldBe` IndexedUTxOs (Map.singleton newInput newer)
 
         let updated =
-              allocate (IndexedTxOs.singleton createdInput accepted)
-                . release (Set.singleton oldInput)
+              StoreInternals.allocate (IndexedTxOs.singleton createdInput accepted)
+                . StoreInternals.release (Set.singleton oldInput)
                 $ store
         cachedTotal updated `shouldBe` price 4000 accepted
         lookupUTxO oldInput (allocations updated) `shouldBe` Nothing
         lookupUTxO newInput (allocations updated) `shouldBe` Just newer
         lookupUTxO createdInput (allocations updated) `shouldBe` Just newer
-        -- Allocation at an existing input replaces its historical deposit.
-        let replaced = allocate (IndexedTxOs.singleton oldInput accepted) store
-        cachedTotal replaced `shouldBe` price 4000 accepted
-        allocations replaced
-          `shouldBe` IndexedUTxOs (Map.fromList [(oldInput, newer), (newInput, newer)])
+        -- Occupied references keep the entire historical entry and its deposit,
+        -- even when the proposed size and current price differ.
+        let proposedOutput = accepted {Binary.sizedSize = Binary.sizedSize accepted + 1}
+            proposed = IndexedTxOs.singleton oldInput proposedOutput
+            preserved = StoreInternals.allocate proposed store
+        preserved `shouldBe` store
+        StoreInternals.allocate proposed preserved `shouldBe` preserved
 
-        -- Releasing that input first must not subtract its old deposit twice.
+        -- Explicit release permits a new allocation at the active price.
         let storeAfterReallocation =
-              allocate (IndexedTxOs.singleton oldInput accepted)
-                . release (Set.singleton oldInput)
+              StoreInternals.allocate proposed
+                . StoreInternals.release (Set.singleton oldInput)
                 $ store
-        storeAfterReallocation `shouldBe` replaced
+            recreated = Unspent proposedOutput (DepositCalculationV1 newRate)
+        cachedTotal storeAfterReallocation `shouldBe` price 2000 accepted <> price 2000 proposedOutput
+        allocations storeAfterReallocation
+          `shouldBe` IndexedUTxOs (Map.fromList [(oldInput, recreated), (newInput, newer)])
+        StoreInternals.allocate proposed storeAfterReallocation `shouldBe` storeAfterReallocation
 
   prop
     "legacy outputs at any valid price and zero-price new outputs retain metadata with zero external deposits"
@@ -253,7 +261,8 @@ spec = describe "UTxOStore historical metadata" $ do
           let store = mkUTxOStore calculation created
           cachedTotal store `shouldBe` expected
           Unspent.depositAmount entry `shouldBe` expected
-          allocate (IndexedTxOs.singleton input accepted) (mkEmptyUTxOStore calculation) `shouldBe` store
+          StoreInternals.allocate (IndexedTxOs.singleton input accepted) (mkEmptyUTxOStore calculation)
+            `shouldBe` store
           allocatedDepositTotalAmount (Set.singleton input) (allocations store)
             `shouldBe` DepositAmount expected
           Binary.decodeFull @DepositCalculation version (Binary.serialize version calculation)

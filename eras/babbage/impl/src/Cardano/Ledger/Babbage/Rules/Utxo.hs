@@ -502,21 +502,15 @@ updateAccountingState pp certState tx utxoState =
             (\a b -> tellEvent $ Alonzo.TxUTxODiff a b)
             utxoState
         Phase2Invalid ->
-          {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
           let existingAllocations = Store.allocations . asUTxOStore $ utxoState
-              !(allocationsKeep, allocationsDel) = IndexedUTxOs.extractInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
+              !allocationsDel = IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
               utxoDel = IndexedUTxOs.txOuts allocationsDel
               collouts = collOuts txBody
-              store =
-                Store.allocate
-                  (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds allocationsKeep) collouts)
-                  . Store.release (txBody ^. collateralInputsTxBodyL)
-                  $ asUTxOStore utxoState
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { asUTxOStore = store
+                  { asUTxOStore = Store.projectTx tx $ asUTxOStore utxoState
                   , {- fees + collateralFees -}
                     asFees = asFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , asInstantStake =

@@ -331,6 +331,12 @@ instance EraTxBody ConwayEra where
   sizedOutputsTxBodyG = sizedOutputsTxBodyL
   {-# INLINE sizedOutputsTxBodyG #-}
 
+  collateralInputsTxBodyG = collateralInputsTxBodyL
+  {-# INLINE collateralInputsTxBodyG #-}
+
+  sizedCollateralReturnTxBodyG = sizedCollateralReturnTxBodyL
+  {-# INLINE sizedCollateralReturnTxBodyG #-}
+
   outputsTxBodyL =
     lensMemoRawType @ConwayEra (fmap sizedValue . (\ConwayTxBodyRaw {ctbrOutputs} -> ctbrOutputs)) $
       \txb x -> txb {ctbrOutputs = mkSized (eraProtVerLow @ConwayEra) <$> x}

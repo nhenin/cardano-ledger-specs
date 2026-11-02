@@ -757,14 +757,17 @@ Construct an allocation directly as
 `Unspent {sizedOutput = acceptedOutput, depositCalculation = calculation}`,
 preserving the accepted full-output size and explicit calculation. Construction is pure;
 `mkUTxOStore` accepts a current calculation and historical `IndexedUTxOs`, preserves the entries and derives the cached total. Persisted metadata is checked during decoding.
-`allocate` receives proposed `IndexedTxOs`, records the Store's `currentCalculation` on each new entry and adds their deposits; `release` removes
+`allocate` receives proposed `IndexedTxOs`, preserves occupied references, records the Store's `currentCalculation` on each new entry and adds their deposits; `release` removes
 selected entries and subtracts their historical deposits. Both preserve exact
 cached equality for a valid Store.
-`Store.update body` composes these operations for one body's regular inputs and
+`Store.Internals.projectValidTxBody body` composes these operations for one body's regular inputs and
 outputs. The shared `updateUTxOsAndInstantStakeWithTxBody` helper calls it internally,
 updates instant stake and emits `TxUTxODiff` with complete consumed and created
 `IndexedUTxOs` from the previous and updated Stores respectively. Each successful SubTx and
-TopTx invokes that helper; phase-2 failure uses the explicit collateral update instead.
+TopTx invokes that helper; `Store.Internals.projectInvalidTxBody body` selects the collateral inputs and return on phase-2 failure.
+`Store.projectTx tx` selects the appropriate body projection from the transaction's
+phase-2 validity tag. It projects only TopTx's own effects; SubTx execution remains
+under the ledger's control.
 Snapshot decoding validates both metadata and cached equality. The exported record
 selectors also support direct record updates, whose callers must preserve the
 relationship between the allocations and their total.
@@ -6688,7 +6691,8 @@ cannot recover historical deposit parameters or establish which outputs remain u
 
 | Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
 | --- | --- |
-| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | `activateNewCalculation`, `allocate`, `release`, construction and the cached total. |
+| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx`), construction, record queries and calculation activation. |
+| [`Store.Internals`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
 | [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
 | [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output, original size and calculation; `toTxOut`, `depositAmount` and entry codecs. |
 | [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | `DepositAmount`, `ByteSize`, `DepositCalculation` and `calculateDeposit`. |
@@ -6754,17 +6758,17 @@ The transition is explicit:
 Shelley.updateUTxOsAndInstantStakeWithTxBody body outputChangeEvent previousAccountingState
 ```
 
-The helper derives the new Store from `previousAccountingState` through `Store.update body`;
+The helper derives the new Store from `previousAccountingState` through `Store.Internals.projectValidTxBody body`;
 callers do not supply a separately prepared Store. Stake and event calculations
 use the consumed entries from the previous state. The event's created entries
 are read from the updated Store, including the sizes and calculations actually
 recorded by allocation; both event arguments are `IndexedUTxOs`.
 
-`Store.update` releases the body's regular inputs and allocates its regular outputs.
+`Store.Internals.projectValidTxBody` releases the body's regular inputs and allocates its regular outputs.
 It neither validates the body nor traverses nested SubTxs. The ledger selects the
-execution path; collateral failure continues to release only collateral inputs
-and allocate only the collateral return. Initialization and other operations
-without a body may still call `allocate` or `release` directly.
+execution path; `Store.Internals.projectInvalidTxBody` releases only collateral inputs
+and allocates only the collateral return on phase-2 failure. Initialization and other operations
+without a body explicitly import `Store.Internals` to call `allocate` or `release`.
 
 These operations maintain the invariant for a valid Store:
 
@@ -6773,11 +6777,12 @@ $$
 = \sum_{u\in\text{allocations}(S)} \text{depositAmount}(u)
 $$
 
-The `allocate` primitive replaces an existing input by subtracting its previous
-deposit before adding the replacement.
+The `allocate` primitive preserves an existing entry and its historical deposit
+when a proposal uses the same reference. Only new entries increase the cached total.
 Releasing an absent input has no effect. Unaffected entries retain their metadata.
-For pre-Dijkstra body updates, an unspent entry takes precedence over a proposed
-output with the same key, preserving the original legacy map-union behavior.
+For both valid and collateral projections in every era, a retained entry takes
+precedence over a proposed output with the same key, preserving the original
+map-union behavior. References released by the projection may be allocated again.
 
 **Legacy boundaries retain their formats.**
 

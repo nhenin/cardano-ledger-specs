@@ -303,6 +303,7 @@ import Cardano.Ledger.Shelley.Translation (toFromByronTranslationContext)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (epochFromSlot, epochInfoFirst, getTheSlotOfNoReturn)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Tools (
   calcMinFeeTxNativeScriptWits,
@@ -759,7 +760,7 @@ defaultInitImpTestState nes = do
       if isJust $ lookupUTxO rootTxIn $ allocations existingStore
         then existingStore
         else
-          allocate
+          StoreInternals.allocate
             (IndexedTxOs.singleton rootTxIn $ mkSized (eraProtVerLow @era) rootTxOut)
             existingStore
     nesWithRoot = nes & utxoStoreL .~ rootStore

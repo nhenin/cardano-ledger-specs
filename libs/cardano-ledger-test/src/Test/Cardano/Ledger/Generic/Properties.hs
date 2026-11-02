@@ -18,7 +18,6 @@
 
 module Test.Cardano.Ledger.Generic.Properties where
 
-import Cardano.Ledger.Alonzo.Tx (IsPhase2Valid (Phase2Valid))
 import Cardano.Ledger.BaseTypes (ShelleyBase, epochInfo, systemStart)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core

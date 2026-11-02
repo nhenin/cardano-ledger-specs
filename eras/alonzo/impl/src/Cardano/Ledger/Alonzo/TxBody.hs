@@ -233,6 +233,9 @@ instance EraTxBody AlonzoEra where
   sizedOutputsTxBodyG = outputsTxBodyL . to (fmap (mkSized $ eraProtVerLow @AlonzoEra))
   {-# INLINE sizedOutputsTxBodyG #-}
 
+  collateralInputsTxBodyG = collateralInputsTxBodyL
+  {-# INLINE collateralInputsTxBodyG #-}
+
   outputsTxBodyL =
     lensMemoRawType @AlonzoEra (\AlonzoTxBodyRaw {atbrOutputs} -> atbrOutputs) $
       \txBodyRaw outputs_ -> txBodyRaw {atbrOutputs = outputs_}

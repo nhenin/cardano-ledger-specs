@@ -106,7 +106,7 @@ import Cardano.Ledger.Api.Tx.Cert
 import Cardano.Ledger.Api.Tx.Wits
 import Cardano.Ledger.Babbage.Collateral (mkCollateralTxIn)
 import Cardano.Ledger.Core (
-  EraTx (..),
+  EraTx (Tx, auxDataTxL, bodyTxL, getMinFeeTx, mkBasicTx, sizeTxF, witsTxL),
   TxLevel (..),
   binaryUpgradeTx,
   outputsTxBody,

@@ -61,6 +61,7 @@ library
     Cardano.Ledger.Coin
     Cardano.Ledger.Compactible
     Cardano.Ledger.Core
+    Cardano.Ledger.Core.TxValidity
     Cardano.Ledger.Credential
     Cardano.Ledger.DRep
     Cardano.Ledger.Genesis
@@ -91,6 +92,7 @@ library
     Cardano.Ledger.State.Accounting.UTxOs.Deposit
     Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs
     Cardano.Ledger.State.Accounting.UTxOs.Store
+    Cardano.Ledger.State.Accounting.UTxOs.Store.Internals
     Cardano.Ledger.State.Accounting.UTxOs.Unspent
     Cardano.Ledger.State.Certificates
     Cardano.Ledger.State.Certificates.Account

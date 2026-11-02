@@ -71,7 +71,7 @@ import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
@@ -646,7 +646,7 @@ updateAccountingState pp txBody certState depositChangeEvent utxoDiffEvent accou
 
 -- | Apply one body's regular input/output changes to the Store and instant stake,
 -- emitting complete consumed and created entries from the previous and updated
--- Stores respectively. 'Store.update' records the new entries and their calculations.
+-- Stores respectively. 'StoreInternals.projectValidTxBody' records the new entries and their calculations.
 updateUTxOsAndInstantStakeWithTxBody ::
   (EraTxBody era, EraStake era, Monad m) =>
   TxBody l era ->
@@ -655,7 +655,7 @@ updateUTxOsAndInstantStakeWithTxBody ::
   m (AccountingState era)
 updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent accountingState = do
   let previousStore = asUTxOStore accountingState
-      store = Store.update txBody previousStore
+      store = StoreInternals.projectValidTxBody txBody previousStore
       proposedOutputs = outputsTxBody txBody
       !consumed =
         IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) (allocations previousStore)
