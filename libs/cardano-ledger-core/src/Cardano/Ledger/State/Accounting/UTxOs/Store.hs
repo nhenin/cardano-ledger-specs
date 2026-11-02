@@ -30,7 +30,6 @@ module Cardano.Ledger.State.Accounting.UTxOs.Store (
 
   -- * Legacy compatibility
   fromLegacyAllocations,
-  translateLegacyStore,
 
   -- * Serialization
   encodeUTxOStore,
@@ -184,22 +183,6 @@ fromLegacyAllocations outputs =
     { currentCalculation = legacyDepositCalculation
     , totalDepositAmount = DepositAmount {toCoin = mempty}
     , allocations = IndexedUTxOs.fromLegacyTxOuts outputs
-    }
-
--- | Translate legacy entries using the era's output conversion. The callback
--- must produce legacy outputs. As with legacy decoding, the target size is
--- canonical and the deposit rate is zero; neither is historical pricing metadata.
--- This operation is for legacy-era transitions, not existing Dijkstra allocations.
-translateLegacyStore ::
-  EraTxOut target =>
-  (TxOut source -> LegacyTxOut target) ->
-  UTxOStore source ->
-  UTxOStore target
-translateLegacyStore translateOutput store =
-  UTxOStore
-    { currentCalculation = legacyDepositCalculation
-    , totalDepositAmount = DepositAmount {toCoin = mempty}
-    , allocations = IndexedUTxOs.translateLegacyOutputs translateOutput . allocations $ store
     }
 
 -- Instances

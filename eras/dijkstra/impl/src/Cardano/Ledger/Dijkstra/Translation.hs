@@ -229,14 +229,10 @@ instance TranslateEra DijkstraEra AccountingState where
         }
 
 instance TranslateEra DijkstraEra UTxOStore where
-  translateEra _ =
-    pure . Store.translateLegacyStore upgradeImplicit
-    where
-      -- Conway cannot contain store-backed outputs. The provisional legacy
-      -- conversion records a re-encoded size and zero rate, not recovered history.
-      -- These entries contribute no separately held deposit.
-      upgradeImplicit :: TxOut ConwayEra -> LegacyTxOut DijkstraEra
-      upgradeImplicit (LegacyTxOut output) = upgradeBabbageTxOut output
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
 
 instance TranslateEra DijkstraEra IndexedUTxOs where
   translateEra _ =

@@ -134,11 +134,10 @@ instance TranslateEra BabbageEra LedgerState where
         }
 
 instance TranslateEra BabbageEra Store.UTxOStore where
-  translateEra _ = pure . Store.translateLegacyStore translateOutput
-    where
-      translateOutput :: TxOut (PreviousEra BabbageEra) -> LegacyTxOut BabbageEra
-      translateOutput output = case upgradeTxOut output of
-        LegacyTxOut translated -> translated
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
 
 instance TranslateEra BabbageEra AccountingState where
   translateEra ctxt accountingState =

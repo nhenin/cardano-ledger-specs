@@ -114,11 +114,10 @@ instance TranslateEra AllegraEra IndexedUTxOs where
         LegacyTxOut translated -> translated
 
 instance TranslateEra AllegraEra Store.UTxOStore where
-  translateEra ctxt = pure . Store.translateLegacyStore translateOutput
-    where
-      translateOutput :: TxOut (PreviousEra AllegraEra) -> LegacyTxOut AllegraEra
-      translateOutput output = case translateEra' ctxt output of
-        LegacyTxOut translated -> translated
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
 
 instance TranslateEra AllegraEra AccountingState where
   translateEra ctxt accountingState =

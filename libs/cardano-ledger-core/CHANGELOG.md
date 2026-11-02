@@ -2,6 +2,7 @@
 
 ## 1.23.0.0
 
+* Remove `Store.translateLegacyStore`. Era-specific `TranslateEra` instances reuse the `IndexedUTxOs` translation and reconstruct the Store with `mkUTxOStore`.
 * Remove `DecCBOR` instances from `Data` and `PlutusData`
 * Add optional `BlsKeyState` argument to `mkStakePoolState`
 * Replace the payload-only `UTxO` / `TxOutMap` and separate `Allocations` collection with `IndexedTxOs` for sized output proposals and `IndexedUTxOs` for complete accepted entries. The modules are `TxOut.IndexedTxOs` and `State.UTxOs.IndexedUTxOs`; both types are reexported by `Core`.

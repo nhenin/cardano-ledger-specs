@@ -137,11 +137,10 @@ instance TranslateEra MaryEra ShelleyGovState where
         }
 
 instance TranslateEra MaryEra Store.UTxOStore where
-  translateEra ctxt = pure . Store.translateLegacyStore translateOutput
-    where
-      translateOutput :: TxOut (PreviousEra MaryEra) -> LegacyTxOut MaryEra
-      translateOutput output = case translateEra' ctxt output of
-        LegacyTxOut translated -> translated
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
 
 instance TranslateEra MaryEra AccountingState where
   translateEra ctxt accountingState =

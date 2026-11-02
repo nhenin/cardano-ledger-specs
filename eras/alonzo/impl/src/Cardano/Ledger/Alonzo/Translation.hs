@@ -135,11 +135,10 @@ instance TranslateEra AlonzoEra LedgerState where
         }
 
 instance TranslateEra AlonzoEra Store.UTxOStore where
-  translateEra _ = pure . Store.translateLegacyStore translateOutput
-    where
-      translateOutput :: TxOut (PreviousEra AlonzoEra) -> LegacyTxOut AlonzoEra
-      translateOutput output = case upgradeTxOut output of
-        LegacyTxOut translated -> translated
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
 
 instance TranslateEra AlonzoEra AccountingState where
   translateEra ctxt accountingState =

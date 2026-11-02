@@ -179,11 +179,10 @@ translateGovState ctxt@ConwayGenesis {..} sgov =
         & cgsConstitutionL .~ cgConstitution
 
 instance TranslateEra ConwayEra Store.UTxOStore where
-  translateEra _ = pure . Store.translateLegacyStore translateOutput
-    where
-      translateOutput :: TxOut (PreviousEra ConwayEra) -> LegacyTxOut ConwayEra
-      translateOutput output = case upgradeTxOut output of
-        LegacyTxOut translated -> translated
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
 
 instance TranslateEra ConwayEra AccountingState where
   translateEra ctxt accountingState =
