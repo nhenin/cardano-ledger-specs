@@ -39,7 +39,7 @@ import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON (..), (.=))
 import Data.Coerce
 import Data.Default (Default (..))
-import Data.Foldable (foldl')
+import qualified Data.Foldable as F (foldl')
 import qualified Data.Map.Strict as Map
 import qualified Data.VMap as VMap
 import Data.Word (Word64)
@@ -100,7 +100,7 @@ applyTxOutsConwayInstantStake ::
   ConwayInstantStake era ->
   ConwayInstantStake era
 applyTxOutsConwayInstantStake f outputs instantStake =
-  foldl' accum instantStake outputs
+  F.foldl' accum instantStake outputs
   where
     keepOrDeleteCompact new = \case
       Nothing ->

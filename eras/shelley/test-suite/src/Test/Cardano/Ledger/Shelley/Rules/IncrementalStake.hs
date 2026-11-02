@@ -36,7 +36,8 @@ import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUT
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Control.Monad.Reader (ReaderT)
 import Control.State.Transition (STS (..))
-import Data.Foldable (fold, foldl')
+import Data.Foldable (fold)
+import qualified Data.Foldable as F (foldl')
 import Data.Functor.Identity (Identity)
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
@@ -254,7 +255,7 @@ aggregateUtxoCoinByCredential ::
   Map (Credential Staking) (CompactForm Coin) ->
   Map (Credential Staking) (CompactForm Coin)
 aggregateUtxoCoinByCredential ptrs u initial =
-  foldl' accum (Map.filter (/= mempty) initial) (IndexedUTxOs.txOuts u)
+  F.foldl' accum (Map.filter (/= mempty) initial) (IndexedUTxOs.txOuts u)
   where
     accum ans out =
       let c = out ^. compactCoinTxOutL

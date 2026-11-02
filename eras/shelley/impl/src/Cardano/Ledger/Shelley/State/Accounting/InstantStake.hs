@@ -46,7 +46,7 @@ import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON (..), (.=))
 import Data.Coerce
 import Data.Default (Default (..))
-import Data.Foldable (foldl')
+import qualified Data.Foldable as F (foldl')
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.VMap as VMap
@@ -121,7 +121,7 @@ applyTxOutsShelleyInstantStake ::
   ShelleyInstantStake era ->
   ShelleyInstantStake era
 applyTxOutsShelleyInstantStake f outputs instantStake =
-  foldl' accum instantStake outputs
+  F.foldl' accum instantStake outputs
   where
     keepOrDeleteCompact new = \case
       Nothing ->
