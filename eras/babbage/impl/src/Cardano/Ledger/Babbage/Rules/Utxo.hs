@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -38,7 +39,7 @@ module Cardano.Ledger.Babbage.Rules.Utxo (
 import qualified Cardano.Ledger.Allegra.Rules as Allegra
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
 import Cardano.Ledger.Alonzo.TxWits (unRedeemersL)
-import Cardano.Ledger.Babbage.Collateral (collAdaBalance, collOuts)
+import Cardano.Ledger.Babbage.Collateral (collAdaBalance)
 import Cardano.Ledger.Babbage.Core
 import Cardano.Ledger.Babbage.Era (BabbageEra, UTXO)
 import Cardano.Ledger.Babbage.Rules.Ppup ()
@@ -66,7 +67,6 @@ import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUT
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (areAllAdaOnly)
-import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val (inject, isAdaOnly, pointwise)
 import Control.DeepSeq (NFData)
@@ -503,20 +503,20 @@ updateAccountingState pp certState tx utxoState =
             utxoState
         Phase2Invalid ->
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let existingAllocations = Store.allocations . asUTxOStore $ utxoState
-              !allocationsDel = IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL) existingAllocations
+          let Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx $ asUTxOStore utxoState
+              !allocationsDel = consumedOutputs
               utxoDel = IndexedUTxOs.txOuts allocationsDel
-              collouts = collOuts txBody
               DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
            in pure $!
                 utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { asUTxOStore = Store.projectTx tx $ asUTxOStore utxoState
+                  { asUTxOStore = updatedStore
                   , {- fees + collateralFees -}
                     asFees = asFees utxoState <> Coin collateralFees -- NEW to Babbage
                   , asInstantStake =
-                      deleteInstantStake
-                        utxoDel
-                        (addInstantStake (IndexedTxOs.txOuts collouts) (utxoState ^. instantStakeL))
+                      updateInstantStake
+                        consumedOutputs
+                        producedOutputs
+                        (utxoState ^. instantStakeL)
                   }
 
 --------------------------------------------------------------------------------

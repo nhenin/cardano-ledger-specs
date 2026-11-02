@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -56,6 +57,8 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
@@ -280,12 +283,21 @@ dijkstraSubUtxoTransition = do
 
   case topTxIsPhase2Valid of
     Phase2Valid -> do
-      accountingState <-
-        Shelley.updateUTxOsAndInstantStakeWithTxBody
-          txBody
-          (\a b -> tellEvent $ TxUTxODiff a b)
-          (lsAccountingState ledgerState & asDonationL <>~ txBody ^. treasuryDonationTxBodyL)
-      pure ledgerState {lsAccountingState = accountingState}
+      let withDonation = lsAccountingState ledgerState & asDonationL <>~ txBody ^. treasuryDonationTxBodyL
+          Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = StoreInternals.projectValidTxBody txBody (asUTxOStore withDonation)
+      tellEvent $ TxUTxODiff consumedOutputs producedOutputs
+      pure $
+        ledgerState
+          { lsAccountingState =
+              withDonation
+                { asUTxOStore = updatedStore
+                , asInstantStake =
+                    updateInstantStake
+                      consumedOutputs
+                      producedOutputs
+                      (asInstantStake withDonation)
+                }
+          }
     Phase2Invalid ->
       pure ledgerState
 

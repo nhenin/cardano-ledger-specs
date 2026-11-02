@@ -25,7 +25,6 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   validSizeComputationCheck,
   updateAccountingState,
   updateAccountingStateDeposits,
-  updateUTxOsAndInstantStakeWithTxBody,
 
   -- * Validations
   validateImplicitDeposit,
@@ -74,7 +73,6 @@ import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUT
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
-import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq
@@ -641,34 +639,14 @@ updateAccountingState ::
   m (AccountingState era)
 updateAccountingState pp txBody certState depositChangeEvent utxoDiffEvent accountingState = do
   withDeposits <- updateAccountingStateDeposits pp certState txBody depositChangeEvent accountingState
-  withUtxo <- updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent withDeposits
-  pure $ withUtxo & asFeesL <>~ (txBody ^. feeTxBodyL)
-
--- | Apply one body's regular input/output changes to the Store and instant stake,
--- emitting complete consumed and created entries from the previous and updated
--- Stores respectively. 'StoreInternals.projectValidTxBody' records the new entries and their calculations.
-updateUTxOsAndInstantStakeWithTxBody ::
-  (EraTxBody era, EraStake era, Monad m) =>
-  TxBody l era ->
-  (IndexedUTxOs era -> IndexedUTxOs era -> m ()) ->
-  AccountingState era ->
-  m (AccountingState era)
-updateUTxOsAndInstantStakeWithTxBody txBody utxoDiffEvent accountingState = do
-  let previousStore = asUTxOStore accountingState
-      store = StoreInternals.projectValidTxBody txBody previousStore
-      proposedOutputs = outputsTxBody txBody
-      !consumed =
-        IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) (allocations previousStore)
-      created =
-        IndexedUTxOs.restrictToInputs (IndexedTxOs.inputIds proposedOutputs) (allocations store)
-      newInstantStake =
-        deleteInstantStake (IndexedUTxOs.txOuts consumed) $
-          addInstantStake (IndexedTxOs.txOuts proposedOutputs) (accountingState ^. instantStakeL)
-  utxoDiffEvent consumed created
+  let TxProjected {updatedStore, consumedOutputs, producedOutputs} =
+        StoreInternals.projectValidTxBody txBody . asUTxOStore $ withDeposits
+  utxoDiffEvent consumedOutputs producedOutputs
   pure $!
-    accountingState
-      & asUTxOStoreL .~ store
-      & instantStakeL .~ newInstantStake
+    withDeposits
+      & asUTxOStoreL .~ updatedStore
+      & instantStakeL %~ updateInstantStake consumedOutputs producedOutputs
+      & asFeesL <>~ (txBody ^. feeTxBodyL)
 
 updateAccountingStateDeposits ::
   ( EraTxBody era

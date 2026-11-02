@@ -100,9 +100,9 @@ evaluateTransactionBalanceShelley pp dpstate entries txBody = consumed <-> produ
       )
         <+> inject (txBody ^. feeTxBodyL <+> totalTxDeposits pp dpstate txBody)
     consumed =
-      (unAssets . sumAllAssets $ consumedOutputs)
+      (unAssets . sumAllAssets $ consumedTxOuts)
         <> inject (refunds <> withdrawals)
-    consumedOutputs = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
+    consumedTxOuts = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
     refunds = keyTxRefunds pp dpstate txBody
     withdrawals = fold . unWithdrawals $ txBody ^. withdrawalsTxBodyL
 

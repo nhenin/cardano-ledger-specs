@@ -4,7 +4,7 @@
 
 * Add `poolReapAssertions`
 * Export `renderPoolReapViolation`
-* Replace `updateUTxOAndInstantStake` and `updateUTxOAndInstantStakeWithStore` with `updateUTxOsAndInstantStakeWithTxBody`. Compute the Store update internally from the supplied state, then update instant stake and emit the output-change event. Callers no longer prepare a Store separately.
+* Separate Store projection from stake updates. Consume `TxProjected` with its updated Store and actual consumed/produced entries; apply `updateInstantStake` separately. Accounting rules install both results and emit the entry-change event. Remove the combined helper; retained colliding references neither count as produced entries nor add stake.
 * Remove the `Shelley.UTxO` reexports of `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`.
 * Distinguish proposed `IndexedTxOs` from stored `IndexedUTxOs`. Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset` retain complete entries; pre-Dijkstra serialized output maps remain unchanged.
 * Replace `txouts` with `outputsTxBody`, returning proposed outputs with their supplied sizes. Allocation reads the Store's current calculation. Both `TxUTxODiff` arguments are `IndexedUTxOs`: consumed entries from the previous Store and created entries from the updated Store, retaining recorded sizes and calculations.

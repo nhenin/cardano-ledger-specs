@@ -761,10 +761,13 @@ preserving the accepted full-output size and explicit calculation. Construction 
 selected entries and subtracts their historical deposits. Both preserve exact
 cached equality for a valid Store.
 `Store.Internals.projectValidTxBody body` composes these operations for one body's regular inputs and
-outputs. The shared `updateUTxOsAndInstantStakeWithTxBody` helper calls it internally,
-updates instant stake and emits `TxUTxODiff` with complete consumed and created
-`IndexedUTxOs` from the previous and updated Stores respectively. Each successful SubTx and
-TopTx invokes that helper; `Store.Internals.projectInvalidTxBody body` selects the collateral inputs and return on phase-2 failure.
+outputs. Each projection returns `TxProjected`, containing `updatedStore`,
+`consumedOutputs` and `producedOutputs`. `updateInstantStake` applies those same
+entries to the stake index. The accounting rule installs both results and emits
+`TxUTxODiff`; retained entries at colliding output references are excluded from
+`producedOutputs` and add no stake. Successful TopTx and SubTx paths use the same
+result type, with SubTx execution selected by the ledger.
+`Store.Internals.projectInvalidTxBody body` selects the collateral inputs and return on phase-2 failure.
 `Store.projectTx tx` selects the appropriate body projection from the transaction's
 phase-2 validity tag. It projects only TopTx's own effects; SubTx execution remains
 under the ledger's control.
@@ -6691,7 +6694,7 @@ cannot recover historical deposit parameters or establish which outputs remain u
 
 | Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
 | --- | --- |
-| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx`), construction, record queries and calculation activation. |
+| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and calculation activation. |
 | [`Store.Internals`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
 | [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
 | [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output, original size and calculation; `toTxOut`, `depositAmount` and entry codecs. |
@@ -6735,7 +6738,13 @@ Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and
 ```haskell
 outputsTxBody :: EraTxBody era => TxBody l era -> IndexedTxOs era
 
-update :: EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
+data TxProjected era = TxProjected
+  { updatedStore :: !(UTxOStore era)
+  , consumedOutputs :: !(IndexedUTxOs era)
+  , producedOutputs :: !(IndexedUTxOs era)
+  }
+
+projectTx :: EraTx era => Tx TopTx era -> UTxOStore era -> TxProjected era
 
 allocate ::
   EraTxOut era =>
@@ -6755,14 +6764,20 @@ inputs are resolved through the previous Store and retain their own historical c
 The transition is explicit:
 
 ```haskell
-Shelley.updateUTxOsAndInstantStakeWithTxBody body outputChangeEvent previousAccountingState
+TxProjected {updatedStore, consumedOutputs, producedOutputs} =
+  Store.projectTx tx previousStore
+
+updatedInstantStake =
+  updateInstantStake consumedOutputs producedOutputs previousInstantStake
 ```
 
-The helper derives the new Store from `previousAccountingState` through `Store.Internals.projectValidTxBody body`;
-callers do not supply a separately prepared Store. Stake and event calculations
-use the consumed entries from the previous state. The event's created entries
-are read from the updated Store, including the sizes and calculations actually
-recorded by allocation; both event arguments are `IndexedUTxOs`.
+`projectTx` selects the TopTx's regular or collateral effects. Each internal body
+projection returns the same `TxProjected` record: consumed entries come from the
+previous Store; produced entries come from the updated Store and exclude retained
+colliding references. `updateInstantStake` belongs to `State.Accounting.InstantStake`
+and uses these actual changes. The accounting rule installs both results and emits
+`TxUTxODiff consumedOutputs producedOutputs`. The result's complete Store is not
+included in that event; historical sizes and calculations are preserved in its entries.
 
 `Store.Internals.projectValidTxBody` releases the body's regular inputs and allocates its regular outputs.
 It neither validates the body nor traverses nested SubTxs. The ledger selects the

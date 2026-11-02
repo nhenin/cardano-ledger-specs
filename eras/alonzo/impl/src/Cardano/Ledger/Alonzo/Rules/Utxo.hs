@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -796,15 +797,15 @@ updateAccountingState pp certState tx utxoState =
         Phase2Invalid ->
           {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
           {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let !utxoDel =
-                IndexedUTxOs.txOuts
-                  . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
-                  . Store.allocations
-                  . asUTxOStore
-                  $ utxoState
+          let Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx $ asUTxOStore utxoState
+              !utxoDel = IndexedUTxOs.txOuts $ consumedOutputs
            in pure $!
                 utxoState
-                  { asUTxOStore = Store.projectTx tx $ asUTxOStore utxoState
+                  { asUTxOStore = updatedStore
                   , asFees = asFees utxoState <> sumAllCoin utxoDel
-                  , asInstantStake = deleteInstantStake utxoDel (utxoState ^. instantStakeL)
+                  , asInstantStake =
+                      updateInstantStake
+                        consumedOutputs
+                        producedOutputs
+                        (utxoState ^. instantStakeL)
                   }

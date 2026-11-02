@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -30,7 +31,6 @@ module Cardano.Ledger.Dijkstra.Rules.Utxo (
 import qualified Cardano.Ledger.Allegra.Rules as Allegra
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
 import Cardano.Ledger.Alonzo.TxWits (unRedeemersL)
-import Cardano.Ledger.Babbage.Collateral (collOuts)
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.BaseTypes (
   Mismatch (..),
@@ -87,7 +87,6 @@ import Cardano.Ledger.Shelley.UTxO (produced)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
-import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
 import Control.Monad (when)
@@ -510,27 +509,30 @@ dijkstraUtxoTransition = do
             txBody
             (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
             (Conway.updateTreasuryDonation tx previousAccountingState)
-        withOutputs <-
-          Shelley.updateUTxOsAndInstantStakeWithTxBody
-            txBody
-            (\removed created -> tellEvent $ Alonzo.TxUTxODiff removed created)
-            withDeposits
-        pure $ withOutputs & asFeesL <>~ txBody ^. feeTxBodyL
+        let Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx (asUTxOStore withDeposits)
+        tellEvent $ Alonzo.TxUTxODiff consumedOutputs producedOutputs
+        pure $
+          withDeposits
+            { asUTxOStore = updatedStore
+            , asInstantStake =
+                updateInstantStake
+                  consumedOutputs
+                  producedOutputs
+                  (asInstantStake withDeposits)
+            , asFees = asFees withDeposits <> txBody ^. feeTxBodyL
+            }
       Phase2Invalid ->
         let settlement = DepositStore.collateralDepositSettlement previousUTxOStore txBody
-            removed =
-              IndexedUTxOs.txOuts
-                . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)
-                . allocations
-                $ utxoStore
-            created = collOuts txBody
+            Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx utxoStore
          in pure $
               previousAccountingState
-                { asUTxOStore = Store.projectTx tx utxoStore
+                { asUTxOStore = updatedStore
                 , asFees = asFees previousAccountingState <> DepositStore.collateralFee settlement
                 , asInstantStake =
-                    deleteInstantStake removed $
-                      addInstantStake (IndexedTxOs.txOuts created) (asInstantStake previousAccountingState)
+                    updateInstantStake
+                      consumedOutputs
+                      producedOutputs
+                      (asInstantStake previousAccountingState)
                 }
   pure ledgerState {lsAccountingState = accountingState}
 

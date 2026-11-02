@@ -12,6 +12,7 @@ module Cardano.Ledger.State.Accounting.InstantStake (
   EraStake (..),
   CanGetInstantStake (..),
   CanSetInstantStake (..),
+  updateInstantStake,
   resolveActiveInstantStakeCredentials,
 ) where
 
@@ -20,6 +21,8 @@ import Cardano.Ledger.Binary (DecShareCBOR (..), EncCBOR, Interns)
 import Cardano.Ledger.Coin (Coin, CompactForm)
 import Cardano.Ledger.Core (KeyRole (Staking), TxOut)
 import Cardano.Ledger.Credential (Credential)
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.State.Certificates.Account
 import Cardano.Ledger.State.Stake (ActiveStake, StakeWithDelegation (..))
 import Control.DeepSeq (NFData)
@@ -79,6 +82,18 @@ class CanGetInstantStake t where
 
 class CanGetInstantStake t => CanSetInstantStake t where
   instantStakeL :: Lens' (t era) (InstantStake era)
+
+-- | Apply the entries actually consumed and created by a Store update.
+-- Retained outputs, including ignored colliding proposals, contribute no change.
+updateInstantStake ::
+  EraStake era =>
+  IndexedUTxOs era ->
+  IndexedUTxOs era ->
+  InstantStake era ->
+  InstantStake era
+updateInstantStake consumed created =
+  deleteInstantStake (IndexedUTxOs.txOuts consumed)
+    . addInstantStake (IndexedUTxOs.txOuts created)
 
 -- | This is the total active stake including the rewards, but ignoring all the stake coming from
 -- the pointers. Where "active" stake means any stake credential that is registered and delegated to

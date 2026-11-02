@@ -16,6 +16,7 @@
 module Cardano.Ledger.State.Accounting.UTxOs.Store.Internals (
   -- * Model
   UTxOStore (..),
+  TxProjected (..),
 
   -- * Body projections
   projectValidTxBody,
@@ -63,6 +64,15 @@ data UTxOStore era = UTxOStore
   , allocations :: !(IndexedUTxOs era)
   }
 
+-- | Result of projecting one transaction body into the Store. Produced outputs
+-- are newly inserted entries; retained collisions are excluded. This result is
+-- not a ledger-admission verdict or an emitted event containing the whole Store.
+data TxProjected era = TxProjected
+  { updatedStore :: !(UTxOStore era)
+  , consumedOutputs :: !(IndexedUTxOs era)
+  , producedOutputs :: !(IndexedUTxOs era)
+  }
+
 -- Operations
 
 -- | Apply one body's regular input and output changes on the successful path.
@@ -70,15 +80,32 @@ data UTxOStore era = UTxOStore
 -- New outputs record the current calculation; releases use the stored entries.
 -- Retained entries take priority on key collisions in every era, matching the
 -- original output-map union.
-projectValidTxBody :: EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
-projectValidTxBody body = allocate (outputsTxBody body) . release (body ^. inputsTxBodyL)
+projectValidTxBody :: EraTxBody era => TxBody l era -> UTxOStore era -> TxProjected era
+projectValidTxBody body = project (body ^. inputsTxBodyL) (outputsTxBody body)
 
 -- | On phase-2 failure, release this body's collateral inputs and allocate its
 -- collateral return. Entries outside that input set remain untouched, and regular
 -- outputs are not allocated. Retained entries take priority on key collisions.
-projectInvalidTxBody :: EraTxBody era => TxBody TopTx era -> UTxOStore era -> UTxOStore era
-projectInvalidTxBody body =
-  allocate (collateralOutputsTxBody body) . release (body ^. collateralInputsTxBodyG)
+projectInvalidTxBody :: EraTxBody era => TxBody TopTx era -> UTxOStore era -> TxProjected era
+projectInvalidTxBody body = project (body ^. collateralInputsTxBodyG) (collateralOutputsTxBody body)
+
+-- | Project the selected inputs and proposed outputs, reporting only real changes.
+-- Inspect proposed references in the remaining Store to exclude retained entries.
+project :: EraTxOut era => Set TxIn -> IndexedTxOs era -> UTxOStore era -> TxProjected era
+project inputs proposedOutputs previousStore =
+  let remainingStore = release inputs previousStore
+      store = allocate proposedOutputs remainingStore
+      proposedOutputIds = IndexedTxOs.inputIds proposedOutputs
+      retained = IndexedUTxOs.restrictToInputs proposedOutputIds . allocations $ remainingStore
+   in TxProjected
+        { updatedStore = store
+        , consumedOutputs = IndexedUTxOs.restrictToInputs inputs . allocations $ previousStore
+        , producedOutputs =
+            IndexedUTxOs.withoutInputs (IndexedUTxOs.inputIds retained)
+              . IndexedUTxOs.restrictToInputs proposedOutputIds
+              . allocations
+              $ store
+        }
 
 -- | Allocate proposed outputs only at unoccupied references, recording their
 -- sizes and the current calculation. Existing entries and deposits are unchanged;

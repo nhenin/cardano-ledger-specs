@@ -82,6 +82,11 @@ selects collateral inputs and the return from the body. Both compose `allocate` 
 `allocate` preserves occupied references and their historical deposits in every
 era, matching the original map union. Reallocation requires release first. The earlier
 pre-Dijkstra-only collision filter was a refactoring mistake, now corrected.
+`projectTx` and both internal body projections return `TxProjected`, with named
+`updatedStore`, `consumedOutputs` and `producedOutputs` fields. `updateInstantStake`
+uses those entries; accounting rules install both results and emit only the entry
+changes. Retained colliding references are excluded from `producedOutputs` and
+from the added stake on both the regular and collateral paths.
 `State.Accounting.UTxOs.Unspent` holds each output's accepted `Sized` value and creation-time
 `DepositCalculation`. Selecting entries preserves this metadata.
 

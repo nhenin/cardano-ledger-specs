@@ -13,6 +13,7 @@ module Cardano.Ledger.State.Accounting.UTxOs.Store (
   mkUTxOStore,
 
   -- * Transaction projection
+  TxProjected (..),
   projectTx,
 
   -- * Calculation activation
@@ -23,7 +24,7 @@ import Cardano.Ledger.Core (EraTx (..), IsPhase2Valid (..), TxLevel (TopTx))
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (..), DepositCalculation)
 import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
-import Cardano.Ledger.State.Accounting.UTxOs.Store.Internals (UTxOStore (..))
+import Cardano.Ledger.State.Accounting.UTxOs.Store.Internals (TxProjected (..), UTxOStore (..))
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as Internals
 import Lens.Micro ((^.))
 
@@ -52,8 +53,9 @@ activateNewCalculation :: DepositCalculation -> UTxOStore era -> UTxOStore era
 activateNewCalculation calculation store = store {currentCalculation = calculation}
 
 -- | Project this TopTx's own Store effects according to its phase-2 validity tag.
+-- Return the updated Store and its actual consumed/produced entries.
 -- Validation and SubTx execution remain the ledger's responsibility.
-projectTx :: EraTx era => Tx TopTx era -> UTxOStore era -> UTxOStore era
+projectTx :: EraTx era => Tx TopTx era -> UTxOStore era -> TxProjected era
 projectTx tx =
   case tx ^. isPhase2ValidTxG of
     Phase2Valid -> Internals.projectValidTxBody (tx ^. bodyTxL)
