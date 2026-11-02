@@ -394,7 +394,7 @@ instance
     encodeListLen 2
       <> encCBOR lsCertState -- encode delegation state first to improve sharing
       <> encodeListLen 6
-      <> encodeUTxOStore asUTxOStore
+      <> encCBOR asUTxOStore
       <> encCBOR asDeposited
       <> encCBOR asFees
       <> encCBOR lsGovState

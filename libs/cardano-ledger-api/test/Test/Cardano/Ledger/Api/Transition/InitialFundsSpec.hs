@@ -93,7 +93,9 @@ initialFundsSpec = describe (eraName @era) $ do
   prop "disjoint initial funds preserve existing outputs and reconstruct stake from all outputs" $
     forAll (resize 0 $ arbitrary @(TransitionConfig era)) $ \transitionConfig -> do
       let existingOutput = mkCoinTxOut @era existingAddress (Coin 4)
-          previousStore = Store.fromLegacyAllocations $ Map.singleton existingInput existingOutput
+          previousStore =
+            Store.mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $
+              Map.singleton existingInput existingOutput
           previousState =
             def @(NewEpochState era)
               & utxoStoreL .~ previousStore
@@ -148,8 +150,10 @@ initialFundsSpec = describe (eraName @era) $ do
               & tcShelleyGenesisL %~ \genesis ->
                 genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
           previousStore =
-            Store.fromLegacyAllocations . Map.singleton existingInput $
-              mkCoinTxOut @era existingAddress (Coin 4)
+            Store.mkUTxOStore legacyDepositCalculation
+              . IndexedUTxOs.fromLegacyTxOuts
+              . Map.singleton existingInput
+              $ mkCoinTxOut @era existingAddress (Coin 4)
           previousState = def @(NewEpochState era) & utxoStoreL .~ previousStore
       fs <- simHasFS' MockFS.empty
       registerInitialFunds fs fundingConfig previousState

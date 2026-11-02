@@ -91,8 +91,10 @@ Genesis, translation and effective parameter changes initialize or update the ac
 calculation. Parameter updates preserve the selected V1/V2 formula version.
 `IndexedUTxOs.toIndexedTxOs` marks output-only views without altering stored history.
 
-Earlier-era collection/Store encodings keep their payload-map format and credential
-sharing. Their decoder reconstructs canonical legacy compatibility metadata, not
+Earlier-era `IndexedUTxOs` encodings retain ordinary payload-map CBOR for queries.
+The Store's `EncCBOR` instance owns MemPack snapshot encoding, preserving ledger
+snapshot bytes and credential sharing. Standalone Store encoding uses that same format.
+Their decoder reconstructs canonical legacy compatibility metadata, not
 original historical sizes. Dijkstra collections persist complete entries; the
 Dijkstra Store schema is `[currentCalculation, cachedTotal, completeEntries]`, including
 for an empty Store. The previous two-field Store snapshot is rejected because it lacks
@@ -1073,8 +1075,9 @@ and `allocations :: Allocations era` fields. `Allocations` maps each `TxIn` to
 These variants carry `LegacyTxOut era` and `Sized (NewTxOut era)` respectively.
 The output APIs use `EraLegacyTxOut`, `EraNewTxOut` and the corresponding builders;
 their implicit/store-backed business meaning is unchanged.
-At that revision the amount selector was `unspentOutputDepositsAmount`; empty-store construction and
-snapshot encoding use `emptyUTxOStore` and `encodeUTxOStore`.
+At that revision the amount selector was `unspentOutputDepositsAmount`; empty-store
+construction used `emptyUTxOStore` and snapshot encoding used `encodeUTxOStore`.
+The current API uses `mkEmptyUTxOStore` and the Store's `EncCBOR` instance respectively.
 
 At that revision `Cardano.Ledger.State.UTxOStore` contained both the `UTxOs` wrapper
 and the concrete Store model. Its `LegacyUTxOMap` child retained the `UTxO` type

@@ -75,6 +75,7 @@ import Cardano.Ledger.Shelley.Scripts (
  )
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (emptyFromByronTranslationContext)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.EpochInfo
 import qualified Data.ByteString as Strict
 import Data.Coerce (coerce)
@@ -235,7 +236,7 @@ exampleNewEpochState value ppp pp =
               { lsAccountingState =
                   AccountingState
                     { asUTxOStore =
-                        fromLegacyAllocations $
+                        mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $
                           Map.singleton
                             (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
                             (mkBasicLegacyTxOut addr value)

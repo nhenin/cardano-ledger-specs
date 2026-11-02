@@ -33,7 +33,7 @@ import Cardano.Ledger.Core (EraTxOut, KeyRole (Staking))
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.State.Accounting.InstantStake
 import Cardano.Ledger.State.Accounting.UTxOs (CanGetUTxOStore (..), CanSetUTxOStore (..))
-import Cardano.Ledger.State.Accounting.UTxOs.Store (UTxOStore, encodeUTxOStore)
+import Cardano.Ledger.State.Accounting.UTxOs.Store (UTxOStore)
 import Control.DeepSeq (NFData)
 import Data.Aeson (ToJSON, (.=))
 import Data.Default (Default (def))
@@ -81,7 +81,7 @@ instance NoThunks (InstantStake era) => NoThunks (AccountingState era)
 instance (EraTxOut era, EraStake era) => EncCBOR (AccountingState era) where
   encCBOR AccountingState {..} =
     encodeListLen 5
-      <> encodeUTxOStore asUTxOStore
+      <> encCBOR asUTxOStore
       <> encCBOR asDeposited
       <> encCBOR asFees
       <> encCBOR asInstantStake

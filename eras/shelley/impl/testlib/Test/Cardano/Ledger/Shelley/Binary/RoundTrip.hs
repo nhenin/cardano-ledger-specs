@@ -70,12 +70,16 @@ roundTripStateEraTypesSpec = do
       prop "preserves the original LedgerState snapshot layout before Dijkstra" $ \(state :: LedgerState era) ->
         forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
           serialize version state `shouldBe` serialize version (legacyLedgerStateEncoding state)
-      prop "preserves legacy output-map CBOR and JSON encodings" $ \(state :: AccountingState era) -> do
+      prop "preserves legacy Store snapshot bytes and plain query CBOR and JSON encodings" $ \(state :: AccountingState era) -> do
         let store = asUTxOStore state
-            outputs = IndexedUTxOs.mapTxOuts id . Store.allocations . asUTxOStore $ state
-        forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version ->
-          serialize version store `shouldBe` serialize version outputs
+            entries = Store.allocations store
+            outputs = IndexedUTxOs.mapTxOuts id entries
+        forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version -> do
+          serialize version store
+            `shouldBe` serialize version (encodeMap encodeMemPack encodeMemPack outputs)
+          serialize version entries `shouldBe` serialize version outputs
         Aeson.toJSON store `shouldBe` Aeson.toJSON outputs
+        Aeson.toJSON entries `shouldBe` Aeson.toJSON outputs
     roundTripEraTypeSpec @era @EpochState
     roundTripEraTypeSpec @era @NewEpochState
 

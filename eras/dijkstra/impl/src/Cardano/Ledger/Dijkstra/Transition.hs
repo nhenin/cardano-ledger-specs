@@ -35,7 +35,7 @@ import Cardano.Ledger.Shelley.Transition
 import Cardano.Ledger.State (
   DepositCalculation (..),
   certPStateL,
-  emptyUTxOStore,
+  mkEmptyUTxOStore,
   mkGoSnapShot,
   mkMarkSnapShot,
   mkSetSnapShot,
@@ -59,7 +59,7 @@ instance EraTransition DijkstraEra where
 
   mkTransitionConfig = DijkstraTransitionConfig
 
-  initialUTxOStore pp = emptyUTxOStore $ DepositCalculationV1 (pp ^. ppCoinsPerUTxOByteL)
+  initialUTxOStore pp = mkEmptyUTxOStore $ DepositCalculationV1 (pp ^. ppCoinsPerUTxOByteL)
 
   -- Genesis registrations bypass POOL, so restore their tracked VRF key hashes.
   injectIntoTestState hasFS cfg nes = do

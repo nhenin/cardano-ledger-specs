@@ -91,7 +91,7 @@ spec = describe "IndexedUTxOs metadata" $ do
         let proposed = outputsTxBody body
         proposed `shouldBe` IndexedTxOs.singleton input accepted
         producedTxOuts (mkBasicTx body) `shouldBe` proposed
-        let store = Store.update body (Store.emptyUTxOStore calculation)
+        let store = Store.update body (Store.mkEmptyUTxOStore calculation)
         Store.allocations store `shouldBe` expected
         IndexedUTxOs.toIndexedTxOs (Store.allocations store) `shouldBe` proposed
 
@@ -108,7 +108,7 @@ spec = describe "IndexedUTxOs metadata" $ do
           input = TxIn (txIdTxBody body) (TxIx 2)
       let proposed = producedTxOuts tx
       proposed `shouldBe` IndexedTxOs.singleton input accepted
-      let store = Store.allocate proposed (Store.emptyUTxOStore calculation)
+      let store = Store.allocate proposed (Store.mkEmptyUTxOStore calculation)
       Store.allocations store
         `shouldBe` IndexedUTxOs.singleton input Unspent {sizedOutput = accepted, depositCalculation = calculation}
 
@@ -169,7 +169,7 @@ legacyAllocationSpec = describe (eraName @era) $ do
               & sizedOutputsTxBodyL .~ SSeq.singleton supplied
               & sizedCollateralReturnTxBodyL .~ SJust supplied
       forM_ [outputsTxBody body, collOuts body] $ \proposed -> do
-        let store = Store.allocate proposed (Store.emptyUTxOStore calculation)
+        let store = Store.allocate proposed (Store.mkEmptyUTxOStore calculation)
         IndexedUTxOs.inputIds (Store.allocations store) `shouldBe` IndexedTxOs.inputIds proposed
         forM_ (IndexedUTxOs.unspentOutputs $ Store.allocations store) $ \entry -> do
           sizedOutput entry `shouldBe` canonical

@@ -104,7 +104,7 @@ import Cardano.Ledger.Conway.State (
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
   csCommitteeCredsL,
-  fromLegacyAllocations,
+  legacyDepositCalculation,
   psFutureStakePoolParamsL,
   psRetiringL,
   psStakePoolsL,
@@ -127,6 +127,8 @@ import Cardano.Ledger.Shelley.LedgerState (
   prevPParamsEpochStateL,
   totalObligation,
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxOut (TxOut (..))
 import Cardano.SCLS.Internal.Entry.ChunkEntry (
   ChunkEntry (ChunkEntry),
@@ -154,7 +156,11 @@ instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
             LegacyTxOut output -> Map.insert k output utxos
       )
       mempty
-      (\utxos -> nes & utxoStoreL .~ fromLegacyAllocations utxos)
+      ( \utxos ->
+          nes
+            & utxoStoreL
+              .~ (Store.mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $ utxos)
+      )
 
 instance ImportCanonicalNamespace ConwayEra "blocks/v0" where
   importNamespaceEntries nes =

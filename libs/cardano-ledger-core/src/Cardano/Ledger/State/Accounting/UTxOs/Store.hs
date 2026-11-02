@@ -18,7 +18,7 @@ module Cardano.Ledger.State.Accounting.UTxOs.Store (
   UTxOStore (currentCalculation, totalDepositAmount, allocations),
 
   -- * Construction
-  emptyUTxOStore,
+  mkEmptyUTxOStore,
   mkUTxOStore,
 
   -- * Updates
@@ -27,12 +27,6 @@ module Cardano.Ledger.State.Accounting.UTxOs.Store (
   updateWithCollateral,
   allocate,
   release,
-
-  -- * Legacy compatibility
-  fromLegacyAllocations,
-
-  -- * Serialization
-  encodeUTxOStore,
 ) where
 
 import Cardano.Ledger.Binary
@@ -55,7 +49,6 @@ import Control.DeepSeq (NFData (..))
 import Control.Monad (unless)
 import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Default (Default (def))
-import Data.Map.Strict (Map)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Lens.Micro ((^.))
@@ -72,8 +65,8 @@ data UTxOStore era = UTxOStore
 -- Operations
 
 -- | Start an empty Store with the calculation to record on future allocations.
-emptyUTxOStore :: DepositCalculation -> UTxOStore era
-emptyUTxOStore calculation =
+mkEmptyUTxOStore :: DepositCalculation -> UTxOStore era
+mkEmptyUTxOStore calculation =
   UTxOStore
     { currentCalculation = calculation
     , totalDepositAmount = DepositAmount {toCoin = mempty}
@@ -170,25 +163,10 @@ release inputs previousStore =
         , allocations = remainingAllocations
         }
 
--- Legacy compatibility
-
--- | Import legacy output payloads without historical deposit metadata.
--- Re-encoded size and V1 with a zero rate are NOT historical pricing inputs.
--- Legacy outputs contribute zero to the Store regardless of this metadata.
--- Outputs accepted in Dijkstra construct 'Unspent' directly, preserving
--- their actual accepted size and the calculation in force at creation.
-fromLegacyAllocations :: forall era. EraTxOut era => Map TxIn (LegacyTxOut era) -> UTxOStore era
-fromLegacyAllocations outputs =
-  UTxOStore
-    { currentCalculation = legacyDepositCalculation
-    , totalDepositAmount = DepositAmount {toCoin = mempty}
-    , allocations = IndexedUTxOs.fromLegacyTxOuts outputs
-    }
-
 -- Instances
 
 instance Default (UTxOStore era) where
-  def = emptyUTxOStore legacyDepositCalculation
+  def = mkEmptyUTxOStore legacyDepositCalculation
 
 deriving instance Eq (TxOut era) => Eq (UTxOStore era)
 
@@ -217,8 +195,11 @@ instance (Era era, ToJSON (TxOut era)) => ToJSON (UTxOStore era) where
           , "allocations" .= allocations store
           ]
 
+-- Store CBOR uses the snapshot format: MemPack inputs and output payloads,
+-- with accepted sizes and historical calculations retained for Dijkstra.
+-- IndexedUTxOs keeps its ordinary CBOR encoding for queries.
 instance EraTxOut era => EncCBOR (UTxOStore era) where
-  encCBOR = encodeStoreWith encCBOR encCBOR
+  encCBOR = encodeStoreWith encodeMemPack encodeMemPack
 
 instance EraTxOut era => DecCBOR (UTxOStore era) where
   decCBOR = decNoShareCBOR
@@ -244,11 +225,6 @@ instance EraTxOut era => ToCBOR (UTxOStore era) where
 
 instance EraTxOut era => FromCBOR (UTxOStore era) where
   fromCBOR = fromEraCBOR @era
-
--- | Ledger snapshots retain the usual MemPack output representation and encode
--- the original charged size separately. The ordinary Sized codec discards it.
-encodeUTxOStore :: forall era. EraTxOut era => UTxOStore era -> Encoding
-encodeUTxOStore = encodeStoreWith encodeMemPack encodeMemPack
 
 encodeStoreWith ::
   forall era.

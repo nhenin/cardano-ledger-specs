@@ -807,8 +807,8 @@ output sizes. `lookupUTxO`, `allocatedDepositTotalAmount` and
 Store construction consumes the aggregate `DepositAmount` directly.
 Consumers read `sizedOutput` and `depositCalculation`;
 the wrapped `TxOut` retains its `LegacyTxOut` or `NewTxOut` constructor.
-`emptyUTxOStore` creates the empty
-store, and `encodeUTxOStore` is the snapshot encoder.
+`mkEmptyUTxOStore` creates the empty Store. Its `EncCBOR` instance owns snapshot
+encoding; `IndexedUTxOs` retains ordinary CBOR for query results.
 Store-backed allocations remain present even when priced at zero. Earlier eras keep their legacy encodings and zero separately held deposits.
 `DepositCalculationV2` is accepted with the same provisional formula as V1.
 Genesis and translation initialize V1; rate updates preserve an already selected V1 or V2.
@@ -6781,19 +6781,23 @@ output with the same key, preserving the original legacy map-union behavior.
 
 **Legacy boundaries retain their formats.**
 
-- Before Dijkstra, collection and Store codecs retain the existing payload-map bytes
+- Before Dijkstra, `IndexedUTxOs` retains the ordinary payload-map CBOR used by queries.
+  `UTxOStore` uses MemPack inputs and output payloads, preserving ledger snapshot bytes
   and credential sharing. Decoding reconstructs canonical legacy metadata with zero
   separately held deposits; this is not recovered historical pricing.
 - Dijkstra collections encode complete entries as `TxIn → [output, acceptedSize, calculation]`.
   The Store encodes `[currentCalculation, cachedTotal, allocationMap]` and validates the total.
-  Snapshot encoding continues to retain MemPack output payloads plus explicit metadata.
+  Its `EncCBOR` instance retains MemPack inputs and output payloads plus explicit metadata.
+  Standalone Store encoding now uses this same snapshot format.
 - The retired standalone Dijkstra `TxOutMap` payload encoding cannot represent complete
   entries. Its replacement has the complete-entry format. The previous two-field Store
   snapshot is rejected: its active policy cannot be recovered from historical entries,
   especially when the Store is empty.
-- `fromLegacyAllocations` accepts only typed legacy outputs. Complete stored entries
-  are restored with `mkUTxOStore`, preserving their recorded size and calculation.
-  Era translations retain their legacy output translators and introduce no new ADA transfers.
+- Legacy import builds entries with `IndexedUTxOs.fromLegacyTxOuts`, then constructs
+  the Store with `mkUTxOStore legacyDepositCalculation`. Complete stored entries are
+  restored with `mkUTxOStore`, preserving their recorded size and calculation.
+  Store era translations delegate to the existing `TranslateEra` instance for
+  `IndexedUTxOs` and introduce no new ADA transfers.
 
 Stake updates still fold output payloads directly. Address inspection and witness verification
 remain in `Address` and `Keys.WitVKey`; neither belongs to the indexed collection.
