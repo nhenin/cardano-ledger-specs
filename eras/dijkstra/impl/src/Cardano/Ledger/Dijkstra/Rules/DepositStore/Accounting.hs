@@ -25,12 +25,10 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
   validateTopTxSettlement,
   validateSettlementOutput,
   validateOrdinaryDepositStore,
-  applyCollateralAllocations,
   CollateralDepositSettlement (..),
   collateralDepositSettlement,
 ) where
 
-import Cardano.Ledger.Babbage.Collateral (collOuts)
 import Cardano.Ledger.BaseTypes (TxIx, txIxToInt)
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), Sized (..))
 import Cardano.Ledger.Binary.Coders
@@ -285,17 +283,6 @@ validateSettlementOutput body index required =
        in failureUnless
             (supplied >= required)
             (InsufficientSettlementOutput (txIdTxBody body) index supplied required)
-
--- | On phase-2 failure, release only the collateral inputs and allocate the
--- collateral return. Ordinary TopTx/SubTx allocations remain untouched.
-applyCollateralAllocations ::
-  DijkstraEraTxBody era =>
-  TxBody TopTx era ->
-  UTxOStore era ->
-  UTxOStore era
-applyCollateralAllocations body =
-  Store.allocate (collOuts body)
-    . Store.release (body ^. collateralInputsTxBodyL)
 
 -- | Collateral funding distinguishes the coin-funded minimum fee from the
 -- complete fee credit. Released deposit surplus is credited to fees but cannot

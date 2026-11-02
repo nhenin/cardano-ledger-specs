@@ -85,6 +85,7 @@ import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
@@ -516,9 +517,8 @@ dijkstraUtxoTransition = do
             withDeposits
         pure $ withOutputs & asFeesL <>~ txBody ^. feeTxBodyL
       Phase2Invalid ->
-        let store = DepositStore.applyCollateralAllocations txBody utxoStore
-            settlement =
-              DepositStore.collateralDepositSettlement previousUTxOStore txBody
+        let store = Store.updateWithCollateral (txBody ^. collateralInputsTxBodyL) created utxoStore
+            settlement = DepositStore.collateralDepositSettlement previousUTxOStore txBody
             removed =
               IndexedUTxOs.txOuts
                 . IndexedUTxOs.restrictToInputs (txBody ^. collateralInputsTxBodyL)

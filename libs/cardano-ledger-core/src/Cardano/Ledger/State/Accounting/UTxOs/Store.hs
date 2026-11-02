@@ -24,6 +24,7 @@ module Cardano.Ledger.State.Accounting.UTxOs.Store (
   -- * Updates
   activateNewCalculation,
   update,
+  updateWithCollateral,
   allocate,
   release,
 
@@ -57,6 +58,7 @@ import Data.Aeson (ToJSON (..), object, (.=))
 import Data.Default (Default (def))
 import Data.Map.Strict (Map)
 import Data.Set (Set)
+import qualified Data.Set as Set
 import Lens.Micro ((^.))
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
@@ -100,17 +102,29 @@ activateNewCalculation calculation store = store {currentCalculation = calculati
 -- Earlier eras retain existing entries on key collisions, matching their
 -- original output-map union. Dijkstra uses 'allocate' replacement semantics.
 update :: forall era l. EraTxBody era => TxBody l era -> UTxOStore era -> UTxOStore era
-update body previousStore =
-  let remainingStore = release (body ^. inputsTxBodyL) previousStore
-      proposedOutputs = outputsTxBody body
-      created =
-        if eraProtVerLow @era < natVersion @12
-          then
-            IndexedTxOs.withoutInputs
-              (IndexedUTxOs.inputIds . allocations $ remainingStore)
-              proposedOutputs
-          else proposedOutputs
-   in allocate created remainingStore
+update body previousStore
+  | isBeforeDijkstra @era =
+      allocate
+        ( IndexedTxOs.withoutInputs
+            ((IndexedUTxOs.inputIds . allocations $ previousStore) Set.\\ (body ^. inputsTxBodyL))
+            (outputsTxBody body)
+        )
+        . release (body ^. inputsTxBodyL)
+        $ previousStore
+  | otherwise =
+      allocate (outputsTxBody body) . release (body ^. inputsTxBodyL) $ previousStore
+
+-- | On phase-2 failure, release the collateral inputs and allocate the indexed
+-- collateral return. The caller selects both from the transaction body;
+-- ordinary TopTx/SubTx allocations remain untouched.
+updateWithCollateral ::
+  EraTxOut era =>
+  Set TxIn ->
+  IndexedTxOs era ->
+  UTxOStore era ->
+  UTxOStore era
+updateWithCollateral collateralInputs collateralReturn =
+  allocate collateralReturn . release collateralInputs
 
 -- | Accept proposed outputs, recording their sizes and the current calculation.
 -- Earlier eras use canonical legacy metadata to match their payload-only state
@@ -127,7 +141,7 @@ allocate proposedOutputs previousStore =
       newAllocations =
         IndexedUTxOs.fromList
           [ ( input
-            , case (eraProtVerLow @era < natVersion @12, sizedValue output) of
+            , case (isBeforeDijkstra @era, sizedValue output) of
                 (True, LegacyTxOut legacy) -> Unspent.fromLegacyTxOut legacy
                 _ -> Unspent {sizedOutput = output, depositCalculation = calculation}
             )
@@ -212,7 +226,7 @@ deriving via
 
 instance (Era era, ToJSON (TxOut era)) => ToJSON (UTxOStore era) where
   toJSON store
-    | eraProtVerLow @era < natVersion @12 = toJSON . allocations $ store
+    | isBeforeDijkstra @era = toJSON . allocations $ store
     | otherwise =
         object
           [ "currentCalculation" .= currentCalculation store
@@ -229,7 +243,7 @@ instance EraTxOut era => DecCBOR (UTxOStore era) where
 instance EraTxOut era => DecShareCBOR (UTxOStore era) where
   type Share (UTxOStore era) = Interns (Credential Staking)
   decShareCBOR credentials
-    | eraProtVerLow @era < natVersion @12 =
+    | isBeforeDijkstra @era =
         mkUTxOStore legacyDepositCalculation <$> decShareCBOR credentials
     | otherwise = decodeRecordNamed "UTxOStore" (const 3) $ do
         calculation <- decCBOR
@@ -261,7 +275,7 @@ encodeStoreWith ::
   UTxOStore era ->
   Encoding
 encodeStoreWith encodeInput encodeOutput store
-  | eraProtVerLow @era < natVersion @12 = encodeEntries
+  | isBeforeDijkstra @era = encodeEntries
   | otherwise =
       encodeListLen 3
         <> encCBOR (currentCalculation store)
