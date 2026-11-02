@@ -33,8 +33,8 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Transition
 import Cardano.Ledger.State (
-  certPStateL,
   DepositCalculation (..),
+  certPStateL,
   emptyUTxOStore,
   mkGoSnapShot,
   mkMarkSnapShot,
@@ -65,11 +65,11 @@ instance EraTransition DijkstraEra where
   injectIntoTestState hasFS cfg nes = do
     initialized <- conwayInjectIntoTestState hasFS cfg nes
     let pp = initialized ^. nesEsL . curPParamsEpochStateL
-    pure $
-      seatInitialLeiosCommittee cfg
+    pure
+      $ seatInitialLeiosCommittee cfg
         . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
         . (utxoStoreL %~ activateDepositParameters pp)
-        $ initialized
+      $ initialized
 
   tcPreviousEraConfigL =
     lens dtcConwayTransitionConfig (\dtc pc -> dtc {dtcConwayTransitionConfig = pc})

@@ -44,7 +44,6 @@
 ### `testlib`
 
 * Add `Arbitrary` instance for `EbReferences`
-
 * Add `DijkstraEraForecast` superclass to `DijkstraEraImp`
 
 ## 0.4.0.0

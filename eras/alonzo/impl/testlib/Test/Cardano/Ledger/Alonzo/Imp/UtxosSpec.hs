@@ -231,7 +231,7 @@ spec = describe "UTXOS" $ do
               plutusScript = purposeIsWellformedNoDatum slang
               sh = hashPlutusScript plutusScript
               addr = mkAddr (ScriptHashObj @Payment sh) sCred
-              txOut = mkBasicTxOut addr (inject val)
+              txOut = mkBasicTxOutWithImplicitDeposit addr (inject val)
             tx <-
               submitTxAnn "Produce script-locked output" $
                 mkBasicTx mkBasicTxBody

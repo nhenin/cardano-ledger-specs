@@ -84,15 +84,14 @@ library
     Cardano.Ledger.Rewards
     Cardano.Ledger.Rules.ValidationMode
     Cardano.Ledger.Slot
-    Cardano.Ledger.UTxO
     Cardano.Ledger.State
     Cardano.Ledger.State.Accounting
     Cardano.Ledger.State.Accounting.InstantStake
     Cardano.Ledger.State.Accounting.UTxOs
-    Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs
-    Cardano.Ledger.State.Accounting.UTxOs.Unspent
     Cardano.Ledger.State.Accounting.UTxOs.Deposit
+    Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs
     Cardano.Ledger.State.Accounting.UTxOs.Store
+    Cardano.Ledger.State.Accounting.UTxOs.Unspent
     Cardano.Ledger.State.Certificates
     Cardano.Ledger.State.Certificates.Account
     Cardano.Ledger.State.Certificates.StakePool
@@ -107,6 +106,7 @@ library
     Cardano.Ledger.TxIn
     Cardano.Ledger.TxOut
     Cardano.Ledger.TxOut.IndexedTxOs
+    Cardano.Ledger.UTxO
     Cardano.Ledger.Val
 
   hs-source-dirs: src
@@ -336,9 +336,9 @@ test-suite tests
     Test.Cardano.Ledger.BinarySpec
     Test.Cardano.Ledger.JsonSpec
     Test.Cardano.Ledger.PlutusSpec
+    Test.Cardano.Ledger.State.Certificates.StakePoolSpec
     Test.Cardano.Ledger.State.Epoch.LeiosCommitteeSpec
     Test.Cardano.Ledger.State.Epoch.SnapShotsSpec
-    Test.Cardano.Ledger.State.Certificates.StakePoolSpec
     Test.Cardano.Ledger.StorableSpec
     Test.Cardano.Ledger.StrictlyPositiveCoinSpec
     Test.Cardano.Ledger.ToolsSpec
