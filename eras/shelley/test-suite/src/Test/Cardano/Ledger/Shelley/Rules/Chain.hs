@@ -64,7 +64,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEpochStateL,
   nesStakePoolDistrG,
   prevPParamsEpochStateL,
-  smartUTxOState,
+  smartAccountingState,
   updateNES,
  )
 import Cardano.Ledger.Shelley.Rules (
@@ -189,7 +189,7 @@ initialShelleyState ::
   ) =>
   WithOrigin LastAppliedBlock ->
   EpochNo ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Coin ->
   Map (KeyHash GenesisRole) GenDelegPair ->
   PParams era ->
@@ -207,15 +207,15 @@ initialShelleyState lab e utxo reserves genDelegs pp initNonce =
               , casReserves = reserves
               }
             ( LedgerState
-                ( smartUTxOState
+                ( smartAccountingState
                     pp
                     utxo
                     (Coin 0)
                     (Coin 0)
-                    emptyGovState
                     mempty
                 )
                 (def & certDStateL .~ dState)
+                emptyGovState
             )
             emptySnapShots
             def
@@ -346,7 +346,7 @@ chainTransition =
             NewEpochState e2 _ bcur es _ _ = nes'
         let EpochState account ls _ _ = es
             pp' = es ^. curPParamsEpochStateL
-        let LedgerState _ certState = ls
+        let LedgerState _ certState _ = ls
             genDelegs = certState ^. certDStateL . dsGenDelegsL
             ph = lastAppliedHash lab
             etaPH = prevHashToNonce ph

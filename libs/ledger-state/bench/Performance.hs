@@ -16,7 +16,7 @@ import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.API.Mempool
 import Cardano.Ledger.Shelley.API.Validation
-import Cardano.Ledger.Shelley.API.Wallet (getFilteredUTxO, getUTxO)
+import Cardano.Ledger.Shelley.API.Wallet (getFilteredIndexedUTxOs, getIndexedUTxOs)
 import Cardano.Ledger.Shelley.Genesis (
   ShelleyGenesis (..),
   fromNominalDiffTimeMicro,
@@ -25,8 +25,10 @@ import Cardano.Ledger.Shelley.Genesis (
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Slot
 import Cardano.Ledger.State
-import Cardano.Ledger.State.UTxO (CurrentEra, readHexUTxO, readNewEpochState)
-import Cardano.Ledger.Val
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as UTxO
+import Cardano.Ledger.State.UTxO (CurrentEra, readHexIndexedUTxOs, readNewEpochState)
+import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.DeepSeq
@@ -64,16 +66,17 @@ main = do
 
   mUtxo <- forM mUtxoFilePath $ \utxoFilePath -> do
     putStrLn $ "Importing UTxO from: " ++ show utxoFilePath
-    utxo <- readHexUTxO utxoFilePath
+    utxo <- readHexIndexedUTxOs utxoFilePath
     utxo <$ putStrLn "Done importing UTxO"
 
   genesis <- either error id <$> eitherDecodeFileStrict' genesisFilePath
 
-  let newEpochState = case mUtxo of
-        Nothing -> nesFromFile
-        Just utxoFromFile -> nesFromFile & utxoL .~ utxoFromFile
-      utxo = newEpochState ^. utxoL
-      utxoMap = unUTxO utxo
+  newEpochState <- case mUtxo of
+    Nothing -> pure nesFromFile
+    Just utxoFromFile ->
+      pure $ nesFromFile & utxoStoreL .~ mkUTxOStore legacyDepositCalculation utxoFromFile
+  let storeAllocations = allocations (newEpochState ^. utxoStoreG)
+      utxoMap = unIndexedUTxOs storeAllocations
       utxoSize = Map.size utxoMap
       largeKeysNum = 100000
       stdGen = mkStdGen 2022
@@ -163,26 +166,27 @@ main = do
                            -- TODO: revert this to `foldl'` without `fmap` after tx's are fixed
                            . whnf (F.foldlM (\ms -> fmap fst . applyTx' mempoolEnv ms) mempoolState)
                      ]
-             , env (pure utxo) $ \utxo' ->
+             , env (pure storeAllocations) $ \entries ->
                  bgroup
                    "UTxO"
-                   [ bench "sumUTxO" $ nf sumUTxO utxo'
-                   , bench "sumCoinUTxO" $ nf sumCoinUTxO utxo'
+                   [ bench "sumAllAssets" $ nf (sumAllAssets . IndexedUTxOs.txOuts) entries
+                   , bench "sumAllCoin" $ nf (sumAllCoin . IndexedUTxOs.txOuts) entries
                    , -- We need to filter out all multi-assets to prevent `areAllAdaOnly`
                      -- from short circuiting and producing results that are way better
                      -- than the worst case
-                     env (pure $ Map.filter (\txOut -> isAdaOnly (txOut ^. valueTxOutL)) $ unUTxO utxo') $
-                       bench "areAllAdaOnly" . nf areAllAdaOnly
+                     env (pure . filter ((^. isAdaOnlyTxOutF) . UTxO.toTxOut) . unspentOutputs $ entries) $
+                       bench "areAllAdaOnly" . nf (areAllAdaOnly . fmap UTxO.toTxOut)
                    ]
              , env (pure newEpochState) $ \nes ->
-                 let (_, minTxOut) = Map.findMin utxoMap
-                     (_, maxTxOut) = Map.findMax utxoMap
+                 let minTxOut = UTxO.toTxOut . snd . Map.findMin $ utxoMap
+                     maxTxOut = UTxO.toTxOut . snd . Map.findMax $ utxoMap
                      setAddr =
                        Set.fromList [minTxOut ^. addrTxOutL, maxTxOut ^. addrTxOutL]
                   in bgroup
                        "MinMaxTxId"
-                       [ env (pure setAddr) $ bench "getFilteredNewUTxO" . nf (getFilteredUTxO nes)
-                       , env (pure setAddr) $ bench "getFilteredOldUTxO" . nf (getFilteredOldUTxO nes)
+                       [ env (pure setAddr) $ bench "getFilteredIndexedUTxOs" . nf (getFilteredIndexedUTxOs nes)
+                       , env (pure setAddr) $
+                           bench "getFilteredIndexedUTxOsBaseline" . nf (getFilteredIndexedUTxOsBaseline nes)
                        ]
              ]
          , utxoSize > 0
@@ -300,16 +304,17 @@ mkGlobals genesis =
         (sgEpochLength genesis)
         (mkSlotLength . fromNominalDiffTimeMicro . sgSlotLength $ genesis)
 
-getFilteredOldUTxO ::
+-- Keep the original output-map filter as the benchmark's comparison baseline.
+getFilteredIndexedUTxOsBaseline ::
   EraTxOut era =>
   NewEpochState era ->
   Set Addr ->
-  UTxO era
-getFilteredOldUTxO ss addrs =
-  UTxO $
-    Map.filter (\txOut -> (txOut ^. compactAddrTxOutL) `Set.member` addrSBSs) fullUTxO
+  IndexedUTxOs era
+getFilteredIndexedUTxOsBaseline ss addrs =
+  IndexedUTxOs $
+    Map.filter (\entry -> (UTxO.toTxOut entry ^. compactAddrTxOutL) `Set.member` addrSBSs) fullUTxO
   where
-    UTxO fullUTxO = getUTxO ss
+    IndexedUTxOs fullUTxO = getIndexedUTxOs ss
     addrSBSs = Set.map compactAddr addrs
 
 seqTuple :: (a, b) -> (a, b)

@@ -65,6 +65,7 @@ import Cardano.Ledger.Dijkstra.Scripts (
   pattern RequireGuard,
  )
 import Cardano.Ledger.Dijkstra.UTxO
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.Shelley.API (mkStAnnTx)
 import Cardano.Ledger.Shelley.LedgerState
@@ -105,7 +106,12 @@ instance ShelleyEraImp DijkstraEra where
 
   impSatisfyNativeScript = impDijkstraSatisfyNativeScript
 
-  modifyPParams = conwayModifyPParams
+  -- Direct test parameter updates model the same activation boundary as an epoch.
+  -- Historical allocations keep their creation calculation.
+  modifyPParams f = do
+    conwayModifyPParams f
+    parameters <- getsPParams id
+    modifyNES $ utxoStoreL %~ activateDepositParameters parameters
 
   fixupTx = dijkstraFixupTx
   expectTxSuccess = impBabbageExpectTxSuccess
@@ -424,8 +430,8 @@ detectLegacyMode ::
 detectLegacyMode tx = do
   Globals {systemStart, epochInfo} <- gets (^. impGlobalsL)
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getUTxO
-  let stAnnTx = mkStAnnTx epochInfo systemStart pp utxo mempty tx
+  entries <- getIndexedUTxOs
+  let stAnnTx = mkStAnnTx epochInfo systemStart pp entries mempty tx
   pure $ stAnnTx ^. plutusLegacyModeStAnnTxG
 
 -- | Add a collateral input to the top-level transaction when a
@@ -496,11 +502,11 @@ balanceSubTransactions ::
 balanceSubTransactions topTx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   pools <- Map.keysSet <$> getsNES (nesEsL . epochStateStakePoolsL)
-  utxo <- getUTxO
+  entries <- getIndexedUTxOs
   let
     subTransactions = topTx ^. bodyTxL . subTransactionsTxBodyL
     subsCerts = foldMap' (^. bodyTxL . certsTxBodyL) subTransactions
-    subsConsumed = coin $ foldMap' (dijkstraConsumed pp utxo . (^. bodyTxL)) subTransactions
+    subsConsumed = coin $ foldMap' (dijkstraConsumed pp entries . (^. bodyTxL)) subTransactions
     subsProduced =
       foldMap' (coin . localProducedValue pp . (^. bodyTxL)) subTransactions
         <> getTotalDepositsTxCerts pp (`Set.member` pools) subsCerts
@@ -527,10 +533,12 @@ mkBalancerSubTx consumed produced = do
           GT -> (consumed <-> produced, mempty)
           LT -> (mempty, produced <-> consumed)
         -- a buffer to make both the input UTxO and the change output satisfy minCoin. It's added on both sides, so it cancels out.
-        minChangeCoin = ensureMinCoinTxOut pp (mkBasicTxOut addr mempty) ^. coinTxOutL
+        minChangeCoin =
+          LegacyTxOut (ensureMinCoinTxOut pp (mkBasicLegacyTxOut addr mempty))
+            ^. coinTxOutL
         inputCoin = minChangeCoin <> shortfall
         changeCoin = minChangeCoin <> surplus
-        changeOut = mkBasicTxOut addr (inject changeCoin)
+        changeOut = mkBasicTxOutWithImplicitDeposit addr (inject changeCoin)
       newTxIn <- withFixup fixupTx $ sendCoinTo addr inputCoin
       let subTx =
             mkBasicTx mkBasicTxBody

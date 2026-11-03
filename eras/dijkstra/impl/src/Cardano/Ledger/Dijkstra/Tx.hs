@@ -40,7 +40,6 @@ import Cardano.Ledger.Alonzo.Plutus.Context (
  )
 import Cardano.Ledger.Alonzo.Tx (
   AlonzoEraTx,
-  IsPhase2Valid (..),
  )
 import Cardano.Ledger.Alonzo.TxWits (AlonzoEraTxWits (..), unRedeemersL)
 import Cardano.Ledger.BaseTypes (StrictMaybe (..), ToKeyValuePairs (..), integralToBounded)
@@ -234,6 +233,9 @@ instance EraTx DijkstraEra where
 
   bodyTxL = dijkstraTxL . bodyDijkstraTxL
   {-# INLINE bodyTxL #-}
+
+  isPhase2ValidTxG = isPhase2ValidTxL
+  {-# INLINE isPhase2ValidTxG #-}
 
   witsTxL = dijkstraTxL . witsDijkstraTxL
   {-# INLINE witsTxL #-}

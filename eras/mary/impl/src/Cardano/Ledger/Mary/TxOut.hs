@@ -1,11 +1,17 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE EmptyCase #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Cardano.Ledger.Mary.TxOut (scaledMinDeposit) where
 
+import Cardano.Ledger.Binary (DecCBOR (..), DecShareCBOR (..), EncCBOR (..), Interns)
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Core
+import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Mary.Era (MaryEra)
 import Cardano.Ledger.Mary.PParams ()
 import Cardano.Ledger.Shelley.TxOut (
@@ -14,23 +20,79 @@ import Cardano.Ledger.Shelley.TxOut (
   valueEitherShelleyTxOutL,
  )
 import Cardano.Ledger.Val (Val (isAdaOnly, size), injectCompact)
+import Control.DeepSeq (NFData (rnf))
+import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Coerce (coerce)
-import Lens.Micro ((^.))
+import Data.Function (on)
+import Data.MemPack (MemPack (..))
+import Lens.Micro (lens, (^.))
+import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 instance EraTxOut MaryEra where
-  type TxOut MaryEra = ShelleyTxOut MaryEra
+  type LegacyTxOut MaryEra = ShelleyTxOut MaryEra
+  type NewTxOut MaryEra = NoNewTxOut MaryEra
 
-  mkBasicTxOut = ShelleyTxOut
+  upgradeTxOut (LegacyTxOut (TxOutCompact addr cfval)) =
+    LegacyTxOut $ TxOutCompact (coerce addr) (injectCompact cfval)
 
-  upgradeTxOut (TxOutCompact addr cfval) = TxOutCompact (coerce addr) (injectCompact cfval)
-
-  addrEitherTxOutL = addrEitherShelleyTxOutL
+  addrEitherTxOutL =
+    lens maryTxOut (const LegacyTxOut) . addrEitherShelleyTxOutL
   {-# INLINE addrEitherTxOutL #-}
+
+instance EraLegacyTxOut MaryEra where
+  mkBasicLegacyTxOut = ShelleyTxOut
 
   valueEitherTxOutL = valueEitherShelleyTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinTxOut pp txOut = scaledMinDeposit (txOut ^. valueTxOutL) (pp ^. ppMinUTxOValueL)
+
+instance EraNewTxOut MaryEra where
+  mkBasicNewTxOut = notSupportedInThisEra
+
+  applicationAssetsTxOutL _ unavailable = case unavailable of {}
+
+-- | Private: recover the historical representation from Mary's only supported variant.
+maryTxOut :: TxOut MaryEra -> ShelleyTxOut MaryEra
+maryTxOut (LegacyTxOut output) = output
+{-# INLINE maryTxOut #-}
+
+-- The wrapper retains the historical instances and encodings without a variant tag.
+instance Eq (TxOut MaryEra) where
+  (==) = (==) `on` maryTxOut
+
+instance Ord (TxOut MaryEra) where
+  compare = compare `on` maryTxOut
+
+instance Show (TxOut MaryEra) where
+  showsPrec precedence = showsPrec precedence . maryTxOut
+
+instance NFData (TxOut MaryEra) where
+  rnf = rnf . maryTxOut
+
+deriving via InspectHeapNamed "TxOut" (TxOut MaryEra) instance NoThunks (TxOut MaryEra)
+
+instance EncCBOR (TxOut MaryEra) where
+  encCBOR = encCBOR . maryTxOut
+
+instance DecCBOR (TxOut MaryEra) where
+  decCBOR = LegacyTxOut <$> decCBOR
+
+instance DecShareCBOR (TxOut MaryEra) where
+  type Share (TxOut MaryEra) = Interns (Credential Staking)
+  decShareCBOR = fmap LegacyTxOut . decShareCBOR
+
+instance MemPack (TxOut MaryEra) where
+  packedByteCount = packedByteCount . maryTxOut
+  packM = packM . maryTxOut
+  unpackM = LegacyTxOut <$> unpackM
+
+instance ToJSON (TxOut MaryEra) where
+  toJSON = toJSON . maryTxOut
+  toEncoding = toEncoding . maryTxOut
+
+instance FromJSON (TxOut MaryEra) where
+  parseJSON = fmap LegacyTxOut . parseJSON
 
 -- | The `scaledMinDeposit` calculation uses the minUTxOValue protocol parameter
 -- (passed to it as Coin mv) as a specification of "the cost of making a

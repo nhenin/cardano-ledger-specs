@@ -33,7 +33,6 @@ import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Scripts (
   AccountBalanceIntervals (..),
  )
-import Cardano.Ledger.Dijkstra.State (UTxO (..))
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError (..))
 import Cardano.Ledger.Plutus (
   Language (..),
@@ -61,7 +60,7 @@ import Lens.Micro ((&), (.~))
 import qualified PlutusLedgerApi.V4 as PV4
 import Test.Cardano.Ledger.Alonzo.Era (mkTestLedgerTxInfo)
 import Test.Cardano.Ledger.Common
-import Test.Cardano.Ledger.Core.Utils (testGlobals)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs, testGlobals)
 import Test.Cardano.Ledger.Dijkstra.Arbitrary ()
 import qualified Test.Cardano.Ledger.Plutus.Examples as Plutus
 
@@ -100,14 +99,14 @@ spec = describe "TxInfo" $ do
       ptr <- arbitrary
       val <- arbitrary
       let
-        txOut = mkBasicTxOut (Addr Testnet paymentCred (StakeRefPtr ptr)) val
+        txOut = mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred (StakeRefPtr ptr)) val
       txIn <- arbitrary
       paymentCred2 <- arbitrary
       stakeRef <- oneof [StakeRefBase <$> arbitrary, pure StakeRefNull]
       let
         utxo =
-          UTxO
-            [ (txIn, mkBasicTxOut (Addr Testnet paymentCred2 stakeRef) val)
+          legacyIndexedUTxOs
+            [ (txIn, mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef) val)
             ]
         tx =
           mkBasicTx @era @TopTx $
@@ -127,9 +126,9 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOut (AddrBootstrap ba0) val0
-          , mkBasicTxOut (Addr Testnet paymentCred StakeRefNull) val1
-          , mkBasicTxOut (AddrBootstrap ba2) val2
+          [ mkBasicTxOutWithImplicitDeposit (AddrBootstrap ba0) val0
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred StakeRefNull) val1
+          , mkBasicTxOutWithImplicitDeposit (AddrBootstrap ba2) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
         ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
@@ -147,9 +146,9 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOut (Addr Testnet pc0 (StakeRefPtr ptr0)) val0
-          , mkBasicTxOut (AddrBootstrap bootstrapAddr) val1
-          , mkBasicTxOut (Addr Testnet pc2 (StakeRefPtr ptr2)) val2
+          [ mkBasicTxOutWithImplicitDeposit (Addr Testnet pc0 (StakeRefPtr ptr0)) val0
+          , mkBasicTxOutWithImplicitDeposit (AddrBootstrap bootstrapAddr) val1
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet pc2 (StakeRefPtr ptr2)) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
         ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
@@ -165,9 +164,9 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOut (Addr Testnet pc0 StakeRefNull) val0
-          , mkBasicTxOut (Addr Testnet pc1 StakeRefNull) val1
-          , mkBasicTxOut (Addr Testnet pc2 StakeRefNull) val2
+          [ mkBasicTxOutWithImplicitDeposit (Addr Testnet pc0 StakeRefNull) val0
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet pc1 StakeRefNull) val1
+          , mkBasicTxOutWithImplicitDeposit (Addr Testnet pc2 StakeRefNull) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
         ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
@@ -193,12 +192,12 @@ spec = describe "TxInfo" $ do
           proxy = Proxy @PlutusV4
           scriptHash = hashPlutusScript plutusScript
           paymentCred2 = ScriptHashObj scriptHash
-          txOut = mkBasicTxOut (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
+          txOut = mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
           utxo =
-            UTxO
+            legacyIndexedUTxOs
               [
                 ( txIn
-                , mkBasicTxOut (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)
+                , mkBasicTxOutWithImplicitDeposit (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)
                 )
               ]
           tx =

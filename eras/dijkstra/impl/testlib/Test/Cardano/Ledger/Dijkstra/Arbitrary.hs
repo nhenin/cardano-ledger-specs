@@ -43,6 +43,8 @@ import Cardano.Ledger.Dijkstra.Tx (DijkstraTx (..), Tx (..))
 import Cardano.Ledger.Dijkstra.TxBody (TxBody (..))
 import Cardano.Ledger.Dijkstra.TxCert
 import Cardano.Ledger.Dijkstra.TxInfo (DijkstraContextError)
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (Language (..))
 import Cardano.Ledger.Shelley.Scripts (pattern RequireSignature)
 import Data.Functor.Identity (Identity)
@@ -65,6 +67,21 @@ instance Arbitrary (DijkstraPParams Identity DijkstraEra) where
 instance Arbitrary (DijkstraPParams StrictMaybe DijkstraEra) where
   arbitrary = genericArbitraryU
 
+instance Arbitrary (TxOut DijkstraEra) where
+  arbitrary =
+    oneof
+      [ LegacyTxOut <$> arbitrary
+      , ( \address assets datum script ->
+            mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets assets)
+              & datumTxOutL .~ datum
+              & referenceScriptTxOutL .~ script
+        )
+          <$> arbitrary
+          <*> scale (`div` 15) arbitrary
+          <*> arbitrary
+          <*> arbitrary
+      ]
+
 instance Arbitrary (TxBody SubTx DijkstraEra) where
   arbitrary =
     DijkstraSubTxBody
@@ -76,6 +93,7 @@ instance Arbitrary (TxBody SubTx DijkstraEra) where
       <*> scale (`div` 15) arbitrary
       <*> arbitrary
       <*> scale (`div` 15) arbitrary
+      <*> arbitrary
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
@@ -114,6 +132,31 @@ instance Arbitrary (TxBody TopTx DijkstraEra) where
       <*> arbitrary
       <*> arbitrary
       <*> arbitrary
+      <*> arbitrary
+
+instance Arbitrary SubTxReleaseTarget where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary SubTxNetUTxODepositChange where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary NetUTxODepositChange where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary TopTx.TopTxUTxODepositDeclaration where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary SubTx.SubTxUTxODepositDeclaration where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
+
+instance Arbitrary TopTxReleaseSettlement where
+  arbitrary = genericArbitraryU
+  shrink = genericShrink
 
 instance Arbitrary (UpgradeDijkstraPParams Identity DijkstraEra) where
   arbitrary =
@@ -428,3 +471,6 @@ instance Arbitrary EbReferences where
       . filter (not . SimpleOMap.null)
       . shrink
       . getEbReferences
+
+instance Arbitrary DepositStoreAccountingFailure where
+  arbitrary = genericArbitraryU

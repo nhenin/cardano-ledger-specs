@@ -22,12 +22,11 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   UtxoEnv (..),
   ShelleyUtxoPredFailure (..),
   UtxoEvent (..),
+  emitAccountingEvents,
   validSizeComputationCheck,
-  updateUTxOState,
-  updateUTxOStateDeposits,
-  updateUTxOAndInstantStake,
 
   -- * Validations
+  validateImplicitDeposit,
   validateInputSetEmptyUTxO,
   validateFeeTooSmallUTxO,
   validateBadInputsUTxO,
@@ -47,7 +46,7 @@ import Cardano.Ledger.BaseTypes (
   Network,
   Relation (..),
   ShelleyBase,
-  StrictMaybe,
+  StrictMaybe (..),
   networkId,
  )
 import Cardano.Ledger.Binary
@@ -69,8 +68,10 @@ import Cardano.Ledger.Shelley.Rules.Reports (showTxCerts)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.Val ((<->))
+import Cardano.Ledger.TxOut (sumAllAssets)
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq
 import Control.Monad.Trans.Reader (asks)
@@ -78,6 +79,8 @@ import Control.State.Transition (
   Assertion (..),
   AssertionViolation (..),
   Embed,
+  Rule,
+  RuleType (Transition),
   STS (..),
   TRC (..),
   TransitionRule,
@@ -90,10 +93,10 @@ import Control.State.Transition (
   wrapEvent,
   wrapFailed,
  )
+import Data.Coerce (coerce)
 import Data.Foldable as F (foldl', toList)
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
-import Data.MapExtras (extractKeys)
 import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
@@ -146,12 +149,12 @@ instance (Era era, NFData (PParams era), NFData (CertState era)) => NFData (Utxo
 data UtxoEvent era
   = TotalDeposits (SafeHash EraIndependentTxBody) Coin
   | UpdateEvent (Event (EraRule "PPUP" era))
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
-      (UTxO era)
-      -- | UTxO created
-      (UTxO era)
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
+      (IndexedUTxOs era)
+      -- | Created entries from the updated Store, including their recorded calculation.
+      (IndexedUTxOs era)
   deriving (Generic)
 
 deriving instance
@@ -162,6 +165,22 @@ deriving instance
   Eq (UtxoEvent era)
 
 instance (Era era, NFData (Event (EraRule "PPUP" era)), NFData (TxOut era)) => NFData (UtxoEvent era)
+
+-- | Emit the deposit change followed by actual output changes on success.
+-- Invalid projections return their collateral-updated state without either event.
+emitAccountingEvents ::
+  (EraTx era, Event (EraRule "UTXO" era) ~ UtxoEvent era) =>
+  Tx TopTx era ->
+  Accounting.TxProjected era ->
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.AccountingState era)
+emitAccountingEvents tx projection = do
+  case tx ^. isPhase2ValidTxG of
+    Phase2Valid -> do
+      tellEvent $ TotalDeposits (hashAnnotated $ tx ^. bodyTxL) (Accounting.depositChange projection)
+      tellEvent $
+        TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
+    Phase2Invalid -> pure ()
+  pure $ Accounting.updatedAccountingState projection
 
 data ShelleyUtxoPredFailure era
   = BadInputsUTxO
@@ -268,6 +287,7 @@ instance
 
 instance
   ( EraTx era
+  , Accounting.EraAccounting era
   , EraUTxO era
   , EraStake era
   , ShelleyEraTxBody era
@@ -287,7 +307,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase
@@ -300,7 +320,12 @@ instance
     AssertionViolation
       { avSTS
       , avMsg
-      , avCtx = TRC (UtxoEnv _slot pp certState, UTxOState {utxosDeposited, utxosUtxo}, stAnnTx)
+      , avCtx =
+        TRC
+          ( UtxoEnv _slot pp certState
+            , ledgerState@LedgerState {lsAccountingState = AccountingState {asDeposited}}
+            , stAnnTx
+            )
       } =
       let tx = stAnnTx ^. txStAnnTxG
        in "AssertionViolation ("
@@ -312,25 +337,37 @@ instance
             <> "\n Certs\n"
             <> showTxCerts (tx ^. bodyTxL)
             <> "\n Deposits\n"
-            <> show utxosDeposited
+            <> show asDeposited
             <> "\n Consumed\n"
-            <> show (consumedTxBody (tx ^. bodyTxL) pp certState utxosUtxo)
+            <> show
+              ( consumedTxBody
+                  (tx ^. bodyTxL)
+                  pp
+                  certState
+                  ( IndexedUTxOs.restrictToInputs
+                      (tx ^. bodyTxL . inputsTxBodyL)
+                      (allocations . asUTxOStore . lsAccountingState $ ledgerState)
+                  )
+              )
             <> "\n Produced\n"
             <> show (producedTxBody (tx ^. bodyTxL) pp certState)
 
   assertions =
     [ PreCondition
         "Deposit pot must not be negative (pre)"
-        (\(TRC (_, st, _)) -> utxosDeposited st >= mempty)
+        (\(TRC (_, st, _)) -> (asDeposited . lsAccountingState $ st) >= mempty)
     , PostCondition
         "UTxO must increase fee pot"
-        (\(TRC (_, st, _)) st' -> utxosFees st' >= utxosFees st)
+        (\(TRC (_, st, _)) st' -> (asFees . lsAccountingState $ st') >= (asFees . lsAccountingState $ st))
     , PostCondition
         "Deposit pot must not be negative (post)"
-        (\_ st' -> utxosDeposited st' >= mempty)
-    , let utxoBalance us = Val.inject (utxosDeposited us <> utxosFees us) <> sumUTxO (utxosUtxo us)
+        (\_ st' -> (asDeposited . lsAccountingState $ st') >= mempty)
+    , let utxoBalance ledgerState =
+            let us = lsAccountingState ledgerState
+             in Val.inject (asDeposited us <> asFees us)
+                  <> coerce (sumAllAssets . IndexedUTxOs.txOuts . allocations . asUTxOStore $ us)
           withdrawals :: TxBody TopTx era -> Value era
-          withdrawals txb = Val.inject $ F.foldl' (<>) mempty $ unWithdrawals $ txb ^. withdrawalsTxBodyL
+          withdrawals txb = Val.inject . F.foldl' (<>) mempty . unWithdrawals $ txb ^. withdrawalsTxBodyL
        in PostCondition
             "Should preserve value in the UTxO state"
             ( \(TRC (_, us, stAnnTx)) us' ->
@@ -343,6 +380,7 @@ instance
 utxoInductive ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , EraStake era
   , ShelleyEraTxBody era
   , ExactEra ShelleyEra era
@@ -351,7 +389,7 @@ utxoInductive ::
   , Embed (EraRule "PPUP" era) (EraRule "UTXO" era)
   , BaseM (EraRule "UTXO" era) ~ ShelleyBase
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , Event (EraRule "UTXO" era) ~ UtxoEvent era
   , Environment (EraRule "PPUP" era) ~ PpupEnv era
@@ -362,10 +400,11 @@ utxoInductive ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 utxoInductive = do
-  TRC (UtxoEnv slot pp certState, utxoState, stAnnTx) <- judgmentContext
+  TRC (UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = utxoState ^. utxoL
-      UTxOState _ _ _ ppup _ _ = utxoState
+      entries = allocations . asUTxOStore . lsAccountingState $ ledgerState
+      inputAllocations = IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
+      ppup = lsGovState ledgerState
       txBody = tx ^. bodyTxL
       outputs = txBody ^. outputsTxBodyL
       genDelegs = dsGenDelegs (certState ^. certDStateL)
@@ -377,10 +416,10 @@ utxoInductive = do
   runTest $ validateInputSetEmptyUTxO txBody
 
   {- minfee pp tx ≤ txfee txb -}
-  runTest $ validateFeeTooSmallUTxO pp tx utxo
+  runTest $ validateFeeTooSmallUTxO pp tx inputAllocations
 
   {- txins txb ⊆ dom utxo -}
-  runTest $ validateBadInputsUTxO utxo $ txBody ^. inputsTxBodyL
+  runTest $ validateBadInputsUTxO entries $ txBody ^. inputsTxBodyL
 
   netId <- liftSTS $ asks networkId
 
@@ -391,14 +430,18 @@ utxoInductive = do
   runTest $ validateWrongNetworkWithdrawal netId txBody
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   -- process Protocol Parameter Update Proposals
   govStateAfterPPUP <-
     trans @(EraRule "PPUP" era) $ TRC (PPUPEnv slot pp genDelegs, ppup, txBody ^. updateTxBodyL)
 
   {- ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp) -}
-  runTest $ validateOutputTooSmallUTxO pp outputs
+  -- Shelley has only implicit-deposit outputs.
+  runTest $
+    validateImplicitDeposits
+      pp
+      [implicitOutput | LegacyTxOut implicitOutput <- toList outputs]
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTest $ validateOutputBootAddrAttrsTooBig outputs
@@ -406,13 +449,17 @@ utxoInductive = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ validateMaxTxSizeUTxO pp tx
 
-  updateUTxOState
+  Accounting.projectTx
     pp
-    txBody
     certState
-    (tellEvent . TotalDeposits (hashAnnotated txBody))
-    (\a b -> tellEvent $ TxUTxODiff a b)
-    (utxoState & utxosGovStateL .~ govStateAfterPPUP)
+    (lsAccountingState ledgerState)
+    tx
+    & emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState
+        { lsAccountingState = newAccountingState
+        , lsGovState = govStateAfterPPUP
+        }
 
 -- | The ttl field marks the top of an open interval, so it must be strictly
 -- less than the slot, so fail if it is (>=).
@@ -448,9 +495,9 @@ validateFeeTooSmallUTxO ::
   EraUTxO era =>
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Test (ShelleyUtxoPredFailure era)
-validateFeeTooSmallUTxO pp tx utxo =
+validateFeeTooSmallUTxO pp tx inputAllocations =
   failureUnless (minFee <= txFee) $
     FeeTooSmallUTxO
       Mismatch
@@ -458,22 +505,22 @@ validateFeeTooSmallUTxO pp tx utxo =
         , mismatchExpected = minFee
         }
   where
-    minFee = getMinFeeTxUtxo pp tx utxo
+    minFee = getMinFeeTxUtxo pp tx inputAllocations
     txFee = txb ^. feeTxBodyL
     txb = tx ^. bodyTxL
 
--- | Ensure all transaction inputs are present in `UTxO`
+-- | Ensure all transaction inputs name existing allocations.
 --
 -- > inputs ⊆ dom utxo
 validateBadInputsUTxO ::
-  UTxO era ->
+  IndexedUTxOs era ->
   Set TxIn ->
   Test (ShelleyUtxoPredFailure era)
-validateBadInputsUTxO utxo inputs =
+validateBadInputsUTxO entries inputs =
   failureOnNonEmptySet badInputs BadInputsUTxO
   where
     {- inputs ➖ dom utxo -}
-    badInputs = Set.filter (`Map.notMember` unUTxO utxo) inputs
+    badInputs = Set.filter (not . (`IndexedUTxOs.member` entries)) inputs
 
 -- | Make sure all addresses match the supplied NetworkId
 --
@@ -513,35 +560,44 @@ validateWrongNetworkWithdrawal netId txb =
 validateValueNotConservedUTxO ::
   (EraUTxO era, EraCertState era) =>
   PParams era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   CertState era ->
   TxBody TopTx era ->
   Test (ShelleyUtxoPredFailure era)
-validateValueNotConservedUTxO pp utxo certState txBody =
+validateValueNotConservedUTxO pp inputAllocations certState txBody =
   failureUnless (consumedValue == producedValue) $
     ValueNotConservedUTxO Mismatch {mismatchSupplied = consumedValue, mismatchExpected = producedValue}
   where
     accounts = certState ^. certDStateL . accountsL
-    consumedValue = shelleyConsumed pp accounts utxo txBody
+    consumedValue = shelleyConsumed pp accounts inputAllocations txBody
     producedValue = produced pp (certState ^. certPStateL) txBody
 
--- | Ensure there are no `TxOut`s that have less than @minUTxOValue@
+-- | Ensure an implicit-deposit output has at least @minUTxOValue@.
+validateImplicitDeposit ::
+  EraLegacyTxOut era =>
+  PParams era ->
+  LegacyTxOut era ->
+  Test (ShelleyUtxoPredFailure era)
+validateImplicitDeposit pp =
+  validateImplicitDeposits pp . (: [])
+
+-- | Private: ensure implicit-deposit outputs have at least @minUTxOValue@.
 --
 -- > ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp)
-validateOutputTooSmallUTxO ::
-  (EraTxOut era, Foldable f) =>
+validateImplicitDeposits ::
+  (EraLegacyTxOut era, Foldable f) =>
   PParams era ->
-  f (TxOut era) ->
+  f (LegacyTxOut era) ->
   Test (ShelleyUtxoPredFailure era)
-validateOutputTooSmallUTxO pp outputs =
-  failureOnNonEmpty outputsTooSmall OutputTooSmallUTxO
+validateImplicitDeposits pp outputs =
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap LegacyTxOut)
   where
     -- minUTxOValue deposit comparison done as Coin because this rule is correct
     -- strictly in the Shelley era (in ShelleyMA we additionally check that all
     -- amounts are non-negative)
     outputsTooSmall =
       filter
-        (\txOut -> txOut ^. coinTxOutL < getMinCoinTxOut pp txOut)
+        (\output -> Val.coin (output ^. valueTxOutL) < getMinCoinTxOut pp output)
         (toList outputs)
 
 -- | Bootstrap (i.e. Byron) addresses have variable sized attributes in them.
@@ -582,76 +638,6 @@ validateMaxTxSizeUTxO pp tx =
   where
     maxTxSize = pp ^. ppMaxTxSizeL
     txSize = tx ^. sizeTxF
-
--- | This monadic action captures the final stages of the UTXO(S) rule. In particular it
--- applies all of the UTxO related aditions and removals, gathers all of the fees into the
--- fee pot `utxosFees` and updates the `utxosDeposited` field. Continuation supplied will
--- be called on the @deposit - refund@ change, which is normally used to emit the
--- `TotalDeposits` event.
-updateUTxOState ::
-  ( EraTxBody era
-  , EraStake era
-  , EraCertState era
-  , Monad m
-  ) =>
-  PParams era ->
-  TxBody TopTx era ->
-  CertState era ->
-  (Coin -> m ()) ->
-  (UTxO era -> UTxO era -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOState pp txBody certState depositChangeEvent utxoDiffEvent utxoState = do
-  withDeposits <- updateUTxOStateDeposits pp certState txBody depositChangeEvent utxoState
-  withUtxo <- updateUTxOAndInstantStake txBody utxoDiffEvent withDeposits
-  pure $ withUtxo & utxosFeesL <>~ (txBody ^. feeTxBodyL)
-
--- | Apply the txBody's inputs/outputs to the UTxO map and to the instant stake,
--- firing the diff event.
-updateUTxOAndInstantStake ::
-  ( EraTxBody era
-  , EraStake era
-  , Monad m
-  ) =>
-  TxBody l era ->
-  (UTxO era -> UTxO era -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOAndInstantStake txBody utxoDiffEvent utxoState = do
-  let !utxoAdd = txouts txBody
-      {- utxoDel  = txins txb ◁ utxo -}
-      !(utxoWithout, utxoDel) = extractKeys (unUTxO (utxoState ^. utxoL)) (txBody ^. inputsTxBodyL)
-      {- newUTxO = (txins txb ⋪ utxo) ∪ outs txb -}
-      newUtxo = utxoWithout `Map.union` unUTxO utxoAdd
-      deletedUtxo = UTxO utxoDel
-      newInstantStake =
-        deleteInstantStake
-          deletedUtxo
-          (addInstantStake utxoAdd (utxoState ^. instantStakeL))
-  utxoDiffEvent deletedUtxo utxoAdd
-  pure $!
-    utxoState
-      & utxoL .~ UTxO newUtxo
-      & instantStakeL .~ newInstantStake
-
-updateUTxOStateDeposits ::
-  ( EraTxBody era
-  , EraCertState era
-  , Monad m
-  ) =>
-  PParams era ->
-  CertState era ->
-  TxBody TopTx era ->
-  (Coin -> m ()) ->
-  UTxOState era ->
-  m (UTxOState era)
-updateUTxOStateDeposits pp certState txBody depositChangeEvent utxoState = do
-  depositChangeEvent depositChange
-  pure $! utxoState & utxosDepositedL <>~ depositChange
-  where
-    depositChange = totalDeposits <-> totalRefunds
-    totalDeposits = certsTotalDepositsTxBody pp certState txBody
-    totalRefunds = certsTotalRefundsTxBody pp (certState ^. certDStateL . accountsL) txBody
 
 instance
   ( Era era

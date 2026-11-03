@@ -2,6 +2,8 @@
 
 ## 1.25.0.0
 
+* Use `IndexedUTxOs` for stored entries and era translation. Block reference-script accounting explicitly projects its selected stored entries to `IndexedTxOs` before combining them with proposed outputs; preserve the selection rules and legacy encoding.
+* Initialize the new UTxO DepositStore state to empty during era translation.
 * Change `TICKF` to run the `SNAP` rule at the epoch boundary:
   - Add `SNAP` related constraints to the `STS` instance of `TICKF`
   - Add `Embed (SNAP era) (TICKF era)` instance for Shelley's `SNAP` rule

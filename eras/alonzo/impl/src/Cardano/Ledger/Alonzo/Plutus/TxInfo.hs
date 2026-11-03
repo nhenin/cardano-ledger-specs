@@ -79,7 +79,9 @@ import Cardano.Ledger.Mary.Value (
  )
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.Rules.ValidationMode (Inject (..))
-import Cardano.Ledger.State (StakePoolParams (..), UTxO (..))
+import Cardano.Ledger.State (StakePoolParams (..))
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..), txInToText)
 import Cardano.Ledger.Val (zero)
 import Cardano.Slotting.EpochInfo (EpochInfo)
@@ -134,12 +136,12 @@ instance EraPlutusTxInfo 'PlutusV1 AlonzoEra where
 
   toPlutusScriptPurpose proxy lti = transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     PlutusTxInfoResult $ withTopTxLevelOnly ltiTx $ \tx -> do
       let txBody = tx ^. bodyTxL
       timeRange <-
         transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      txInsMaybes <- forM (Set.toList (txBody ^. inputsTxBodyL)) $ toPlutusTxInInfo proxy ltiUTxO
+      txInsMaybes <- forM (Set.toList (txBody ^. inputsTxBodyL)) $ toPlutusTxInInfo proxy ltiAllocations
       txCerts <- transTxBodyCerts proxy ltiProtVer txBody
       Right
         PV1.TxInfo
@@ -159,8 +161,8 @@ instance EraPlutusTxInfo 'PlutusV1 AlonzoEra where
 
   toPlutusArgs = toPlutusV1Args
 
-  toPlutusTxInInfo _ utxo txIn = do
-    txOut <- transLookupTxOut utxo txIn
+  toPlutusTxInInfo _ entries txIn = do
+    txOut <- transLookupTxOut entries txIn
     pure $ PV1.TxInInfo (transTxIn txIn) <$> transTxOut txOut
 
 toPlutusV1Args ::
@@ -184,7 +186,7 @@ toPlutusV1Args proxy lti@LedgerTxInfo {..} txInfo plutusPurpose redeemerData =
       redeemerData
   where
     maybeSpendingDatum =
-      getSpendingDatum ltiUTxO ltiTx $ hoistPlutusPurpose toAsItem plutusPurpose
+      getSpendingDatum ltiAllocations ltiTx $ hoistPlutusPurpose toAsItem plutusPurpose
 
 toLegacyPlutusArgs ::
   EraPlutusTxInfo l era =>
@@ -307,13 +309,13 @@ instance
 transLookupTxOut ::
   forall era.
   Inject (AlonzoContextError era) (ContextError era) =>
-  UTxO era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) (TxOut era)
-transLookupTxOut (UTxO utxo) txIn =
-  case Map.lookup txIn utxo of
+transLookupTxOut entries txIn =
+  case IndexedUTxOs.lookupUTxO txIn entries of
     Nothing -> Left $ inject $ TranslationLogicMissingInput @era txIn
-    Just txOut -> Right txOut
+    Just entry -> Right $ Unspent.toTxOut entry
 
 -- | Translate a validity interval to POSIX time
 transValidityInterval ::
@@ -347,7 +349,9 @@ transTxOut txOut = do
   -- Minor optimization:
   -- We can check for Byron address without decompacting the address in the TxOut
   guard $ isNothing (txOut ^. bootAddrTxOutF)
-  let val = txOut ^. valueTxOutL
+  let val = case txOut of
+        LegacyTxOut output -> output ^. valueTxOutL
+        NewTxOut _ -> error "Alonzo.transTxOut: unexpected NewTxOut"
       dataHash = txOut ^. dataHashTxOutL
   address <- transAddr (txOut ^. addrTxOutL)
   pure $ PV1.TxOut address (transValue val) (transDataHash <$> strictMaybeToMaybe dataHash)

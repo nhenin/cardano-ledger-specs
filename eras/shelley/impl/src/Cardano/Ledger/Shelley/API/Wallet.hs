@@ -15,9 +15,9 @@
 
 module Cardano.Ledger.Shelley.API.Wallet (
   -- * UTxOs
-  getUTxO,
-  getUTxOSubset,
-  getFilteredUTxO,
+  getIndexedUTxOs,
+  getIndexedUTxOsSubset,
+  getFilteredIndexedUTxOs,
 
   -- * Stake Pools
   getPools,
@@ -74,10 +74,8 @@ import Cardano.Ledger.Shelley.AdaPots (
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
-  LedgerState (..),
   NewEpochState (..),
   RewardUpdate,
-  UTxOState (..),
   circulation,
   createRUpd,
   curPParamsEpochStateL,
@@ -97,6 +95,8 @@ import Cardano.Ledger.Shelley.Rewards (StakeShare (..))
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (epochInfoSize)
 import qualified Cardano.Ledger.State as EB
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.Slot (EpochSize)
 import Control.DeepSeq (NFData)
@@ -117,34 +117,35 @@ import NoThunks.Class (NoThunks (..))
 -- UTxOs
 --------------------------------------------------------------------------------
 
--- | Get the full UTxO.
-getUTxO ::
+-- | Read all unspent outputs with their accepted sizes and deposit calculations.
+getIndexedUTxOs ::
   NewEpochState era ->
-  UTxO era
-getUTxO = utxosUtxo . lsUTxOState . esLState . nesEs
+  IndexedUTxOs era
+getIndexedUTxOs = Store.allocations . (^. EB.utxoStoreG)
 
--- | Get the UTxO filtered by address.
-getFilteredUTxO ::
+-- | Select unspent outputs by address, retaining their metadata.
+getFilteredIndexedUTxOs ::
   EraTxOut era =>
   NewEpochState era ->
   Set Addr ->
-  UTxO era
-getFilteredUTxO ss addrSet =
-  UTxO $ Map.filter checkAddr fullUTxO
+  IndexedUTxOs era
+getFilteredIndexedUTxOs ss addrSet =
+  IndexedUTxOs.filterByTxOut checkAddr $ storedAllocations
   where
-    UTxO fullUTxO = getUTxO ss
+    storedAllocations = Store.allocations . (^. EB.utxoStoreG) $ ss
     compactAddrSet = Set.map compactAddr addrSet
     checkAddr out =
       case out ^. addrEitherTxOutL of
         Left addr -> addr `Set.member` addrSet
         Right cAddr -> cAddr `Set.member` compactAddrSet
-{-# INLINEABLE getFilteredUTxO #-}
+{-# INLINEABLE getFilteredIndexedUTxOs #-}
 
-getUTxOSubset ::
+getIndexedUTxOsSubset ::
   NewEpochState era ->
   Set TxIn ->
-  UTxO era
-getUTxOSubset nes = txInsFilter (getUTxO nes)
+  IndexedUTxOs era
+getIndexedUTxOsSubset nes inputs =
+  IndexedUTxOs.restrictToInputs inputs . Store.allocations . (^. EB.utxoStoreG) $ nes
 
 --------------------------------------------------------------------------------
 -- Stake pools and pool rewards

@@ -38,7 +38,6 @@ import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules (LEDGER, LedgerEnv (..))
 import Cardano.Ledger.Shelley.State
@@ -89,16 +88,15 @@ aliceAddr = mkAddr alicePay aliceStake
 -- ==========================================================
 
 injcoins :: Integer -> [TxOut ShelleyEra]
-injcoins n = fmap (\_ -> mkBasicTxOut aliceAddr (inject $ Coin 100)) [0 .. n]
+injcoins n = fmap (\_ -> mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)) [0 .. n]
 
 -- Cretae an initial UTxO set with n-many transaction outputs
-initUTxO :: Integer -> UTxOState ShelleyEra
+initUTxO :: Integer -> AccountingState ShelleyEra
 initUTxO n =
-  UTxOState
-    (genesisCoins genesisId (injcoins n))
+  AccountingState
+    (mkUTxOStore legacyDepositCalculation $ genesisCoins genesisId (injcoins n))
     (Coin 0)
     (Coin 0)
-    def
     mempty
     mempty
 
@@ -141,8 +139,8 @@ txbSpendOneUTxO =
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
     & outputsTxBodyL
       .~ StrictSeq.fromList
-        [ mkBasicTxOut aliceAddr (inject $ Coin 10)
-        , mkBasicTxOut aliceAddr (inject $ Coin 89)
+        [ mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 10)
+        , mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 89)
         ]
     & feeTxBodyL .~ Coin 1
     & ttlTxBodyL .~ SlotNo 10
@@ -157,8 +155,8 @@ txSpendOneUTxO =
 ledgerSpendOneUTxO :: Integer -> ()
 ledgerSpendOneUTxO n = testLEDGER (initLedgerState n) txSpendOneUTxO ledgerEnv
 
-ledgerSpendOneGivenUTxO :: UTxOState ShelleyEra -> ()
-ledgerSpendOneGivenUTxO state = testLEDGER (LedgerState state def) txSpendOneUTxO ledgerEnv
+ledgerSpendOneGivenUTxO :: AccountingState ShelleyEra -> ()
+ledgerSpendOneGivenUTxO state = testLEDGER (LedgerState state def def) txSpendOneUTxO ledgerEnv
 
 -- ===========================================================================
 --
@@ -191,7 +189,7 @@ txbFromCerts :: TxIx -> StrictSeq (TxCert ShelleyEra) -> TxBody TopTx ShelleyEra
 txbFromCerts ix regCerts =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId ix]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut aliceAddr (inject $ Coin 100)]
+    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)]
     & certsTxBodyL .~ regCerts
     & ttlTxBodyL .~ SlotNo 10
 
@@ -213,7 +211,7 @@ txRegStakeKeys ix keys =
     [asWitness alicePay]
 
 initLedgerState :: Integer -> LedgerState ShelleyEra
-initLedgerState n = LedgerState (initUTxO n) def
+initLedgerState n = LedgerState (initUTxO n) def def
 
 makeLEDGERState ::
   HasCallStack => LedgerState ShelleyEra -> Tx TopTx ShelleyEra -> LedgerState ShelleyEra
@@ -253,7 +251,7 @@ txbDeRegStakeKey :: Word64 -> Word64 -> TxBody TopTx ShelleyEra
 txbDeRegStakeKey x y =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [mkTxInPartial genesisId 1]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut aliceAddr (inject $ Coin 100)]
+    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)]
     & certsTxBodyL
       .~ StrictSeq.fromList (fmap (UnRegTxCert . stakeKeyToCred) (stakeKeys x y))
     & ttlTxBodyL .~ SlotNo 10
@@ -286,7 +284,7 @@ txbWithdrawals :: Word64 -> Word64 -> TxBody TopTx ShelleyEra
 txbWithdrawals x y =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [mkTxInPartial genesisId 1]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut aliceAddr (inject $ Coin 100)]
+    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)]
     & withdrawalsTxBodyL
       .~ Withdrawals
         ( Map.fromList $
@@ -401,7 +399,7 @@ txbRetireStakePool :: Word64 -> Word64 -> TxBody TopTx ShelleyEra
 txbRetireStakePool x y =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [mkTxInPartial genesisId 1]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut aliceAddr (inject $ Coin 100)]
+    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)]
     & certsTxBodyL
       .~ StrictSeq.fromList
         (fmap (\ks -> RetirePoolTxCert (mkPoolKeyHash ks) (EpochNo 1)) (poolColdKeys x y))
@@ -443,7 +441,7 @@ txbDelegate :: Word64 -> Word64 -> TxBody TopTx ShelleyEra
 txbDelegate n m =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [mkTxInPartial genesisId 2]
-    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut aliceAddr (inject $ Coin 100)]
+    & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit aliceAddr (inject $ Coin 100)]
     & certsTxBodyL
       .~ StrictSeq.fromList
         (fmap (\ks -> DelegStakeTxCert (stakeKeyToCred ks) firstStakePoolKeyHash) (stakeKeys n m))

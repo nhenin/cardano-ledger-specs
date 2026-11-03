@@ -36,10 +36,13 @@ import qualified Cardano.Ledger.Allegra.Rules as Allegra
 import Cardano.Ledger.Alonzo.PParams (AlonzoEraPParams)
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
 import Cardano.Ledger.Alonzo.Scripts (OrdExUnits (..))
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx, IsPhase2Valid (..), isPhase2ValidTxL)
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx, isPhase2ValidTxL)
 import Cardano.Ledger.Alonzo.TxWits (AlonzoEraTxWits (..))
 import Cardano.Ledger.Babbage.Collateral (collOuts)
-import Cardano.Ledger.Babbage.Core (BabbageEraTxBody)
+import Cardano.Ledger.Babbage.Core (
+  BabbageEraTxBody (referenceInputsTxBodyL),
+  BabbageEraTxOut (referenceScriptTxOutL),
+ )
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.BaseTypes (
   Mismatch (..),
@@ -47,6 +50,7 @@ import Cardano.Ledger.BaseTypes (
   ProtVer (..),
   Relation (..),
   ShelleyBase,
+  StrictMaybe (..),
   Version,
   natVersion,
   networkId,
@@ -74,9 +78,12 @@ import Cardano.Ledger.Conway.Rules.Utxos (ConwayUtxosPredFailure)
 import Cardano.Ledger.Conway.Rules.Utxow (ConwayUtxowPredFailure)
 import Cardano.Ledger.Conway.UTxO (txNonDistinctRefScriptsSize)
 import Cardano.Ledger.Core
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), utxoL)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Shelley.UTxO (UTxO (..), txouts, unUTxO)
+import Cardano.Ledger.State (utxoStoreG)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
 import Control.Monad (guard, when)
 import Control.Monad.Trans.Reader (asks)
@@ -94,11 +101,11 @@ import Control.State.Transition (
  )
 import Data.Foldable (Foldable (foldMap'))
 import qualified Data.Foldable as F (foldl')
-import qualified Data.Map.Strict as Map
 import Data.Monoid (Sum (getSum))
 import qualified Data.Monoid as Monoid (Sum (..))
 import Data.Sequence (Seq)
 import Data.Sequence.Strict (StrictSeq)
+import qualified Data.Set as Set
 import Data.Word (Word32)
 import GHC.Generics (Generic)
 import Lens.Micro
@@ -327,7 +334,7 @@ bbodyTransition = do
     failOnJust checkHeaderProtVerTooHigh $
       injectFailure . HeaderProtVerTooHigh @era
 
-  validateBodyRefScriptsSizeTooBig @era pp blockBody (ls ^. utxoL)
+  validateBodyRefScriptsSizeTooBig @era pp blockBody (Store.allocations $ ls ^. utxoStoreG)
 
 instance
   ( Era era
@@ -351,7 +358,7 @@ validateBodyRefScriptsSizeTooBig ::
   ) =>
   PParams era ->
   BlockBody era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Rule (EraRule "BBODY" era) 'Transition ()
 validateBodyRefScriptsSizeTooBig pp blockBody utxo =
   let protVer = pp ^. ppProtocolVersionL
@@ -368,17 +375,31 @@ validateBodyRefScriptsSizeTooBig pp blockBody utxo =
                   }
             )
 
+-- | Read accepted inputs from allocations. From protocol version 11, also
+-- account for outputs proposed by earlier transactions in the same block.
+-- This scan needs output payloads and sizes only. Project the selected accepted
+-- entries explicitly; the LEDGERS rule records metadata when it accepts new outputs.
 totalRefScriptSizeInBlock ::
-  (AlonzoEraTx era, BabbageEraTxBody era) => ProtVer -> StrictSeq (Tx TopTx era) -> UTxO era -> Int
-totalRefScriptSizeInBlock protVer txs (UTxO utxo)
+  (AlonzoEraTx era, BabbageEraTxBody era) =>
+  ProtVer -> StrictSeq (Tx TopTx era) -> IndexedUTxOs era -> Int
+totalRefScriptSizeInBlock protVer txs allocations
   | pvMajor protVer <= natVersion @10 =
-      getSum $ foldMap' (Monoid.Sum . txNonDistinctRefScriptsSize (UTxO utxo)) txs
+      getSum $ foldMap' (Monoid.Sum . txNonDistinctRefScriptsSize allocations) txs
   | otherwise =
-      snd $ F.foldl' accum (utxo, 0) txs
+      snd $ F.foldl' accum (initialOutputs, 0) txs
   where
-    accum (!accUtxo, !accSum) tx =
-      let updatedUtxo = accUtxo `Map.union` unUTxO toAdd
+    blockInputs = foldMap (^. bodyTxL . allInputsTxBodyF) txs
+    initialOutputs = IndexedUTxOs.toIndexedTxOs . IndexedUTxOs.restrictToInputs blockInputs $ allocations
+    accum (!outputs, !totalSize) tx =
+      let updatedOutputs = outputs <> toAdd
           toAdd
-            | Phase2Valid <- tx ^. isPhase2ValidTxL = txouts $ tx ^. bodyTxL
+            | Phase2Valid <- tx ^. isPhase2ValidTxL = outputsTxBody $ tx ^. bodyTxL
             | otherwise = collOuts $ tx ^. bodyTxL
-       in (updatedUtxo, accSum + txNonDistinctRefScriptsSize (UTxO accUtxo) tx)
+          inputs = (tx ^. bodyTxL . referenceInputsTxBodyL) `Set.union` (tx ^. bodyTxL . inputsTxBodyL)
+          scriptSize =
+            sum
+              [ originalBytesSize script
+              | output <- IndexedTxOs.txOuts $ IndexedTxOs.restrictToInputs inputs outputs
+              , SJust script <- [output ^. referenceScriptTxOutL]
+              ]
+       in (updatedOutputs, totalSize + scriptSize)

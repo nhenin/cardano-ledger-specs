@@ -87,10 +87,10 @@ import Cardano.Ledger.Core (
   EraTx,
   EraTxAuxData,
   EraTxOut,
+  LegacyTxOut,
   PParamsHKD,
   Script,
   TxCert,
-  TxOut,
   TxWits,
   Value,
  )
@@ -214,11 +214,11 @@ runSTS' x = runShelleyBase (applySTSTest x)
 --   :t goSTS (UTXOW Babbage)
 --   goSTS (LEDGER Babbage)
 --     :: LedgerEnv (BabbageEra )
---        -> (UTxOState (BabbageEra ), CertState )
+--        -> (AccountingState (BabbageEra ), CertState )
 --        -> Cardano.Ledger.Alonzo.Tx.AlonzoTx (BabbageEra )
 --        -> (Either
 --              [LedgerPredicateFailure (BabbageEra )]
---              (UTxOState (BabbageEra ), CertState )
+--              (AccountingState (BabbageEra ), CertState )
 --        -> ans)
 --        -> ans
 -- @@@
@@ -336,10 +336,12 @@ instance Shaped Proof any where
 
 data TxOutWit era where
   TxOutShelleyToMary ::
-    (TxOut era ~ ShelleyTxOut era, EraTxOut era, AtMostEra "Babbage" era) => TxOutWit era
+    (LegacyTxOut era ~ ShelleyTxOut era, EraTxOut era, AtMostEra "Babbage" era) => TxOutWit era
   TxOutAlonzoToAlonzo ::
-    (TxOut era ~ AlonzoTxOut era, AlonzoEraTxOut era, AtMostEra "Babbage" era) => TxOutWit era
-  TxOutBabbageToConway :: (TxOut era ~ BabbageTxOut era, BabbageEraTxOut era) => TxOutWit era
+    (LegacyTxOut era ~ AlonzoTxOut era, AlonzoEraTxOut era, AtMostEra "Babbage" era) =>
+    TxOutWit era
+  TxOutBabbageToConway ::
+    (LegacyTxOut era ~ BabbageTxOut era, BabbageEraTxOut era) => TxOutWit era
 
 whichTxOut :: Proof era -> TxOutWit era
 whichTxOut Shelley = TxOutShelleyToMary

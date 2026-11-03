@@ -57,7 +57,9 @@ spec = describe "UTXO" $ do
       pp <- getsPParams id
       let
         ptrAddr = Addr Testnet cred (StakeRefPtr ptr)
-        ptrOutput = ensureMinCoinTxOut pp $ mkBasicTxOut ptrAddr . inject $ Coin 100
+        ptrOutput =
+          LegacyTxOut . ensureMinCoinTxOut pp $
+            mkBasicLegacyTxOut ptrAddr (inject $ Coin 100)
         tx =
           mkBasicTx mkBasicTxBody
             & bodyTxL . collateralReturnTxBodyL .~ SJust ptrOutput
@@ -196,8 +198,8 @@ spec = describe "UTXO" $ do
                   mkBasicTxBody
                     & mintTxBodyL .~ tokens (topBurnAmount + subBurnAmount)
                     & outputsTxBodyL
-                      .~ [ mkBasicTxOut tokenAddr (MaryValue mempty (tokens topBurnAmount))
-                         , mkBasicTxOut tokenAddr (MaryValue mempty (tokens subBurnAmount))
+                      .~ [ mkBasicTxOutWithImplicitDeposit tokenAddr (MaryValue mempty (tokens topBurnAmount))
+                         , mkBasicTxOutWithImplicitDeposit tokenAddr (MaryValue mempty (tokens subBurnAmount))
                          ]
             topOut <- freshTxOut
             subOut <- freshTxOut
@@ -332,10 +334,10 @@ spec = describe "UTXO" $ do
       expectProduced topTx $ inject (keyDeposit <> dRepDeposit)
       checkRefundCalculation (topTx ^. bodyTxL) (keyDeposit <> dRepDeposit) (keyDeposit <> dRepDeposit)
 
-      depositedBefore <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL
+      depositedBefore <- getsNES $ nesEsL . esLStateL . lsAccountingStateL . asDepositedL
       submitTx_ topTx
       expectStakeCredNotRegistered cred
-      depositedAfter <- getsNES $ nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL
+      depositedAfter <- getsNES $ nesEsL . esLStateL . lsAccountingStateL . asDepositedL
       depositedAfter `shouldBe` depositedBefore
 
     it "refunds the deposit in the certificate, not the one in the protocol parameters" $ do
@@ -603,10 +605,10 @@ spec = describe "UTXO" $ do
     expectConsumed :: Tx TopTx era -> Value era -> ImpTestM era ()
     expectConsumed tx expected = do
       pp <- getsPParams id
-      utxo <- getUTxO
-      dijkstraConsumed pp utxo (tx ^. bodyTxL) `shouldBe` expected
+      entries <- getIndexedUTxOs
+      dijkstraConsumed pp entries (tx ^. bodyTxL) `shouldBe` expected
 
-    -- Check that `certsTotalDepositsTxBody` (used to set deposits in `UTxOState` and `AdaPots` calculations)
+    -- Check that `certsTotalDepositsTxBody` (used to set deposits in `AccountingState` and `AdaPots` calculations)
     -- returns the batch deposits, while `getTotalDepositsTxBody` returns the top-level deposits
     checkDepositCalculation topBody batchDeposits topLevelDeposits = do
       pp <- getsPParams id
@@ -616,14 +618,14 @@ spec = describe "UTXO" $ do
       let isPoolReg = (`Map.member` (certState ^. certPStateL . psStakePoolsL))
       getTotalDepositsTxBody pp isPoolReg topBody `shouldBe` topLevelDeposits
 
-    -- Check that `certsTotalRefundsTxBody` (used to update the deposits in `UTxOState` and in
+    -- Check that `certsTotalRefundsTxBody` (used to update the deposits in `AccountingState` and in
     -- `AdaPots` calculations) returns the batch refunds, while `getTotalRefundsTxBody` returns
     -- the top-level refunds
     checkRefundCalculation topBody batchRefunds topLevelRefunds = do
       pp <- getsPParams id
       certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-      utxo <- getUTxO
-      AdaPots.conRefunds (AdaPots.consumedTxBody topBody pp certState utxo)
+      entries <- getIndexedUTxOs
+      AdaPots.conRefunds (AdaPots.consumedTxBody topBody pp certState entries)
         `shouldBe` batchRefunds
       -- refunds do not depend on the state, hence the deposit lookup is irrelevant
       getTotalRefundsTxBody pp (const Nothing) topBody `shouldBe` topLevelRefunds
@@ -643,7 +645,8 @@ spec = describe "UTXO" $ do
       pp <- getsPParams id
       addr <- freshKeyAddr_
       amount <- arbitrary @Coin
-      pure $ ensureMinCoinTxOut pp (mkBasicTxOut addr (inject amount))
+      pure . LegacyTxOut $
+        ensureMinCoinTxOut pp (mkBasicLegacyTxOut addr (inject amount))
     fundAccountBalance :: AccountAddress -> Coin -> ImpTestM era ()
     fundAccountBalance account amount = do
       submitAnyTx_ $
@@ -653,13 +656,13 @@ spec = describe "UTXO" $ do
     txInWithFunds :: Coin -> ImpTestM era TxIn
     txInWithFunds amount = freshKeyAddr_ >>= \a -> sendCoinTo a amount
     mkTxOut :: Coin -> ImpTestM era (TxOut era)
-    mkTxOut amount = freshKeyAddr_ >>= \a -> pure $ mkBasicTxOut a (inject amount)
+    mkTxOut amount = freshKeyAddr_ >>= \a -> pure $ mkBasicTxOutWithImplicitDeposit a (inject amount)
     produceScriptAt :: ScriptHash -> Coin -> ImpTestM era TxIn
     produceScriptAt scriptHash amount = do
       let addr = mkAddr scriptHash StakeRefNull
       let tx =
             mkBasicTx mkBasicTxBody
-              & bodyTxL . outputsTxBodyL .~ [mkBasicTxOut addr (inject amount)]
+              & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr (inject amount)]
       txInAt 0 <$> submitTx tx
 
 noBalanceFixup ::

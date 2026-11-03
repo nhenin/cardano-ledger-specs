@@ -14,24 +14,20 @@ module Cardano.Ledger.Babbage.Collateral (
 
 import Cardano.Ledger.Babbage.PParams ()
 import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))
-import Cardano.Ledger.BaseTypes (TxIx (..), txIxFromIntegral)
 import Cardano.Ledger.Coin (DeltaCoin, toDeltaCoin)
 import Cardano.Ledger.Core
-import Cardano.Ledger.State
-import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<->))
-import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
-import Data.Word (Word16)
 import Lens.Micro
 
 -- ============================================================
 
 collAdaBalance ::
-  forall era.
-  BabbageEraTxBody era =>
+  forall era f.
+  (BabbageEraTxBody era, Foldable f) =>
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
+  f (TxOut era) ->
   DeltaCoin
 collAdaBalance txBody utxoCollateral = toDeltaCoin $
   case txBody ^. collateralReturnTxBodyL of
@@ -40,21 +36,10 @@ collAdaBalance txBody utxoCollateral = toDeltaCoin $
   where
     colbal = sumAllCoin utxoCollateral
 
+-- | Index the proposed collateral return, preserving its supplied size.
+-- The Store records its calculation only when the return is allocated.
 collOuts ::
   BabbageEraTxBody era =>
   TxBody TopTx era ->
-  UTxO era
-collOuts txBody =
-  case txBody ^. collateralReturnTxBodyL of
-    SNothing -> UTxO Map.empty
-    SJust txOut -> UTxO (Map.singleton (mkCollateralTxIn txBody) txOut)
-
-mkCollateralTxIn :: EraTxBody era => TxBody l era -> TxIn
-mkCollateralTxIn txBody = TxIn (txIdTxBody txBody) txIx
-  where
-    txIx = case txIxFromIntegral (length (txBody ^. outputsTxBodyL)) of
-      Just i -> i
-      -- In the impossible event that there are more transaction outputs
-      -- in the transaction than will fit into a Word16 (which backs the TxIx),
-      -- we give the collateral return output an index of maxBound.
-      Nothing -> TxIx (maxBound :: Word16)
+  IndexedTxOs era
+collOuts = collateralOutputsTxBody

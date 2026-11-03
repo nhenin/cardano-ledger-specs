@@ -33,7 +33,7 @@ module Cardano.Ledger.Alonzo.BlockBody.Internal (
 
 import qualified Cardano.Crypto.Hash as Hash
 import Cardano.Ledger.Alonzo.Era
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..), IsPhase2Valid (..))
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..))
 import Cardano.Ledger.BaseTypes (ProtVer (..))
 import Cardano.Ledger.Binary (
   Annotator (..),

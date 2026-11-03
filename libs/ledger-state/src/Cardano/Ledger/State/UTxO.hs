@@ -27,7 +27,9 @@ import Cardano.Ledger.Mary.Value
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Conduit
 import Control.Exception (throwIO)
 import Control.Foldl (Fold (..))
@@ -59,10 +61,10 @@ readEpochState ::
   IO (EpochState CurrentEra)
 readEpochState = readDecCBOR
 
-readHexUTxO ::
+readHexIndexedUTxOs ::
   FilePath ->
-  IO (UTxO CurrentEra)
-readHexUTxO = readDecCBORHex
+  IO (IndexedUTxOs CurrentEra)
+readHexIndexedUTxOs = readDecCBORHex
 
 readDecCBOR :: Binary.DecCBOR a => FilePath -> IO a
 readDecCBOR = either throwIO pure . Binary.decodeFull (eraProtVerHigh @CurrentEra) <=< LBS.readFile
@@ -132,14 +134,15 @@ txIxNestedInsert !im (TxIn !txId !txIx, !v) =
    in IntMap.alter f (txIxToInt txIx) im
 
 totalADA :: Map.Map TxIn (TxOut CurrentEra) -> MaryValue
-totalADA = foldMap (^. valueTxOutL)
+totalADA = unAssets . sumAllAssets
 
-readBinUTxO ::
+readBinIndexedUTxOs ::
   FilePath ->
-  IO (UTxO CurrentEra)
-readBinUTxO fp = do
+  IO (IndexedUTxOs CurrentEra)
+readBinIndexedUTxOs fp = do
   ls <- readNewEpochState fp
-  pure $! utxosUtxo $ lsUTxOState $ esLState $ nesEs ls
+  -- Retain each entry's accepted size and historical calculation.
+  pure $! allocations $ ls ^. utxoStoreG
 
 newtype Count = Count Int
   deriving (Eq, Ord, Enum, Real, Integral, Num, Pretty)
@@ -539,7 +542,7 @@ instance AggregateStat LedgerStateStats where
 countLedgerStateStats :: LedgerState CurrentEra -> LedgerStateStats
 countLedgerStateStats LedgerState {..} =
   LedgerStateStats
-    { lssUTxOStats = countUTxOStats (utxosUtxo lsUTxOState)
+    { lssUTxOStats = countUTxOStats . allocations . asUTxOStore $ lsAccountingState
     , lssDStateStats = countDStateStats (lsCertState ^. certDStateL)
     , lssPStateStats = countPStateStats (lsCertState ^. certPStateL)
     }
@@ -615,9 +618,9 @@ countTxOutStats :: [TxOut CurrentEra] -> TxOutStats
 countTxOutStats = foldMap countTxOutStat
   where
     countTxOutStat :: TxOut CurrentEra -> TxOutStats
-    countTxOutStat txOut =
+    countTxOutStat txOut@(LegacyTxOut output) =
       let addr = txOut ^. addrTxOutL
-          MaryValue (Coin v) (MultiAsset m) = txOut ^. valueTxOutL
+          MaryValue (Coin v) (MultiAsset m) = output ^. valueTxOutL
           !dataStat =
             strictMaybe
               mempty
@@ -659,11 +662,11 @@ instance Pretty UTxOStats where
 instance AggregateStat UTxOStats where
   aggregateStat = aggregateStat . usTxOutStats
 
-countUTxOStats :: UTxO CurrentEra -> UTxOStats
-countUTxOStats (UTxO m) =
+countUTxOStats :: IndexedUTxOs CurrentEra -> UTxOStats
+countUTxOStats entries =
   UTxOStats
-    { usTxInStats = countTxInStats (Map.keys m)
-    , usTxOutStats = countTxOutStats (Map.elems m)
+    { usTxInStats = countTxInStats . Set.toList . IndexedUTxOs.inputIds $ entries
+    , usTxOutStats = countTxOutStats . IndexedUTxOs.txOuts $ entries
     }
 
 data AggregateStats = AggregateStats

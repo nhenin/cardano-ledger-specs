@@ -64,7 +64,9 @@ import Cardano.Ledger.Rules.ValidationMode (lblStatic)
 import Cardano.Ledger.Shelley.API
 import Cardano.Ledger.Shelley.Rules (ledgerPpL, ledgerSlotNoL)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..), utxoG)
+import Cardano.Ledger.State (EraUTxO (..), utxoStoreG)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.EpochInfo.Extend (unsafeLinearExtendEpochInfo)
 import Cardano.Slotting.Time (SystemStart)
@@ -90,7 +92,11 @@ instance ApplyTx AlonzoEra where
             (unsafeLinearExtendEpochInfo (env ^. ledgerSlotNoL) (epochInfo globals))
             (systemStart globals)
             (env ^. ledgerPpL)
-            (state ^. utxoG)
+            ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . (^. utxoStoreG)
+                $ state
+            )
             mempty
             tx
      in first AlonzoApplyTxError $
@@ -131,15 +137,15 @@ mkAlonzoStAnnTx ::
   EpochInfo (Either Text) ->
   SystemStart ->
   PParams era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Map.Map ScriptHash (SupportedPlutusRunnable era) ->
   Tx TopTx era ->
   AlonzoStAnnTx TopTx era
-mkAlonzoStAnnTx ei sysStart pp utxo stAnnTxCache tx =
+mkAlonzoStAnnTx ei sysStart pp inputAllocations stAnnTxCache tx =
   let
     protVer = pp ^. ppProtocolVersionL
-    scriptsNeeded = getScriptsNeeded utxo (tx ^. bodyTxL)
-    scriptsProvided = getScriptsProvided utxo tx
+    scriptsNeeded = getScriptsNeeded inputAllocations (tx ^. bodyTxL)
+    scriptsProvided = getScriptsProvided inputAllocations tx
     (newStAnnTxCache, plutusScriptsUsed) =
       resolveNeededPlutusScriptsWithPurpose protVer scriptsProvided scriptsNeeded stAnnTxCache
     ledgerTxInfo =
@@ -147,7 +153,7 @@ mkAlonzoStAnnTx ei sysStart pp utxo stAnnTxCache tx =
         { ltiProtVer = protVer
         , ltiEpochInfo = ei
         , ltiSystemStart = sysStart
-        , ltiUTxO = utxo
+        , ltiAllocations = inputAllocations
         , ltiTx = tx
         , ltiScriptsUsed = plutusScriptsUsed
         , ltiScriptHashesUsed = toScriptHashByPurpose plutusScriptsUsed

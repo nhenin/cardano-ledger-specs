@@ -94,6 +94,9 @@ instance ToExpr (ShelleyPpupPredFailure era)
 instance (EraTxOut era, ToExpr (Value era)) => ToExpr (ShelleyTxOut era) where
   toExpr (ShelleyTxOut x y) = App "ShelleyTxOut" [toExpr x, toExpr y]
 
+instance ToExpr (TxOut ShelleyEra) where
+  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
+
 -- TxBody
 instance ToExpr (ShelleyTxBodyRaw TopTx ShelleyEra) where
   toExpr ShelleyTxBodyRaw {..} =
@@ -175,10 +178,9 @@ instance
 
 instance
   ( ToExpr (TxOut era)
-  , ToExpr (GovState era)
   , ToExpr (InstantStake era)
   ) =>
-  ToExpr (UTxOState era)
+  ToExpr (AccountingState era)
 
 instance ToExpr (ShelleyInstantStake era)
 

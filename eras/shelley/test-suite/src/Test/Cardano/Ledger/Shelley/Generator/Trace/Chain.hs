@@ -33,6 +33,8 @@ import Cardano.Ledger.Slot (
   EpochNo (..),
   SlotNo (..),
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<->))
 import Cardano.Protocol.TPraos.BlockHeader (
   BHeader,
@@ -151,7 +153,7 @@ mkGenesisChainState ge@(GenEnv _ _ constants) (IRC _slotNo) = do
       (At $ LastAppliedBlock (BlockNo 0) (SlotNo 0) (lastByronHeaderHash p))
       epoch0
       utxo0
-      (maxLLSupply <-> sumCoinUTxO utxo0)
+      (maxLLSupply <-> (sumAllCoin . IndexedUTxOs.txOuts $ utxo0))
       delegs0
       pParams
       (hashHeaderToNonce (lastByronHeaderHash p))

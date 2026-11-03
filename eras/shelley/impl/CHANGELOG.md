@@ -4,6 +4,15 @@
 
 * Add `poolReapAssertions`
 * Export `renderPoolReapViolation`
+* Separate Store projection from stake updates. Consume `TxProjected` with its updated Store and actual consumed/produced entries; apply `updateInstantStake` separately. Accounting rules install both results and emit the entry-change event. Remove the combined helper; retained colliding references neither count as produced entries nor add stake.
+* Remove the `Shelley.UTxO` reexports of `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`.
+* Distinguish proposed `IndexedTxOs` from stored `IndexedUTxOs`. Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset` retain complete entries; pre-Dijkstra serialized output maps remain unchanged.
+* Replace `txouts` with `outputsTxBody`, returning proposed outputs with their supplied sizes. Allocation reads the Store's current calculation. Both `TxUTxODiff` arguments are `IndexedUTxOs`: consumed entries from the previous Store and created entries from the updated Store, retaining recorded sizes and calculations.
+* Add `EraTransition.initialUTxOStore` so each era initializes its current deposit calculation before any transaction. Earlier eras retain the legacy default.
+* Store complete allocations in `UTxOState.utxosUTxOStore`, with `utxosUTxOStoreL` and the shared `utxoStoreG`/`utxoStoreL` accessors. Retain pre-Dijkstra snapshot encoding and include Dijkstra's cached output-deposit total in ADA pots.
+* Check initial-fund collisions directly against allocations and reconstruct stake from the funded Store's outputs, preserving existing entries and historical deposit metadata.
+* Add `getUTxOStore` and `getIndexedUTxOs` to the Imp test API for direct access to the current store and its allocations. Remove the output-only `getUTxO` helper; single-input reads remain available through `impGetUTxO`.
+* Change `expectUTxOContent` to accept `IndexedUTxOs`; test submission assertions look up only the requested outputs.
 * Remove `nesPd` field from `NewEpochState` and `nesPdL`:
   - Add `nesStakePoolDistrG`, which reads the stake pool distribution from the set snapshot instead
   - Remove the re-export of `ssStakeMarkPoolDistrL` from `Cardano.Ledger.Shelley.LedgerState`
@@ -18,11 +27,6 @@
 
 ### `testlib`
 
-* Add `initTransitionConfig` to `ShelleyEraImp`
-* Add `injectGenesisStaking` and `injectFreshGenesisStakePools`
-* Add `topTxFromAnyLevel` method to `ShelleyEraImp`
-* Add `AnyLevelTx`, `submitAnyTx`, `submitAnyTx_` and `shelleyTopTxFromAnyLevel`
-* Add `getPState`
 * Add `EraForecast` superclass to `ShelleyEraImp`, together with `Eq`, `ToExpr`, `NFData` and `Typeable` superclasses for the `TICKF` event
 * Add `ToExpr` instance for `ShelleyTickfEvent`
 

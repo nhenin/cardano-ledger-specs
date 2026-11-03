@@ -65,21 +65,22 @@ import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
   PulsingRewUpdate (..),
   RewardUpdate (..),
-  UTxOState (..),
   applyRUpd,
   curPParamsEpochStateL,
   esLStateL,
   futurePParamsEpochStateL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOStateL,
   nesEsL,
   prevPParamsEpochStateL,
-  utxosDepositedL,
-  utxosFeesL,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates)
 import Cardano.Ledger.Shelley.Rules (emptyInstantaneousRewards, votedFuturePParams)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<+>), (<->))
 import Cardano.Protocol.TPraos.BlockHeader (
   BHBody (..),
@@ -151,7 +152,7 @@ addFees ::
 addFees newFees cs = cs {chainNes = nes}
   where
     nes =
-      chainNes cs & nesEsL . esLStateL . lsUTxOStateL . utxosFeesL <>~ newFees
+      chainNes cs & nesEsL . esLStateL . lsAccountingStateL . asFeesL <>~ newFees
 
 -- | = Update the UTxO
 --
@@ -167,16 +168,22 @@ newUTxO txb cs = cs {chainNes = nes'}
     nes = chainNes cs
     es = nesEs nes
     ls = esLState es
-    utxoSt = lsUTxOState ls
-    utxo = unUTxO $ utxosUtxo utxoSt
-    utxoAdd = txouts @era txb
-    utxoToDel = Map.restrictKeys utxo (txins @era txb)
-    utxoWithout = Map.withoutKeys utxo (txins @era txb)
-    utxoDel = UTxO utxoToDel
-    utxo' = UTxO (utxoWithout `Map.union` unUTxO utxoAdd)
-    is' = deleteInstantStake utxoDel (addInstantStake utxoAdd (utxoSt ^. instantStakeL))
-    utxoSt' = utxoSt {utxosUtxo = utxo', utxosInstantStake = is'}
-    ls' = ls {lsUTxOState = utxoSt'}
+    utxoSt = lsAccountingState ls
+    entries = Store.allocations . asUTxOStore $ utxoSt
+    utxoAdd = outputsTxBody @era txb
+    inputs = txb ^. inputsTxBodyL
+    utxoToDel = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs inputs $ entries
+    remaining = IndexedUTxOs.withoutInputs inputs entries
+    store' =
+      StoreInternals.allocate (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) utxoAdd)
+        . StoreInternals.release inputs
+        $ asUTxOStore utxoSt
+    is' =
+      deleteInstantStake
+        utxoToDel
+        (addInstantStake (IndexedTxOs.txOuts utxoAdd) (utxoSt ^. instantStakeL))
+    utxoSt' = utxoSt {asUTxOStore = store', asInstantStake = is'}
+    ls' = ls {lsAccountingState = utxoSt'}
     es' = es {esLState = ls'}
     nes' = nes {nesEs = es'}
 
@@ -196,7 +203,7 @@ newStakeCred cred ptr cs = cs {chainNes = nes}
       chainNes cs
         & nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
           %~ registerShelleyAccount cred ptr (compactCoinOrError deposit) Nothing
-        & nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL <>~ deposit
+        & nesEsL . esLStateL . lsAccountingStateL . asDepositedL <>~ deposit
 
 -- | = De-Register Stake Credential
 --
@@ -211,7 +218,7 @@ deregStakeCred cred cs = cs {chainNes = nes}
     nes =
       chainNes cs
         & nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL .~ accounts'
-        & nesEsL . esLStateL . lsUTxOStateL . utxosDepositedL %~ (<-> refund)
+        & nesEsL . esLStateL . lsAccountingStateL . asDepositedL %~ (<-> refund)
         & nesEsL . esLStateL . lsCertStateL . certPStateL %~ adjustPState
     accounts =
       chainNes cs
@@ -284,7 +291,7 @@ regPool pool cs = cs {chainNes = nes'}
     ls' = ls {lsCertState = dps'}
     ls'' =
       ls'
-        & lsUTxOStateL . utxosDepositedL
+        & lsAccountingStateL . asDepositedL
           <>~ maybe (fromCompact poolDeposit) (const $ Coin 0) (Map.lookup (sppId pool) (psStakePools ps))
     es' = es {esLState = ls''}
     nes' = nes {nesEs = es'}
@@ -398,13 +405,13 @@ reapPool pool cs = cs {chainNes = nes'}
     ds' = ds {dsAccounts = removeStakePoolDelegations delegsToClear accounts'}
     chainAccountState = esChainAccountState es
     chainAccountState' = chainAccountState {casTreasury = casTreasury chainAccountState <+> fromCompact unclaimed}
-    utxoSt = lsUTxOState ls
-    utxoSt' = utxoSt {utxosDeposited = utxosDeposited utxoSt <-> (pp ^. ppPoolDepositL)}
+    utxoSt = lsAccountingState ls
+    utxoSt' = utxoSt {asDeposited = asDeposited utxoSt <-> (pp ^. ppPoolDepositL)}
     dps' =
       dps
         & certPStateL .~ ps'
         & certDStateL .~ ds'
-    ls' = ls {lsCertState = dps', lsUTxOState = utxoSt'}
+    ls' = ls {lsCertState = dps', lsAccountingState = utxoSt'}
     es' = es {esLState = ls', esChainAccountState = chainAccountState'}
     nes' = nes {nesEs = es'}
 
@@ -628,8 +635,7 @@ setCurrentProposals ps cs = cs {chainNes = nes'}
     nes = chainNes cs
     es = nesEs nes
     ls = esLState es
-    utxoSt = lsUTxOState ls
-    govState = utxosGovState utxoSt
+    govState = lsGovState ls
     pp = sgsCurPParams govState
     govState' =
       govState
@@ -637,8 +643,7 @@ setCurrentProposals ps cs = cs {chainNes = nes'}
         , sgsFuturePParams =
             PotentialPParamsUpdate $ votedFuturePParams ps pp (quorum testGlobals)
         }
-    utxoSt' = utxoSt {utxosGovState = govState'}
-    ls' = ls {lsUTxOState = utxoSt'}
+    ls' = ls {lsGovState = govState'}
     es' = es {esLState = ls'}
     nes' = nes {nesEs = es'}
 
@@ -656,11 +661,9 @@ setFutureProposals ps cs = cs {chainNes = nes'}
     nes = chainNes cs
     es = nesEs nes
     ls = esLState es
-    utxoSt = lsUTxOState ls
-    govState = utxosGovState utxoSt
+    govState = lsGovState ls
     govState' = govState {sgsFutureProposals = ps}
-    utxoSt' = utxoSt {utxosGovState = govState'}
-    ls' = ls {lsUTxOState = utxoSt'}
+    ls' = ls {lsGovState = govState'}
     es' = es {esLState = ls'}
     nes' = nes {nesEs = es'}
 

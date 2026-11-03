@@ -31,6 +31,8 @@ import Cardano.Ledger.Shelley.Scripts (
  )
 import Cardano.Ledger.Shelley.UTxO (getShelleyMinFeeTxUtxo)
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Sequence.Strict as SSeq
@@ -44,7 +46,7 @@ spec :: forall era. ConwayEraImp era => SpecWith (ImpInit (LedgerSpec era))
 spec = describe "UTXO" $ do
   describe "Certificates" $ do
     it "Reg/UnReg collect and refund correct amounts" $ do
-      utxoStart <- getUTxO
+      Assets initialValue <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       accountDeposit <- getsPParams ppKeyDepositL
       stakePoolDeposit <- getsPParams ppPoolDepositL
       dRepDeposit <- getsPParams ppDRepDepositL
@@ -76,7 +78,7 @@ spec = describe "UTXO" $ do
                 , UnRegDepositTxCert cred2 accountDeposit
                 , RegDepositTxCert cred4 accountDeposit
                 ]
-      utxoAfterRegister <- getUTxO
+      Assets valueAfterRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       -- Overwrite deposit protocol parameters in order to ensure they does not affect refunds
       modifyPParams
         ( \pp ->
@@ -85,7 +87,7 @@ spec = describe "UTXO" $ do
               & ppPoolDepositL .~ Coin 2
               & ppDRepDepositL .~ Coin 3
         )
-      (sumUTxO utxoStart <-> sumUTxO utxoAfterRegister)
+      (initialValue <-> valueAfterRegister)
         `shouldBe` inject
           ( (txRegister ^. bodyTxL . feeTxBodyL)
               <+> ((3 :: Int) <×> accountDeposit) -- Only three accounts retained that are still registered
@@ -103,12 +105,12 @@ spec = describe "UTXO" $ do
                 , UnRegDepositTxCert cred3 accountDeposit
                 , UnRegDepositTxCert cred4 accountDeposit
                 ]
-      utxoAfterUnRegister <- getUTxO
+      Assets valueAfterUnRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       let totalFees = (txRegister ^. bodyTxL . feeTxBodyL) <+> (txUnRegister ^. bodyTxL . feeTxBodyL)
-      fees <- getsNES (nesEsL . esLStateL . lsUTxOStateL . utxosFeesL)
+      fees <- getsNES (nesEsL . esLStateL . lsAccountingStateL . asFeesL)
       totalFees `shouldBe` fees
       -- only deposits for stake pool and its account are not refunded at this point
-      (sumUTxO utxoStart <-> sumUTxO utxoAfterUnRegister)
+      (initialValue <-> valueAfterUnRegister)
         `shouldBe` inject (totalFees <+> stakePoolDeposit <+> accountDeposit)
       passEpoch
       -- Check for successfull pool refund
@@ -123,11 +125,13 @@ spec = describe "UTXO" $ do
       addr2 <- freshKeyAddr_
       (_, rootTxOut) <- getImpRootTxOut
       let
-        rootTxOutValue = rootTxOut ^. valueTxOutL
+        rootTxOutValue = case rootTxOut of
+          LegacyTxOut implicitOutput -> implicitOutput ^. valueTxOutL
+          NewTxOut _ -> error "DRepNotRegistered: unexpected NewTxOut for the root output"
         txBody =
           mkBasicTxBody
             & inputsTxBodyL .~ [txIn]
-            & outputsTxBodyL .~ [mkBasicTxOut addr2 mempty]
+            & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr2 mempty]
         addUnRegDRepTxCert :: Tx TopTx era -> Tx TopTx era
         addUnRegDRepTxCert tx =
           tx
@@ -152,9 +156,9 @@ spec = describe "UTXO" $ do
         refIns <- produceRefScripts (NE.fromList refScripts)
         tx <- submitTxWithRefInputs scriptTxIn refIns
         minFeeDiff <- do
-          utxo <- getUTxO
+          entries <- getIndexedUTxOs
           pp <- getsNES $ nesEsL . curPParamsEpochStateL
-          pure $ getMinFeeTxUtxo pp tx utxo <-> getShelleyMinFeeTxUtxo pp tx
+          pure $ getMinFeeTxUtxo pp tx entries <-> getShelleyMinFeeTxUtxo pp tx
         refScriptFee <- getsPParams ppMinFeeRefScriptCostPerByteL
         -- we check that the difference between conway and shelleyMinFee computation is exactly
         -- the size of the sizes of the reference scripts
@@ -196,7 +200,7 @@ conwayOnlySpec ::
 conwayOnlySpec = describe "UTXO" $ do
   describe "Certificates" $ do
     it "Reg/UnReg collect and refund correct amounts" $ do
-      utxoStart <- getUTxO
+      Assets initialValue <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       accountDeposit <- getsPParams ppKeyDepositL
       stakePoolDeposit <- getsPParams ppPoolDepositL
       dRepDeposit <- getsPParams ppDRepDepositL
@@ -225,7 +229,7 @@ conwayOnlySpec = describe "UTXO" $ do
                 , UnRegDepositTxCert cred1 accountDeposit
                 , RegDepositTxCert cred4 accountDeposit
                 ]
-      utxoAfterRegister <- getUTxO
+      Assets valueAfterRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       -- Overwrite deposit protocol parameters in order to ensure they does not affect refunds
       modifyPParams
         ( \pp ->
@@ -234,7 +238,7 @@ conwayOnlySpec = describe "UTXO" $ do
               & ppPoolDepositL .~ Coin 2
               & ppDRepDepositL .~ Coin 3
         )
-      (sumUTxO utxoStart <-> sumUTxO utxoAfterRegister)
+      (initialValue <-> valueAfterRegister)
         `shouldBe` inject
           ( (txRegister ^. bodyTxL . feeTxBodyL)
               <+> ((3 :: Int) <×> accountDeposit) -- Only three accounts retained that are still registered
@@ -252,12 +256,12 @@ conwayOnlySpec = describe "UTXO" $ do
                 , UnRegTxCert cred3
                 , UnRegDepositTxCert cred4 accountDeposit
                 ]
-      utxoAfterUnRegister <- getUTxO
+      Assets valueAfterUnRegister <- sumAllAssets . IndexedUTxOs.txOuts <$> getIndexedUTxOs
       let totalFees = (txRegister ^. bodyTxL . feeTxBodyL) <+> (txUnRegister ^. bodyTxL . feeTxBodyL)
-      fees <- getsNES (nesEsL . esLStateL . lsUTxOStateL . utxosFeesL)
+      fees <- getsNES (nesEsL . esLStateL . lsAccountingStateL . asFeesL)
       totalFees `shouldBe` fees
       -- only deposits for stake pool and its account are not refunded at this point
-      (sumUTxO utxoStart <-> sumUTxO utxoAfterUnRegister)
+      (initialValue <-> valueAfterUnRegister)
         `shouldBe` inject (totalFees <+> stakePoolDeposit <+> accountDeposit)
       passEpoch
       -- Check for successfull pool refund

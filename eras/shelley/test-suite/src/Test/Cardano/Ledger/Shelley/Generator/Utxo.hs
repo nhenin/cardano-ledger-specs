@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Shelley.Generator.Utxo (
   genTx,
@@ -28,10 +29,13 @@ import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
 import Cardano.Ledger.Keys (asWitness)
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import Cardano.Ledger.Shelley.Rules (DelplEnv, LedgerEnv (..))
-import Cardano.Ledger.Shelley.State
+import Cardano.Ledger.Shelley.State hiding (txOuts)
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn (..))
+import Cardano.Ledger.TxOut (sumAllValue)
 import Cardano.Ledger.Val (Val (..), sumVal, (<+>), (<->), (<×>))
 import Cardano.Protocol.Crypto (Crypto)
 import Control.Monad (when)
@@ -134,7 +138,11 @@ genTx
          constants
        )
   (LedgerEnv slot _ txIx pparams reserves)
-  (LedgerState utxoSt@(UTxOState utxo _ _ _ _ _) dpState) =
+  ( LedgerState
+      utxoSt@(AccountingState {asUTxOStore = (Store.allocations -> utxo)})
+      dpState
+      _
+    ) =
     do
       -------------------------------------------------------------------------
       -- Generate the building blocks of a TxBody
@@ -188,7 +196,7 @@ genTx
             spendingBalanceUtxo
               <+> inject ((withdrawals <-> deposits) <+> refunds)
           n =
-            if Map.size (unUTxO utxo) < genTxStableUtxoSize defaultConstants
+            if Set.size (IndexedUTxOs.inputIds utxo) < genTxStableUtxoSize defaultConstants
               then -- something moderate 80-120 ^
                 genTxUtxoIncrement defaultConstants -- something small 2-5
               else 0 -- no change at all
@@ -198,7 +206,7 @@ genTx
               -- generating a transaction. If we get unexplained failures one
               -- might investigate changing these constants.
 
-      -- !_ = occaisionally (length inputs * length ksKeyPairs * length ksMSigScripts) 10000 ("UTxOSize = "++show (Map.size (unUTxO utxo)))
+      -- !_ = occaisionally (length inputs * length ksKeyPairs * length ksMSigScripts) 10000 ("UTxOSize = "++show (Set.size (IndexedUTxOs.inputIds utxo)))
 
       outputAddrs <-
         genRecipients @era (length inputs + n) ksKeyPairs ksMSigScripts
@@ -222,7 +230,7 @@ genTx
 
       -- Occasionally we have a transaction generated with insufficient inputs
       -- to cover the deposits. In this case we discard the test case.
-      let enough = sumVal (getMinCoinTxOut pparams <$> draftOutputs)
+      let enough = sumVal (getMinCoinTxOut pparams . requireLegacyTxOut <$> draftOutputs)
       !_ <-
         when (coin spendingBalance < enough) $
           tracedDiscard $
@@ -262,9 +270,13 @@ genTx
           draftTx
       let txOuts = tx ^. bodyTxL . outputsTxBodyL
       !_ <-
-        when (any (\txOut -> getMinCoinTxOut pparams txOut > txOut ^. coinTxOutL) txOuts) $
-          tracedDiscard $
-            "TxOut value is too small " <> show txOuts
+        when
+          ( any
+              (\txOut -> getMinCoinTxOut pparams (requireLegacyTxOut txOut) > txOut ^. coinTxOutL)
+              txOuts
+          )
+          $ tracedDiscard
+          $ "TxOut value is too small " <> show txOuts
       pure tx
 
 -- | Collect additional inputs (and witnesses and keys and scripts) to make
@@ -325,7 +337,7 @@ deltaZero initialfee pp addr =
     mempty
     mempty
   where
-    txOut = setMinCoinTxOut pp (mkBasicTxOut addr mempty)
+    txOut = setMinCoinTxOut pp (mkBasicTxOutWithImplicitDeposit addr mempty)
 
 -- Same function as in cardano-ledger-api. We don't want to depend on the api though,
 -- because it will be problematic for dependencies (cardano-ledger-api test suite depends
@@ -334,7 +346,7 @@ setMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
 setMinCoinTxOut pp = go
   where
     go txOut =
-      let curMinCoin = getMinCoinTxOut pp txOut
+      let curMinCoin = getMinCoinTxOut pp (requireLegacyTxOut txOut)
           curCoin = txOut ^. coinTxOutL
        in if curCoin == curMinCoin
             then txOut
@@ -349,7 +361,7 @@ genNextDelta ::
   forall era c.
   (EraGen era, EraUTxO era) =>
   ScriptInfo era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -389,7 +401,7 @@ genNextDelta
         totalFee = baseTxFee <+> deltaFee :: Coin
         remainingFee = totalFee <-> dfees :: Coin
         changeAmount = getChangeAmount change
-        minAda = getMinCoinTxOut pparams change
+        minAda = getMinCoinTxOut pparams (requireLegacyTxOut change)
      in if remainingFee <= Coin 0 -- we've paid for all the fees
           then pure delta -- we're done
           else -- the change covers what we need, so shift Coin from change to dfees.
@@ -407,19 +419,12 @@ genNextDelta
                 do
                   let txBody = tx ^. bodyTxL
                       inputsInUse = txBody ^. inputsTxBodyL <> extraInputs
-                      utxo' :: UTxO era
+                      utxo' :: IndexedUTxOs era
                       utxo' =
                         -- Remove possible inputs from Utxo, if they already
                         -- appear in inputs.
-                        UTxO $
-                          Map.filterWithKey
-                            ( \k v ->
-                                (k `Set.notMember` inputsInUse) && genEraGoodTxOut v
-                            )
-                            -- filter out UTxO entries where the TxOut are not
-                            -- appropriate for this Era (i.e. Keylocked in
-                            -- AlonzoEra)
-                            (unUTxO utxo)
+                        IndexedUTxOs.filterByTxOut genEraGoodTxOut $
+                          IndexedUTxOs.withoutInputs inputsInUse utxo
                   (inputs, value, (vkeyPairs, msigPairs)) <-
                     genInputs (1, 1) ksIndexedPaymentKeys ksIndexedPayScripts utxo'
                   -- It is possible that the Utxo has no possible inputs left, so
@@ -453,7 +458,8 @@ genNextDelta
         (Value era -> Value era) ->
         TxOut era ->
         TxOut era
-      deltaChange f txOut = txOut & valueTxOutL %~ f
+      deltaChange f =
+        LegacyTxOut . (valueTxOutL %~ f) . requireLegacyTxOut
       getChangeAmount txOut = txOut ^. coinTxOutL
 
 -- calculates fixed point of getNextDelta such that
@@ -470,7 +476,7 @@ genNextDeltaTilFixPoint ::
   Coin ->
   KeyPairs ->
   [(Script era, Script era)] ->
-  UTxO era ->
+  IndexedUTxOs era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -486,7 +492,7 @@ genNextDeltaTilFixPoint scriptinfo initialfee keys scripts utxo pparams keySpace
 applyDelta ::
   forall era c.
   EraGen era =>
-  UTxO era ->
+  IndexedUTxOs era ->
   ScriptInfo era ->
   PParams era ->
   [KeyPair Witness] ->
@@ -548,7 +554,7 @@ converge ::
   Map ScriptHash (Script era) ->
   KeyPairs ->
   [(Script era, Script era)] ->
-  UTxO era ->
+  IndexedUTxOs era ->
   PParams era ->
   KeySpace c era ->
   Tx TopTx era ->
@@ -640,7 +646,7 @@ mkScriptWits payScripts stakeScripts =
 mkTxWits ::
   forall era.
   EraGen era =>
-  (UTxO era, TxBody TopTx era, ScriptInfo era) ->
+  (IndexedUTxOs era, TxBody TopTx era, ScriptInfo era) ->
   Map (KeyHash Payment) (KeyPair Payment) ->
   Map (KeyHash Staking) (KeyPair Staking) ->
   [KeyPair Witness] ->
@@ -697,7 +703,7 @@ calcOutputsFromBalance ::
   (Coin, StrictSeq (TxOut era))
 calcOutputsFromBalance balance_ addrs fee =
   ( fee <+> splitCoinRem
-  , StrictSeq.fromList $ zipWith mkBasicTxOut addrs amountPerOutput
+  , StrictSeq.fromList $ zipWith mkBasicTxOutWithImplicitDeposit addrs amountPerOutput
   )
   where
     -- split the available balance into equal portions (one for each address),
@@ -722,19 +728,19 @@ genInputs ::
   (Int, Int) ->
   Map (KeyHash Payment) (KeyPair Payment) ->
   Map ScriptHash (Script era, Script era) ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Gen
     ( [TxIn]
     , Value era
     , ([KeyPair Witness], [(Script era, Script era)])
     )
-genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo) = do
+genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (IndexedUTxOs.mapTxOuts id -> utxo) = do
   numInputs <- QC.choose (minNumGenInputs, maxNumGenInputs)
   selectedUtxo <- pickRandomFromMap numInputs utxo
   let (inputs, witnesses) = unzip (fmap witnessedInput <$> selectedUtxo)
   return
     ( inputs
-    , sumAllValue @era (snd <$> selectedUtxo)
+    , sumAllValue @era (requireLegacyTxOut . snd <$> selectedUtxo)
     , Either.partitionEithers witnesses
     )
   where
@@ -745,6 +751,12 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (UTxO utxo)
         addr@(Addr _ (ScriptHashObj _) _) ->
           Right $ findPayScriptFromAddr @era addr payScriptMap
         _ -> error "unsupported address"
+
+-- | Private: these legacy generators only construct and consume implicit-deposit outputs.
+requireLegacyTxOut :: TxOut era -> LegacyTxOut era
+requireLegacyTxOut (LegacyTxOut output) = output
+requireLegacyTxOut (NewTxOut _) =
+  error "Shelley.Generator.Utxo: unexpected NewTxOut"
 
 -- | Select a subset of the account addresses to use for reward withdrawals.
 genWithdrawals ::

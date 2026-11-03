@@ -10,6 +10,27 @@
   - Add `Cardano.Ledger.Dijkstra.Rules.PoolReap` module
   - Change `EraRule "POOLREAP" DijkstraEra` from `Shelley.POOLREAP` to `POOLREAP`
   - Add `EraRuleEvent "POOLREAP" DijkstraEra` type instance
+* Rename `requiredTopLevelGuardsL` to `requiredTopLevelGuardsTxBodyL`
+* Persist the Store's active `currentCalculation`. Initialize it from effective parameters, activate parameter changes at epoch boundaries, and synchronize the batch entry point without changing the formula version or historical allocations.
+* Price new-deposit validation through the same current calculation used by allocation. `requiredUTxODeposit` and `allocatedUTxODeposits` take a calculation; net-change and collateral validators read it from the Store.
+* Distinguish accepted `IndexedUTxOs` from proposed `IndexedTxOs`. `Store.Internals.allocate` records the accepted size and calculation; body and collateral builders remain independent of pricing. TopTx and SubTx `TxUTxODiff` events carry complete consumed and created `IndexedUTxOs` from the previous and updated Stores.
+* Use `outputsTxBody` and `collateralOutputsTxBody` for proposed outputs. Remove the duplicate `outputAllocations` and `collateralReturnAllocations` helpers; use `TxProjected` returned by `Store.projectTx` for TopTxs and `Store.Internals.projectValidTxBody` for successful SubTxs. Update stake separately with `updateInstantStake` and emit `TxUTxODiff` using the same actual consumed/produced entries; retain the existing fees, donations and phase-2 execution gates. `Store.projectTx` selects the valid or collateral body projection from the transaction's phase-2 validity tag.
+* Implement recorded UTxO capacity deposits in ledger state. Each body releases its recorded input deposits and allocates its new outputs; complete-batch validation uses the original Store.
+* Validate exact TopTx batch totals, each SubTx contribution and release settlement destinations in `Rules.DepositStore.Accounting`. Add `DepositStoreFailure` to UTXO at CBOR tag `26`, including signed amount diagnostics.
+* Include the declared batch net allocation or release exactly once in ADA conservation, preserving independent SubTx financial imbalance and local/delegated attribution.
+* Derive collateral deposit settlement from consumed allocations and the return output. Fund any additional return deposit before the coin minimum; credit released deposit surplus to fees. Ordinary Store effects remain unapplied on phase-2 failure.
+* Translate existing Conway outputs into legacy allocations with no separately held deposit. Include the active calculation, total deposit amount and historical entries in Dijkstra ledger snapshots.
+* Require each TopTx and SubTx creating or spending store-backed outputs to carry its own UTxO capacity deposit declaration. Resolve each body's ordinary spending inputs against the original UTxO on both phase-2 outcomes. Use `MissingUTxODepositDeclaration` in UTXO at CBOR tag `25` and `SubMissingUTxODepositDeclaration` in SUBUTXO at tag `11`.
+* Introduce distinct `TopTxUTxODepositDeclaration` and `SubTxUTxODepositDeclaration` newtypes in `UTxOs.Deposit.TopTx` and `UTxOs.Deposit.SubTx`, with qualified patterns distinguishing no declaration from a declared zero. Preserve CBOR key `28`, encoded payloads and JSON.
+* Require a TopTx UTxO capacity deposit declaration whenever any SubTx declares one, including explicit zero. Add `MissingTopTxUTxODepositDeclaration` to `DijkstraUtxoPredFailure` with CBOR tag `24`.
+* Isolate declaration validation in `Rules.DepositStore.Declaration`, reexported through `Cardano.Ledger.Dijkstra.Rules`. The validator returns `DepositStoreDeclarationFailure`, which UTXO maps to its predicate failure.
+* Use UTxO capacity deposit terminology throughout the API: `NetUTxODepositChange`, `SubTxNetUTxODepositChange`, allocation/release constructors and release-settlement names. Rename the JSON body field to `netUTxODepositChange` and the corresponding operation/settlement kinds. This naming change preserves CBOR numeric keys, tags and encoded bytes.
+* Add `SubTxNoUTxODepositChange` for an explicit zero SubTx contribution, encoded as CBOR `[3]` and JSON `{"kind":"noChange"}`. Require `StrictlyPositiveCoin` for SubTx net allocations, funding requests and net releases; reject zero operation amounts while preserving their CBOR tags.
+* Replace the TopTx release output index with `TopTxReleaseSettlement`: `NoTopTxSettlement` or `TopTxSettlementOutput TxIx`, supporting settlement in SubTx outputs as well as mixed TopTx/SubTx settlement. The release amount remains the batch net total. CBOR releases now contain a tagged settlement instead of a bare index; JSON uses a `settlement` object instead of `outputIndex`.
+* Add `NoUTxODepositChange` for an explicitly declared zero batch net change; require `StrictlyPositiveCoin` for top-level net allocations and net releases. Encode no change as CBOR `[2]` and JSON `{"kind":"noChange"}`; reject zero allocation and release amounts.
+* Add an optional `NetUTxODepositChange` to top-level transaction bodies, with a net allocation or a net release referencing a top-level output by index; encode it at CBOR key `28` and describe it in the CDDL schema.
+* Add an optional `SubTxNetUTxODepositChange` to sub-transaction bodies at CBOR key `28`: net allocations can request funding from the top-level transaction; net releases declare their amount and either a local output index or an explicit request to delegate accounting to the top-level transaction.
+* Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
 * Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
 * Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
 * Add `getDijkstraSupplementalDataHashes` and use it for `getSupplementalDataHashes`, so that,
@@ -19,7 +40,6 @@
 * Change `seatInitialLeiosCommittee` to accept a `TransitionConfig` and also seat the Leios voting committee (CIP-0164) in the set and go snapshots
 * Add `Embed (SNAP era) (TICKF era)` instance, so that `TICKF` runs the Dijkstra `SNAP` rule
 * Change `eraMaxLanguage` to `PlutusV4`
-* Rename `requiredTopLevelGuardsL` to `requiredTopLevelGuardsTxBodyL`
 
 ### `testlib`
 

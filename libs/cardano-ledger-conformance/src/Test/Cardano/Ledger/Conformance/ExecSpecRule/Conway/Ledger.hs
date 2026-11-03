@@ -21,15 +21,16 @@ import Cardano.Ledger.Conway.Core (
   EraTx (..),
   EraTxAuxData (..),
   EraTxBody (..),
-  EraTxOut (..),
   EraTxWits (..),
   ScriptHash,
   TxLevel (..),
+  TxOut,
  )
 import Cardano.Ledger.Conway.Governance
 import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
+import Cardano.Ledger.State (allocations)
 import Control.State.Transition.Extended (TRC (..))
 import Data.Bifunctor (Bifunctor (..))
 import Data.Functor.Identity (Identity)
@@ -116,32 +117,32 @@ instance ExecSpecRule "LEDGER" ConwayEra where
     let externalFunctions' = externalFunctions {Agda.extValidPlutusScript = Agda.isValid (strcSignal trc)}
      in runFromAgdaFunction (Agda.ledgerStep externalFunctions') trc
 
-  extraInfo globals ConwayLedgerExecContext {..} (TRC (Shelley.LedgerEnv {..}, LedgerState {..}, sig)) _ =
+  extraInfo globals ConwayLedgerExecContext {..} (TRC (Shelley.LedgerEnv {..}, st@LedgerState {..}, sig)) _ =
     extraInfo @"UTXOW" @ConwayEra
       globals
       clecUtxoExecContext
-      (TRC (utxoEnv, lsUTxOState, sig))
+      (TRC (utxoEnv, st, sig))
       stFinal
     where
       utxoEnv = Shelley.UtxoEnv ledgerSlotNo ledgerPp lsCertState
       stFinal =
         first (T.pack . show) $
-          runSTS @"UTXOW" @ConwayEra globals utxoEnv lsUTxOState sig
+          runSTS @"UTXOW" @ConwayEra globals utxoEnv st sig
 
 instance ExecSpecTopLevelRule "LEDGER" ConwayEra where
   mkRuleExecContext _ (TRC (env, state, signal)) =
     ConwayLedgerExecContext
       { clecGuardrailsScriptHash =
-          state ^. lsUTxOStateL . utxosGovStateL . constitutionGovStateL . constitutionGuardrailsScriptHashL
-      , clecEnactState = mkEnactState $ state ^. lsUTxOStateL . utxosGovStateL
+          state ^. lsGovStateL . constitutionGovStateL . constitutionGuardrailsScriptHashL
+      , clecEnactState = mkEnactState $ state ^. lsGovStateL
       , clecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
-            , uecUTxO = state ^. utxoL
+            , uecUTxO = allocations $ state ^. utxoStoreG
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL
-                  , Shelley.uePParams = state ^. lsUTxOStateL . utxosGovStateL . curPParamsGovStateL
+                  , Shelley.uePParams = state ^. lsGovStateL . curPParamsGovStateL
                   , Shelley.ueCertState = state ^. lsCertStateL
                   }
             }

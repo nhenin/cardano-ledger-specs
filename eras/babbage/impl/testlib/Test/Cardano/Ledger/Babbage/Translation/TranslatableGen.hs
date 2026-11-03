@@ -21,7 +21,6 @@ import Cardano.Ledger.Babbage.TxBody ()
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Plutus.Data (Data (..), Datum (..))
 import Cardano.Ledger.Plutus.Language (SLanguage (..))
-import Cardano.Ledger.State (UTxO (..))
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict
@@ -32,6 +31,7 @@ import Test.Cardano.Ledger.Alonzo.Arbitrary (genScripts)
 import Test.Cardano.Ledger.Alonzo.Translation.TranslatableGen (TranslatableGen (..))
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Cardano.Ledger.Core.Arbitrary ()
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.QuickCheck (
   Arbitrary,
   Gen,
@@ -58,11 +58,11 @@ utxoWithTx ::
   ) =>
   SupportedLanguage era ->
   Tx TopTx era ->
-  Gen (UTxO era)
+  Gen (IndexedUTxOs era)
 utxoWithTx l tx = do
   let allIns = tx ^. bodyTxL ^. allInputsTxBodyF
   outs <- vectorOf (length allIns) (genTxOut @era l)
-  pure $ UTxO (Map.fromList $ Set.toList allIns `zip` outs)
+  pure $ legacyIndexedUTxOs (Map.fromList $ Set.toList allIns `zip` outs)
 
 genTx ::
   forall era.
@@ -102,7 +102,7 @@ genTxOut (SupportedLanguage slang) = do
     SPlutusV1 -> oneof [pure NoDatum, DatumHash <$> (arbitrary :: Gen DataHash)]
     _ -> arbitrary
   pure $
-    mkBasicTxOut addr value
+    mkBasicTxOutWithImplicitDeposit addr value
       & datumTxOutL .~ datum
       & referenceScriptTxOutL .~ script
 

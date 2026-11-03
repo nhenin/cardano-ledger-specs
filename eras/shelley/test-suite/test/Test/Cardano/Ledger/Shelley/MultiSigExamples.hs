@@ -33,7 +33,6 @@ import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState,
   genesisState,
  )
 import Cardano.Ledger.Shelley.Rules (UTXOW, UtxoEnv (..))
@@ -123,7 +122,7 @@ initTxBody ::
 initTxBody addrs =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound, TxIn genesisId (mkTxIxPartial 1)]
-    & outputsTxBodyL .~ StrictSeq.fromList (map (uncurry mkBasicTxOut) addrs)
+    & outputsTxBodyL .~ StrictSeq.fromList (map (uncurry mkBasicTxOutWithImplicitDeposit) addrs)
     & feeTxBodyL .~ Coin 0
     & ttlTxBodyL .~ SlotNo 0
 
@@ -135,7 +134,8 @@ makeTxBody ::
 makeTxBody inp addrCs wdrl =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList inp
-    & outputsTxBodyL .~ StrictSeq.fromList [uncurry mkBasicTxOut addrC | addrC <- addrCs]
+    & outputsTxBodyL
+      .~ StrictSeq.fromList [uncurry mkBasicTxOutWithImplicitDeposit addrC | addrC <- addrCs]
     & withdrawalsTxBodyL .~ wdrl
     & feeTxBodyL .~ Coin 0
     & ttlTxBodyL .~ SlotNo 10
@@ -177,8 +177,8 @@ genesis = genesisState genDelegs0 utxo0
     utxo0 =
       genesisCoins @era
         genesisId
-        [ mkBasicTxOut Cast.aliceAddr (Val.inject aliceInitCoin)
-        , mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin)
+        [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceInitCoin)
+        , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
         ]
 
 initPParams :: EraPParams era => PParams era
@@ -186,19 +186,19 @@ initPParams =
   emptyPParams
     & ppMaxTxSizeL .~ 1000
 
--- | Create an initial UTxO state where Alice has 'aliceInitCoin' and Bob
+-- | Create an initial ledger state where Alice has 'aliceInitCoin' and Bob
 -- 'bobInitCoin' to spend. Then create and apply a transaction which, if
 -- 'aliceKeep' is greater than 0, gives that amount to Alice and creates outputs
 -- locked by a script for each pair of script, coin value in 'msigs'.
-initialUTxOState ::
+initialLedgerState ::
   Coin ->
   [(MultiSig ShelleyEra, Coin)] ->
   ( TxId
   , Either
       (NonEmpty (PredicateFailure (UTXOW ShelleyEra)))
-      (UTxOState ShelleyEra)
+      (LedgerState ShelleyEra)
   )
-initialUTxOState aliceKeep msigs =
+initialLedgerState aliceKeep msigs =
   let addresses =
         [(Cast.aliceAddr, aliceKeep) | Val.pointwise (>) aliceKeep mempty]
           ++ map
@@ -225,7 +225,7 @@ initialUTxOState aliceKeep msigs =
                         (SlotNo 0)
                         initPParams
                         def
-                    , lsUTxOState genesis
+                    , genesis
                     , tx
                     )
                 )
@@ -237,17 +237,17 @@ initialUTxOState aliceKeep msigs =
 -- script. Sign the transaction with keys in 'signers'. Then create an
 -- transaction that uses the scripts in 'unlockScripts' (and the output for
 -- 'aliceKeep' in the case of it being non-zero) to spend all funds back to
--- Alice. Return resulting UTxO state or collected errors
+-- Alice. Return the resulting ledger state or collected errors.
 applyTxWithScript ::
   [(MultiSig ShelleyEra, Coin)] ->
   [MultiSig ShelleyEra] ->
   Withdrawals ->
   Coin ->
   [KeyPair Witness] ->
-  Either (NonEmpty (PredicateFailure (UTXOW ShelleyEra))) (UTxOState ShelleyEra)
+  Either (NonEmpty (PredicateFailure (UTXOW ShelleyEra))) (LedgerState ShelleyEra)
 applyTxWithScript lockScripts unlockScripts wdrl aliceKeep signers = utxoSt'
   where
-    (txId, initUtxo) = initialUTxOState aliceKeep lockScripts
+    (txId, initUtxo) = initialLedgerState aliceKeep lockScripts
     utxoSt = case initUtxo of
       Right utxoSt'' -> utxoSt''
       _ -> error $ "must fail test before: " ++ show initUtxo

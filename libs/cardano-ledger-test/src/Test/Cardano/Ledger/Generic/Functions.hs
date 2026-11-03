@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | Functions in this module take a (Proof era) as their first
 --   parameter and do something potentially different in each Era.
@@ -34,12 +35,13 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Scripts (pattern RequireAllOf, pattern RequireAnyOf)
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn (..))
-import Cardano.Ledger.Val (Val ((<+>), (<->)), inject)
+import Cardano.Ledger.TxOut (sumAllCoin)
+import Cardano.Ledger.Val (Val ((<+>), (<->)))
 import Cardano.Slotting.EpochInfo.API (epochInfoSize)
 import Control.Monad.Reader (runReader)
 import Control.Monad.Trans.Fail.String (errorFail)
@@ -54,6 +56,7 @@ import qualified Data.Set as Set
 import Lens.Micro
 import Numeric.Natural
 import Test.Cardano.Ledger.Alonzo.Arbitrary (alwaysFailsLang, alwaysSucceedsLang)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Generic.ModelState (MUtxo, Model, ModelNewEpochState (..))
 import Test.Cardano.Ledger.Generic.Proof (Proof (..), Reflect (..))
 import Test.Cardano.Ledger.Shelley.Rewards (RewardUpdateOld, createRUpdOld_)
@@ -86,29 +89,29 @@ depositsAndRefunds pp certificates accounts = List.foldl' accum (Coin 0) certifi
 scriptWitsNeeded' :: Proof era -> MUtxo era -> TxBody TopTx era -> Set ScriptHash
 scriptWitsNeeded' Conway utxo txBody = regularScripts `Set.difference` inlineScripts
   where
-    theUtxo = UTxO utxo
+    theAllocations = legacyIndexedUTxOs utxo
     inputs = txBody ^. inputsTxBodyL
-    inlineScripts = Map.keysSet $ getReferenceScripts theUtxo inputs
-    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theUtxo txBody)
+    inlineScripts = Map.keysSet $ getReferenceScripts theAllocations inputs
+    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theAllocations txBody)
 scriptWitsNeeded' Babbage utxo txBody = regularScripts `Set.difference` inlineScripts
   where
-    theUtxo = UTxO utxo
+    theAllocations = legacyIndexedUTxOs utxo
     inputs = (txBody ^. inputsTxBodyL) `Set.union` (txBody ^. referenceInputsTxBodyL)
-    inlineScripts = Map.keysSet $ getReferenceScripts theUtxo inputs
-    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theUtxo txBody)
+    inlineScripts = Map.keysSet $ getReferenceScripts theAllocations inputs
+    regularScripts = getScriptsHashesNeeded (getScriptsNeeded theAllocations txBody)
 scriptWitsNeeded' Alonzo utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyIndexedUTxOs utxo) txBody)
 scriptWitsNeeded' Mary utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyIndexedUTxOs utxo) txBody)
 scriptWitsNeeded' Allegra utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyIndexedUTxOs utxo) txBody)
 scriptWitsNeeded' Shelley utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyIndexedUTxOs utxo) txBody)
 {-# NOINLINE scriptWitsNeeded' #-}
 
 scriptsNeeded' :: EraUTxO era => MUtxo era -> TxBody TopTx era -> Set ScriptHash
 scriptsNeeded' utxo txBody =
-  getScriptsHashesNeeded (getScriptsNeeded (UTxO utxo) txBody)
+  getScriptsHashesNeeded (getScriptsNeeded (legacyIndexedUTxOs utxo) txBody)
 {-# NOINLINE scriptsNeeded' #-}
 
 txInBalance ::
@@ -117,14 +120,20 @@ txInBalance ::
   Set TxIn ->
   MUtxo era ->
   Coin
-txInBalance txinSet m = sumCoinUTxO (UTxO (Map.restrictKeys m txinSet))
+txInBalance txinSet m = sumAllCoin $ Map.restrictKeys m txinSet
 
 injectFee :: EraTxOut era => Coin -> TxOut era -> TxOut era
-injectFee fee txOut = txOut & valueTxOutL %~ (<+> inject fee)
+injectFee fee txOut = txOut & coinTxOutL %~ (<+> fee)
+
+-- | The legacy generators only produce outputs with implicit deposits.
+requireImplicitTxOut :: TxOut era -> LegacyTxOut era
+requireImplicitTxOut (LegacyTxOut output) = output
+requireImplicitTxOut (NewTxOut _) = error "requireImplicitTxOut: unexpected store-backed output"
 
 getTxOutRefScript :: Proof era -> TxOut era -> StrictMaybe (Script era)
-getTxOutRefScript Conway (BabbageTxOut _ _ _ ms) = ms
-getTxOutRefScript Babbage (BabbageTxOut _ _ _ ms) = ms
+getTxOutRefScript _ (NewTxOut _) = error "getTxOutRefScript: unexpected store-backed output"
+getTxOutRefScript Conway (LegacyTxOut (BabbageTxOut _ _ _ ms)) = ms
+getTxOutRefScript Babbage (LegacyTxOut (BabbageTxOut _ _ _ ms)) = ms
 getTxOutRefScript _ _ = SNothing
 {-# NOINLINE getTxOutRefScript #-}
 
@@ -156,27 +165,28 @@ txoutEvidence ::
   Proof era ->
   TxOut era ->
   ([Credential Payment], Maybe DataHash)
-txoutEvidence Alonzo (AlonzoTxOut addr _ (SJust dh)) =
+txoutEvidence _ (NewTxOut _) = error "txoutEvidence: unexpected store-backed output"
+txoutEvidence Alonzo (LegacyTxOut (AlonzoTxOut addr _ (SJust dh))) =
   (addrCredentials addr, Just dh)
-txoutEvidence Alonzo (AlonzoTxOut addr _ SNothing) =
+txoutEvidence Alonzo (LegacyTxOut (AlonzoTxOut addr _ SNothing)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (BabbageTxOut addr _ NoDatum _) =
+txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (BabbageTxOut addr _ (DatumHash dh) _) =
+txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Conway (BabbageTxOut addr _ (Datum _d) _) =
+txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Babbage (BabbageTxOut addr _ NoDatum _) =
+txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Babbage (BabbageTxOut addr _ (DatumHash dh) _) =
+txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Babbage (BabbageTxOut addr _ (Datum _d) _) =
+txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Mary (ShelleyTxOut addr _) =
+txoutEvidence Mary (LegacyTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Allegra (ShelleyTxOut addr _) =
+txoutEvidence Allegra (LegacyTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Shelley (ShelleyTxOut addr _) =
+txoutEvidence Shelley (LegacyTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
 {-# NOINLINE txoutEvidence #-}
 
@@ -269,7 +279,7 @@ languagesUsed ::
   forall era.
   Proof era ->
   Tx TopTx era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Set ScriptHash ->
   Set Language
 languagesUsed proof tx utxo sNeeded = case proof of
@@ -286,7 +296,7 @@ languages ::
   forall era.
   (EraUTxO era, AlonzoEraScript era) =>
   Tx TopTx era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Set ScriptHash ->
   Set Language
 languages tx utxo sNeeded = Map.foldl' accum Set.empty allScripts
@@ -304,9 +314,12 @@ class TotalAda t where
 instance TotalAda ChainAccountState where
   totalAda (ChainAccountState treasury reserves) = treasury <+> reserves
 
-instance Reflect era => TotalAda (UTxOState era) where
-  totalAda (UTxOState utxo _deposits fees gs _ donations) =
-    totalAda utxo <+> fees <+> govStateTotalAda gs <+> donations
+instance Reflect era => TotalAda (AccountingState era) where
+  totalAda (AccountingState store _deposits fees _ donations) =
+    (foldMap (^. coinTxOutL) . IndexedUTxOs.txOuts . allocations $ store)
+      <+> fees
+      <+> donations
+      <+> toCoin (totalDepositAmount store)
 
 -- we don't add in the _deposits, because it is invariant that this
 -- is equal to the sum of the key deposit map and the pool deposit map
@@ -314,8 +327,8 @@ instance Reflect era => TotalAda (UTxOState era) where
 -- TODO I'm not sure this is true ^
 -- Imp conformance tests show in logs that totalAda is off by the deposit amount
 
-instance Reflect era => TotalAda (UTxO era) where
-  totalAda (UTxO m) = foldl accum mempty m
+instance Reflect era => TotalAda (IndexedUTxOs era) where
+  totalAda = foldl accum mempty . IndexedUTxOs.txOuts
     where
       accum ans txOut = (txOut ^. coinTxOutL) <+> ans
 
@@ -356,7 +369,8 @@ certStateTotalAda = case reify @era of
   Conway -> mempty
 
 instance Reflect era => TotalAda (LedgerState era) where
-  totalAda (LedgerState utxos dps) = totalAda utxos <+> certStateTotalAda dps
+  totalAda (LedgerState accountingState certState govState) =
+    totalAda accountingState <+> certStateTotalAda certState <+> govStateTotalAda govState
 
 instance Reflect era => TotalAda (EpochState era) where
   totalAda eps = totalAda (esLState eps) <+> totalAda (esChainAccountState eps)

@@ -2,7 +2,8 @@
 
 ## 1.15.0.1
 
-*
+* Return proposed `IndexedTxOs` from `collOuts`, retaining the supplied collateral-return size and output index. `Store.allocate` records the calculation on acceptance; earlier eras retain canonical legacy metadata and encodings.
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.15.0.0
 

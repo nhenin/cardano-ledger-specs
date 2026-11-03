@@ -97,7 +97,8 @@ module Test.Cardano.Ledger.Shelley.ImpTest (
   modifyNES,
   getProtVer,
   getsNES,
-  getUTxO,
+  getUTxOStore,
+  getIndexedUTxOs,
   getPState,
   getCurSlotNo,
   impAddNativeScript,
@@ -215,7 +216,7 @@ import qualified Cardano.Chain.Common as Byron
 import qualified Cardano.Chain.UTxO as Byron (empty)
 import Cardano.Ledger.Address (BootstrapAddress (..), bootstrapKeyHash)
 import Cardano.Ledger.BaseTypes
-import Cardano.Ledger.Binary (DecCBOR, EncCBOR)
+import Cardano.Ledger.Binary (DecCBOR, EncCBOR, mkSized)
 import Cardano.Ledger.Block (
   Block (..),
   BlockHeaderVersionInfo (..),
@@ -266,14 +267,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
   curPParamsEpochStateL,
   esLStateL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOState,
-  lsUTxOStateL,
   nesELL,
   nesEsL,
   prevPParamsEpochStateL,
-  utxosDonationL,
-  utxosUtxo,
  )
 import Cardano.Ledger.Shelley.Rules (
   AccountAlreadyRegistered,
@@ -304,11 +302,15 @@ import Cardano.Ledger.Shelley.Transition (
 import Cardano.Ledger.Shelley.Translation (toFromByronTranslationContext)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (epochFromSlot, epochInfoFirst, getTheSlotOfNoReturn)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Tools (
   calcMinFeeTxNativeScriptWits,
   ensureMinCoinTxOut,
  )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (Val (..))
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
@@ -337,7 +339,7 @@ import Data.List.NonEmpty (NonEmpty)
 import qualified Data.ListMap as ListMap
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, isNothing, mapMaybe)
+import Data.Maybe (catMaybes, isJust, isNothing, mapMaybe)
 import Data.Ratio (denominator, numerator, (%))
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
@@ -734,8 +736,7 @@ impEraStartEpochNo = EpochNo (getVersion majProtVer * 100)
 
 defaultInitImpTestState ::
   forall era s g m.
-  ( EraGov era
-  , EraTxOut era
+  ( EraTxOut era
   , HasKeyPairs s
   , MonadState s m
   , HasStatefulGen g m
@@ -750,11 +751,19 @@ defaultInitImpTestState nes = do
     rootAddr :: Addr
     rootAddr = mkAddr rootKeyHash StakeRefNull
     rootTxOut :: TxOut era
-    rootTxOut = mkBasicTxOut rootAddr $ inject rootCoin
+    rootTxOut = mkBasicTxOutWithImplicitDeposit rootAddr $ inject rootCoin
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
-    nesWithRoot = nes & utxoL <>~ UTxO (Map.singleton rootTxIn rootTxOut)
+    existingStore = nes ^. utxoStoreG
+    rootStore =
+      if isJust $ lookupUTxO rootTxIn $ allocations existingStore
+        then existingStore
+        else
+          StoreInternals.allocate
+            (IndexedTxOs.singleton rootTxIn $ mkSized (eraProtVerLow @era) rootTxOut)
+            existingStore
+    nesWithRoot = nes & utxoStoreL .~ rootStore
   prepState <- get
   let epochInfoE =
         fixedEpochInfo
@@ -1004,14 +1013,14 @@ impWitsVKeyNeeded ::
     )
 impWitsVKeyNeeded txBody = do
   ls <- getsNES (nesEsL . esLStateL)
-  utxo <- getUTxO
-  let toBootAddr txIn = do
-        txOut <- txinLookup txIn utxo
-        txOut ^. bootAddrTxOutF
+  let entries = allocations . (^. utxoStoreG) $ ls
+      toBootAddr txIn = do
+        entry <- lookupUTxO txIn entries
+        Unspent.toTxOut entry ^. bootAddrTxOutF
       bootAddrs = Set.fromList $ mapMaybe toBootAddr $ Set.toList (txBody ^. spendableInputsTxBodyF)
       bootKeyHashes = Set.map (coerceKeyRole . bootstrapKeyHash) bootAddrs
       allKeyHashes =
-        getWitsVKeyNeeded (ls ^. lsCertStateL) (ls ^. utxoL) txBody
+        getWitsVKeyNeeded (ls ^. lsCertStateL) entries txBody
   pure (bootAddrs, allKeyHashes Set.\\ bootKeyHashes)
 
 data ImpTestEnv era = ImpTestEnv
@@ -1140,10 +1149,10 @@ getAccountBalance ra =
 getImpRootTxOut :: ImpTestM era (TxIn, TxOut era)
 getImpRootTxOut = do
   ImpTestState {impRootTxIn} <- get
-  utxo <- getUTxO
-  case txinLookup impRootTxIn utxo of
+  entries <- getIndexedUTxOs
+  case lookupUTxO impRootTxIn entries of
     Nothing -> error "Root txId no longer points to an existing unspent output"
-    Just rootTxOut -> pure (impRootTxIn, rootTxOut)
+    Just entry -> pure (impRootTxIn, Unspent.toTxOut entry)
 
 impAddNativeScript ::
   forall era.
@@ -1161,9 +1170,9 @@ impNativeScriptsRequired ::
   Tx l era ->
   ImpTestM era (Map ScriptHash (NativeScript era))
 impNativeScriptsRequired tx = do
-  utxo <- getUTxO
+  entries <- getIndexedUTxOs
   ImpTestState {impNativeScripts} <- get
-  let needed = getScriptsNeeded utxo (tx ^. bodyTxL)
+  let needed = getScriptsNeeded entries (tx ^. bodyTxL)
       hashesNeeded = getScriptsHashesNeeded needed
   pure $ impNativeScripts `Map.restrictKeys` hashesNeeded
 
@@ -1174,8 +1183,8 @@ addNativeScriptTxWits ::
   ImpTestM era (Tx l era)
 addNativeScriptTxWits tx = impAnn "addNativeScriptTxWits" $ do
   scriptsRequired <- impNativeScriptsRequired tx
-  utxo <- getUTxO
-  let ScriptsProvided provided = getScriptsProvided utxo tx
+  entries <- getIndexedUTxOs
+  let ScriptsProvided provided = getScriptsProvided entries tx
       scriptsToAdd = scriptsRequired Map.\\ provided
   pure $
     tx
@@ -1265,19 +1274,19 @@ impNativeScriptKeyPairs tx = do
 fixupTxOuts :: (ShelleyEraImp era, HasCallStack) => Tx l era -> ImpTestM era (Tx l era)
 fixupTxOuts tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  let
-    txOuts = tx ^. bodyTxL . outputsTxBodyL
-  fixedUpTxOuts <- forM txOuts $ \txOut -> do
-    if txOut ^. coinTxOutL == zero
-      then do
-        amount <- arbitrary
-        let txOut' = ensureMinCoinTxOut pp (txOut & coinTxOutL .~ amount)
-        logDoc $
-          "Fixed up the amount in the TxOut to " <> ansiExpr (txOut' ^. coinTxOutL)
-        pure txOut'
-      else do
-        pure txOut
-  pure $ tx & bodyTxL . outputsTxBodyL .~ fixedUpTxOuts
+  outputs <- forM (tx ^. bodyTxL . outputsTxBodyL) $ \case
+    LegacyTxOut output
+      | coin (output ^. valueTxOutL) == zero -> do
+          amount <- arbitrary
+          let fundedOutput =
+                ensureMinCoinTxOut pp $
+                  output & valueTxOutL %~ modifyCoin (const amount)
+          logDoc $
+            "Fixed up the amount in the TxOut to "
+              <> ansiExpr (coin (fundedOutput ^. valueTxOutL))
+          pure $ LegacyTxOut fundedOutput
+    output -> pure output
+  pure $ tx & bodyTxL . outputsTxBodyL .~ outputs
 
 fixupFees ::
   forall era.
@@ -1288,7 +1297,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   -- Fee will be overwritten later on, unless it wasn't set to zero to begin with:
   let tx = txOriginal & bodyTxL . feeTxBodyL .~ zero
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getUTxO
+  entries <- getIndexedUTxOs
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
   addr <-
     if eraProtVerLow @era < natVersion @12
@@ -1300,7 +1309,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   let
     nativeScriptKeyWits = Map.keysSet nativeScriptKeyPairs
     accounts = certState ^. certDStateL . accountsL
-    consumedValue = shelleyConsumed pp accounts utxo (tx ^. bodyTxL)
+    consumedValue = shelleyConsumed pp accounts entries (tx ^. bodyTxL)
     producedValue = produced pp (certState ^. certPStateL) (tx ^. bodyTxL)
     ensureNonNegativeCoin v
       | pointwise (<=) zero v = pure v
@@ -1311,12 +1320,12 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   changeBeforeFee <- ensureNonNegativeCoin $ coin consumedValue <-> coin producedValue
   logToExpr changeBeforeFee
   let
-    changeBeforeFeeTxOut = mkBasicTxOut addr (inject changeBeforeFee)
+    changeBeforeFeeTxOut = mkBasicTxOutWithImplicitDeposit addr (inject changeBeforeFee)
     txNoWits = tx & bodyTxL . outputsTxBodyL %~ (:|> changeBeforeFeeTxOut)
     outsBeforeFee = tx ^. bodyTxL . outputsTxBodyL
     suppliedFee = txOriginal ^. bodyTxL . feeTxBodyL
     fee0
-      | suppliedFee == zero = calcMinFeeTxNativeScriptWits utxo pp txNoWits nativeScriptKeyWits
+      | suppliedFee == zero = calcMinFeeTxNativeScriptWits entries pp txNoWits nativeScriptKeyWits
       | otherwise = suppliedFee
     fee = rationalToCoinViaCeiling $ coinToRational fee0 * (11 % 10)
   logString "Validating change"
@@ -1327,7 +1336,8 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
     -- If the remainder is sufficently big we add it to outputs, otherwise we add the
     -- extraneous coin to the fee and discard the remainder TxOut
     txWithFee
-      | change >= getMinCoinTxOut pp changeTxOut =
+      | LegacyTxOut implicitChangeTxOut <- changeTxOut
+      , change >= getMinCoinTxOut pp implicitChangeTxOut =
           txNoWits
             & bodyTxL . outputsTxBodyL .~ (outsBeforeFee :|> changeTxOut)
             & bodyTxL . feeTxBodyL .~ fee
@@ -1365,20 +1375,20 @@ impShelleyExpectTxSuccess ::
   Tx TopTx era ->
   ImpTestM era ()
 impShelleyExpectTxSuccess tx = do
-  utxo <- getsNES utxoL
+  currentAllocations <- getIndexedUTxOs
   let inputs = tx ^. bodyTxL . inputsTxBodyL
-      outputs = Map.toList . unUTxO . txouts $ tx ^. bodyTxL
+      outputs = zip (map (TxIn (txIdTx tx)) [minBound ..]) . toList $ tx ^. bodyTxL . outputsTxBodyL
   impAnn "Inputs should be gone from UTxO" $
-    expectUTxOContent utxo [(txIn, isNothing) | txIn <- Set.toList inputs]
+    expectUTxOContent currentAllocations [(txIn, isNothing) | txIn <- Set.toList inputs]
   impAnn "Outputs should be in UTxO" $
-    expectUTxOContent utxo [(txIn, (== Just txOut)) | (txIn, txOut) <- outputs]
+    expectUTxOContent currentAllocations [(txIn, (== Just txOut)) | (txIn, txOut) <- outputs]
 
 logFeeMismatch :: (EraGov era, EraUTxO era, HasCallStack) => Tx TopTx era -> ImpTestM era ()
 logFeeMismatch tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getsNES utxoL
+  entries <- getIndexedUTxOs
   let Coin feeUsed = tx ^. bodyTxL . feeTxBodyL
-      Coin feeMin = getMinFeeTxUtxo pp tx utxo
+      Coin feeMin = getMinFeeTxUtxo pp tx entries
   when (feeUsed /= feeMin) $ do
     logDoc $
       "Estimated fee " <> ansiExpr feeUsed <> " while required fee is " <> ansiExpr feeMin
@@ -1425,7 +1435,9 @@ trySubmitTx tx = do
           (epochInfo globals)
           (systemStart globals)
           (lEnv ^. ledgerPpL)
-          (utxosUtxo (lsUTxOState lState))
+          ( IndexedUTxOs.restrictToInputs (txFixed ^. bodyTxL . allInputsTxBodyF) . allocations $
+              lState ^. utxoStoreG
+          )
           mempty
           txFixed
   res <- tryRunImpRule @"LEDGER" lEnv lState stAnnTx
@@ -1446,7 +1458,7 @@ trySubmitTx tx = do
       modify' $ impRecordedTxsL %~ fmap (SSeq.|> txFixed)
 
       ImpTestState {impRootTxIn} <- get
-      UTxO utxo <- getUTxO
+      entries <- getIndexedUTxOs
       let
         txId = TxId . hashAnnotated $ txFixed ^. bodyTxL
         outsSize = SSeq.length $ txFixed ^. bodyTxL . outputsTxBodyL
@@ -1458,8 +1470,8 @@ trySubmitTx tx = do
         -- so we need to set the new root to what it was before the submission.
         assumedNewRoot = TxIn txId (mkTxIxPartial (fromIntegral rootIndex))
         newRoot
-          | Map.member assumedNewRoot utxo = assumedNewRoot
-          | Map.member impRootTxIn utxo = impRootTxIn
+          | isJust $ lookupUTxO assumedNewRoot entries = assumedNewRoot
+          | isJust $ lookupUTxO impRootTxIn entries = impRootTxIn
           | otherwise = error "Root not found in UTxO"
       impRootTxInL .= newRoot
 
@@ -1955,7 +1967,7 @@ epochBoundaryCheck preNES postNES = do
     tot nes =
       (<+>)
         (sumAdaPots (totalAdaPotsES (nes ^. nesEsL)))
-        (nes ^. nesEsL . esLStateL . lsUTxOStateL . utxosDonationL)
+        (nes ^. nesEsL . esLStateL . lsAccountingStateL . asDonationL)
 
 -- | Runs the TICK rule until the `n` epochs are passed
 passNEpochs ::
@@ -2055,7 +2067,7 @@ freshKeyAddr_ = snd <$> freshKeyAddr
 freshTxOutWithCoin :: EraTxOut era => Coin -> ImpTestM era (TxOut era)
 freshTxOutWithCoin c = do
   addr <- freshKeyAddr_
-  pure . mkBasicTxOut addr $ inject c
+  pure . mkBasicTxOutWithImplicitDeposit addr $ inject c
 
 freshMainnetKeyAddr_ :: (HasKeyPairs s, MonadState s m, HasStatefulGen g m) => m Addr
 freshMainnetKeyAddr_ = do
@@ -2174,7 +2186,7 @@ sendValueTo addr amount = do
     submitTxAnn
       ("Giving " <> show amount <> " to " <> show addr)
       $ mkBasicTx mkBasicTxBody
-        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOut addr amount)
+        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr amount)
   pure $ txInAt 0 tx
 
 sendValueTo_ :: (ShelleyEraImp era, HasCallStack) => Addr -> Value era -> ImpTestM era ()
@@ -2188,8 +2200,13 @@ modifyNES = (impNESL %=)
 getsNES :: SimpleGetter (NewEpochState era) a -> ImpTestM era a
 getsNES l = gets . view $ impNESL . l
 
-getUTxO :: ImpTestM era (UTxO era)
-getUTxO = getsNES utxoL
+-- | Get the current unspent-output store, including historical deposit metadata.
+getUTxOStore :: ImpTestM era (UTxOStore era)
+getUTxOStore = getsNES utxoStoreG
+
+-- | Get the current allocations with their historical deposit metadata.
+getIndexedUTxOs :: ImpTestM era (IndexedUTxOs era)
+getIndexedUTxOs = allocations <$> getUTxOStore
 
 getPState :: EraCertState era => ImpTestM era (PState era)
 getPState = getsNES $ nesEsL . esLStateL . lsCertStateL . certPStateL
@@ -2484,16 +2501,18 @@ withPostFixup ::
   ImpTestM era a
 withPostFixup f = withCustomFixup (>=> f)
 
+-- | Check output predicates at the requested inputs, retaining complete
+-- allocations and projecting only each selected output.
 expectUTxOContent ::
   (HasCallStack, ToExpr (TxOut era)) =>
-  UTxO era ->
+  IndexedUTxOs era ->
   [(TxIn, Maybe (TxOut era) -> Bool)] ->
   ImpTestM era ()
-expectUTxOContent utxo = traverse_ $ \(txIn, test) -> do
-  let result = txIn `Map.lookup` unUTxO utxo
-  unless (test result) $
+expectUTxOContent currentAllocations = traverse_ $ \(txIn, outputPredicate) -> do
+  let actualOutput = Unspent.toTxOut <$> IndexedUTxOs.lookupUTxO txIn currentAllocations
+  unless (outputPredicate actualOutput) $
     expectationFailure $
-      "UTxO content failed predicate:\n" <> ansiExprString txIn <> " -> " <> ansiExprString result
+      "UTxO content failed predicate:\n" <> ansiExprString txIn <> " -> " <> ansiExprString actualOutput
 
 expectRegisteredAccountAddress ::
   (HasCallStack, EraCertState era) => AccountAddress -> ImpTestM era ()
@@ -2535,9 +2554,9 @@ impLookupNativeScript sh = Map.lookup sh <$> gets impNativeScripts
 
 impGetUTxO :: ShelleyEraImp era => TxIn -> ImpTestM era (TxOut era)
 impGetUTxO txIn = impAnn "Looking up TxOut" $ do
-  utxo <- getUTxO
-  case txinLookup txIn utxo of
-    Just txOut -> pure txOut
+  entries <- getIndexedUTxOs
+  case lookupUTxO txIn entries of
+    Just entry -> pure . Unspent.toTxOut $ entry
     Nothing -> error $ "Failed to get TxOut for " <> show txIn
 
 produceScript ::
@@ -2548,7 +2567,7 @@ produceScript scriptHash = do
   let addr = mkAddr scriptHash StakeRefNull
   let tx =
         mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOut addr mempty)
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr mempty)
   logString $ "Produced script: " <> show scriptHash
   txInAt 0 <$> submitTx tx
 

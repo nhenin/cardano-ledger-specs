@@ -23,12 +23,12 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   returnRedeemAddrsToReserves,
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
-import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut)
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 
@@ -52,7 +52,7 @@ import qualified Data.Map.Strict as Map
 -- _back_ to the translation functions as the UTxO, allowing these addresses to
 -- be removed. This is needed because we cannot do a full scan on the UTxO at
 -- this point, since it has been persisted to disk.
-shelleyToAllegraAVVMsToDelete :: NewEpochState ShelleyEra -> UTxO ShelleyEra
+shelleyToAllegraAVVMsToDelete :: NewEpochState ShelleyEra -> IndexedUTxOs ShelleyEra
 shelleyToAllegraAVVMsToDelete = stashedAVVMAddresses
 
 instance TranslateEra AllegraEra NewEpochState where
@@ -103,23 +103,31 @@ instance TranslateEra AllegraEra ShelleyGovState where
         , sgsFuturePParams = translateEra' ctxt $ sgsFuturePParams ps
         }
 
-instance TranslateEra AllegraEra ShelleyTxOut where
+instance TranslateEra AllegraEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
-instance TranslateEra AllegraEra UTxO where
-  translateEra ctxt utxo =
-    return $ UTxO (translateEra' ctxt `Map.map` unUTxO utxo)
+instance TranslateEra AllegraEra IndexedUTxOs where
+  translateEra ctxt = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra AllegraEra) -> LegacyTxOut AllegraEra
+      translateOutput output = case translateEra' ctxt output of
+        LegacyTxOut translated -> translated
 
-instance TranslateEra AllegraEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra AllegraEra Store.UTxOStore where
+  translateEra ctxt =
+    fmap (Store.mkUTxOStore legacyDepositCalculation)
+      . translateEra ctxt
+      . Store.allocations
+
+instance TranslateEra AllegraEra AccountingState where
+  translateEra ctxt accountingState =
     return
-      UTxOState
-        { utxosUtxo = translateEra' ctxt $ utxosUtxo us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt $ utxosGovState us
-        , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
-        , utxosDonation = utxosDonation us
+      AccountingState
+        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
+        , asDeposited = asDeposited accountingState
+        , asFees = asFees accountingState
+        , asInstantStake = translateEra' ctxt . asInstantStake $ accountingState
+        , asDonation = asDonation accountingState
         }
 
 instance TranslateEra AllegraEra ShelleyInstantStake where
@@ -151,8 +159,9 @@ instance TranslateEra AllegraEra LedgerState where
   translateEra ctxt ls =
     return
       LedgerState
-        { lsUTxOState = translateEra' ctxt $ lsUTxOState ls
+        { lsAccountingState = translateEra' ctxt $ lsAccountingState ls
         , lsCertState = translateEra' ctxt $ lsCertState ls
+        , lsGovState = translateEra' ctxt . lsGovState $ ls
         }
 
 instance TranslateEra AllegraEra SnapShots where

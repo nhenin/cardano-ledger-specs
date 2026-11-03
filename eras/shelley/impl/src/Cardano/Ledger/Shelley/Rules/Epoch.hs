@@ -26,19 +26,19 @@ import Cardano.Ledger.Shelley.Era (EPOCH)
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState,
   LedgerState,
-  UTxOState (utxosDeposited, utxosGovState),
   curPParamsEpochStateL,
   esChainAccountState,
   esLState,
   esLStateL,
   esNonMyopic,
   esSnapshots,
+  lsAccountingState,
+  lsAccountingStateL,
   lsCertState,
   lsCertStateL,
-  lsUTxOState,
-  lsUTxOStateL,
+  lsGovState,
+  lsGovStateL,
   totalObligation,
-  utxosGovStateL,
   pattern EpochState,
  )
 import Cardano.Ledger.Shelley.LedgerState.Types (prevPParamsEpochStateL)
@@ -101,7 +101,7 @@ instance
   , State (EraRule "SNAP" era) ~ SnapShots era
   , Signal (EraRule "SNAP" era) ~ EpochNo
   , Embed (EraRule "POOLREAP" era) (EPOCH era)
-  , Environment (EraRule "POOLREAP" era) ~ ()
+  , Environment (EraRule "POOLREAP" era) ~ GovState era
   , State (EraRule "POOLREAP" era) ~ ShelleyPoolreapState era
   , Signal (EraRule "POOLREAP" era) ~ EpochNo
   , Embed (EraRule "UPEC" era) (EPOCH era)
@@ -127,7 +127,7 @@ epochTransition ::
   , State (EraRule "SNAP" era) ~ SnapShots era
   , Signal (EraRule "SNAP" era) ~ EpochNo
   , Embed (EraRule "POOLREAP" era) (EPOCH era)
-  , Environment (EraRule "POOLREAP" era) ~ ()
+  , Environment (EraRule "POOLREAP" era) ~ GovState era
   , State (EraRule "POOLREAP" era) ~ ShelleyPoolreapState era
   , Signal (EraRule "POOLREAP" era) ~ EpochNo
   , Embed (EraRule "UPEC" era) (EPOCH era)
@@ -152,33 +152,34 @@ epochTransition = do
       ) <-
     judgmentContext
   let pp = es ^. curPParamsEpochStateL
-      utxoSt = lsUTxOState ls
+      accountingState = lsAccountingState ls
       certState = ls ^. lsCertStateL
+      govState = lsGovState ls
   ss' <-
     trans @(EraRule "SNAP" era) $ TRC (SnapEnv ls pp, ss, e)
 
-  PoolreapState utxoSt' chainAccountState' adjustedCertState <-
+  PoolreapState accountingStateAfterPoolReap chainAccountState' adjustedCertState <-
     trans @(EraRule "POOLREAP" era) $
-      TRC ((), PoolreapState utxoSt chainAccountState certState, e)
+      TRC (govState, PoolreapState accountingState chainAccountState certState, e)
 
-  let ls' = ls {lsUTxOState = utxoSt', lsCertState = adjustedCertState}
+  let ls' = ls {lsAccountingState = accountingStateAfterPoolReap, lsCertState = adjustedCertState}
 
   UpecState pp' ppupSt' <-
     trans @(EraRule "UPEC" era) $
-      TRC (ls', UpecState pp (utxosGovState utxoSt'), ())
-  let utxoSt'' = utxoSt' {utxosGovState = ppupSt'}
+      TRC (ls', UpecState pp govState, ())
 
   let
     -- At the epoch boundary refunds are made, so we need to change what
-    -- the utxosDeposited field is. The other two places where deposits are
+    -- the asDeposited field is. The other two places where deposits are
     -- kept (dsUnified of DState and psDeposits of PState) are adjusted by
-    -- the rules, So we can recompute the utxosDeposited field using adjustedCertState
-    -- since we have the invariant that: obligationCertState dpstate == utxosDeposited utxostate
-    oblgNew = totalObligation adjustedCertState (utxoSt'' ^. utxosGovStateL)
-    utxoSt''' = utxoSt'' {utxosDeposited = oblgNew}
+    -- the rules, So we can recompute the asDeposited field using adjustedCertState
+    -- since we have the invariant that: obligationCertState dpstate == asDeposited utxostate
+    oblgNew = totalObligation adjustedCertState ppupSt'
+    accountingStateFinal = accountingStateAfterPoolReap {asDeposited = oblgNew}
   pure $
     EpochState chainAccountState' ls' ss' nm
-      & esLStateL . lsUTxOStateL .~ utxoSt'''
+      & esLStateL . lsAccountingStateL .~ accountingStateFinal
+      & esLStateL . lsGovStateL .~ ppupSt'
       & prevPParamsEpochStateL .~ pp
       & curPParamsEpochStateL .~ pp'
 

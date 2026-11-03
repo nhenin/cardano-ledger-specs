@@ -178,17 +178,17 @@ addBabbageBasedTxFeatures tx =
     & bodyTxL . referenceInputsTxBodyL <>~ exampleTxIns
     & bodyTxL . outputsTxBodyL
       <>~ StrictSeq.fromList
-        [ mkBasicTxOut
+        [ mkBasicTxOutWithImplicitDeposit
             (mkAddr examplePayKey exampleStakeKey)
             (exampleMultiAssetValue 1)
             & datumTxOutL .~ Datum (dataToBinaryData exampleDatum)
             & referenceScriptTxOutL .~ SJust (alwaysSucceeds @'PlutusV1 3)
-        , mkBasicTxOut
+        , mkBasicTxOutWithImplicitDeposit
             (mkAddr examplePayKey exampleStakeKey)
             (exampleMultiAssetValue 2)
             & datumTxOutL .~ Datum (dataToBinaryData exampleDatum)
             & referenceScriptTxOutL .~ SJust (alwaysSucceeds @'PlutusV2 3)
-        , mkBasicTxOut
+        , mkBasicTxOutWithImplicitDeposit
             (mkAddr examplePayKey exampleStakeKey)
             (exampleMultiAssetValue 3)
             & referenceScriptTxOutL .~ SJust (fromNativeScript exampleShelleyScript)
@@ -200,7 +200,7 @@ exampleCollateralOutput ::
   ) =>
   TxOut era
 exampleCollateralOutput =
-  mkBasicTxOut
+  mkBasicTxOutWithImplicitDeposit
     (mkAddr examplePayKey exampleStakeKey)
     (MaryValue (Coin 8675309) mempty)
 

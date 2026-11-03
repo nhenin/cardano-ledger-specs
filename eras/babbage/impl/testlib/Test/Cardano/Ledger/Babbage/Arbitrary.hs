@@ -128,6 +128,9 @@ instance
       <*> arbitrary
       <*> arbitrary
 
+instance Arbitrary (TxOut BabbageEra) where
+  arbitrary = LegacyTxOut <$> arbitrary
+
 instance Arbitrary (TxBody TopTx BabbageEra) where
   arbitrary =
     BabbageTxBody

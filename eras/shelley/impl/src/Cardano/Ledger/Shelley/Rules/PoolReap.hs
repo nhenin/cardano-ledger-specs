@@ -19,7 +19,7 @@ module Cardano.Ledger.Shelley.Rules.PoolReap (
   poolReapAssertions,
   prCertStateL,
   prChainAccountStateL,
-  prUTxOStateL,
+  prAccountingStateL,
   renderPoolReapViolation,
 ) where
 
@@ -30,9 +30,7 @@ import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Shelley.Era (POOLREAP, ShelleyEra)
 import Cardano.Ledger.Shelley.LedgerState (
-  UTxOState (..),
   allObligations,
-  utxosGovStateL,
  )
 import Cardano.Ledger.Shelley.LedgerState.Types (potEqualsObligation)
 import Cardano.Ledger.State
@@ -61,16 +59,16 @@ import GHC.Generics (Generic)
 import Lens.Micro
 
 data ShelleyPoolreapState era = PoolreapState
-  { prUTxOSt :: UTxOState era
+  { prAccountingState :: AccountingState era
   , prChainAccountState :: ChainAccountState
   , prCertState :: CertState era
   }
 
 deriving stock instance
-  (Show (UTxOState era), Show (CertState era)) => Show (ShelleyPoolreapState era)
+  (Show (AccountingState era), Show (CertState era)) => Show (ShelleyPoolreapState era)
 
-prUTxOStateL :: Lens' (ShelleyPoolreapState era) (UTxOState era)
-prUTxOStateL = lens prUTxOSt $ \sprs x -> sprs {prUTxOSt = x}
+prAccountingStateL :: Lens' (ShelleyPoolreapState era) (AccountingState era)
+prAccountingStateL = lens prAccountingState $ \sprs x -> sprs {prAccountingState = x}
 
 prChainAccountStateL :: Lens' (ShelleyPoolreapState era) ChainAccountState
 prChainAccountStateL = lens prChainAccountState $ \sprs x -> sprs {prChainAccountState = x}
@@ -91,7 +89,7 @@ deriving instance Eq (ShelleyPoolreapEvent era)
 
 instance NFData (ShelleyPoolreapEvent era)
 
-instance (Default (UTxOState era), Default (CertState era)) => Default (ShelleyPoolreapState era) where
+instance (Default (AccountingState era), Default (CertState era)) => Default (ShelleyPoolreapState era) where
   def = PoolreapState def def def
 
 type instance EraRuleEvent "POOLREAP" ShelleyEra = ShelleyPoolreapEvent ShelleyEra
@@ -106,7 +104,7 @@ instance
   where
   type State (POOLREAP era) = ShelleyPoolreapState era
   type Signal (POOLREAP era) = EpochNo
-  type Environment (POOLREAP era) = ()
+  type Environment (POOLREAP era) = GovState era
   type BaseM (POOLREAP era) = ShelleyBase
   type PredicateFailure (POOLREAP era) = Void
   type Event (POOLREAP era) = ShelleyPoolreapEvent era
@@ -202,7 +200,7 @@ poolReapTransition = do
           }
   pure $
     PoolreapState
-      us {utxosDeposited = utxosDeposited us <-> fromCompact (unclaimed <> refunded)}
+      us {asDeposited = asDeposited us <-> fromCompact (unclaimed <> refunded)}
       a {casTreasury = casTreasury a <+> fromCompact unclaimed}
       ( cs
           & certDStateL . accountsL
@@ -230,16 +228,18 @@ poolReapTransition = do
 poolReapAssertions ::
   ( EraGov era
   , State t ~ ShelleyPoolreapState era
+  , Environment t ~ GovState era
   , EraCertState era
   ) =>
   [Assertion t]
 poolReapAssertions =
   [ PostCondition
       "Deposit pot must equal obligation (PoolReap)"
-      ( \_trc st ->
+      ( \(TRC (govState, _, _)) st ->
           potEqualsObligation
             (prCertState st)
-            (prUTxOSt st)
+            govState
+            (prAccountingState st)
       )
   , PostCondition
       "PoolReap may not create or remove account addresses"
@@ -253,18 +253,19 @@ poolReapAssertions =
 renderPoolReapViolation ::
   ( EraGov era
   , State t ~ ShelleyPoolreapState era
+  , Environment t ~ GovState era
   , EraCertState era
   ) =>
   AssertionViolation t ->
   String
 renderPoolReapViolation
-  AssertionViolation {avSTS, avMsg, avCtx = TRC (_, poolreapst, _)} =
+  AssertionViolation {avSTS, avMsg, avCtx = TRC (govState, poolreapst, _)} =
     let obligations =
-          allObligations (prCertState poolreapst) (prUTxOSt poolreapst ^. utxosGovStateL)
+          allObligations (prCertState poolreapst) govState
      in "\n\nAssertionViolation ("
           <> avSTS
           <> ")\n   "
           <> avMsg
-          <> "\npot (utxosDeposited) = "
-          <> show (utxosDeposited (prUTxOSt poolreapst))
+          <> "\npot (asDeposited) = "
+          <> show (asDeposited (prAccountingState poolreapst))
           <> show obligations

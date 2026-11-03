@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- |  AlonzoEra instances for EraGen and ScriptClass
@@ -70,13 +71,13 @@ import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.Scripts
 import Cardano.Ledger.State (
   EraUTxO (..),
-  UTxO (..),
   getScriptsNeeded,
-  sumCoinUTxO,
-  txInsFilter,
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.Val (Val (isAdaOnly, (<+>), (<×>)))
+import Cardano.Ledger.TxOut (sumAllCoin)
+import Cardano.Ledger.Val (Val ((<+>), (<×>)))
 import Control.Monad (replicateM)
 import Data.Foldable as F
 import qualified Data.List as List
@@ -123,7 +124,7 @@ import Test.QuickCheck hiding (Witness, (><))
 
 -- | We are choosing new TxOut to pay fees, We want only Key locked addresss with Ada only values.
 vKeyLockedAdaOnly :: TxOut AlonzoEra -> Bool
-vKeyLockedAdaOnly txOut = vKeyLocked txOut && isAdaOnly (txOut ^. valueTxOutL)
+vKeyLockedAdaOnly txOut = vKeyLocked txOut && txOut ^. isAdaOnlyTxOutF
 
 phase2scripts3Arg :: EraPlutusTxInfo 'PlutusV1 era => [TwoPhase3ArgInfo era]
 phase2scripts3Arg =
@@ -279,13 +280,13 @@ unTime :: AlonzoScript era -> NativeScript era
 unTime (NativeScript x) = x
 unTime (PlutusScript _) = error "Plutus in Timelock"
 
-okAsCollateral :: UTxO AlonzoEra -> TxIn -> Bool
+okAsCollateral :: IndexedUTxOs AlonzoEra -> TxIn -> Bool
 okAsCollateral utxo inputx =
-  maybe False vKeyLockedAdaOnly $ Map.lookup inputx (unUTxO utxo)
+  maybe False (vKeyLockedAdaOnly . Unspent.toTxOut) $ IndexedUTxOs.lookupUTxO inputx utxo
 
 genAlonzoTxBody ::
   GenEnv c AlonzoEra ->
-  UTxO AlonzoEra ->
+  IndexedUTxOs AlonzoEra ->
   PParams AlonzoEra ->
   SlotNo ->
   Set.Set TxIn ->
@@ -437,13 +438,14 @@ instance EraGen AlonzoEra where
     where
       requiredCollateral = ceiling $ fromIntegral (pp ^. ppCollateralPercentageL) * unCoin coinx % 100
       potentialCollateral = Set.filter (okAsCollateral utxo) txin
-      txInAmounts = List.sortOn snd . Map.toList . Map.map (unCoin . view coinTxOutL) . unUTxO . txInsFilter utxo
+      collateralOutputs = IndexedUTxOs.mapTxOuts id $ IndexedUTxOs.restrictToInputs potentialCollateral utxo
+      collateralAmounts = List.sortOn snd . Map.toList . Map.map (unCoin . view coinTxOutL) $ collateralOutputs
       takeUntilSum s = map fst . takeUntil ((s >=) . snd) . scanl1 (\(_, s') (x, n) -> (x, s' + n))
       takeUntil p xs = let (y, n) = span p xs in y ++ take 1 n
       newCollaterals =
         if null $ wits ^. rdmrsTxWitsL . unRedeemersL
           then mempty
-          else Set.fromList . takeUntilSum requiredCollateral $ txInAmounts potentialCollateral
+          else Set.fromList . takeUntilSum requiredCollateral $ collateralAmounts
       newInputs = (txb ^. inputsTxBodyL) <> txin
       newOutputs = (txb ^. outputsTxBodyL) :|> txout
 
@@ -458,12 +460,12 @@ instance EraGen AlonzoEra where
           & addrTxWitsL .~ setWitVKey
           & scriptTxWitsL .~ mapScriptWit
           -- (dataMapFromTxOut (Prelude.foldr (:) [] (outputs' txbody)) (TxDats (getDataMap scriptinfo mapScriptWit)))
-          & datsTxWitsL .~ dataMapFromTxOut smallUtxo (TxDats (getDataMap scriptinfo mapScriptWit))
+          & datsTxWitsL .~ dataMapFromTxOut inputOutputs (TxDats (getDataMap scriptinfo mapScriptWit))
           -- The data hashes come from two places
           & rdmrsTxWitsL .~ Redeemers rdmrMap
       txinputs = txbody ^. inputsTxBodyL
-      smallUtxo :: [TxOut AlonzoEra]
-      smallUtxo = Map.elems (unUTxO (txInsFilter utxo txinputs))
+      inputOutputs :: [TxOut AlonzoEra]
+      inputOutputs = IndexedUTxOs.txOuts $ IndexedUTxOs.restrictToInputs txinputs utxo
       AlonzoScriptsNeeded purposeHashPairs = getScriptsNeeded @AlonzoEra utxo txbody
       rdmrMap = List.foldl' accum Map.empty purposeHashPairs -- Search through the pairs for Plutus scripts
       accum ans (purpose, hash1) =
@@ -539,9 +541,11 @@ instance EraGen AlonzoEra where
       Phase2Valid -> tx ^. bodyTxL . feeTxBodyL
       Phase2Invalid -> sumCollateral tx utxo
 
-sumCollateral :: (EraTx era, AlonzoEraTxBody era) => Tx TopTx era -> UTxO era -> Coin
-sumCollateral tx utxo =
-  sumCoinUTxO $ txInsFilter utxo $ tx ^. bodyTxL . collateralInputsTxBodyL
+sumCollateral :: (EraTx era, AlonzoEraTxBody era) => Tx TopTx era -> IndexedUTxOs era -> Coin
+sumCollateral tx =
+  sumAllCoin
+    . IndexedUTxOs.txOuts
+    . IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . collateralInputsTxBodyL)
 
 storageCost :: forall era t. (EraPParams era, EncCBOR t) => Integer -> PParams era -> t -> Coin
 storageCost extra pp x = (extra + encodedLen @era x) <×> fromCompact (unCoinPerByte $ pp ^. ppTxFeePerByteL)
@@ -570,17 +574,18 @@ getDataMap (scriptInfo3, _) = Map.foldlWithKey' accum Map.empty
           Map.insert (hashData dat) (Data dat) ans
 
 instance MinGenTxout AlonzoEra where
-  calcEraMinUTxO txOut pp = utxoEntrySize txOut <×> unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)
-  addValToTxOut v txout =
-    let addr = txout ^. addrTxOutL
-     in txout & valueTxOutL %~ (v <+>) & dataHashTxOutL .~ dataFromAddr addr
+  calcEraMinUTxO (LegacyTxOut implicitOutput) pp =
+    utxoEntrySize implicitOutput <×> unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)
+  addValToTxOut value txOut@(LegacyTxOut implicitOutput) =
+    LegacyTxOut (implicitOutput & valueTxOutL %~ (value <+>))
+      & dataHashTxOutL .~ dataFromAddr (txOut ^. addrTxOutL)
   genEraTxOut genv genVal addrs = do
     values <- replicateM (length addrs) genVal
     let makeTxOut addr val =
           case addr of
             Addr _network (ScriptHashObj shash) _stakeref ->
-              mkBasicTxOut addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
-            _ -> mkBasicTxOut addr val
+              mkBasicTxOutWithImplicitDeposit addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
+            _ -> mkBasicTxOutWithImplicitDeposit addr val
     pure (zipWith makeTxOut addrs values)
 
 -- | If an Address is script address, we can find a potential data hash for it from
@@ -600,7 +605,7 @@ dataMapFromTxOut ::
   [TxOut AlonzoEra] ->
   TxDats AlonzoEra ->
   TxDats AlonzoEra
-dataMapFromTxOut txouts datahashmap = F.foldl' accum datahashmap txouts
+dataMapFromTxOut outputs datahashmap = F.foldl' accum datahashmap outputs
   where
     f dhash info = hashData (getData3 info) == dhash
     accum !ans txout =

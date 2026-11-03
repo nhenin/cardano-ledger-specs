@@ -28,6 +28,7 @@ module Cardano.Ledger.Shelley.Transition (
   EraTransition (
     TransitionConfig,
     mkTransitionConfig,
+    initialUTxOStore,
     injectIntoTestState,
     tcPreviousEraConfigL,
     tcTranslationContextL,
@@ -55,6 +56,7 @@ module Cardano.Ledger.Shelley.Transition (
 
 import Cardano.Ledger.Address
 import Cardano.Ledger.BaseTypes
+import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential
@@ -69,6 +71,10 @@ import Cardano.Ledger.Shelley.Translation (
   FromByronTranslationContext (..),
   toFromByronTranslationContext,
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val
 import Control.Monad (unless, when)
 import Control.Monad.Class.MonadST (MonadST)
@@ -81,6 +87,7 @@ import Data.Char (toLower)
 import Data.Coerce (coerce)
 import Data.Default
 import Data.Kind
+import Data.List (find)
 import qualified Data.ListMap as ListMap
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -125,6 +132,12 @@ class
     -- | Transition configuration for the previous era.
     TransitionConfig (PreviousEra era) ->
     TransitionConfig era
+
+  -- | Initialize empty output storage for this era's effective parameters.
+  -- Earlier eras keep the canonical legacy calculation because their state
+  -- format does not carry a separately held deposit policy.
+  initialUTxOStore :: PParams era -> UTxOStore era
+  initialUTxOStore _ = def
 
   -- | Extract data from the given transition configuration and store it in the given state.
   --
@@ -439,10 +452,11 @@ createInitialState tc =
               , esSnapshots = emptySnapShots
               , esLState =
                   LedgerState
-                    { lsUTxOState =
-                        smartUTxOState pp initialUtxo zero zero govState zero
+                    { lsAccountingState =
+                        AccountingState (initialUTxOStore pp) zero zero mempty zero
                     , lsCertState =
                         def & certDStateL . dsGenDelegsL .~ GenDelegs (sgGenDelegs sg)
+                    , lsGovState = govState
                     }
               , esNonMyopic = def
               }
@@ -460,10 +474,8 @@ createInitialState tc =
     sg = tc ^. tcShelleyGenesisL
     initialEpochNo :: EpochNo
     initialEpochNo = EpochNo 0
-    initialUtxo :: UTxO era
-    initialUtxo = mempty
     reserves :: Coin
-    reserves = word64ToCoin (sgMaxLovelaceSupply sg) <-> sumCoinUTxO initialUtxo
+    reserves = word64ToCoin $ sgMaxLovelaceSupply sg
 
 -- | Validate protocol version bounds in the initial state.
 --
@@ -611,7 +623,10 @@ resetStakeDistribution nes =
     -- we don't have a previous epoch when starting out
     initSnapShot :: SnapShot
     initSnapShot =
-      snapShotFromInstantStake (addInstantStake (nes ^. utxoL) mempty) dState pState
+      snapShotFromInstantStake (addInstantStake allOutputs mempty) dState pState
+    -- Initial stake reconstruction needs the complete output collection.
+    allOutputs =
+      IndexedUTxOs.txOuts . Store.allocations . (^. utxoStoreG) $ nes
     markSnapShot :: MarkSnapShot
     markSnapShot = nes ^. nesEsL . esSnapshotsL . ssStakeMarkL & msSnapShotL .~ initSnapShot
     setSnapShot :: SetSnapShot
@@ -649,69 +664,36 @@ registerInitialFunds ::
   NewEpochState era ->
   m (NewEpochState era)
 registerInitialFunds hasFS tc newEpochState = do
-  -- Guard against mainnet injection before processing
+  -- Guard against mainnet injection before processing.
   when (tc ^. tcNetworkIDG == Mainnet) $
     throwIO InjectionNotAllowedOnMainnet
-  let sg = tc ^. tcShelleyGenesisL
-      addInitialFund (!acc, !coins) (addr, amount) =
-        let txIn = initialFundsPseudoTxIn addr
-            txOut = mkBasicTxOut addr (inject amount)
-         in (Map.insert txIn txOut acc, coins <> amount)
-  source <-
-    resolveInjectionSource "initialFunds" (sgExtraConfig sg) secInitialFunds (sgInitialFunds sg)
+  let genesis = tc ^. tcShelleyGenesisL
+      addInitialFund (!outputs, !totalFunds) (address, amount) =
+        let input = initialFundsPseudoTxIn address
+            output = mkSized (eraProtVerLow @era) $ mkBasicTxOutWithImplicitDeposit address (inject amount)
+         in (Map.insert input output outputs, totalFunds <> amount)
+  initialFundsSource <-
+    resolveInjectionSource
+      "initialFunds"
+      (sgExtraConfig genesis)
+      secInitialFunds
+      (sgInitialFunds genesis)
 
-  -- fold over the stream of initial funds, accumulating state changes
-  (newUtxoEntries, totalCoins) <-
-    foldInjectionData hasFS source addInitialFund (Map.empty, mempty)
+  (initialOutputs, totalInitialFunds) <-
+    foldInjectionData hasFS initialFundsSource addInitialFund (Map.empty, mempty)
 
-  -- Forced: left lazy, this thunk retains both inputs of `mergeUtxoNoOverlap`.
-  pure $! applyFunds newUtxoEntries totalCoins
+  let fundedStore = StoreInternals.allocate (IndexedTxOs.IndexedTxOs initialOutputs) previousStore
+  -- Check only the injected inputs; existing outputs and their historical
+  -- metadata remain in the Store throughout initialization.
+  case find (`IndexedUTxOs.member` existingAllocations) . Map.keys $ initialOutputs of
+    Just input -> error $ "initial fund part of UTxO: " <> show input
+    Nothing ->
+      pure $!
+        newEpochState
+          & utxoStoreL .~ fundedStore
+          & reservesL %~ (<-> totalInitialFunds)
+          -- Reconstruct from the final outputs, even if the supplied stake is stale.
+          & instantStakeL .~ addInstantStake (IndexedUTxOs.txOuts . Store.allocations $ fundedStore) mempty
   where
-    epochState = nesEs newEpochState
-    accountState = esChainAccountState epochState
-    ledgerState = esLState epochState
-    utxoState = lsUTxOState ledgerState
-    utxo = utxosUtxo utxoState
-
-    applyFunds newUtxoEntries totalCoins =
-      newEpochState
-        { nesEs =
-            epochState
-              { esChainAccountState = accountState'
-              , esLState = ledgerState'
-              }
-        }
-      where
-        initialFundsUtxo = UTxO newUtxoEntries
-        utxo' = mergeUtxoNoOverlap utxo initialFundsUtxo
-
-        -- Update the reserves
-        accountState' =
-          accountState
-            { casReserves = casReserves accountState <-> totalCoins
-            }
-
-        ledgerState' =
-          ledgerState
-            { lsUTxOState =
-                utxoState
-                  { utxosUtxo = utxo'
-                  , -- Normally we would incrementally update here. But since we pass
-                    -- the full UTxO as "toAdd" rather than a delta, we simply
-                    -- reinitialise the full instant stake.
-                    utxosInstantStake = addInstantStake utxo' mempty
-                  }
-            }
-
-    -- Merge two UTxOs, throw an 'error' in case of overlap
-    mergeUtxoNoOverlap ::
-      HasCallStack =>
-      UTxO era ->
-      UTxO era ->
-      UTxO era
-    mergeUtxoNoOverlap (UTxO m1) (UTxO m2) =
-      UTxO $
-        Map.unionWithKey
-          (\k _ _ -> error $ "initial fund part of UTxO: " <> show k)
-          m1
-          m2
+    previousStore = newEpochState ^. utxoStoreG
+    existingAllocations = Store.allocations previousStore

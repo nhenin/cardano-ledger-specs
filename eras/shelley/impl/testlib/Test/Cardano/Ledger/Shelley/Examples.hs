@@ -75,6 +75,7 @@ import Cardano.Ledger.Shelley.Scripts (
  )
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Shelley.Translation (emptyFromByronTranslationContext)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.EpochInfo
 import qualified Data.ByteString as Strict
 import Data.Coerce (coerce)
@@ -232,23 +233,20 @@ exampleNewEpochState value ppp pp =
         , esSnapshots = emptySnapShots
         , esLState =
             LedgerState
-              { lsUTxOState =
-                  UTxOState
-                    { utxosUtxo =
-                        UTxO $
-                          Map.fromList
-                            [
-                              ( TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound
-                              , mkBasicTxOut addr value
-                              )
-                            ]
-                    , utxosDeposited = Coin 1000
-                    , utxosFees = Coin 1
-                    , utxosGovState = emptyGovState
-                    , utxosInstantStake = mempty
-                    , utxosDonation = mempty
+              { lsAccountingState =
+                  AccountingState
+                    { asUTxOStore =
+                        mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $
+                          Map.singleton
+                            (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
+                            (mkBasicLegacyTxOut addr value)
+                    , asDeposited = Coin 1000
+                    , asFees = Coin 1
+                    , asInstantStake = mempty
+                    , asDonation = mempty
                     }
               , lsCertState = def
+              , lsGovState = emptyGovState
               }
         , esNonMyopic = def
         }
@@ -350,8 +348,8 @@ exampleShelleyBasedTx =
         & inputsTxBodyL .~ exampleTxIns
         & outputsTxBodyL
           .~ StrictSeq.fromList
-            [ mkBasicTxOut (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
-            , mkBasicTxOut
+            [ mkBasicTxOutWithImplicitDeposit (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
+            , mkBasicTxOutWithImplicitDeposit
                 ( Addr
                     Testnet
                     (keyToCredential examplePayKey)
@@ -359,8 +357,10 @@ exampleShelleyBasedTx =
                 )
                 $ inject
                 $ Coin 100000
-            , mkBasicTxOut (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $ inject $ Coin 100000
-            , mkBasicTxOut exampleByronAddress $ inject $ Coin 100000
+            , mkBasicTxOutWithImplicitDeposit (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $
+                inject $
+                  Coin 100000
+            , mkBasicTxOutWithImplicitDeposit exampleByronAddress $ inject $ Coin 100000
             ]
         & withdrawalsTxBodyL .~ exampleWithdrawals
         & auxDataHashTxBodyL .~ SJust exampleAuxDataHash

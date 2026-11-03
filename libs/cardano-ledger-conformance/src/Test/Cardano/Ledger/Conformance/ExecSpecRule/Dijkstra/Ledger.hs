@@ -25,13 +25,13 @@ import Cardano.Ledger.Conway.Core (
   EraTx (..),
   EraTxAuxData (..),
   EraTxBody (..),
-  EraTxOut (..),
   EraTxWits (..),
   PlutusPurpose,
   ScriptHash,
   SubTx,
   TxCert,
   TxLevel (..),
+  TxOut,
  )
 import Cardano.Ledger.Conway.Governance
 import qualified Cardano.Ledger.Conway.Rules as Conway
@@ -39,7 +39,7 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Tx (DijkstraStAnnTx (..))
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (ScriptsNeeded, ScriptsProvided)
+import Cardano.Ledger.State (ScriptsNeeded, ScriptsProvided, allocations)
 import Control.DeepSeq (deepseq, rnf)
 import Control.State.Transition.Extended (TRC (..))
 import Data.Functor.Identity (Identity)
@@ -233,16 +233,16 @@ instance ExecSpecTopLevelRule "LEDGER" DijkstraEra where
   mkRuleExecContext globals (TRC (env, state, signal)) =
     DijkstraLedgerExecContext
       { dlecGuardrailsScriptHash =
-          state ^. lsUTxOStateL . utxosGovStateL . constitutionGovStateL . constitutionGuardrailsScriptHashL
-      , dlecEnactState = mkEnactState $ state ^. lsUTxOStateL . utxosGovStateL
+          state ^. lsGovStateL . constitutionGovStateL . constitutionGuardrailsScriptHashL
+      , dlecEnactState = mkEnactState $ state ^. lsGovStateL
       , dlecUtxoExecContext =
           UtxoExecContext
             { uecTx = signal ^. txStAnnTxG
-            , uecUTxO = state ^. utxoL
+            , uecUTxO = allocations $ state ^. utxoStoreG
             , uecUtxoEnv =
                 Shelley.UtxoEnv
                   { Shelley.ueSlot = env ^. Shelley.ledgerSlotNoL
-                  , Shelley.uePParams = state ^. lsUTxOStateL . utxosGovStateL . curPParamsGovStateL
+                  , Shelley.uePParams = state ^. lsGovStateL . curPParamsGovStateL
                   , Shelley.ueCertState = state ^. lsCertStateL
                   }
             }

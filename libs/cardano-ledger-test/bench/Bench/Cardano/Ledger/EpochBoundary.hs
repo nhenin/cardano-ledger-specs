@@ -18,7 +18,6 @@ import Cardano.Ledger.Credential (
  )
 import Cardano.Ledger.Mary (MaryEra)
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
-import Cardano.Ledger.State (UTxO (UTxO))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq (NFData (..), deepseq)
@@ -33,6 +32,7 @@ import Data.Proxy
 import Data.Word (Word64)
 import Test.Cardano.Ledger.Binary.Random (mkDummyHash)
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Rules.IncrementalStake (aggregateUtxoCoinByCredential)
 
 type TestEra = MaryEra
@@ -53,14 +53,15 @@ txIns = [minBound ..] <&> TxIn txId
 -- | Unstaked address
 txOutUnstaked :: TxOut TestEra
 txOutUnstaked =
-  TxOutCompact @TestEra
-    (compactAddr $ mkAddr payCred StakeRefNull)
-    (fromJust . toCompact . Val.inject $ Coin 1000)
+  LegacyTxOut $
+    TxOutCompact @TestEra
+      (compactAddr $ mkAddr payCred StakeRefNull)
+      (fromJust . toCompact . Val.inject $ Coin 1000)
 
 -- | Generate TxOuts for each stake credential.
 txOutsFromCreds :: [Credential Staking] -> [TxOut TestEra]
 txOutsFromCreds creds =
-  [ TxOutCompact (compactAddr $ mkAddr payCred cred) coinVal
+  [ LegacyTxOut $ TxOutCompact (compactAddr $ mkAddr payCred cred) coinVal
   | cred <- creds
   ]
   where
@@ -68,7 +69,7 @@ txOutsFromCreds creds =
 
 txOutsFromPtrs :: [Ptr] -> [TxOut TestEra]
 txOutsFromPtrs ptrs =
-  [ TxOutCompact (compactAddr $ mkAddr payCred ptr) coinVal
+  [ LegacyTxOut $ TxOutCompact (compactAddr $ mkAddr payCred ptr) coinVal
   | ptr <- ptrs
   ]
   where
@@ -96,9 +97,9 @@ utxo ::
   Word64 ->
   Map Ptr c ->
   Int ->
-  UTxO TestEra
+  IndexedUTxOs TestEra
 utxo noUnstaked noBase ptrMap dupFactor =
-  UTxO . Map.fromList $
+  legacyIndexedUTxOs . Map.fromList $
     txIns
       `zip` ( genericReplicate noUnstaked txOutUnstaked
                 <> cycleTimes dupFactor stakedTxs
@@ -114,7 +115,7 @@ utxo noUnstaked noBase ptrMap dupFactor =
 
 data AggTestSetup = AggTestSetup
   { atsPtrMap :: !(Map Ptr (Credential Staking))
-  , atsUTxO :: !(UTxO TestEra)
+  , atsUTxO :: !(IndexedUTxOs TestEra)
   }
 
 instance NFData AggTestSetup where

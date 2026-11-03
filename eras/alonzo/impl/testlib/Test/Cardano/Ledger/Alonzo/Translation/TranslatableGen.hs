@@ -32,7 +32,9 @@ import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
 import Cardano.Ledger.BaseTypes (ProtVer (ProtVer))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Plutus.Language (SLanguage (..))
-import Cardano.Ledger.State (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State (
+  EraUTxO (..),
+ )
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
@@ -47,6 +49,7 @@ import Test.Cardano.Ledger.Alonzo.Translation.TranslationInstance (
   VersionedTxInfo (..),
  )
 import Test.Cardano.Ledger.Common
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 
 class
   ( EraUTxO era
@@ -59,7 +62,7 @@ class
   where
   tgRedeemers :: Gen (Redeemers era)
   tgTx :: SupportedLanguage era -> Gen (Tx TopTx era)
-  tgUtxo :: SupportedLanguage era -> Tx TopTx era -> Gen (UTxO era)
+  tgUtxo :: SupportedLanguage era -> Tx TopTx era -> Gen (IndexedUTxOs era)
 
 instance TranslatableGen AlonzoEra where
   tgRedeemers = arbitrary
@@ -67,7 +70,7 @@ instance TranslatableGen AlonzoEra where
   tgUtxo _ tx = do
     let ins = tx ^. bodyTxL ^. inputsTxBodyL
     outs <- vectorOf (length ins) (arbitrary :: Gen (TxOut AlonzoEra))
-    pure $ UTxO (Map.fromList $ Set.toList ins `zip` outs)
+    pure $ legacyIndexedUTxOs (Map.fromList $ Set.toList ins `zip` outs)
 
 translationInstances ::
   TranslatableGen era =>
@@ -95,7 +98,9 @@ genTranslationInstance = do
   supportedLanguage :: SupportedLanguage era <- arbitrary
   tx <- tgTx supportedLanguage
   utxo <- tgUtxo supportedLanguage tx
-  let lti = mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+  let lti =
+        mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $
+          LedgerTopTxInfo mempty
   plutusPurpose <- arbitrary
   pure $ case supportedLanguage of
     SupportedLanguage slang ->

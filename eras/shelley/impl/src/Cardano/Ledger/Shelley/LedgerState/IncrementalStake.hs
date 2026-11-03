@@ -19,7 +19,7 @@
 module Cardano.Ledger.Shelley.LedgerState.IncrementalStake (
   applyRUpd,
   applyRUpdFiltered,
-  smartUTxOState,
+  smartAccountingState,
   filterAllRewards,
   FilteredRewards (..),
 ) where
@@ -37,6 +37,7 @@ import Cardano.Ledger.Shelley.Rewards (
   filterRewards,
  )
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData (rnf), deepseq)
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
@@ -46,32 +47,23 @@ import Lens.Micro
 
 -- ================================================
 
--- | A valid (or self-consistent) UTxOState{utxosUtxo, utxosDeposited , utxosFees  , utxosPpups , utxosStakeDistr}
---   maintains an invariant between the utxosUtxo and utxosStakeDistr fields. the utxosStakeDistr field is
---   the aggregation of Coin over the StakeReferences in the UTxO. It can be computed by a pure
---   function from the _utxo field. In some situations, mostly unit or example tests, or when
---   initializing a small UTxO, we want to create a UTxOState that computes the utxosStakeDistr from
---   the utxosUtxo. This is aways safe to do, but if the utxosUtxo field is big, this can be very expensive,
---   which defeats the purpose of memoizing the utxosStakeDistr field. So use of this function should be
---   restricted to tests and initializations, where the invariant should be maintained.
---
---   TO IncrementalStake
-smartUTxOState ::
+-- | Initialize output storage from complete unspent entries and compute its
+-- cached instant stake. Preserve each entry's size and historical calculation.
+smartAccountingState ::
   EraStake era =>
   PParams era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Coin ->
   Coin ->
-  GovState era ->
   Coin ->
-  UTxOState era
-smartUTxOState _pp utxo c1 c2 st =
-  UTxOState
-    utxo
+  AccountingState era
+smartAccountingState _pp utxo c1 c2 donation =
+  AccountingState
+    (mkUTxOStore legacyDepositCalculation utxo)
     c1
     c2
-    st
-    (addInstantStake utxo mempty)
+    (addInstantStake (IndexedUTxOs.txOuts utxo) mempty)
+    donation
 
 -- =====================================================
 -- Part 3 Apply a reward update, in NewEpoch rule
@@ -81,7 +73,7 @@ smartUTxOState _pp utxo c1 c2 st =
 --   1) Adds reward coins to Rewards component of the UMap field of the DState,
 --      for actively delegated Stake
 --   2) Adds to the Treasury of the ChainAccountState for non-actively delegated stake
---   3) Adds fees to the UTxOState
+--   3) Adds fees to the AccountingState
 applyRUpd ::
   (EraGov era, EraCertState era) =>
   RewardUpdate ->
@@ -123,7 +115,7 @@ applyRUpdFiltered
           }
       ls' =
         ls
-          & lsUTxOStateL . utxosFeesL %~ (`addDeltaCoin` deltaF ru)
+          & lsAccountingStateL . asFeesL %~ (`addDeltaCoin` deltaF ru)
           & lsCertStateL . certDStateL . accountsL %~ addToBalanceAccounts registeredAggregated
       nm' = nonMyopic ru
 

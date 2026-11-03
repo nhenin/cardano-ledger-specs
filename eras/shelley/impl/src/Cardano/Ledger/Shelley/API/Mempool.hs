@@ -61,6 +61,8 @@ import Cardano.Ledger.Shelley.Rules.Ledger (
   ledgerSlotNoL,
  )
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart)
 import Control.DeepSeq (NFData)
@@ -143,7 +145,11 @@ unsafeMakeValidatedTx globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          (state ^. utxoG)
+          ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              . Store.allocations
+              . (^. utxoStoreG)
+              $ state
+          )
           mempty
           tx
     , vtProtocolVersion = env ^. ledgerPpL . ppProtocolVersionL
@@ -184,7 +190,7 @@ class
     EpochInfo (Either Text) ->
     SystemStart ->
     PParams era ->
-    UTxO era ->
+    IndexedUTxOs era ->
     StAnnTxCache era ->
     Tx TopTx era ->
     StAnnTx TopTx era
@@ -286,7 +292,11 @@ defaultApplyTxWithValidation wrap validationPolicy globals env state tx =
           (epochInfo globals)
           (systemStart globals)
           (env ^. ledgerPpL)
-          (state ^. utxoG)
+          ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+              . Store.allocations
+              . (^. utxoStoreG)
+              $ state
+          )
           mempty
           tx
    in first wrap $
@@ -335,7 +345,11 @@ instance ApplyTx ShelleyEra where
             (epochInfo globals)
             (systemStart globals)
             (env ^. ledgerPpL)
-            (state ^. utxoG)
+            ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . (^. utxoStoreG)
+                $ state
+            )
             mempty
             tx
      in first ShelleyApplyTxError $
@@ -436,7 +450,7 @@ reapplyValidatedTx globals env ledgerState vtx
           ledgerState
           (vtStAnnTx vtx ^. txStAnnTxG)
   where
-    currentPv = ledgerState ^. lsUTxOStateL . utxosGovStateL . curPParamsGovStateL . ppProtocolVersionL
+    currentPv = ledgerState ^. lsGovStateL . curPParamsGovStateL . ppProtocolVersionL
 
 -- | Validate a transaction against a mempool state using default STS options
 -- and return both the new mempool state and a "validated" 'TxInBlock'.

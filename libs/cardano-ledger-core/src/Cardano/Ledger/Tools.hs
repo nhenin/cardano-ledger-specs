@@ -42,7 +42,10 @@ import Cardano.Ledger.Keys (
   asWitness,
  )
 import Cardano.Ledger.State (EraCertState)
-import Cardano.Ledger.State.UTxO (EraUTxO (..), UTxO (..))
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
+import Cardano.Ledger.UTxO (EraUTxO (..))
+import Cardano.Ledger.Val (coin, modifyCoin)
 import Data.Bits (Bits (..), shiftR)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
@@ -72,19 +75,21 @@ setMinFeeTx ::
 setMinFeeTx pp tx refScriptsSize =
   setMinFeeTxInternal (\t -> getMinFeeTx pp t refScriptsSize) tx
 
-setMinFeeTxUtxo :: EraUTxO era => PParams era -> Tx TopTx era -> UTxO era -> Tx TopTx era
-setMinFeeTxUtxo pp tx utxo =
-  setMinFeeTxInternal (\t -> getMinFeeTxUtxo pp t utxo) tx
+setMinFeeTxUtxo :: EraUTxO era => PParams era -> Tx TopTx era -> IndexedUTxOs era -> Tx TopTx era
+setMinFeeTxUtxo pp tx inputAllocations =
+  setMinFeeTxInternal (\t -> getMinFeeTxUtxo pp t inputAllocations) tx
 
 -- | Similar to `setMinCoinTxOut` it will guarantee that the minimum requirement for the
 -- output amount is satisified, however it makes it possible to set a higher amount than
 -- the minimaly required.
 --
 -- @
--- > ensureMinCoinTxOut pp (txOut & coinTxOutL .~ zero) == setMinCoinTxOut pp (txOut & coinTxOutL .~ zero)
--- > (ensureMinCoinTxOut pp txOut ^. coinTxOutL) >= (setMinCoinTxOut pp txOut ^. coinTxOutL)
+-- > let zeroCoinOutput = txOut & valueTxOutL %~ modifyCoin (const zero)
+-- > ensureMinCoinTxOut pp zeroCoinOutput == setMinCoinTxOut pp zeroCoinOutput
+-- > coin (ensureMinCoinTxOut pp txOut ^. valueTxOutL) >= coin (setMinCoinTxOut pp txOut ^. valueTxOutL)
 -- @
-ensureMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
+ensureMinCoinTxOut ::
+  EraLegacyTxOut era => PParams era -> LegacyTxOut era -> LegacyTxOut era
 ensureMinCoinTxOut = setMinCoinTxOutWith (>=)
 
 setMinFeeTxInternal ::
@@ -108,8 +113,8 @@ calcMinFeeTxNativeScriptWits ::
   forall era.
   (EraUTxO era, EraCertState era) =>
   -- | All TxOuts available for this transaction. In other words `TxIn`s produced by
-  -- `allInputsTxBodyF` should be present in this `UTxO` map, however this is not checked.
-  UTxO era ->
+  -- `allInputsTxBodyF` should be present in these allocations, however this is not checked.
+  IndexedUTxOs era ->
   -- | The current protocol parameters.
   PParams era ->
   -- | The transaction.
@@ -121,26 +126,31 @@ calcMinFeeTxNativeScriptWits ::
   Set.Set (KeyHash Witness) ->
   -- | The required minimum fee.
   Coin
-calcMinFeeTxNativeScriptWits utxo pp tx nativeScriptsKeyWitsHashes =
-  calcMinFeeTxInternal utxo pp tx (Set.size nativeScriptsKeyWitsHashes) nativeScriptsKeyWitsHashes
+calcMinFeeTxNativeScriptWits inputAllocations pp tx nativeScriptsKeyWitsHashes =
+  calcMinFeeTxInternal
+    inputAllocations
+    pp
+    tx
+    (Set.size nativeScriptsKeyWitsHashes)
+    nativeScriptsKeyWitsHashes
 
 -- | This is a more accurate version `estimateMinFeeTx` that looks into transaction and
 -- figures out how many and what kind of key witnesses this transaction needs. It requires
--- access to the portion of the `UTxO` that is relevant for this transaction. The only
+-- access to the accepted allocations relevant to this transaction. The only
 -- type of witnesses that it cannot figure out reliably is the witnesses needed for
 -- satisfying native scripts included in the transaction. For this reason number of
 -- witnesses needed for native scripts must be supplied as an extra argument.
 --
 -- ====__Example__
 --
--- > let relevantUtxo = txInsFilter utxo (tx ^. bodyTxL . allInputsTxBodyF)
--- > calcMinFeeTx relevantUtxo pp tx 5
+-- > let relevantAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) allocations
+-- > calcMinFeeTx relevantAllocations pp tx 5
 calcMinFeeTx ::
   forall era.
   (EraUTxO era, EraCertState era) =>
   -- | All TxOuts available for this transaction. In other words `TxIn`s produced by
-  -- `allInputsTxBodyF` should be present in this `UTxO` map, however this is not checked.
-  UTxO era ->
+  -- `allInputsTxBodyF` should be present in these allocations, however this is not checked.
+  IndexedUTxOs era ->
   -- | The current protocol parameters.
   PParams era ->
   -- | The transaction.
@@ -155,15 +165,15 @@ calcMinFeeTx ::
   Int ->
   -- | The required minimum fee.
   Coin
-calcMinFeeTx utxo pp tx extraKeyWitsCount =
-  calcMinFeeTxInternal utxo pp tx extraKeyWitsCount Set.empty
+calcMinFeeTx inputAllocations pp tx extraKeyWitsCount =
+  calcMinFeeTxInternal inputAllocations pp tx extraKeyWitsCount Set.empty
 
 calcMinFeeTxInternal ::
   forall era.
   (EraUTxO era, EraCertState era) =>
   -- | All TxOuts available for this transaction. In other words `TxIn`s produced by
-  -- `allInputsTxBodyF` should be present in this `UTxO` map, however this is not checked.
-  UTxO era ->
+  -- `allInputsTxBodyF` should be present in these allocations, however this is not checked.
+  IndexedUTxOs era ->
   -- | The current protocol parameters.
   PParams era ->
   -- | The transaction.
@@ -173,19 +183,19 @@ calcMinFeeTxInternal ::
   -- | KeyHash witnesses that will be supplied for native scripts
   Set.Set (KeyHash Witness) ->
   Coin
-calcMinFeeTxInternal utxo pp tx extraKeyWitsCount nativeScriptsKeyWitsHashes =
-  setMinFeeTxUtxo pp tx' utxo ^. bodyTxL . feeTxBodyL
+calcMinFeeTxInternal inputAllocations pp tx extraKeyWitsCount nativeScriptsKeyWitsHashes =
+  setMinFeeTxUtxo pp tx' inputAllocations ^. bodyTxL . feeTxBodyL
   where
     txBody = tx ^. bodyTxL
     tx' = addDummyWitsTx pp tx numKeyWitsRequired $ Map.elems byronAttributes
     inputs = Set.toList $ txBody ^. spendableInputsTxBodyF
     getByronAttrs txIn = do
-      txOut <- Map.lookup txIn $ unUTxO utxo
+      txOut <- Unspent.toTxOut <$> IndexedUTxOs.lookupUTxO txIn inputAllocations
       ba@(BootstrapAddress bootAddr) <- txOut ^. bootAddrTxOutF
       pure (asWitness (bootstrapKeyHash ba), Byron.addrAttributes bootAddr)
     byronAttributes = Map.fromList $ mapMaybe getByronAttrs inputs
     requiredKeyHashes =
-      getWitsVKeyNeeded def utxo txBody Set.\\ nativeScriptsKeyWitsHashes
+      getWitsVKeyNeeded def inputAllocations txBody Set.\\ nativeScriptsKeyWitsHashes
     numKeyWitsRequired =
       getGenesisKeyHashCountTxBody txBody
         + extraKeyWitsCount
@@ -283,23 +293,24 @@ addDummyWitsTx pp tx numKeyWits byronAttrs =
 
 -- | Same as `setMinCoinSizedTxOut`, except it doesn't require the size of the
 -- TxOut and will recompute it if needed. Initial amount is not important.
-setMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
+setMinCoinTxOut ::
+  EraLegacyTxOut era => PParams era -> LegacyTxOut era -> LegacyTxOut era
 setMinCoinTxOut = setMinCoinTxOutWith (==)
 
 setMinCoinTxOutWith ::
-  EraTxOut era =>
+  EraLegacyTxOut era =>
   (Coin -> Coin -> Bool) ->
   PParams era ->
-  TxOut era ->
-  TxOut era
+  LegacyTxOut era ->
+  LegacyTxOut era
 setMinCoinTxOutWith f pp = go
   where
     go !txOut =
       let curMinCoin = getMinCoinTxOut pp txOut
-          curCoin = txOut ^. coinTxOutL
+          curCoin = coin (txOut ^. valueTxOutL)
        in if curCoin `f` curMinCoin
             then txOut
-            else go (txOut & coinTxOutL .~ curMinCoin)
+            else go (txOut & valueTxOutL %~ modifyCoin (const curMinCoin))
 
 -- | A helpful placeholder to use during development.
 boom :: HasCallStack => a

@@ -75,8 +75,8 @@ instance SpecTranslate DijkstraEra (LedgerState DijkstraEra) where
 
   toSpecRep (LedgerState {..}) =
     Agda.MkLedgerState
-      <$> withCtxSpecTransM () (toSpecRep lsUTxOState)
-      <*> withCtxSpecTransM () (toSpecRep (utxosGovState lsUTxOState ^. proposalsGovStateL))
+      <$> withCtxSpecTransM () (toSpecRep lsAccountingState)
+      <*> withCtxSpecTransM () (toSpecRep (lsGovState ^. proposalsGovStateL))
       <*> toSpecRep lsCertState
 
 instance SpecTranslate DijkstraEra (TxBody TopTx DijkstraEra) where

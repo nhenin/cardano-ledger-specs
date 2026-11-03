@@ -55,6 +55,9 @@ instance EraTx BabbageEra where
   bodyTxL = babbageTxL . bodyAlonzoTxL
   {-# INLINE bodyTxL #-}
 
+  isPhase2ValidTxG = isPhase2ValidTxL
+  {-# INLINE isPhase2ValidTxG #-}
+
   witsTxL = babbageTxL . witsAlonzoTxL
   {-# INLINE witsTxL #-}
 

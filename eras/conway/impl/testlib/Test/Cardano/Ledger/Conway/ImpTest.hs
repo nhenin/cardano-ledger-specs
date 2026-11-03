@@ -195,17 +195,18 @@ import Cardano.Ledger.Shelley.LedgerState (
   epochStateStakePoolsL,
   esLStateL,
   lsCertStateL,
-  lsUTxOStateL,
+  lsGovStateL,
   nesELL,
   nesEpochStateL,
   nesEsL,
   nesStakePoolDistrG,
   newEpochStateGovStateL,
-  utxosGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..))
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (Val (..), (<->))
 import Control.Monad (forM)
 import Control.Monad.Trans.Fail.String (errorFail)
@@ -527,7 +528,7 @@ delegateToDRep cred stake dRep = do
   submitTxAnn_ "Delegate to DRep" $
     mkBasicTx mkBasicTxBody
       & bodyTxL . outputsTxBodyL
-        .~ SSeq.singleton (mkBasicTxOut (mkAddr spendingKP cred) (inject stake))
+        .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit (mkAddr spendingKP cred) (inject stake))
       & bodyTxL . certsTxBodyL
         .~ SSeq.fromList [DelegTxCert cred (DelegVote dRep)]
   pure spendingKP
@@ -1681,8 +1682,7 @@ lastEpochProposals =
     <$> getsNES
       ( nesEsL
           . esLStateL
-          . lsUTxOStateL
-          . utxosGovStateL
+          . lsGovStateL
           . drepPulsingStateGovStateL
           . pulsingStateSnapshotL
       )
@@ -1792,19 +1792,19 @@ showConwayTxBalance ::
   ) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Tx TopTx era ->
   String
-showConwayTxBalance pp certState utxo tx =
+showConwayTxBalance pp certState entries tx =
   unlines
     [ "Consumed:"
     , "\tInputs:     \t" <> show (coin inputs)
     , "\tRefunds:    \t" <> show refunds
     , "\tWithdrawals \t" <> show withdrawals
-    , "\tTotal:      \t" <> show (coin $ shelleyConsumed pp accounts utxo txBody)
+    , "\tTotal:      \t" <> show (coin $ shelleyConsumed pp accounts entries txBody)
     , ""
     , "Produced:"
-    , "\tOutputs:   \t" <> show (coin $ sumAllValue (txBody ^. outputsTxBodyL))
+    , "\tOutputs:   \t" <> show (coin outputs)
     , "\tDonations: \t" <> show (txBody ^. treasuryDonationTxBodyL)
     , "\tDeposits:  \t" <> show (getTotalDepositsTxBody pp isRegPoolId txBody)
     , "\tFees:      \t" <> show (txBody ^. feeTxBodyL)
@@ -1812,7 +1812,10 @@ showConwayTxBalance pp certState utxo tx =
     ]
   where
     txBody = tx ^. bodyTxL
-    inputs = sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+    Assets inputs =
+      sumAllAssets . IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $
+        entries
+    Assets outputs = sumAllAssets (txBody ^. outputsTxBodyL)
     accounts = certState ^. certDStateL . accountsL
     pState = certState ^. certPStateL
     refunds = getTotalRefundsTxBody pp (`lookupAccountDeposit` accounts) txBody
@@ -1830,8 +1833,8 @@ logConwayTxBalance ::
 logConwayTxBalance tx = do
   pp <- getsPParams id
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
-  utxo <- getsNES utxoL
-  logString $ showConwayTxBalance pp certState utxo tx
+  entries <- getIndexedUTxOs
+  logString $ showConwayTxBalance pp certState entries tx
 
 submitBootstrapAwareFailingVote ::
   ConwayEraImp era =>

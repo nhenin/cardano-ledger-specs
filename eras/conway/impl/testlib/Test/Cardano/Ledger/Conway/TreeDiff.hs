@@ -197,6 +197,10 @@ instance
   ) =>
   ToExpr (ConwayUtxosPredFailure era)
 
+-- TxOut
+instance ToExpr (TxOut ConwayEra) where
+  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
+
 -- TxBody
 instance ToExpr (ConwayTxBodyRaw TopTx ConwayEra) where
   toExpr ConwayTxBodyRaw {..} =

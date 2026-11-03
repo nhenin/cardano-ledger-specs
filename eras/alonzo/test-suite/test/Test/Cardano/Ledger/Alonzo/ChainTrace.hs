@@ -7,6 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 -- Embed instances for (AlonzoEra TestCrypto)
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -21,12 +22,14 @@ import Cardano.Ledger.Alonzo.Plutus.Evaluate (
  )
 import Cardano.Ledger.Alonzo.Rules (BBODY, LEDGER)
 import Cardano.Ledger.Alonzo.Scripts (AlonzoScript (..), ExUnits (..), mkPlutusScript)
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..), IsPhase2Valid (..))
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Plutus.Evaluate (PlutusWithContext (..), ScriptResult (..))
 import Cardano.Ledger.Plutus.Language (plutusFromRunnable)
 import Cardano.Ledger.Shelley.LedgerState hiding (circulation)
 import Cardano.Ledger.Slot (EpochSize (..))
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
 import Control.State.Transition
@@ -82,14 +85,32 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
     alonzoSpecificPropsLEDGER :: SourceSignalTarget (LEDGER AlonzoEra) -> Property
     alonzoSpecificPropsLEDGER
       SourceSignalTarget
-        { source = LedgerState UTxOState {utxosUtxo = UTxO u, utxosDeposited = dp, utxosFees = f} ds
+        { source =
+          LedgerState
+            AccountingState
+              { asUTxOStore = store
+              , asDeposited = dp
+              , asFees = f
+              }
+            ds
+            _
         , signal = stAnnTx
-        , target = LedgerState UTxOState {utxosUtxo = UTxO u', utxosDeposited = dp', utxosFees = f'} ds'
+        , target =
+          LedgerState
+            AccountingState
+              { asUTxOStore =
+                (IndexedUTxOs.mapTxOuts id . Store.allocations -> u')
+              , asDeposited = dp'
+              , asFees = f'
+              }
+            ds'
+            _
         } =
-        let tx = stAnnTx ^. txStAnnTxG
+        let u = IndexedUTxOs.mapTxOuts id . Store.allocations $ store
+            tx = stAnnTx ^. txStAnnTxG
             isValid' = tx ^. isPhase2ValidTxL
             noNewUTxO = u' `Map.isSubmapOf` u
-            collateralInFees = f <> sumCollateral tx (UTxO u) == f'
+            collateralInFees = f <> sumCollateral tx (Store.allocations store) == f'
             utxoConsumed = not $ u `Map.isSubmapOf` u'
             allScripts = tx ^. witsTxL . scriptTxWitsL
             hasPlutus = if all (isNativeScript @AlonzoEra) allScripts then NoPlutus else HasPlutus
@@ -103,7 +124,7 @@ alonzoSpecificProps SourceSignalTarget {source = chainSt, signal = block} =
                 (SystemStart $ posixSecondsToUTCTime 0) -- arbitrary
                 pp
                 tx
-                (UTxO u) of
+                (Store.allocations store) of
                 Left e -> error $ "Plutus script collection error: " <> show e
                 Right c -> c
             collectedScripts =

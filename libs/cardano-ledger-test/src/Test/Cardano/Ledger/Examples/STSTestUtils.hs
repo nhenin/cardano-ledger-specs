@@ -47,7 +47,6 @@ import Cardano.Ledger.Shelley.Scripts (
   pattern RequireAllOf,
   pattern RequireSignature,
  )
-import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.Slot (SlotNo (..))
@@ -61,6 +60,7 @@ import Numeric.Natural (Natural)
 import qualified PlutusLedgerApi.V1 as PV1
 import Test.Cardano.Ledger.Common hiding (Result)
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), mkAddr)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Generic.Indexed (theKeyHash)
 import Test.Cardano.Ledger.Generic.ModelState (Model)
 import Test.Cardano.Ledger.Shelley.Era (EraTest)
@@ -155,9 +155,9 @@ initUTxO ::
   , AlonzoEraTxOut era
   , EraModel era
   ) =>
-  UTxO era
+  IndexedUTxOs era
 initUTxO =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList $
       [ (mkGenesisTxIn 1, alwaysSucceedsOutput)
       , (mkGenesisTxIn 2, alwaysFailsOutput)
@@ -171,14 +171,14 @@ initUTxO =
            ]
   where
     alwaysSucceedsOutput =
-      mkBasicTxOut (someScriptAddr @era $ always 3) (inject $ Coin 5000)
+      mkBasicTxOutWithImplicitDeposit (someScriptAddr @era $ always 3) (inject $ Coin 5000)
         & dataHashTxOutL .~ SJust (hashData $ datumExample1 @era)
     alwaysFailsOutput =
-      mkBasicTxOut (someScriptAddr @era $ never 0) (inject $ Coin 3000)
+      mkBasicTxOutWithImplicitDeposit (someScriptAddr @era $ never 0) (inject $ Coin 3000)
         & dataHashTxOutL .~ SJust (hashData $ datumExample2 @era)
-    someOutput = mkBasicTxOut someAddr (inject $ Coin 1000)
-    collateralOutput = mkBasicTxOut someAddr (inject $ Coin 5)
-    timelockOut = mkBasicTxOut timelockAddr (inject $ Coin 1)
+    someOutput = mkBasicTxOutWithImplicitDeposit someAddr (inject $ Coin 1000)
+    collateralOutput = mkBasicTxOutWithImplicitDeposit someAddr (inject $ Coin 5)
+    timelockOut = mkBasicTxOutWithImplicitDeposit timelockAddr (inject $ Coin 1)
     timelockAddr = mkAddr tlh $ mkKeyPair' @Staking (RawSeed 0 0 0 0 2)
       where
         tlh = hashScript @era $ tls 0
@@ -190,11 +190,11 @@ initUTxO =
               ]
     -- This output is unspendable since it is locked by a plutus script, but has no datum hash.
     unspendableOut =
-      mkBasicTxOut (someScriptAddr @era $ always 3) (inject $ Coin 5000)
+      mkBasicTxOutWithImplicitDeposit (someScriptAddr @era $ always 3) (inject $ Coin 5000)
     alwaysSucceedsOutputV1 =
       unspendableOut & dataHashTxOutL .~ SJust (hashData (datumExample1 @era))
     nonScriptOutWithDatum =
-      mkBasicTxOut someAddr (inject $ Coin 1221)
+      mkBasicTxOutWithImplicitDeposit someAddr (inject $ Coin 1221)
         & dataHashTxOutL .~ SJust (hashData (datumExample1 @era))
 
 datumExample1 :: Era era => Data era
