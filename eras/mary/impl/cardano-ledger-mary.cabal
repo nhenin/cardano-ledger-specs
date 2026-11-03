@@ -56,6 +56,7 @@ library
     Cardano.Ledger.Mary.Rules.Utxo
     Cardano.Ledger.Mary.Rules.Utxow
     Cardano.Ledger.Mary.Scripts
+    Cardano.Ledger.Mary.State.Accounting
     Cardano.Ledger.Mary.State.Accounting.InstantStake
     Cardano.Ledger.Mary.State.Certificates
     Cardano.Ledger.Mary.State.Certificates.Account

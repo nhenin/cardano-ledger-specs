@@ -84,8 +84,8 @@ import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, run
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
@@ -353,6 +353,7 @@ validateLegacyValueNotConservedUTxO pp inputAllocations pState body =
 dijkstraUtxoTransition ::
   forall era.
   ( DijkstraEraUTxO era
+  , Accounting.EraAccounting era
   , EraCertState era
   , DijkstraEraTxBody era
   , AlonzoEraTx era
@@ -499,42 +500,16 @@ dijkstraUtxoTransition = do
   runTest $ Alonzo.validateTooManyCollateralInputs pp txBody
 
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  accountingState <-
-    case tx ^. isPhase2ValidTxL of
-      Phase2Valid -> do
-        withDeposits <-
-          Shelley.updateAccountingStateDeposits
-            pp
-            originalCertState
-            txBody
-            (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-            (Conway.updateTreasuryDonation tx previousAccountingState)
-        let Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx (asUTxOStore withDeposits)
-        tellEvent $ Alonzo.TxUTxODiff consumedOutputs producedOutputs
-        pure $
-          withDeposits
-            { asUTxOStore = updatedStore
-            , asInstantStake =
-                updateInstantStake
-                  consumedOutputs
-                  producedOutputs
-                  (asInstantStake withDeposits)
-            , asFees = asFees withDeposits <> txBody ^. feeTxBodyL
-            }
-      Phase2Invalid ->
-        let settlement = DepositStore.collateralDepositSettlement previousUTxOStore txBody
-            Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx utxoStore
-         in pure $
-              previousAccountingState
-                { asUTxOStore = updatedStore
-                , asFees = asFees previousAccountingState <> DepositStore.collateralFee settlement
-                , asInstantStake =
-                    updateInstantStake
-                      consumedOutputs
-                      producedOutputs
-                      (asInstantStake previousAccountingState)
-                }
-  pure ledgerState {lsAccountingState = accountingState}
+  projection <-
+    Accounting.projectTx
+      pp
+      tx
+      originalCertState
+      previousUTxOStore
+      (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
+      previousAccountingState
+      >>= Alonzo.emitUTxODiff tx
+  pure ledgerState {lsAccountingState = Accounting.updatedAccountingState projection}
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -543,6 +518,7 @@ dijkstraUtxoTransition = do
 instance
   forall era.
   ( EraTx era
+  , Accounting.EraAccounting era
   , DijkstraEraUTxO era
   , EraStake era
   , DijkstraEraTxBody era

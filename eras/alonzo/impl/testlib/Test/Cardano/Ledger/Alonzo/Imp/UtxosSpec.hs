@@ -2,6 +2,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedLists #-}
@@ -21,7 +22,9 @@ import Cardano.Ledger.Alonzo.Plutus.Evaluate (
   evalTxExUnits,
  )
 import Cardano.Ledger.Alonzo.Rules (
+  AlonzoUtxoEvent (..),
   AlonzoUtxosPredFailure (..),
+  AlonzoUtxowEvent (..),
   TagMismatchDescription (..),
  )
 import Cardano.Ledger.Alonzo.Scripts (AsPurpose (..), eraLanguages)
@@ -47,6 +50,7 @@ import Cardano.Ledger.Plutus (
   withSLanguage,
  )
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
+import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Monad.Reader (asks)
@@ -56,6 +60,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import Data.Typeable (cast)
 import Lens.Micro (set, to, (%~), (&), (.~), (<>~), (^.), _2)
 import Lens.Micro.Mtl (use)
 import qualified PlutusLedgerApi.Common as P
@@ -72,6 +77,19 @@ import Test.Cardano.Ledger.Plutus.Examples (
   purposeIsWellformedWithDatum,
   redeemerSameAsDatum,
  )
+
+-- Only the consuming transaction is captured; collateral funding happens beforehand.
+alonzoAccountingEvents :: [SomeSTSEvent era] -> [AlonzoUtxoEvent AlonzoEra]
+alonzoAccountingEvents events =
+  [ event
+  | SomeSTSEvent wrappedEvent <- events
+  , Just (Shelley.UtxowEvent (WrappedShelleyEraEvent (Shelley.UtxoEvent event))) <-
+      [cast wrappedEvent :: Maybe (Shelley.ShelleyLedgerEvent AlonzoEra)]
+  , case event of
+      TotalDeposits {} -> True
+      TxUTxODiff {} -> True
+      _ -> False
+  ]
 
 spec :: forall era. AlonzoEraImp era => SpecWith (ImpInit (LedgerSpec era))
 spec = describe "UTXOS" $ do
@@ -190,13 +208,19 @@ spec = describe "UTXOS" $ do
 
         it "Invalid plutus script fails in phase 2" $ do
           txIn0 <- produceScript redeemerSameAsDatumHash
+          collateralInput <- makeCollateralInput
           exUnits <- getsNES $ nesEsL . curPParamsEpochStateL . ppMaxTxExUnitsL
-          submitTxAnn_ "Submitting consuming transaction" $
-            mkBasicTx mkBasicTxBody
-              & bodyTxL . inputsTxBodyL .~ Set.singleton txIn0
-              & isPhase2ValidTxL .~ Phase2Invalid
-              & witsTxL . rdmrsTxWitsL . unRedeemersL
-                .~ Map.singleton (mkSpendingPurpose $ AsIx 0) (Data $ P.I 32, exUnits)
+          events <-
+            impEventsFrom $
+              submitTxAnn_ "Submitting consuming transaction" $
+                mkBasicTx mkBasicTxBody
+                  & bodyTxL . inputsTxBodyL .~ Set.singleton txIn0
+                  & bodyTxL . collateralInputsTxBodyL .~ Set.singleton collateralInput
+                  & isPhase2ValidTxL .~ Phase2Invalid
+                  & witsTxL . rdmrsTxWitsL . unRedeemersL
+                    .~ Map.singleton (mkSpendingPurpose $ AsIx 0) (Data $ P.I 32, exUnits)
+          when (eraProtVerLow @era == eraProtVerLow @AlonzoEra) $
+            alonzoAccountingEvents events `shouldSatisfyExpr` null
 
         describe "Scripts pass in phase 2" $ do
           let scripts' = drop 1 scripts
@@ -204,9 +228,17 @@ spec = describe "UTXOS" $ do
             it name $ do
               let sHash = hashPlutusScript (script slang)
               txIn0 <- produceScript sHash
-              submitTxAnn_ "Submitting consuming transaction" $
-                mkBasicTx mkBasicTxBody
-                  & bodyTxL . inputsTxBodyL .~ Set.singleton txIn0
+              collateralInput <- makeCollateralInput
+              events <-
+                impEventsFrom $
+                  submitTxAnn_ "Submitting consuming transaction" $
+                    mkBasicTx mkBasicTxBody
+                      & bodyTxL . inputsTxBodyL .~ Set.singleton txIn0
+                      & bodyTxL . collateralInputsTxBodyL .~ Set.singleton collateralInput
+              when (eraProtVerLow @era == eraProtVerLow @AlonzoEra) $
+                alonzoAccountingEvents events `shouldSatisfyExpr` \case
+                  [TotalDeposits _ (Coin 0), TxUTxODiff _ _] -> True
+                  _ -> False
 
         it "No cost model" $ do
           txIn <- produceScript alwaysSucceedsWithDatumHash

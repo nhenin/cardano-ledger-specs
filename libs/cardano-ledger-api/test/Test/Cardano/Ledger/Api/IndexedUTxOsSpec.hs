@@ -23,8 +23,8 @@ import Cardano.Ledger.Shelley.API.Wallet (
   getIndexedUTxOsSubset,
  )
 import Cardano.Ledger.Shelley.LedgerState (NewEpochState)
-import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
@@ -32,7 +32,6 @@ import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val (inject)
 import Data.Default (def)
-import Data.IORef (modifyIORef', newIORef, readIORef)
 import qualified Data.Map.Strict as Map
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
@@ -297,7 +296,12 @@ bodyUpdateDeltaSpec bodyName emptyBody = describe bodyName $
 -- canonical compatibility convention, even when the body supplies a longer size.
 legacyAllocationSpec ::
   forall era.
-  (BabbageEraTxBody era, EraCertState era, EraStake era, Arbitrary (TxOut era)) =>
+  ( BabbageEraTxBody era
+  , Accounting.EraAccounting era
+  , EraCertState era
+  , EraStake era
+  , Arbitrary (TxOut era)
+  ) =>
   Spec
 legacyAllocationSpec = describe (eraName @era) $ do
   prop "allocated ordinary and collateral outputs retain the legacy snapshot roundtrip" $ \(output :: TxOut era) ->
@@ -320,7 +324,7 @@ legacyAllocationSpec = describe (eraName @era) $ do
             Binary.serialize (eraProtVerLow @era) store
         restored `shouldBe` store
 
-  prop "TxUTxODiff reports the stored creation size rather than the body's supplied size" $ \(output :: TxOut era) ->
+  prop "accounting projection reports the stored creation size rather than the body's supplied size" $ \(output :: TxOut era) ->
     forAll (choose (1, 1000)) $ \extraBytes -> do
       let canonical = mkSized (eraProtVerLow @era) output
           supplied = canonical {sizedSize = sizedSize canonical + extraBytes}
@@ -329,18 +333,22 @@ legacyAllocationSpec = describe (eraName @era) $ do
           expected =
             IndexedUTxOs.singleton createdInput $
               Unspent {sizedOutput = canonical, depositCalculation = legacyDepositCalculation}
-      events <- newIORef []
-      updatedState <-
-        Shelley.updateAccountingState
+      Accounting.TxProjected
+        { Accounting.updatedAccountingState = accountingState
+        , Accounting.consumedOutputs = consumed
+        , Accounting.producedOutputs = created
+        } <-
+        Accounting.projectTx
           def
-          body
+          (mkBasicTx body)
           def
+          (asUTxOStore $ def @(AccountingState era))
           (const $ pure ())
-          (\consumed created -> modifyIORef' events (<> [(consumed, created)]))
           (def @(AccountingState era))
-      readIORef events `shouldReturn` [(mempty, expected)]
-      (Store.allocations . asUTxOStore $ updatedState) `shouldBe` expected
-      asInstantStake updatedState `shouldBe` addInstantStake (IndexedUTxOs.txOuts expected) mempty
+      consumed `shouldBe` mempty
+      created `shouldBe` expected
+      (Store.allocations . asUTxOStore $ accountingState) `shouldBe` expected
+      asInstantStake accountingState `shouldBe` addInstantStake (IndexedUTxOs.txOuts expected) mempty
 
 -- Preserve the upstream map union's retained-entry priority in every era, even
 -- for a deliberately colliding output reference at this Store-operation boundary.

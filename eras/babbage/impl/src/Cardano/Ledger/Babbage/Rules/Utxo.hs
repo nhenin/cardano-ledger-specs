@@ -33,7 +33,6 @@ module Cardano.Ledger.Babbage.Rules.Utxo (
   validateCollateralEqBalance,
   validateImplicitDeposits,
   disjointRefInputs,
-  updateAccountingState,
 ) where
 
 import qualified Cardano.Ledger.Allegra.Rules as Allegra
@@ -54,7 +53,7 @@ import Cardano.Ledger.BaseTypes (
  )
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), Sized (..), natVersion)
 import Cardano.Ledger.Binary.Coders
-import Cardano.Ledger.Coin (Coin (..), DeltaCoin (..), toDeltaCoin)
+import Cardano.Ledger.Coin (Coin, DeltaCoin, toDeltaCoin)
 import Cardano.Ledger.Rules.ValidationMode (
   Test,
   runTest,
@@ -63,6 +62,7 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
@@ -445,6 +445,7 @@ babbageUtxoValidation = do
 utxoTransition ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , BabbageEraTxBody era
   , AlonzoEraTx era
   , EraCertState era
@@ -470,54 +471,25 @@ utxoTransition ::
 utxoTransition = do
   TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
+      txBody = tx ^. bodyTxL
   babbageUtxoValidation
   updatedGovState <-
     trans @(EraRule "UTXOS" era) $
       TRC (Alonzo.UtxosEnv slot pp certState, lsGovState utxos, stAnnTx)
-  accountingState <- updateAccountingState pp certState tx (lsAccountingState utxos)
-  pure utxos {lsAccountingState = accountingState, lsGovState = updatedGovState}
-
-updateAccountingState ::
-  forall era.
-  ( AlonzoEraTx era
-  , BabbageEraTxBody era
-  , EraStake era
-  , EraCertState era
-  , Event (EraRule "UTXO" era) ~ Alonzo.AlonzoUtxoEvent era
-  ) =>
-  PParams era ->
-  CertState era ->
-  Tx TopTx era ->
-  AccountingState era ->
-  Rule (EraRule "UTXO" era) 'Transition (AccountingState era)
-updateAccountingState pp certState tx utxoState =
-  let txBody = tx ^. bodyTxL
-   in case tx ^. isPhase2ValidTxL of
-        Phase2Valid ->
-          Shelley.updateAccountingState
-            pp
-            txBody
-            certState
-            (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-            (\a b -> tellEvent $ Alonzo.TxUTxODiff a b)
-            utxoState
-        Phase2Invalid ->
-          {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx $ asUTxOStore utxoState
-              !allocationsDel = consumedOutputs
-              utxoDel = IndexedUTxOs.txOuts allocationsDel
-              DeltaCoin collateralFees = collAdaBalance txBody utxoDel -- NEW to Babbage
-           in pure $!
-                utxoState {- (collInputs txb ⋪ utxo) ∪ collouts tx -}
-                  { asUTxOStore = updatedStore
-                  , {- fees + collateralFees -}
-                    asFees = asFees utxoState <> Coin collateralFees -- NEW to Babbage
-                  , asInstantStake =
-                      updateInstantStake
-                        consumedOutputs
-                        producedOutputs
-                        (utxoState ^. instantStakeL)
-                  }
+  projection <-
+    Accounting.projectTx
+      pp
+      tx
+      certState
+      (asUTxOStore . lsAccountingState $ utxos)
+      (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
+      (lsAccountingState utxos)
+      >>= Alonzo.emitUTxODiff tx
+  pure
+    utxos
+      { lsAccountingState = Accounting.updatedAccountingState projection
+      , lsGovState = updatedGovState
+      }
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -526,6 +498,7 @@ updateAccountingState pp certState tx utxoState =
 instance
   forall era.
   ( EraTx era
+  , Accounting.EraAccounting era
   , EraUTxO era
   , BabbageEraTxBody era
   , AlonzoEraTx era

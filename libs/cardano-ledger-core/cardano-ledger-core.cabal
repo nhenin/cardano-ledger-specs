@@ -87,12 +87,20 @@ library
     Cardano.Ledger.Slot
     Cardano.Ledger.State
     Cardano.Ledger.State.Accounting
+    Cardano.Ledger.State.Accounting.Deposits
+    Cardano.Ledger.State.Accounting.Donation
+    Cardano.Ledger.State.Accounting.Era
+    Cardano.Ledger.State.Accounting.Fees
     Cardano.Ledger.State.Accounting.InstantStake
+    Cardano.Ledger.State.Accounting.Stake
+    Cardano.Ledger.State.Accounting.State
+    Cardano.Ledger.State.Accounting.TxProjected
     Cardano.Ledger.State.Accounting.UTxOs
     Cardano.Ledger.State.Accounting.UTxOs.Deposit
     Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs
     Cardano.Ledger.State.Accounting.UTxOs.Store
     Cardano.Ledger.State.Accounting.UTxOs.Store.Internals
+    Cardano.Ledger.State.Accounting.UTxOs.Tx
     Cardano.Ledger.State.Accounting.UTxOs.Unspent
     Cardano.Ledger.State.Certificates
     Cardano.Ledger.State.Certificates.Account

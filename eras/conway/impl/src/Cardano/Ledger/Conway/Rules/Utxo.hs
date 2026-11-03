@@ -26,7 +26,6 @@ module Cardano.Ledger.Conway.Rules.Utxo (
   alonzoToConwayUtxoPredFailure,
   ConwayUtxoPredFailure (..),
   Shelley.UtxoEnv (..),
-  updateTreasuryDonation,
 ) where
 
 import qualified Cardano.Ledger.Allegra.Rules as Allegra
@@ -58,9 +57,10 @@ import Cardano.Ledger.Conway.Rules.Utxos (
   ConwayUtxosPredFailure (..),
  )
 import Cardano.Ledger.Plutus (OrdExUnits)
-import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..), asDonationL)
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (asUTxOStore), LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState (..), EraStake, EraUTxO)
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
@@ -69,7 +69,7 @@ import Data.Map.NonEmpty (NonEmptyMap)
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
-import Lens.Micro ((&), (<>~), (^.))
+import Lens.Micro ((^.))
 
 -- ======================================================
 
@@ -212,20 +212,10 @@ instance
   ) =>
   NFData (ConwayUtxoPredFailure era)
 
--- | Accumulate treasury donation for valid transactions
-updateTreasuryDonation ::
-  (AlonzoEraTx era, ConwayEraTxBody era) =>
-  Tx TopTx era ->
-  AccountingState era ->
-  AccountingState era
-updateTreasuryDonation tx utxos =
-  case tx ^. isPhase2ValidTxL of
-    Phase2Valid -> utxos & asDonationL <>~ tx ^. bodyTxL . treasuryDonationTxBodyL
-    Phase2Invalid -> utxos
-
 conwayUtxoTransition ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , EraCertState era
   , AlonzoEraTx era
   , ConwayEraTxBody era
@@ -250,15 +240,19 @@ conwayUtxoTransition ::
 conwayUtxoTransition = do
   TRC (Shelley.UtxoEnv _ pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
+      txBody = tx ^. bodyTxL
   Babbage.babbageUtxoValidation
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  accountingState <-
-    Babbage.updateAccountingState
+  projection <-
+    Accounting.projectTx
       pp
-      certState
       tx
-      (updateTreasuryDonation tx $ lsAccountingState ledgerState)
-  pure ledgerState {lsAccountingState = accountingState}
+      certState
+      (asUTxOStore . lsAccountingState $ ledgerState)
+      (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
+      (lsAccountingState ledgerState)
+      >>= Alonzo.emitUTxODiff tx
+  pure ledgerState {lsAccountingState = Accounting.updatedAccountingState projection}
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -267,6 +261,7 @@ conwayUtxoTransition = do
 instance
   forall era.
   ( EraTx era
+  , Accounting.EraAccounting era
   , EraUTxO era
   , ConwayEraTxBody era
   , AlonzoEraTx era

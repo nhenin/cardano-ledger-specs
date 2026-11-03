@@ -29,7 +29,7 @@ module Cardano.Ledger.State (
   module Cardano.Ledger.UTxO,
 ) where
 
-import Cardano.Ledger.State.Accounting
+import Cardano.Ledger.State.Accounting hiding (EraAccounting (..), TxProjected (..), projectTx)
 import Cardano.Ledger.State.Accounting.InstantStake
 import Cardano.Ledger.State.Accounting.UTxOs
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit

@@ -130,6 +130,7 @@ test-suite cardano-ledger-api-test
   hs-source-dirs: test
   other-modules:
     Paths_cardano_ledger_api
+    Test.Cardano.Ledger.Api.AccountingTxSpec
     Test.Cardano.Ledger.Api.IndexedUTxOsSpec
     Test.Cardano.Ledger.Api.State.Imp.QuerySpec
     Test.Cardano.Ledger.Api.State.QuerySpec

@@ -44,6 +44,7 @@ import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.Shelley.PParams (Update)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
@@ -153,10 +154,25 @@ instance
   ) =>
   NFData (AllegraUtxoEvent era)
 
+-- | Emit successful output changes and pass the accounting projection through.
+emitUTxODiff ::
+  (EraTx era, Event (EraRule "UTXO" era) ~ AllegraUtxoEvent era) =>
+  Tx TopTx era ->
+  Accounting.TxProjected era ->
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.TxProjected era)
+emitUTxODiff tx projection = do
+  case tx ^. isPhase2ValidTxG of
+    Phase2Valid ->
+      tellEvent $
+        TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
+    Phase2Invalid -> pure ()
+  pure projection
+
 -- | The UTxO transition rule for the Allegra era.
 utxoTransition ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , EraStake era
   , EraCertState era
   , ShelleyEraTxBody era
@@ -231,15 +247,19 @@ utxoTransition = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ Shelley.validateMaxTxSizeUTxO pp tx
 
-  accountingState <-
-    Shelley.updateAccountingState
+  projection <-
+    Accounting.projectTx
       pp
-      txBody
+      tx
       certState
+      (Shelley.asUTxOStore . Shelley.lsAccountingState $ utxos)
       (tellEvent . TotalDeposits (hashAnnotated txBody))
-      (\a b -> tellEvent $ TxUTxODiff a b)
       (Shelley.lsAccountingState utxos)
-  pure $ utxos & Shelley.lsAccountingStateL .~ accountingState & lsGovStateL .~ govStateAfterPPUP
+      >>= emitUTxODiff tx
+  pure $
+    utxos
+      & Shelley.lsAccountingStateL .~ Accounting.updatedAccountingState projection
+      & lsGovStateL .~ govStateAfterPPUP
 
 -- | Ensure the transaction is within the validity window.
 --
@@ -298,6 +318,7 @@ validateImplicitDeposits pp outputs =
 --------------------------------------------------------------------------------
 instance
   ( EraTx era
+  , Accounting.EraAccounting era
   , EraUTxO era
   , EraStake era
   , EraCertState era

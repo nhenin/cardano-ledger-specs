@@ -3,6 +3,7 @@ module Cardano.Ledger.Mary.State (
 ) where
 
 import Cardano.Ledger.Allegra.State
+import Cardano.Ledger.Mary.State.Accounting ()
 import Cardano.Ledger.Mary.State.Accounting.InstantStake ()
 import Cardano.Ledger.Mary.State.Certificates ()
 import Cardano.Ledger.Mary.State.Certificates.Account ()

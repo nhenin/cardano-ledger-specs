@@ -7,6 +7,7 @@ module Cardano.Ledger.Conway.State (
 ) where
 
 import Cardano.Ledger.Babbage.State
+import Cardano.Ledger.Conway.State.Accounting ()
 import Cardano.Ledger.Conway.State.Accounting.InstantStake
 import Cardano.Ledger.Conway.State.Certificates
 import Cardano.Ledger.Conway.State.Certificates.Account

@@ -5,6 +5,7 @@ module Cardano.Ledger.Shelley.State (
   module Cardano.Ledger.Shelley.State.Accounting.InstantStake,
 ) where
 
+import Cardano.Ledger.Shelley.State.Accounting ()
 import Cardano.Ledger.Shelley.State.Accounting.InstantStake
 import Cardano.Ledger.Shelley.State.Certificates
 import Cardano.Ledger.Shelley.State.Certificates.Account

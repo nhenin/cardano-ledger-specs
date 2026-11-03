@@ -59,6 +59,7 @@ library
     Cardano.Ledger.Babbage.Rules.Utxo
     Cardano.Ledger.Babbage.Rules.Utxos
     Cardano.Ledger.Babbage.Rules.Utxow
+    Cardano.Ledger.Babbage.State.Accounting
     Cardano.Ledger.Babbage.State.Accounting.InstantStake
     Cardano.Ledger.Babbage.State.Certificates
     Cardano.Ledger.Babbage.State.Certificates.Account

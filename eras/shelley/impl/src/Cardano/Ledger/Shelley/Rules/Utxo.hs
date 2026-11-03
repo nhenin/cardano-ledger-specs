@@ -22,9 +22,8 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   UtxoEnv (..),
   ShelleyUtxoPredFailure (..),
   UtxoEvent (..),
+  emitUTxODiff,
   validSizeComputationCheck,
-  updateAccountingState,
-  updateAccountingStateDeposits,
 
   -- * Validations
   validateImplicitDeposit,
@@ -69,11 +68,10 @@ import Cardano.Ledger.Shelley.Rules.Reports (showTxCerts)
 import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.TxOut (sumAllAssets)
-import Cardano.Ledger.Val ((<->))
 import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq
 import Control.Monad.Trans.Reader (asks)
@@ -81,6 +79,8 @@ import Control.State.Transition (
   Assertion (..),
   AssertionViolation (..),
   Embed,
+  Rule,
+  RuleType (Transition),
   STS (..),
   TRC (..),
   TransitionRule,
@@ -165,6 +165,20 @@ deriving instance
   Eq (UtxoEvent era)
 
 instance (Era era, NFData (Event (EraRule "PPUP" era)), NFData (TxOut era)) => NFData (UtxoEvent era)
+
+-- | Emit successful output changes and pass the accounting projection through.
+emitUTxODiff ::
+  (EraTx era, Event (EraRule "UTXO" era) ~ UtxoEvent era) =>
+  Tx TopTx era ->
+  Accounting.TxProjected era ->
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.TxProjected era)
+emitUTxODiff tx projection = do
+  case tx ^. isPhase2ValidTxG of
+    Phase2Valid ->
+      tellEvent $
+        TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
+    Phase2Invalid -> pure ()
+  pure projection
 
 data ShelleyUtxoPredFailure era
   = BadInputsUTxO
@@ -271,6 +285,7 @@ instance
 
 instance
   ( EraTx era
+  , Accounting.EraAccounting era
   , EraUTxO era
   , EraStake era
   , ShelleyEraTxBody era
@@ -363,6 +378,7 @@ instance
 utxoInductive ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , EraStake era
   , ShelleyEraTxBody era
   , ExactEra ShelleyEra era
@@ -431,15 +447,20 @@ utxoInductive = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ validateMaxTxSizeUTxO pp tx
 
-  accountingState <-
-    updateAccountingState
+  projection <-
+    Accounting.projectTx
       pp
-      txBody
+      tx
       certState
+      (asUTxOStore . lsAccountingState $ ledgerState)
       (tellEvent . TotalDeposits (hashAnnotated txBody))
-      (\a b -> tellEvent $ TxUTxODiff a b)
       (lsAccountingState ledgerState)
-  pure ledgerState {lsAccountingState = accountingState, lsGovState = govStateAfterPPUP}
+      >>= emitUTxODiff tx
+  pure
+    ledgerState
+      { lsAccountingState = Accounting.updatedAccountingState projection
+      , lsGovState = govStateAfterPPUP
+      }
 
 -- | The ttl field marks the top of an open interval, so it must be strictly
 -- less than the slot, so fail if it is (>=).
@@ -618,54 +639,6 @@ validateMaxTxSizeUTxO pp tx =
   where
     maxTxSize = pp ^. ppMaxTxSizeL
     txSize = tx ^. sizeTxF
-
--- | This monadic action captures the final stages of the UTXO(S) rule. In particular it
--- applies all of the UTxO related aditions and removals, gathers all of the fees into the
--- fee pot `asFees` and updates the `asDeposited` field. Continuation supplied will
--- be called on the @deposit - refund@ change, which is normally used to emit the
--- `TotalDeposits` event.
-updateAccountingState ::
-  ( EraTxBody era
-  , EraStake era
-  , EraCertState era
-  , Monad m
-  ) =>
-  PParams era ->
-  TxBody TopTx era ->
-  CertState era ->
-  (Coin -> m ()) ->
-  (IndexedUTxOs era -> IndexedUTxOs era -> m ()) ->
-  AccountingState era ->
-  m (AccountingState era)
-updateAccountingState pp txBody certState depositChangeEvent utxoDiffEvent accountingState = do
-  withDeposits <- updateAccountingStateDeposits pp certState txBody depositChangeEvent accountingState
-  let TxProjected {updatedStore, consumedOutputs, producedOutputs} =
-        StoreInternals.projectValidTxBody txBody . asUTxOStore $ withDeposits
-  utxoDiffEvent consumedOutputs producedOutputs
-  pure $!
-    withDeposits
-      & asUTxOStoreL .~ updatedStore
-      & instantStakeL %~ updateInstantStake consumedOutputs producedOutputs
-      & asFeesL <>~ (txBody ^. feeTxBodyL)
-
-updateAccountingStateDeposits ::
-  ( EraTxBody era
-  , EraCertState era
-  , Monad m
-  ) =>
-  PParams era ->
-  CertState era ->
-  TxBody TopTx era ->
-  (Coin -> m ()) ->
-  AccountingState era ->
-  m (AccountingState era)
-updateAccountingStateDeposits pp certState txBody depositChangeEvent accountingState = do
-  depositChangeEvent depositChange
-  pure $! accountingState & asDepositedL <>~ depositChange
-  where
-    depositChange = totalDeposits <-> totalRefunds
-    totalDeposits = certsTotalDepositsTxBody pp certState txBody
-    totalRefunds = certsTotalRefundsTxBody pp (certState ^. certDStateL . accountsL) txBody
 
 instance
   ( Era era

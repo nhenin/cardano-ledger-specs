@@ -90,6 +90,7 @@ library
     Cardano.Ledger.Shelley.Rules.Upec
     Cardano.Ledger.Shelley.Rules.Utxo
     Cardano.Ledger.Shelley.Rules.Utxow
+    Cardano.Ledger.Shelley.State.Accounting
     Cardano.Ledger.Shelley.State.Accounting.InstantStake
     Cardano.Ledger.Shelley.State.Certificates
     Cardano.Ledger.Shelley.State.Certificates.Account

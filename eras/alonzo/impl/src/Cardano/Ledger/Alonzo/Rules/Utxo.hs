@@ -28,6 +28,7 @@ module Cardano.Ledger.Alonzo.Rules.Utxo (
   AlonzoUtxoPredFailure (..),
   allegraToAlonzoUtxoPredFailure,
   AlonzoUtxoEvent (..),
+  emitUTxODiff,
   validateCollateralContainsNonADA,
   validateExUnitsTooBigUTxO,
   validateOutputTooBigUTxO,
@@ -55,7 +56,7 @@ import Cardano.Ledger.Alonzo.Rules.Utxos (
   UtxosEnv (..),
  )
 import Cardano.Ledger.Alonzo.Scripts (OrdExUnits (..), pointWiseExUnits)
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..))
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (getTotalExUnits))
 import Cardano.Ledger.Alonzo.TxBody (
   AllegraEraTxBody (..),
   AlonzoEraTxBody (..),
@@ -96,6 +97,7 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
@@ -240,6 +242,20 @@ data AlonzoUtxoEvent era
       -- | Created entries from the updated Store, including their recorded calculation.
       (IndexedUTxOs era)
   deriving (Generic)
+
+-- | Emit successful output changes and pass the accounting projection through.
+emitUTxODiff ::
+  (EraTx era, Event (EraRule "UTXO" era) ~ AlonzoUtxoEvent era) =>
+  Tx TopTx era ->
+  Accounting.TxProjected era ->
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.TxProjected era)
+emitUTxODiff tx projection = do
+  case tx ^. isPhase2ValidTxG of
+    Phase2Valid ->
+      tellEvent $
+        TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
+    Phase2Invalid -> pure ()
+  pure projection
 
 deriving instance
   ( Show (TxOut era)
@@ -504,6 +520,7 @@ validateTooManyCollateralInputs pp txBody =
 utxoTransition ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , AlonzoEraTx era
   , AtMostEra "Babbage" era
   , EraRule "UTXO" era ~ UTXO era
@@ -595,8 +612,20 @@ utxoTransition = do
     trans @(EraRule "UTXOS" era) $
       TRC (UtxosEnv slot pp certState, lsGovState utxos, stAnnTx)
 
-  accountingState <- updateAccountingState pp certState tx (lsAccountingState utxos)
-  pure utxos {lsAccountingState = accountingState, lsGovState = updatedGovState}
+  projection <-
+    Accounting.projectTx
+      pp
+      tx
+      certState
+      (asUTxOStore . lsAccountingState $ utxos)
+      (tellEvent . TotalDeposits (hashAnnotated txBody))
+      (lsAccountingState utxos)
+      >>= emitUTxODiff tx
+  pure
+    utxos
+      { lsAccountingState = Accounting.updatedAccountingState projection
+      , lsGovState = updatedGovState
+      }
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -605,6 +634,7 @@ utxoTransition = do
 instance
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , AlonzoEraTx era
   , Embed (EraRule "UTXOS" era) (UTXO era)
   , Environment (EraRule "UTXOS" era) ~ UtxosEnv era
@@ -770,42 +800,3 @@ allegraToAlonzoUtxoPredFailure = \case
   Allegra.UpdateFailure x -> UtxosFailure (injectFailure @"UTXOS" @t x)
   Allegra.OutputBootAddrAttrsTooBig xs -> OutputBootAddrAttrsTooBig xs
   Allegra.OutputTooBigUTxO xs -> OutputTooBigUTxO (fmap (0,0,) xs)
-
-updateAccountingState ::
-  forall era.
-  ( AlonzoEraTx era
-  , EraStake era
-  , EraCertState era
-  , Event (EraRule "UTXO" era) ~ AlonzoUtxoEvent era
-  ) =>
-  PParams era ->
-  CertState era ->
-  Tx TopTx era ->
-  AccountingState era ->
-  Rule (EraRule "UTXO" era) 'Transition (AccountingState era)
-updateAccountingState pp certState tx utxoState =
-  let txBody = tx ^. bodyTxL
-   in case tx ^. isPhase2ValidTxL of
-        Phase2Valid ->
-          Shelley.updateAccountingState
-            pp
-            txBody
-            certState
-            (tellEvent . TotalDeposits (hashAnnotated txBody))
-            (\a b -> tellEvent (TxUTxODiff a b))
-            utxoState
-        Phase2Invalid ->
-          {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
-          {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = Store.projectTx tx $ asUTxOStore utxoState
-              !utxoDel = IndexedUTxOs.txOuts $ consumedOutputs
-           in pure $!
-                utxoState
-                  { asUTxOStore = updatedStore
-                  , asFees = asFees utxoState <> sumAllCoin utxoDel
-                  , asInstantStake =
-                      updateInstantStake
-                        consumedOutputs
-                        producedOutputs
-                        (utxoState ^. instantStakeL)
-                  }
