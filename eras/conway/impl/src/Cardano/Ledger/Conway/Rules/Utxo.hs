@@ -57,19 +57,20 @@ import Cardano.Ledger.Conway.Rules.Utxos (
   ConwayUtxosPredFailure (..),
  )
 import Cardano.Ledger.Plutus (OrdExUnits)
-import Cardano.Ledger.Shelley.LedgerState (AccountingState (asUTxOStore), LedgerState (..))
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State (EraCertState (..), EraStake, EraUTxO)
 import qualified Cardano.Ledger.State.Accounting as Accounting
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
+import Data.Functor ((<&>))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
-import Lens.Micro ((^.))
+import Lens.Micro ((&), (^.))
 
 -- ======================================================
 
@@ -240,19 +241,16 @@ conwayUtxoTransition ::
 conwayUtxoTransition = do
   TRC (Shelley.UtxoEnv _ pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      txBody = tx ^. bodyTxL
   Babbage.babbageUtxoValidation
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  projection <-
-    Accounting.projectTx
-      pp
-      tx
-      certState
-      (asUTxOStore . lsAccountingState $ ledgerState)
-      (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-      (lsAccountingState ledgerState)
-      >>= Alonzo.emitUTxODiff tx
-  pure ledgerState {lsAccountingState = Accounting.updatedAccountingState projection}
+  Accounting.projectTx
+    pp
+    certState
+    (lsAccountingState ledgerState)
+    tx
+    & Alonzo.emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState {lsAccountingState = newAccountingState}
 
 --------------------------------------------------------------------------------
 -- UTXO STS

@@ -22,7 +22,7 @@ module Cardano.Ledger.Shelley.Rules.Utxo (
   UtxoEnv (..),
   ShelleyUtxoPredFailure (..),
   UtxoEvent (..),
-  emitUTxODiff,
+  emitAccountingEvents,
   validSizeComputationCheck,
 
   -- * Validations
@@ -46,7 +46,7 @@ import Cardano.Ledger.BaseTypes (
   Network,
   Relation (..),
   ShelleyBase,
-  StrictMaybe,
+  StrictMaybe (..),
   networkId,
  )
 import Cardano.Ledger.Binary
@@ -166,19 +166,21 @@ deriving instance
 
 instance (Era era, NFData (Event (EraRule "PPUP" era)), NFData (TxOut era)) => NFData (UtxoEvent era)
 
--- | Emit successful output changes and pass the accounting projection through.
-emitUTxODiff ::
+-- | Emit the deposit change followed by actual output changes on success.
+-- Invalid projections return their collateral-updated state without either event.
+emitAccountingEvents ::
   (EraTx era, Event (EraRule "UTXO" era) ~ UtxoEvent era) =>
   Tx TopTx era ->
   Accounting.TxProjected era ->
-  Rule (EraRule "UTXO" era) 'Transition (Accounting.TxProjected era)
-emitUTxODiff tx projection = do
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.AccountingState era)
+emitAccountingEvents tx projection = do
   case tx ^. isPhase2ValidTxG of
-    Phase2Valid ->
+    Phase2Valid -> do
+      tellEvent $ TotalDeposits (hashAnnotated $ tx ^. bodyTxL) (Accounting.depositChange projection)
       tellEvent $
         TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
     Phase2Invalid -> pure ()
-  pure projection
+  pure $ Accounting.updatedAccountingState projection
 
 data ShelleyUtxoPredFailure era
   = BadInputsUTxO
@@ -447,20 +449,17 @@ utxoInductive = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ validateMaxTxSizeUTxO pp tx
 
-  projection <-
-    Accounting.projectTx
-      pp
-      tx
-      certState
-      (asUTxOStore . lsAccountingState $ ledgerState)
-      (tellEvent . TotalDeposits (hashAnnotated txBody))
-      (lsAccountingState ledgerState)
-      >>= emitUTxODiff tx
-  pure
-    ledgerState
-      { lsAccountingState = Accounting.updatedAccountingState projection
-      , lsGovState = govStateAfterPPUP
-      }
+  Accounting.projectTx
+    pp
+    certState
+    (lsAccountingState ledgerState)
+    tx
+    & emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState
+        { lsAccountingState = newAccountingState
+        , lsGovState = govStateAfterPPUP
+        }
 
 -- | The ttl field marks the top of an open interval, so it must be strictly
 -- less than the slot, so fail if it is (>=).

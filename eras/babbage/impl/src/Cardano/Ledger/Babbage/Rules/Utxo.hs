@@ -469,27 +469,23 @@ utxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 utxoTransition = do
-  TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      txBody = tx ^. bodyTxL
   babbageUtxoValidation
   updatedGovState <-
     trans @(EraRule "UTXOS" era) $
-      TRC (Alonzo.UtxosEnv slot pp certState, lsGovState utxos, stAnnTx)
-  projection <-
-    Accounting.projectTx
-      pp
-      tx
-      certState
-      (asUTxOStore . lsAccountingState $ utxos)
-      (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-      (lsAccountingState utxos)
-      >>= Alonzo.emitUTxODiff tx
-  pure
-    utxos
-      { lsAccountingState = Accounting.updatedAccountingState projection
-      , lsGovState = updatedGovState
-      }
+      TRC (Alonzo.UtxosEnv slot pp certState, lsGovState ledgerState, stAnnTx)
+  Accounting.projectTx
+    pp
+    certState
+    (lsAccountingState ledgerState)
+    tx
+    & Alonzo.emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState
+        { lsAccountingState = newAccountingState
+        , lsGovState = updatedGovState
+        }
 
 --------------------------------------------------------------------------------
 -- UTXO STS

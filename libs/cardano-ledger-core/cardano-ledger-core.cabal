@@ -100,7 +100,6 @@ library
     Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs
     Cardano.Ledger.State.Accounting.UTxOs.Store
     Cardano.Ledger.State.Accounting.UTxOs.Store.Internals
-    Cardano.Ledger.State.Accounting.UTxOs.Tx
     Cardano.Ledger.State.Accounting.UTxOs.Unspent
     Cardano.Ledger.State.Certificates
     Cardano.Ledger.State.Certificates.Account

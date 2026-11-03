@@ -22,7 +22,6 @@ import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Cardano.Ledger.Val (inject)
 import Data.Default (def)
-import Data.IORef (modifyIORef', newIORef, readIORef)
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
@@ -75,7 +74,7 @@ spec = describe "Accounting transaction projection" $ do
 
   describe "Dijkstra"
     $ prop
-      "invalid fees use the original snapshot while Store and stake use live entries, including retained return collisions"
+      "invalid fees use incoming collateral and historical deposits before projection, including retained return collisions"
     $ \sourceId ->
       forAll (choose (1, 1000)) $ \extraBytes -> do
         let address = mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1)
@@ -84,14 +83,11 @@ spec = describe "Accounting transaction projection" $ do
                     mkSized (eraProtVerLow @DijkstraEra) $
                       mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets . inject $ Coin coins)
                in canonical {sizedSize = sizedSize canonical + extra}
-            originalEntry = Unspent (accepted 1_000_000 extraBytes) (DepositCalculationV1 $ CoinPerByte $ CompactCoin 3)
-            liveEntry =
-              Unspent (accepted 2_000_000 (extraBytes + 1)) (DepositCalculationV1 $ CoinPerByte $ CompactCoin 5)
+            collateralEntry = Unspent (accepted 1_000_000 extraBytes) (DepositCalculationV1 $ CoinPerByte $ CompactCoin 3)
             untouchedEntry = Unspent (accepted 1_000 (extraBytes + 2)) (DepositCalculationV1 $ CoinPerByte $ CompactCoin 5)
             returned = accepted 50_000 (extraBytes + 3)
             collidingEntry = Unspent (accepted 7_000 (extraBytes + 4)) (DepositCalculationV1 $ CoinPerByte $ CompactCoin 5)
-            originalCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 7
-            liveCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 13
+            activeCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 13
             collateralInput = TxIn sourceId (TxIx 0)
             untouchedInput = TxIn sourceId (TxIx 1)
             body =
@@ -111,60 +107,57 @@ spec = describe "Accounting transaction projection" $ do
                 & certsTxBodyL
                   .~ SSeq.singleton (RegDepositTxCert credential $ Coin 29)
             returnInput = TxIn (txIdTxBody body) (TxIx 2)
-            originalStore = Store.mkUTxOStore originalCalculation $ IndexedUTxOs.singleton collateralInput originalEntry
             storagePrice rate acceptedOutput = (160 + toInteger (sizedSize acceptedOutput)) * rate
             expectedFee =
               Coin $
                 1_000_000
                   - 50_000
-                  + storagePrice 3 (sizedOutput originalEntry)
-                  - storagePrice 7 returned
+                  + storagePrice 3 (sizedOutput collateralEntry)
+                  - storagePrice 13 returned
         forM_ [False, True] $ \hasCollision -> do
           let retained = (untouchedInput, untouchedEntry) : [(returnInput, collidingEntry) | hasCollision]
-              liveEntries = IndexedUTxOs.fromList $ (collateralInput, liveEntry) : retained
-              liveStore = Store.mkUTxOStore liveCalculation liveEntries
+              incomingEntries = IndexedUTxOs.fromList $ (collateralInput, collateralEntry) : retained
+              incomingStore = Store.mkUTxOStore activeCalculation incomingEntries
               previousAccountingState =
                 AccountingState
-                  liveStore
+                  incomingStore
                   (Coin 19)
                   (Coin 17)
-                  (addInstantStake (IndexedUTxOs.txOuts liveEntries) mempty)
+                  (addInstantStake (IndexedUTxOs.txOuts incomingEntries) mempty)
                   (Coin 23)
               expectedEntries =
                 IndexedUTxOs.fromList $
-                  retained <> [(returnInput, Unspent returned liveCalculation) | not hasCollision]
+                  retained <> [(returnInput, Unspent returned activeCalculation) | not hasCollision]
               expectedTotal =
                 Coin $
                   storagePrice 5 (sizedOutput untouchedEntry)
                     + if hasCollision then storagePrice 5 (sizedOutput collidingEntry) else storagePrice 13 returned
-          depositChanges <- newIORef []
-          Accounting.TxProjected
-            { Accounting.updatedAccountingState = accountingState
-            , Accounting.consumedOutputs = consumed
-            , Accounting.producedOutputs = created
-            } <-
-            Accounting.projectTx
-              def
-              (mkBasicTx body & isPhase2ValidTxL .~ Phase2Invalid)
-              def
-              originalStore
-              (\amount -> modifyIORef' depositChanges (<> [amount]))
-              previousAccountingState
-          readIORef depositChanges `shouldReturn` []
-          consumed `shouldBe` IndexedUTxOs.singleton collateralInput liveEntry
+              Accounting.TxProjected
+                { Accounting.updatedAccountingState = accountingState
+                , Accounting.consumedOutputs = consumed
+                , Accounting.producedOutputs = created
+                , Accounting.depositChange = change
+                } =
+                  Accounting.projectTx
+                    def
+                    def
+                    previousAccountingState
+                    (mkBasicTx body & isPhase2ValidTxL .~ Phase2Invalid)
+          change `shouldBe` Coin 0
+          consumed `shouldBe` IndexedUTxOs.singleton collateralInput collateralEntry
           created
             `shouldBe` IndexedUTxOs.fromList
-              [(returnInput, Unspent returned liveCalculation) | not hasCollision]
+              [(returnInput, Unspent returned activeCalculation) | not hasCollision]
           accountingState
             `shouldBe` previousAccountingState
-              { asUTxOStore = Store.mkUTxOStore liveCalculation expectedEntries
+              { asUTxOStore = Store.mkUTxOStore activeCalculation expectedEntries
               , asFees = Coin 17 <> expectedFee
               , asInstantStake = addInstantStake (IndexedUTxOs.txOuts expectedEntries) mempty
               }
           toCoin (Store.totalDepositAmount $ asUTxOStore accountingState) `shouldBe` expectedTotal
 
 -- Concrete era bodies above keep certificate and donation policy visible; this
--- shared assertion checks the returned changes, state and deposit notification.
+-- shared assertion checks the returned output changes, state and deposit change.
 accountingPolicySpec ::
   forall era.
   (AlonzoEraTx era, Accounting.EraAccounting era, EraCertState era, EraStake era) =>
@@ -233,23 +226,21 @@ accountingPolicySpec parameters template collateralReturn donation = describe (e
               , Coin 23
               )
           expectedEntries = IndexedUTxOs.fromList $ retained <> expectedCreated
-      depositChanges <- newIORef []
-      Accounting.TxProjected
-        { Accounting.updatedAccountingState = accountingState
-        , Accounting.consumedOutputs = consumed
-        , Accounting.producedOutputs = created
-        } <-
-        Accounting.projectTx
-          parameters
-          (mkBasicTx body & isPhase2ValidTxL .~ validity)
-          def
-          store
-          (\amount -> modifyIORef' depositChanges (<> [amount]))
-          previousAccountingState
-      readIORef depositChanges
-        `shouldReturn` case validity of
-          Phase2Valid -> [Coin 29]
-          Phase2Invalid -> []
+          Accounting.TxProjected
+            { Accounting.updatedAccountingState = accountingState
+            , Accounting.consumedOutputs = consumed
+            , Accounting.producedOutputs = created
+            , Accounting.depositChange = change
+            } =
+              Accounting.projectTx
+                parameters
+                def
+                previousAccountingState
+                (mkBasicTx body & isPhase2ValidTxL .~ validity)
+      change
+        `shouldBe` case validity of
+          Phase2Valid -> Coin 29
+          Phase2Invalid -> Coin 0
       consumed `shouldBe` IndexedUTxOs.fromList expectedConsumed
       created `shouldBe` IndexedUTxOs.fromList expectedCreated
       accountingState

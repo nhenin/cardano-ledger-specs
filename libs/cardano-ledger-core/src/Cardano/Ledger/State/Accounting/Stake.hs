@@ -13,14 +13,12 @@ import Lens.Micro ((%~), (&))
 -- | Apply the consumed and produced entries, preserving the projection for the
 -- remaining accounting fields and the calling rule's event handling.
 projectTx ::
-  (EraStake era, Applicative m) =>
+  EraStake era =>
   TxProjected era ->
-  m (TxProjected era)
+  TxProjected era
 projectTx projection@TxProjected {..} =
-  pure $
-    projection
-      { updatedAccountingState =
-          updatedAccountingState
-            & asInstantStakeL
-              %~ updateInstantStake consumedOutputs producedOutputs
-      }
+  projection
+    { updatedAccountingState =
+        updatedAccountingState
+          & asInstantStakeL %~ updateInstantStake consumedOutputs producedOutputs
+    }

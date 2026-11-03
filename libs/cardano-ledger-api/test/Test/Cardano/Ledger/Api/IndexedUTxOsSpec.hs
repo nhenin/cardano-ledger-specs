@@ -333,18 +333,18 @@ legacyAllocationSpec = describe (eraName @era) $ do
           expected =
             IndexedUTxOs.singleton createdInput $
               Unspent {sizedOutput = canonical, depositCalculation = legacyDepositCalculation}
-      Accounting.TxProjected
-        { Accounting.updatedAccountingState = accountingState
-        , Accounting.consumedOutputs = consumed
-        , Accounting.producedOutputs = created
-        } <-
-        Accounting.projectTx
-          def
-          (mkBasicTx body)
-          def
-          (asUTxOStore $ def @(AccountingState era))
-          (const $ pure ())
-          (def @(AccountingState era))
+          Accounting.TxProjected
+            { Accounting.updatedAccountingState = accountingState
+            , Accounting.consumedOutputs = consumed
+            , Accounting.producedOutputs = created
+            , Accounting.depositChange = change
+            } =
+              Accounting.projectTx
+                def
+                def
+                (def @(AccountingState era))
+                (mkBasicTx body)
+      change `shouldBe` Coin 0
       consumed `shouldBe` mempty
       created `shouldBe` expected
       (Store.allocations . asUTxOStore $ accountingState) `shouldBe` expected

@@ -15,12 +15,12 @@ import Lens.Micro ((&), (<>~), (^.))
 
 -- | Credit the era's declared donation when ordinary transaction effects apply.
 projectTx ::
-  (EraAccounting era, Applicative m) =>
+  EraAccounting era =>
   Tx TopTx era ->
   AccountingState era ->
-  m (AccountingState era)
+  AccountingState era
 projectTx tx accountingState =
   case tx ^. isPhase2ValidTxG of
     Phase2Valid ->
-      pure $ accountingState & asDonationL <>~ treasuryDonation (tx ^. bodyTxL)
-    Phase2Invalid -> pure accountingState
+      accountingState & asDonationL <>~ treasuryDonation (tx ^. bodyTxL)
+    Phase2Invalid -> accountingState

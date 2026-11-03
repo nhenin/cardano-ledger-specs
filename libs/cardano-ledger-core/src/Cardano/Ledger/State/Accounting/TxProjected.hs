@@ -6,6 +6,7 @@ module Cardano.Ledger.State.Accounting.TxProjected (
   TxProjected (..),
 ) where
 
+import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.State.Accounting.State (AccountingState)
 import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
 import GHC.Generics (Generic)
@@ -14,6 +15,9 @@ import GHC.Generics (Generic)
 -- contain collateral changes too, even when the rule emits no UTxO diff event.
 data TxProjected era = TxProjected
   { updatedAccountingState :: !(AccountingState era)
+  , depositChange :: !Coin
+  -- ^ Actual certificate and governance deposit delta; zero on phase-2 failure.
+  -- Rules emit this delta only for phase-2-valid transactions, including zero.
   , consumedOutputs :: !(IndexedUTxOs era)
   , producedOutputs :: !(IndexedUTxOs era)
   }

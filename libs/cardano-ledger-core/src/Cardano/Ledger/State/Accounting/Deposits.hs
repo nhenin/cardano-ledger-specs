@@ -24,23 +24,21 @@ import Cardano.Ledger.State.Certificates.Account (CanSetAccounts (accountsL))
 import Cardano.Ledger.Val ((<->))
 import Lens.Micro ((&), (<>~), (^.))
 
--- | Report the deposit change before applying it. Use the supplied original
--- certificate state for refunds. Invalid transactions neither change this pot
--- nor report a deposit event.
+-- | Use the supplied original certificate state to calculate refunds. Preserve
+-- the net change for event emission, including zero. Invalid transactions leave
+-- the pot unchanged and return a zero delta; the calling rule emits no event.
 projectTx ::
-  (EraTx era, EraCertState era, Monad m) =>
+  (EraTx era, EraCertState era) =>
   PParams era ->
   CertState era ->
   Tx TopTx era ->
-  (Coin -> m ()) ->
   AccountingState era ->
-  m (AccountingState era)
-projectTx pp certState tx depositChangeEvent accountingState =
+  (Coin, AccountingState era)
+projectTx pp certState tx accountingState =
   case tx ^. isPhase2ValidTxG of
-    Phase2Valid -> do
-      let depositChange =
+    Phase2Valid ->
+      let netDepositChange =
             certsTotalDepositsTxBody pp certState (tx ^. bodyTxL)
               <-> certsTotalRefundsTxBody pp (certState ^. certDStateL . accountsL) (tx ^. bodyTxL)
-      depositChangeEvent depositChange
-      pure $! accountingState & asDepositedL <>~ depositChange
-    Phase2Invalid -> pure $! accountingState
+       in (netDepositChange, accountingState & asDepositedL <>~ netDepositChange)
+    Phase2Invalid -> (mempty, accountingState)

@@ -154,19 +154,21 @@ instance
   ) =>
   NFData (AllegraUtxoEvent era)
 
--- | Emit successful output changes and pass the accounting projection through.
-emitUTxODiff ::
+-- | Emit the deposit change followed by actual output changes on success.
+-- Invalid projections return their collateral-updated state without either event.
+emitAccountingEvents ::
   (EraTx era, Event (EraRule "UTXO" era) ~ AllegraUtxoEvent era) =>
   Tx TopTx era ->
   Accounting.TxProjected era ->
-  Rule (EraRule "UTXO" era) 'Transition (Accounting.TxProjected era)
-emitUTxODiff tx projection = do
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.AccountingState era)
+emitAccountingEvents tx projection = do
   case tx ^. isPhase2ValidTxG of
-    Phase2Valid ->
+    Phase2Valid -> do
+      tellEvent $ TotalDeposits (hashAnnotated $ tx ^. bodyTxL) (Accounting.depositChange projection)
       tellEvent $
         TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
     Phase2Invalid -> pure ()
-  pure projection
+  pure $ Accounting.updatedAccountingState projection
 
 -- | The UTxO transition rule for the Allegra era.
 utxoTransition ::
@@ -191,11 +193,11 @@ utxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 utxoTransition = do
-  TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      storedAllocations = Store.allocations . Shelley.asUTxOStore . Shelley.lsAccountingState $ utxos
+      storedAllocations = Store.allocations . Shelley.asUTxOStore . Shelley.lsAccountingState $ ledgerState
       inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
-      ppup = Shelley.lsGovState utxos
+      ppup = Shelley.lsGovState ledgerState
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
 
@@ -247,19 +249,16 @@ utxoTransition = do
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ Shelley.validateMaxTxSizeUTxO pp tx
 
-  projection <-
-    Accounting.projectTx
-      pp
-      tx
-      certState
-      (Shelley.asUTxOStore . Shelley.lsAccountingState $ utxos)
-      (tellEvent . TotalDeposits (hashAnnotated txBody))
-      (Shelley.lsAccountingState utxos)
-      >>= emitUTxODiff tx
-  pure $
-    utxos
-      & Shelley.lsAccountingStateL .~ Accounting.updatedAccountingState projection
-      & lsGovStateL .~ govStateAfterPPUP
+  Accounting.projectTx
+    pp
+    certState
+    (Shelley.lsAccountingState ledgerState)
+    tx
+    & emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState
+        & Shelley.lsAccountingStateL .~ newAccountingState
+        & lsGovStateL .~ govStateAfterPPUP
 
 -- | Ensure the transaction is within the validity window.
 --

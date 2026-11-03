@@ -99,7 +99,6 @@ import Control.State.Transition.Extended (
   TransitionRule,
   judgmentContext,
   liftSTS,
-  tellEvent,
   trans,
   validate,
  )
@@ -381,8 +380,8 @@ dijkstraUtxoTransition = do
     judgmentContext
   let previousAccountingState = lsAccountingState ledgerState
       utxoStore = asUTxOStore previousAccountingState
-  -- Accounting reads the original historical allocations even after children
-  -- have updated the live store.
+  -- Whole-batch validation retains the original historical allocations even
+  -- after children have updated the live Store used for this body's projection.
   let tx = stAnnTx ^. txStAnnTxG
   let originalPState = originalCertState ^. certPStateL
 
@@ -500,16 +499,14 @@ dijkstraUtxoTransition = do
   runTest $ Alonzo.validateTooManyCollateralInputs pp txBody
 
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
-  projection <-
-    Accounting.projectTx
-      pp
-      tx
-      originalCertState
-      previousUTxOStore
-      (tellEvent . Alonzo.TotalDeposits (hashAnnotated txBody))
-      previousAccountingState
-      >>= Alonzo.emitUTxODiff tx
-  pure ledgerState {lsAccountingState = Accounting.updatedAccountingState projection}
+  Accounting.projectTx
+    pp
+    originalCertState
+    previousAccountingState
+    tx
+    & Alonzo.emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState {lsAccountingState = newAccountingState}
 
 --------------------------------------------------------------------------------
 -- UTXO STS

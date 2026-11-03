@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Compose transaction accounting from each field's projection. Field modules
@@ -34,35 +35,48 @@ import Cardano.Ledger.State.Accounting.InstantStake (EraStake)
 import qualified Cardano.Ledger.State.Accounting.Stake as Stake
 import Cardano.Ledger.State.Accounting.State
 import Cardano.Ledger.State.Accounting.TxProjected (TxProjected (..))
-import Cardano.Ledger.State.Accounting.UTxOs.Store (UTxOStore)
-import qualified Cardano.Ledger.State.Accounting.UTxOs.Tx as UTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.State.Certificates (EraCertState (CertState))
-import Control.Monad ((>=>))
+import Lens.Micro ((&), (.~))
 
 -- | Project only this body's Store effects onto the live accounting state;
 -- SubTx execution remains the ledger's responsibility. Deposit calculations
 -- follow 'EraCertState' and may include SubTx certificates and proposals.
 --
--- The separate original Store is used only for collateral fees. In Dijkstra it
--- is captured before SubTx execution, after activating the current calculation.
--- Only valid transactions invoke the deposit-change callback. Actual output
--- changes are returned for both paths, leaving event emission to the calling rule.
+-- Capture the incoming Store for collateral fees before projecting any outputs.
+-- Invalid SubTxs leave this Store unchanged; valid fees use the declared fee.
+-- Return the actual deposit and output changes. Projection is pure;
+-- the calling rule emits accounting events only for phase-2-valid transactions.
 projectTx ::
   ( EraAccounting era
   , EraStake era
   , EraCertState era
-  , Monad m
   ) =>
   PParams era ->
-  Tx TopTx era ->
   CertState era ->
-  UTxOStore era ->
-  (Coin -> m ()) ->
   AccountingState era ->
-  m (TxProjected era)
-projectTx pp tx certState previousStore depositChangeEvent =
-  Donation.projectTx tx
-    >=> Deposits.projectTx pp certState tx depositChangeEvent
-    >=> UTxOs.projectTx tx
-    >=> Stake.projectTx
-    >=> Fees.projectTx previousStore tx
+  Tx TopTx era ->
+  TxProjected era
+projectTx pp certState accountingState tx =
+  accountingState
+    & Donation.projectTx tx
+    & Deposits.projectTx pp certState tx
+    & \(depositChange, withDeposits) ->
+      withDeposits
+        & asUTxOStore
+        & Store.projectTx tx
+        & adaptProjectedTxModels depositChange withDeposits
+        & Stake.projectTx
+        & Fees.projectTx (asUTxOStore accountingState) tx
+
+-- | Assemble the accounting result from the deposit delta and actual Store effects.
+adaptProjectedTxModels ::
+  Coin ->
+  AccountingState era ->
+  Store.TxProjected era ->
+  TxProjected era
+adaptProjectedTxModels depositChange accountingState Store.TxProjected {..} =
+  TxProjected
+    { updatedAccountingState = accountingState & asUTxOStoreL .~ updatedStore
+    , ..
+    }
