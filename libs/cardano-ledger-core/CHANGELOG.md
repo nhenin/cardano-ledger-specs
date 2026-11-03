@@ -3,9 +3,7 @@
 ## 1.23.0.0
 
 * Return `TxProjected {updatedStore, consumedOutputs, producedOutputs}` from `Store.projectTx` and both internal body projections. Report only actually inserted outputs, excluding retained collisions. Add `State.Accounting.InstantStake.updateInstantStake` to apply these consumed/produced entries independently of Store projection. Existing ledger events retain their entry-only payload.
-
 * Limit the public `State.Accounting.UTxOs.Store` interface to transaction projection (`projectTx`), construction, record queries and calculation activation. Move `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release` to `Store.Internals`; `Cardano.Ledger.State` no longer reexports these operations.
-
 * Move Store snapshot encoding into `EncCBOR (UTxOStore era)` and remove `encodeUTxOStore`. Standalone Store CBOR now uses MemPack inputs and output payloads; existing ledger snapshot bytes and `IndexedUTxOs` query encoding remain unchanged.
 * Remove `Store.fromLegacyAllocations`. Legacy import and fixtures compose `IndexedUTxOs.fromLegacyTxOuts` with `mkUTxOStore legacyDepositCalculation`.
 * Remove `Store.translateLegacyStore`. Era-specific `TranslateEra` instances reuse the `IndexedUTxOs` translation and reconstruct the Store with `mkUTxOStore`.
