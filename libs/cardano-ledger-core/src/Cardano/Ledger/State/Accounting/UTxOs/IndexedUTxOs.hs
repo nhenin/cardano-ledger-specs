@@ -36,7 +36,6 @@ module Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (
   filterByTxOut,
 
   -- * Output inspection
-  toIndexedTxOs,
   txOuts,
   mapTxOuts,
 
@@ -68,12 +67,11 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Core.Era (Era, eraProtVerLow, fromEraCBOR, toEraCBOR)
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (KeyRole (Staking))
-import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (..))
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (..), DepositFormulaHistory)
 import Cardano.Ledger.State.Accounting.UTxOs.Unspent (Unspent)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.TxOut (EraTxOut (..), TxOut (..))
-import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs (..))
+import Cardano.Ledger.TxOut (EraNewTxOut, EraTxOut (..), TxOut (..))
 import Control.DeepSeq (NFData (..))
 import Control.Monad ((<$!>))
 import Data.Aeson (ToJSON (..), ToJSON1 (liftToJSON))
@@ -87,7 +85,7 @@ import GHC.Generics (Generic)
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 import Prelude hiding (null)
 
--- | Each indexed entry retains its full output size and deposit calculation.
+-- | Each input maps to the accepted output and its allocation origin.
 newtype IndexedUTxOs era = IndexedUTxOs
   { unIndexedUTxOs :: Map TxIn (Unspent (TxOut era))
   }
@@ -130,7 +128,7 @@ unspentOutputs = Map.elems . unIndexedUTxOs
 
 -- Selection
 
--- | Select existing inputs, retaining their accepted sizes and calculations.
+-- | Select existing inputs, retaining their allocation origins.
 -- Unknown inputs are left to the ledger's BadInputs check.
 restrictToInputs :: Set TxIn -> IndexedUTxOs era -> IndexedUTxOs era
 restrictToInputs inputs = IndexedUTxOs . (`Map.restrictKeys` inputs) . unIndexedUTxOs
@@ -150,12 +148,6 @@ filterByTxOut predicate = IndexedUTxOs . Map.filter (predicate . Unspent.toTxOut
 
 -- Output inspection
 
--- | Read selected unspent outputs as sized outputs, without their deposit
--- calculations. The original sizes are retained; the view cannot recover the
--- discarded historical pricing and must not replace accepted Store records.
-toIndexedTxOs :: IndexedUTxOs era -> IndexedTxOs era
-toIndexedTxOs = IndexedTxOs . Map.map Unspent.sizedOutput . unIndexedUTxOs
-
 -- | Inspect payloads in input order without constructing another collection.
 txOuts :: IndexedUTxOs era -> [TxOut era]
 txOuts = map Unspent.toTxOut . unspentOutputs
@@ -167,25 +159,29 @@ mapTxOuts transform = Map.map (transform . Unspent.toTxOut) . unIndexedUTxOs
 
 -- Deposit amounts
 
--- | Sum the recorded deposits released by the selected existing inputs.
-allocatedDepositTotalAmount :: Set TxIn -> IndexedUTxOs era -> DepositAmount
-allocatedDepositTotalAmount inputs = sumDepositAmounts . restrictToInputs inputs
+-- | Sum externally held deposits for selected inputs using their allocation origins
+-- and the Store's formula history.
+allocatedDepositTotalAmount ::
+  EraNewTxOut era => DepositFormulaHistory -> Set TxIn -> IndexedUTxOs era -> DepositAmount
+allocatedDepositTotalAmount history inputs = sumDepositAmounts history . restrictToInputs inputs
 
--- | Sum historical deposits. Legacy outputs contribute zero.
-sumDepositAmounts :: IndexedUTxOs era -> DepositAmount
-sumDepositAmounts entries =
-  DepositAmount {toCoin = foldMap' Unspent.depositAmount . unIndexedUTxOs $ entries}
+-- | Sum externally held deposits using the baseline and dated formulas.
+-- Legacy reserves are already in output ADA and contribute zero here.
+sumDepositAmounts :: EraNewTxOut era => DepositFormulaHistory -> IndexedUTxOs era -> DepositAmount
+sumDepositAmounts history =
+  DepositAmount
+    . foldMap' (Unspent.computeExternalDeposit history)
+    . unIndexedUTxOs
 
 -- Legacy import and translation
 
 -- | Import typed legacy payloads with canonical compatibility metadata.
-fromLegacyTxOuts :: EraTxOut era => Map TxIn (LegacyTxOut era) -> IndexedUTxOs era
+fromLegacyTxOuts :: Map TxIn (LegacyTxOut era) -> IndexedUTxOs era
 fromLegacyTxOuts = IndexedUTxOs . Map.map Unspent.fromLegacyTxOut
 
 -- | Translate legacy entries and reconstruct canonical target-era metadata.
 -- This is not a migration for existing store-backed historical records.
 translateLegacyOutputs ::
-  EraTxOut target =>
   (TxOut source -> LegacyTxOut target) ->
   IndexedUTxOs source ->
   IndexedUTxOs target

@@ -91,7 +91,7 @@ import Cardano.Protocol.TPraos.BlockHeader (
   lastAppliedHash,
   prevHashToNonce,
  )
-import Cardano.Slotting.Slot (EpochNo (..), WithOrigin (..))
+import Cardano.Slotting.Slot (EpochNo (..), SlotNo (..), WithOrigin (..))
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -175,7 +175,9 @@ newUTxO txb cs = cs {chainNes = nes'}
     utxoToDel = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs inputs $ entries
     remaining = IndexedUTxOs.withoutInputs inputs entries
     store' =
-      StoreInternals.allocate (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) utxoAdd)
+      StoreInternals.allocate
+        (SlotNo 0)
+        (IndexedTxOs.withoutInputs (IndexedUTxOs.inputIds remaining) utxoAdd)
         . StoreInternals.release inputs
         $ asUTxOStore utxoSt
     is' =

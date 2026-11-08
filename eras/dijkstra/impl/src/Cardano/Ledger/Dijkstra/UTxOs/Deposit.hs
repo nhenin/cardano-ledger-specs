@@ -6,21 +6,20 @@ module Cardano.Ledger.Dijkstra.UTxOs.Deposit (
 ) where
 
 import Cardano.Ledger.Babbage.Core (BabbageEraPParams, PParams, ppCoinsPerUTxOByteL)
-import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositCalculation (..))
+import Cardano.Ledger.Slot (SlotNo)
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormula (..))
 import Cardano.Ledger.State.Accounting.UTxOs.Store (UTxOStore)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
-import Lens.Micro ((^.))
+import Lens.Micro ((&), (^.))
 
 -- | Apply the effective byte price to the Store's active formula version.
--- Dijkstra starts with V1; activating new parameters preserves an explicitly
--- selected V2. Existing allocations and their recorded calculations are unchanged.
+-- Record the actual activation slot. Dijkstra starts with V1; parameter changes
+-- preserve an explicitly selected V2. Earlier history and allocations stay fixed.
 activateDepositParameters ::
-  BabbageEraPParams era => PParams era -> UTxOStore era -> UTxOStore era
-activateDepositParameters pp store
-  | calculation == Store.currentCalculation store = store
-  | otherwise = Store.activateNewCalculation calculation store
-  where
-    calculation = case Store.currentCalculation store of
-      DepositCalculationV1 _ -> DepositCalculationV1 rate
-      DepositCalculationV2 _ -> DepositCalculationV2 rate
-    rate = pp ^. ppCoinsPerUTxOByteL
+  BabbageEraPParams era => SlotNo -> PParams era -> UTxOStore era -> UTxOStore era
+activateDepositParameters slot pp store =
+  ( case Store.currentFormula store of
+      DepositFormulaV1 _ -> DepositFormulaV1 $ pp ^. ppCoinsPerUTxOByteL
+      DepositFormulaV2 _ -> DepositFormulaV2 $ pp ^. ppCoinsPerUTxOByteL
+  )
+    & \formula -> Store.activateNewFormula slot formula store

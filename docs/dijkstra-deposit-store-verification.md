@@ -1,6 +1,6 @@
 # Dijkstra DepositStore verification record
 
-**Updated:** 2 November 2026
+**Updated:** 8 November 2026
 
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -57,6 +57,12 @@ source links follow the current modules. Previous documentation anchors still re
 
 ## Current implementation status
 
+**Slot/history revision:** the current working model below uses `AllocatedAt` and
+`DepositFormulaHistory`, with an always-present `initialFormula` and dated changes.
+The default is V1 at 4,310 lovelace per byte, verified against the mainnet
+`cli_protocol_params` endpoint on 6 November 2026. Earlier dated results retain
+their original code scope, including the superseded optional-history attempt below.
+
 `LedgerState` separates `AccountingState`, `CertState` and `GovState`.
 `AccountingState` owns `asUTxOStore :: UTxOStore era`, collected certificate/governance
 deposits, fees, instant stake and pending donations. The former implementation
@@ -73,7 +79,7 @@ remain removed.
 `UTxOStore.allocations :: IndexedUTxOs era` owns the recorded unspent entries. There is
 no additional `Allocations` wrapper or `TxOutMap` payload type. The collection owns
 lookup, selection, filtering, traversal and historical deposit totals. The Store
-exposes construction, record queries, `activateNewCalculation` and `projectTx` through
+exposes construction, record queries, `activateNewFormula` and `projectTx` through
 `Store`. `Store.Internals` contains `projectValidTxBody`, `projectInvalidTxBody`,
 `allocate` and `release`; these are not reexported by `Store` or `Cardano.Ledger.State`.
 `projectTx` selects the body projection from the TopTx's phase-2 validity tag.
@@ -87,34 +93,50 @@ pre-Dijkstra-only collision filter was a refactoring mistake, now corrected.
 uses those entries; accounting rules install both results and emit only the entry
 changes. Retained colliding references are excluded from `producedOutputs` and
 from the added stake on both the regular and collateral paths.
-`State.Accounting.UTxOs.Unspent` holds each output's accepted `Sized` value and creation-time
-`DepositCalculation`. Selecting entries preserves this metadata.
+`State.Accounting.UTxOs.Unspent` holds each accepted output payload and
+`AllocatedAt`: `AtStoreMigration` or `AtSlot slot`. The Store owns `DepositFormulaHistory`;
+selecting entries preserves allocation origins without copying history.
+`initialFormula` permanently prices imported entries and covers dated entries
+before the first change. `formulaAt`, `latestFormula` and
+`Store.currentFormula` return a formula directly, even with an empty map.
+`Default` history has no dated entries; it does not insert a synthetic slot zero.
 
 Input validators, transaction annotations, wallet queries and test helpers
 use complete `IndexedUTxOs` entries. Output proposals use `IndexedTxOs`, retaining
 `Sized TxOut` without historical pricing. `TxUTxODiff` carries `IndexedUTxOs` on
 both sides: consumed entries from the previous Store and created entries from
-the updated Store, including their recorded calculations. Wallet queries are `getIndexedUTxOs`,
+the updated Store, including their allocation origins. Wallet queries are `getIndexedUTxOs`,
 `getFilteredIndexedUTxOs` and `getIndexedUTxOsSubset`; Imp tests use `getUTxOStore`,
 `getIndexedUTxOs` or an individual `impGetUTxO` lookup. Body and produced-output
-builders retain the body's sizes without a calculation. `Store.Internals.allocate` records
-the Store's current calculation when inserting outputs. `activateNewCalculation` affects
-future allocations only; existing entries and their exact total remain unchanged.
-Genesis, translation and effective parameter changes initialize or update the active
-calculation. Parameter updates preserve the selected V1/V2 formula version.
-`IndexedUTxOs.toIndexedTxOs` marks output-only views without altering stored history.
+builders retain the body's sizes without an allocation origin.
+`Store.projectTx slot tx` and its internal body projections receive the ledger slot;
+`allocate slot` records `AtSlot slot` for new Dijkstra entries.
+`activateNewFormula slot formula` appends a history interval without
+repricing existing entries or changing their exact external total. Effective
+parameter updates use the actual epoch boundary, preserving the selected V1/V2
+version.
+
+Dijkstra migration initializes `initialFormula` from the effective V1 parameters,
+with no dated changes, and marks imported outputs `AtStoreMigration`. This marker
+always resolves the initial formula, even after subsequent activations. Migration
+needs no extra Genesis field and does not assert an original creation slot.
+Legacy payloads are unchanged: their capped reserve remains inside their ADA and
+contributes zero to the separately held Store total.
 
 Earlier-era `IndexedUTxOs` encodings retain ordinary payload-map CBOR for queries.
 The Store's `EncCBOR` instance owns MemPack snapshot encoding, preserving ledger
 snapshot bytes and credential sharing. Standalone Store encoding uses that same format.
-Their decoder reconstructs canonical legacy compatibility metadata, not
-original historical sizes. Dijkstra collections persist complete entries; the
-Dijkstra Store schema is `[currentCalculation, cachedTotal, completeEntries]`, including
-for an empty Store. The previous two-field Store snapshot is rejected because it lacks
-the active calculation. The removed standalone
-Dijkstra payload-map API could not retain metadata and is not wire-compatible with
-the new complete-entry collection. Raw-map import remains a checked legacy boundary
-and rejects new outputs without their history.
+Their decoder marks entries `AtStoreMigration`, with the
+protocol's default initial formula. This is the selected baseline, not a
+reconstruction of original creation prices. The optional
+`decodeUTxOStoreWithFormula` accepts a different explicit baseline.
+Those payload-only formats remain unchanged.
+Dijkstra collections persist `[output, allocatedAt]`; the Store
+schema is `[depositFormulaHistory, cachedTotal, completeEntries]`, including when empty.
+History encodes `[initialFormula, formulas]`; an empty change map is valid.
+Decoding validates the two-field entry schema, activation order and cached totals. The previous
+per-entry calculation and two-field Store schemas are not this format. The removed
+standalone Dijkstra payload-map API likewise cannot preserve complete entries.
 
 The dated verification records below retain their original scope; the previous
 checkpoint `dc2c69046` passed 18 build targets and 159 targeted examples before this
@@ -125,18 +147,30 @@ builders, lenses, value wrappers and collection queries. `Core` preserves its
 existing output exports. The five collection queries are imported directly from
 `TxOut`, rather than through `State` or `LegacyUTxOMap`.
 
-`calculateDeposit :: DepositCalculation -> ByteSize -> Coin` is now pure.
-V2 is accepted with provisional V1 formula parity; genesis and translation select V1,
-while rate changes preserve an already selected V1 or V2.
-Individual entry deposits return `Coin`; allocation sums and selected-input
-totals return `DepositAmount`, converted with `toCoin` for Coin arithmetic.
-Checked Store construction/update and entry decoding retain
-negative-size validation; amount reads do not validate raw metadata. Codecs reject
-unknown calculation versions.
+`Dijkstra.UTxOs.Deposit.Formula.calculateDeposit` prices Dijkstra output contents.
+The shared Store calls `EraNewTxOut.getDepositNewTxOut` only for new outputs;
+earlier-era implementations gain no formula or measurement methods.
+The fork starts with V1 at the effective rate. V1 charges $p(250 + 74N + D + R)$,
+and experimental V2 charges $p(260 + 80N + D + R)$. $N$ counts non-ADA asset
+identities. $D$ and $R$ count datum and reference-script payload bytes.
+`Dijkstra.UTxOs.Unspent` exposes `computeDeposit history entry` and
+`computeApplicationAssets history entry` through the public API. These queries are total: every history supplies a baseline, and every slot resolves a formula.
+Legacy reserve is `min(outputADA, calculatedDeposit)`; its application view subtracts
+only this ADA reserve and preserves every native asset. New outputs retain their
+full application value and use the full historical formula as their external deposit.
+`computeExternalDeposit history legacyEntry` returns zero, preventing a second
+credit of embedded ADA. A new-form entry contributes its calculated historical
+deposit, using the baseline before the first dated change.
+Allocation sums and selected-input totals take history explicitly and return
+`DepositAmount`, converted with `toCoin` for Coin arithmetic.
 
-Current callers construct `Unspent` directly with its `sizedOutput` and
-`depositCalculation` fields and read Store totals as `toCoin (totalDepositAmount store)`.
-The output-only Store conversion, previously named `toUTxO`, is now removed.
+Current callers construct `Unspent` directly with `output` and `allocatedAt`.
+`mkUTxOStore history entries` derives the external total from the supplied history.
+Codecs reject retired three-field entries, unknown versions, invalid activation order
+and inconsistent totals. The output-only Store conversion, previously named
+`toUTxO`, remains removed.
+
+The following build/runtime summaries predate the slot/history revision.
 The final consolidated build before the output-module extraction passed for the Dijkstra and core test targets
 and shared ledger-test library. That revision's runtime checks passed
 **145 examples with zero failures**: 18 properties
@@ -169,14 +203,15 @@ experimental Dijkstra snapshot schema; earlier-era bytes remain unchanged.
 Its executed checks are recorded separately below.
 
 The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
-registers **210 implemented business contracts**, with no pending LedgerEffects
+registers **211 implemented business contracts**, with no pending LedgerEffects
 entry: 80 Declarations (21 Grammar and 59 Requirements), 58 Accounting
 (41 NetChange, three Attribution and 14 Balance), two Authorization, 33 Settlement,
-five Minimum coin, seven Collateral and 25 Ledger-effects checks.
+five Minimum coin, seven Collateral and 26 Ledger-effects checks.
 The original 21 effects checks replaced the earlier nine-contract outline: its eight
 pending contracts were implemented or refined into explicit observations. Three
 historical-metadata lifecycle regressions extend that coverage; Epoch N02 adds
-effective-parameter activation with historical deposits preserved.
+effective-parameter activation with historical deposits preserved. Balance P08 adds
+identical outputs allocated under V1 and V2, restored and refunded together.
 The former rejection-snapshot placeholder is removed: the submission adapter
 installs state only on success, so snapshot equality after rejection would retest
 that adapter rather than establish a new DepositStore transition. Transaction-rule
@@ -213,11 +248,11 @@ Historical local evidence:
 `/private/tmp/ds-conservation-scope-audit.json`.
 
 Production state owns each live output in one allocation map. Both accepted output
-forms retain their supplied full-output size and calculation. Store-backed entries
-retain their creation-time V1 price; legacy entries have zero external deposit.
-Imported legacy entries use provisional compatibility metadata, not recovered
-history. Decoding validates persisted metadata. `mkUTxOStore` derives the cached
-total; `allocate` and `release` preserve it. These Store operations are pure.
+forms retain their supplied full-output size and allocation origin. History resolves
+the applicable formula; migrated entries keep the initial formula. Legacy reserves
+remain inside output ADA and have zero external deposit. Decoding validates persisted
+metadata. `mkUTxOStore history` derives the cached external total; `allocate` and
+`release` preserve it. These Store operations are pure.
 Accounting queries selected input allocations directly. Ordinary validation checks per-body contributions, the batch net
 total and release destinations. Successful execution applies each body’s output delta once, while batch validation
 retains the original allocation store for historical input refunds. Collateral execution derives its own allocation, release and fee
@@ -255,24 +290,143 @@ have been replaced by real ledger submissions.
 | [DS-COLLATERAL-TOTAL](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Both generated contracts pass: an absent or exact input-minus-return total accepts; either one-lovelace mismatch rejects with exactly IncorrectTotalCollateralField. Store funding, excess-release and absent-return cases run with both script outcomes. |
 | [DS-COLLATERAL-ASSETS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Both generated contracts pass: preserve the exact native-asset map across implicit and Store-backed output forms; reject missing, extra, changed or unreturned assets. Funded Store returns also accept tokens with zero application ADA. Rejected variants retain sufficient deposit and fee funding. |
 | [DS-STATE-UTXO](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs) | Five generated checks observe exact ordinary and collateral UTxO maps, successful and failing real scripts, reference-only inputs, inactive multi-SubTx operations on failure and overlapping ordinary/collateral input roles. |
-| [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, retained noncanonical accepted sizes after state restoration and price changes, zero-price records from translated implicit sources, and inactive ordinary records on phase-2 failure. |
+| [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, deposits independent of outer CBOR encoding after state restoration and price changes, zero-price records from translated implicit sources, and inactive ordinary records on phase-2 failure. |
 | [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Seven generated checks preserve the original four contracts and add mixed-rate inputs with current-price replacement, a noncanonical child output and a noncanonical collateral return. Each historical output is snapshotted, restored and refunded after a price change. Independent metadata sums check the cached total. |
 | [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
 | [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `mkUTxOStore` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
 | [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
 | [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
 | [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | Two generated properties cross real epoch boundaries with live records. N01 preserves the complete Store with unchanged parameters. N02 activates a scheduled byte-price update for V1 and V2 while preserving historical allocations, the formula version and the independently checked total. |
-| [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Binary round trips cover Dijkstra AccountingState, LedgerState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore reachable accounting state and spend its retained noncanonical-byte allocation after repricing. Consensus rollback remains outside this ledger API. |
+| [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Binary round trips cover Dijkstra AccountingState, LedgerState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore reachable accounting state and spend a restored output at its allocation-time price. Consensus rollback remains outside this ledger API. |
 | [DS-STAKE](dijkstra-deposit-store-rules.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
 | [DS-VOTING](dijkstra-deposit-store-rules.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
 
 Explicit repricing, Plutus context projection and the unresolved stronger settlement
 guarantee remain deferred. Historical V1 pricing survives ordinary parameter changes;
-V2 provisionally shares V1's formula; version-selection policy and migration remain
-unchanged. An agreed
+V2 changes the base and per-asset coefficients. The experiment activates V2 explicitly. An agreed
 rule awaiting an executable ledger check is distinct from a business question whose
 semantics are still open. Representation and codec checks do not establish enforcement
 of deposit accounting.
+
+## Deposit formula history on 6 November 2026
+
+The final model uses `DepositFormulaV1` / `DepositFormulaV2` and
+`DepositFormulaHistory {initialFormula, formulas}`. The default is V1 at 4310
+lovelace per byte, with no dated changes. Every allocation resolves a formula.
+`AtStoreMigration` stays on the initial formula; dated allocations use their
+applicable interval. Migration needs no extra Genesis field or artificial slot.
+The original Dijkstra Genesis JSON and CBOR formats are restored.
+
+The consolidated build passed ten components: core tests, API tests, Dijkstra
+tests, canonical-state tests, Shelley and Shelley-MA test-suite packages,
+`cardano-ledger-test`, and the Shelley, Mary and Conway implementation tests.
+After correcting the initial-funds fixture, the API test component was rebuilt
+and its full suite rerun successfully.
+
+Runtime checks used seed `739231514`, with the normal QuickCheck success counts
+and sizes. Durations are individual process wall times, including startup; some
+runs were concurrent.
+
+| Executed scope | Result | Duration |
+| --- | --- | ---: |
+| Core suite | 172 examples, 0 failures | 63.54 s |
+| API suite | 353 examples, 0 failures | 296.04 s |
+| Dijkstra Store codec | 26 examples, 0 failures | 76.06 s |
+| DepositStore filter | 212 examples, 0 failures | 197.45 s |
+| Dijkstra Genesis | 2 examples, 0 failures | 12.19 s |
+| Dijkstra golden files | 129 examples, 0 failures | 0.64 s |
+| Dijkstra AccountingState snapshot | 1 example, 0 failures | 0.24 s |
+| Dijkstra genesis pool registration | 1 example, 0 failures | 0.22 s |
+| Dijkstra genesis committee | 1 example, 0 failures | 0.23 s |
+| Shelley legacy Store snapshots | 3 examples, 0 failures | 3.51 s |
+| Mary legacy Store snapshots | 3 examples, 0 failures | 2.27 s |
+| Conway legacy Store snapshots | 3 examples, 0 failures | 2.84 s |
+| Canonical state | 117 examples, 0 failures, 1 pending | 65.27 s |
+
+The DepositStore filter includes its business cases, fixture integrity and matching
+golden check. Canonical-state conformance has one pre-existing pending check because
+`REFERENCE_CDDL_DIR` is unset; the other canonical checks passed. These selected
+checks do not claim a complete repository test or remote CI run.
+
+The new initial-funds regression initially failed because its generated Genesis
+had a zero epoch length. Full Dijkstra initialization computes committee key ages
+in epochs, so this fixture now generates a positive epoch length. All Store
+assertions remain: existing sizes, allocation origins, formula history and deposit
+total survive both fund injection and the complete initialization path. The fixed
+property passed 100 generated cases separately and again within the full API suite.
+
+Formatting checks passed for all 65 changed Haskell files; `git diff --check` passed.
+The affected lifecycle and allocation test links were refreshed in the rules document.
+
+## Slot-based deposit history on 6 November 2026
+
+**Superseded model:** these results precede the final always-present baseline and
+V1/4310 default. They verified the earlier `BeforeStoreMigration` implementation,
+not the current model. Subsequent checks are recorded separately.
+
+**Baseline:** `3197a40de`, plus the current working-tree changes.
+
+The Store now distinguishes absent history (`BeforeStoreMigration`) from an
+imported entry's origin (`AtStoreMigration`). Migration initializes history at the
+configured `storeMigrationSlot`; later allocations retain their acceptance slot.
+Epoch activation preserves existing entries and their historical deposits.
+Legacy reserves are capped by the output's ADA and remain embedded in that output.
+
+The consolidated build passed all seven selected targets:
+
+```sh
+cabal build \
+  cardano-ledger-api:test:cardano-ledger-api-test \
+  cardano-ledger-dijkstra:test:tests \
+  cardano-ledger-core:test:tests \
+  cardano-ledger-canonical-state:test:tests \
+  cardano-ledger-shelley-test:test:cardano-ledger-shelley-test \
+  cardano-ledger-shelley-ma-test:test:cardano-ledger-shelley-ma-test \
+  cardano-ledger-test:lib:cardano-ledger-test \
+  --enable-tests --enable-benchmarks --jobs=8
+```
+
+Runtime checks used seed `739231514`, with no reduced QuickCheck success count or
+generator-size flags. Durations below are elapsed wall time, including process startup.
+
+| Executed scope | Examples | Result | Duration |
+| --- | ---: | --- | ---: |
+| Full core suite | 171 | 0 failures | 62.8 s |
+| Full API suite | 348 | 0 failures | 306.7 s |
+| Full canonical-state suite | 117 | 0 failures, 1 pending | 61.7 s |
+| Dijkstra `DepositStore` filter | 212 | 0 failures | 202.5 s |
+| Dijkstra Store metadata codecs | 25 | 0 failures | 76.9 s |
+| Dijkstra genesis | 5 | 0 failures | 41.9 s |
+| Dijkstra goldens | 129 | 0 failures | 0.6 s |
+| Dijkstra `AccountingState` snapshot | 1 | 100 trials, 0 failures | 0.2 s |
+
+The `DepositStore` filter includes all **210 business contracts**, one fixture check
+and one golden property. That golden also appears in the golden run; these counts
+must not be summed as distinct tests. Epoch N02 passed 100 scenarios and checks
+activation at the exact epoch boundary, including formula selection immediately
+before and at that boundary.
+
+The canonical-state pending check requires `REFERENCE_CDDL_DIR`, which was not set.
+A supplemental full Dijkstra `State Types` run was interrupted after 243 seconds:
+`AccountingState` had passed, but the broader ledger/epoch snapshot properties had
+not completed. Its partial result is not counted as a successful suite. The focused
+`AccountingState` rerun above completed separately. These are local checks, not a
+claim that the full repository CI has passed.
+
+Build log: `/tmp/deposit-history-before-migration-final-build.log`.
+Runtime logs and result manifests: `/tmp/deposit-history/*-result.json` and matching
+`.log` files (`core-final`, `api-final`, `canonical-final`, `dijkstra-deposit-store`,
+`dijkstra-store-codecs`, `dijkstra-genesis`, `dijkstra-golden`,
+`dijkstra-accounting-snapshot`). Each manifest records the exact command, exit code,
+elapsed time, binary hash and working-tree diff hash. The interrupted run is recorded
+separately as `dijkstra-state-snapshots` with exit code `-2`.
+
+**Initial-funds follow-up:** the preceding runs did not catch a synthetic `AtSlot 0`
+in `registerInitialFunds`: their fixtures initialized history at zero. Imported
+funds now use `AtStoreMigration`, including when history starts at slot 1000.
+Existing entries retain their accepted sizes and actual allocation slots. The
+Dijkstra injection wrapper no longer resets history or rewrites all entry origins.
+The regression also re-enters that complete wrapper and checks Store equality.
 
 ## Store transaction projection on 2 November 2026
 
@@ -508,7 +662,7 @@ Evidence: `/private/tmp/store-update-build.log`,
 Removed `OutputStoreError` and the raw-output legacy import. `allocate` and
 `fromAllocations` now return `UTxOStore` directly; legacy imports accept typed
 `LegacyTxOut` payloads. Persisted negative sizes and inconsistent cached totals
-remain decoder failures. Renamed activation to `activateNewCalculation`.
+remain decoder failures. Renamed activation to `activateNewFormula`.
 
 The rebuild is pending at this checkpoint. The 316 passing examples below
 precede this final API cleanup and are not a validation claim for this revision.
@@ -521,7 +675,7 @@ Validated the working tree based on `dc2c69046`. `outputsTxBody` returns
 `IndexedTxOs`: sized output proposals without historical pricing. Stored entries
 use `IndexedUTxOs`, preserving each output's original size and calculation.
 
-`UTxOStore.currentCalculation` supplies new allocations. `activateNewCalculation`
+`UTxOStore.currentFormula` supplies new allocations. `activateNewFormula`
 changes future pricing without changing existing allocations or the exact cached
 total. Genesis, translation and effective parameter updates select the active
 calculation; parameter updates preserve its V1/V2 formula version. Dijkstra
@@ -944,7 +1098,7 @@ now accept `Allocations era`; callers pass the Store's `allocations` field.
 entry instances/codecs. Consumers import its operations qualified as `UTxO`;
 the `Cardano.Ledger.State` umbrella reexports only `Unspent(..)` from that module.
 `Deposit` owns `DepositAmount` with its `toCoin` accessor and
-instances, `ByteSize`, `DepositCalculation` and the pure calculation function.
+instances, `ByteSize`, `DepositFormula` and the pure calculation function.
 `Store` retains the `totalDepositAmount` field using that imported amount type;
 `Store.Error` now contains only `NegativeOutputSize Int64` and
 `MissingHistoricalAllocation TxIn`. `LegacyUTxOMap` retains the original `UTxO` type
@@ -952,7 +1106,7 @@ and implementation. All seven namespace modules are exposed for direct imports.
 
 The extraction changes ownership and query argument types. The additional
 calculation change introduces `ByteSize {unByteSize :: Int64}` and
-`calculateDeposit :: DepositCalculation -> ByteSize -> Coin`. V1 and V2 both use
+`calculateDeposit :: DepositFormula -> ByteSize -> Coin`. V1 and V2 both use
 `(160 + size) × rate` provisionally; both are accepted by entry/store codecs.
 `UTxO.depositAmount` returns `Coin`; `sumDepositAmounts` and
 `allocatedDepositTotalAmount` return `DepositAmount`, all without an outer
@@ -1064,7 +1218,7 @@ variant tag. The former two-field and four-field allocation-entry schemas are
 rejected. This intentionally changes the experimental Dijkstra snapshot format.
 
 Legacy imports currently use `mkSized` at the era's lowest protocol version and
-`DepositCalculationV1` with zero byte price. These are provisional compatibility
+`DepositFormulaV1` with zero byte price. These are provisional compatibility
 values, not historical metadata; migration design remains deferred. Earlier
 verification below does not establish correctness of this new wrapper or schema.
 
@@ -1233,7 +1387,7 @@ rename. Its completed checks apply only to that build.
 
 `Allocation(..)` exposes the actual variants and replaces
 the legacy/V1 construction helpers and optional metadata getters. The pure
-`allocationFromOutput` takes an explicit `DepositCalculation`; production builds
+`allocationFromOutput` takes an explicit `DepositFormula`; production builds
 the allocation delta before one checked `applyAllocationDelta`. `fromAllocations`,
 delta application and decoding validate metadata. Queries retain meaningful errors
 because callers can construct raw allocations directly.
@@ -3326,3 +3480,49 @@ No Mary production source was modified during this pass.
 
 Evidence: `/private/tmp/utxo-mary-translation-build.log` and
 `/private/tmp/utxo-mary-translation-tests-result.json`.
+
+## Will's deposit formula — 8 November 2026
+
+Working-tree validation on `3197a40de`, including the `Unspent.output` field rename.
+V1 uses `p * (250 + 74*N + D + R)`; experimental V2 uses
+`p * (260 + 80*N + D + R)`. The evaluator belongs to Dijkstra. Shared allocation
+storage retains the output and allocation origin, without `Sized`; transaction
+bodies and proposed-output collections still retain their encoded sizes.
+
+The core, API and Dijkstra test targets built successfully under Nix:
+
+```sh
+nix develop --command cabal build --offline -j6 \
+  cardano-ledger-dijkstra:test:tests \
+  cardano-ledger-api:test:cardano-ledger-api-test \
+  cardano-ledger-core:test:tests
+```
+
+The following groups were executed against that build with seed `20261108` and
+`+RTS -N2 -RTS`. Every selected example passed.
+
+| Suite | `--match` | Examples | Seconds |
+| --- | --- | ---: | ---: |
+| Dijkstra | `DepositStore` | 213 | 172.5629 |
+| Dijkstra | `UTxOStore historical metadata` | 26 | 51.4920 |
+| API | `Unspent deposit formula` | 14 | 0.0977 |
+| Core | `Deposit` | 14 | 0.0415 |
+
+The 213 DepositStore examples comprise 211 business contracts and two predicate
+failure codec examples. Coverage includes independent formula measurements,
+historical refunds after parameter/formula changes, snapshot restoration, and a
+ledger transaction spending allocations created under both V1 and V2.
+
+An earlier direct API-suite invocation used Cabal's unavailable installed data
+directory: 104 of its 356 examples failed with `PermissionDenied`. Setting
+`cardano_ledger_api_datadir` to the repository's `libs/cardano-ledger-api` directory
+and rerunning `--match Golden` passed all 156 selected examples in 4.0684 seconds.
+Golden reference files were unchanged. This records targeted local verification,
+not a full CI result.
+
+Evidence: `/private/tmp/will-ledger-nix-build.log`,
+`/private/tmp/will-depositstore-final-tests.log`,
+`/private/tmp/will-store-binary-final-tests.log`,
+`/private/tmp/will-unspent-final-tests.log`,
+`/private/tmp/will-history-final-tests.log`, and
+`/private/tmp/will-api-golden-tests.log`.

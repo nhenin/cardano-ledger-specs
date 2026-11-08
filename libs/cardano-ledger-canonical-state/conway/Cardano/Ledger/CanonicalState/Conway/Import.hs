@@ -104,7 +104,6 @@ import Cardano.Ledger.Conway.State (
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
   csCommitteeCredsL,
-  legacyDepositCalculation,
   psFutureStakePoolParamsL,
   psRetiringL,
   psStakePoolsL,
@@ -144,7 +143,7 @@ import Data.List (sortOn)
 import qualified Data.Map as Map
 import qualified Data.OMap.Strict as OMap
 import GHC.TypeLits (KnownSymbol)
-import Lens.Micro ((&), (.~), (^.))
+import Lens.Micro ((%~), (&), (.~), (^.))
 import qualified Streaming.Prelude as S
 import System.IO (Handle, IOMode (ReadMode), withBinaryFile)
 
@@ -158,8 +157,8 @@ instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
       mempty
       ( \utxos ->
           nes
-            & utxoStoreL
-              .~ (Store.mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $ utxos)
+            & utxoStoreL %~ \store ->
+              Store.mkUTxOStore (Store.depositFormulaHistory store) . IndexedUTxOs.fromLegacyTxOuts $ utxos
       )
 
 instance ImportCanonicalNamespace ConwayEra "blocks/v0" where

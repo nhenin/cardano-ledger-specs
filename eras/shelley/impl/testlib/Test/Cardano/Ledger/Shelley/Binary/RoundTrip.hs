@@ -19,6 +19,7 @@ import Cardano.Ledger.Shelley.State
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Data.Aeson as Aeson
+import Data.Default (def)
 import qualified Data.Text as T
 import Test.Cardano.Base.Bytes (genByteString)
 import Test.Cardano.Ledger.Binary.RoundTrip (
@@ -80,6 +81,21 @@ roundTripStateEraTypesSpec = do
           serialize version entries `shouldBe` serialize version outputs
         Aeson.toJSON store `shouldBe` Aeson.toJSON outputs
         Aeson.toJSON entries `shouldBe` Aeson.toJSON outputs
+      prop "legacy Store snapshot ⇒ default baseline restored without changing output data" $ \(store :: Store.UTxOStore era) ->
+        forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version -> do
+          Store.depositFormulaHistory store `shouldBe` def
+          decodeFull @(Store.UTxOStore era) version (serialize version store) `shouldBe` Right store
+      prop "legacy Store loading may supply a custom baseline without changing snapshot bytes" $ \(store :: Store.UTxOStore era) baseline -> do
+        let customStore = Store.mkUTxOStore (Store.mkDepositFormulaHistory baseline) $ Store.allocations store
+        forM_ [eraProtVerLow @era .. eraProtVerHigh @era] $ \version -> do
+          serialize version customStore `shouldBe` serialize version store
+          decodeFull @(Store.UTxOStore era) version (serialize version customStore) `shouldBe` Right store
+          decodeFullDecoder
+            version
+            (T.pack "legacy UTxOStore with supplied baseline")
+            (decodeUTxOStoreWithFormula baseline mempty)
+            (serialize version customStore)
+            `shouldBe` Right customStore
     roundTripEraTypeSpec @era @EpochState
     roundTripEraTypeSpec @era @NewEpochState
 

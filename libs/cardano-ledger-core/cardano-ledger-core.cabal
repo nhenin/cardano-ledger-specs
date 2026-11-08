@@ -282,6 +282,7 @@ library testlib
     cardano-slotting:{cardano-slotting, testlib} ^>=0.2.2,
     cardano-strict-containers:testlib,
     containers,
+    data-default,
     deepseq,
     generic-random,
     genvalidity,
@@ -345,6 +346,7 @@ test-suite tests
     Test.Cardano.Ledger.BinarySpec
     Test.Cardano.Ledger.JsonSpec
     Test.Cardano.Ledger.PlutusSpec
+    Test.Cardano.Ledger.State.Accounting.UTxOs.DepositSpec
     Test.Cardano.Ledger.State.Certificates.StakePoolSpec
     Test.Cardano.Ledger.State.Epoch.LeiosCommitteeSpec
     Test.Cardano.Ledger.State.Epoch.SnapShotsSpec
@@ -367,6 +369,7 @@ test-suite tests
     cardano-ledger-core,
     cardano-slotting,
     containers,
+    data-default,
     genvalidity,
     genvalidity-scientific,
     plutus-ledger-api,

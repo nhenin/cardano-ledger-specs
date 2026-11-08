@@ -46,6 +46,7 @@ import Cardano.Ledger.Slot (epochFromSlot)
 import Constrained.API
 import Control.DeepSeq (NFData)
 import Control.Monad.Reader (runReader)
+import Data.Default (def)
 import Data.Functor.Identity (Identity)
 import Data.Word
 import GHC.Generics (Generic)
@@ -158,7 +159,7 @@ utxoStateSpec UtxoExecContext {uecUTxO} UtxoEnv {ueSlot, uePParams, ueCertState}
       ]
   where
     curEpoch = runReader (epochFromSlot ueSlot) testGlobals
-    initialStore = mkUTxOStore legacyDepositCalculation uecUTxO
+    initialStore = mkUTxOStore def uecUTxO
 
 data UtxoExecContext era = UtxoExecContext
   { uecTx :: !(Tx TopTx era)

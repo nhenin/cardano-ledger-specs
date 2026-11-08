@@ -748,6 +748,12 @@ defaultInitImpTestState nes = do
   shelleyGenesis <- initGenesis @ShelleyEra
   rootKeyHash <- freshKeyHash @Payment
   let
+    epochInfoE =
+      fixedEpochInfo
+        (sgEpochLength shelleyGenesis)
+        (mkSlotLength . fromNominalDiffTimeMicro $ sgSlotLength shelleyGenesis)
+    globals = mkShelleyGlobals shelleyGenesis epochInfoE
+    slotNo = epochInfoFirst (epochInfoPure globals) (nes ^. nesELL)
     rootAddr :: Addr
     rootAddr = mkAddr rootKeyHash StakeRefNull
     rootTxOut :: TxOut era
@@ -761,17 +767,11 @@ defaultInitImpTestState nes = do
         then existingStore
         else
           StoreInternals.allocate
+            slotNo
             (IndexedTxOs.singleton rootTxIn $ mkSized (eraProtVerLow @era) rootTxOut)
             existingStore
     nesWithRoot = nes & utxoStoreL .~ rootStore
   prepState <- get
-  let epochInfoE =
-        fixedEpochInfo
-          (sgEpochLength shelleyGenesis)
-          (mkSlotLength . fromNominalDiffTimeMicro $ sgSlotLength shelleyGenesis)
-      globals = mkShelleyGlobals shelleyGenesis epochInfoE
-      epochNo = nesWithRoot ^. nesELL
-      slotNo = epochInfoFirst (epochInfoPure globals) epochNo
   pure $
     ImpTestState
       { impNES = nesWithRoot

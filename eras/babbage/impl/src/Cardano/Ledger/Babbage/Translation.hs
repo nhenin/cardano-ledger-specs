@@ -134,10 +134,11 @@ instance TranslateEra BabbageEra LedgerState where
         }
 
 instance TranslateEra BabbageEra Store.UTxOStore where
-  translateEra ctxt =
-    fmap (Store.mkUTxOStore legacyDepositCalculation)
+  translateEra ctxt store =
+    fmap (Store.mkUTxOStore $ Store.depositFormulaHistory store)
       . translateEra ctxt
       . Store.allocations
+      $ store
 
 instance TranslateEra BabbageEra AccountingState where
   translateEra ctxt accountingState =

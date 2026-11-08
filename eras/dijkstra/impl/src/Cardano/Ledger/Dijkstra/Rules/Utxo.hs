@@ -500,6 +500,7 @@ dijkstraUtxoTransition = do
 
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
   Accounting.projectTx
+    slot
     pp
     originalCertState
     previousAccountingState

@@ -116,6 +116,7 @@ import Control.Monad (replicateM)
 import Control.Monad.Identity (Identity)
 import Control.Monad.Trans.Fail.String (errorFail)
 import Data.Containers.ListUtils (nubOrdOn)
+import Data.Default (def)
 import Data.Foldable (toList)
 import Data.GenValidity
 import Data.Int (Int64)
@@ -160,25 +161,32 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 -- Cardano.Ledger.BaseTypes --------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
--- Only supported calculation versions belong in valid serialized stores.
-instance Arbitrary DepositCalculation where
-  arbitrary = oneof [DepositCalculationV1 <$> arbitrary, DepositCalculationV2 <$> arbitrary]
-  shrink (DepositCalculationV1 rate) = DepositCalculationV1 <$> shrink rate
-  shrink (DepositCalculationV2 rate) = DepositCalculationV2 <$> shrink rate
+-- Only supported formula versions belong in valid serialized stores.
+instance Arbitrary DepositFormula where
+  arbitrary = oneof [DepositFormulaV1 <$> arbitrary, DepositFormulaV2 <$> arbitrary]
+  shrink (DepositFormulaV1 rate) = DepositFormulaV1 <$> shrink rate
+  shrink (DepositFormulaV2 rate) = DepositFormulaV2 <$> shrink rate
 
-instance Arbitrary (Sized a) => Arbitrary (Unspent a) where
+instance Arbitrary a => Arbitrary (Unspent a) where
   arbitrary = Unspent <$> arbitrary <*> arbitrary
+
+instance Arbitrary AllocatedAt where
+  arbitrary = oneof [pure AtStoreMigration, AtSlot <$> arbitrary]
+  shrink AtStoreMigration = []
+  shrink (AtSlot slot) = AtStoreMigration : map AtSlot (shrink slot)
+
+-- Every generated history includes an explicit baseline. Map order determines
+-- the activation sequence; allocations before the first change use the baseline.
+instance Arbitrary DepositFormulaHistory where
+  arbitrary = DepositFormulaHistory <$> arbitrary <*> resize 5 arbitrary
 
 instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) where
   arbitrary
-    | eraProtVerLow @era >= natVersion @12 = do
-        calculation <- arbitrary
-        mkUTxOStore calculation <$> arbitrary
-    | otherwise =
-        mkUTxOStore legacyDepositCalculation <$> arbitrary
+    | eraProtVerLow @era >= natVersion @12 = mkUTxOStore <$> arbitrary <*> arbitrary
+    | otherwise = mkUTxOStore def <$> arbitrary
   shrink store =
     map
-      (mkUTxOStore (currentCalculation store) . IndexedUTxOs.fromList)
+      (mkUTxOStore (depositFormulaHistory store) . IndexedUTxOs.fromList)
       $ shrinkList (const []) . IndexedUTxOs.toList
       $ allocations store
 

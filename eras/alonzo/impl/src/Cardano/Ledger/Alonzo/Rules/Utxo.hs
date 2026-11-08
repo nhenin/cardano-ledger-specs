@@ -239,7 +239,7 @@ data AlonzoUtxoEvent era
     TxUTxODiff
       -- | Consumed entries from the previous Store, retaining their historical metadata.
       (IndexedUTxOs era)
-      -- | Created entries from the updated Store, including their recorded calculation.
+      -- | Created entries from the updated Store, retaining their sizes and allocation origins.
       (IndexedUTxOs era)
   deriving (Generic)
 
@@ -615,6 +615,7 @@ utxoTransition = do
       TRC (UtxosEnv slot pp certState, lsGovState ledgerState, stAnnTx)
 
   Accounting.projectTx
+    slot
     pp
     certState
     (lsAccountingState ledgerState)

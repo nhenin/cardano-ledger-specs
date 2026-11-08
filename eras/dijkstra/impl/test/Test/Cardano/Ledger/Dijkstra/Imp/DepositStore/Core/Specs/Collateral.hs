@@ -68,8 +68,8 @@ data OutputForm = Implicit | StoreBacked
 
 -- | Shape and script outcome are selected explicitly by each specification.
 -- Prices, payload sizes, application coins and token quantities can vary without
--- changing that shape. Equal payload sizes and coin widths at the same byte price
--- give equal deposits.
+-- changing that shape. Equal asset counts and payload sizes at the same rate
+-- give equal Store-backed deposits.
 data Scenario = Scenario
   { inputForms :: [OutputForm]
   , returnForm :: Maybe OutputForm
@@ -85,7 +85,7 @@ data Scenario = Scenario
 
 -- | Snapshot immediately before submission, after all source funding and signing.
 -- Released deposits come from recorded allocations; the return deposit is priced
--- independently from its final bytes. Neither amount invokes the collateral rule.
+-- independently from its asset count, datum and reference script.
 data Fixture = Fixture
   { signedTx :: Tx TopTx DijkstraEra
   , previousAccountingState :: AccountingState DijkstraEra
@@ -278,32 +278,17 @@ output form address bytes value =
   )
     & datumTxOutL .~ mkInlineDatum (Plutus.B $ BS.replicate bytes 0)
 
--- | Choose application coins so the requested fee remains after funding any
--- additional return deposit. Solve using the final coin's encoded width; this
--- covers zero and CBOR width changes without assuming a fixed return deposit.
--- The returned fixture retains the same ledger snapshot and source inputs.
+-- | Set the return ADA to the collateral coins remaining after the deposit
+-- shortfall and requested fee. Changing ADA preserves the return's deposit.
 withCoinFee :: Coin -> Fixture -> ImpTestM DijkstraEra Fixture
 withCoinFee requested fixture = do
   returned <- expectJust $ strictMaybeToMaybe $ signedTx fixture ^. bodyTxL . collateralReturnTxBodyL
-  installReturn (SJust $ returnWithCoinFee 8 requested fixture returned) fixture
-
--- | Reprice until the return's coin and deposit agree. Bound iteration so an
--- unsupported exact amount at a CBOR-width discontinuity reports a fixture error
--- instead of hanging the suite. Generated application amounts avoid those gaps.
-returnWithCoinFee :: Int -> Coin -> Fixture -> TxOut DijkstraEra -> TxOut DijkstraEra
-returnWithCoinFee attempts requested fixture returned
-  | attempts <= 0 = error "Collateral return has no stable exact coin-fee fixture"
-  | otherwise =
-      let deposit = Pricing.outputDeposit (protocolParameters fixture) returned
-          additional = max mempty (deposit <-> releasedDeposits fixture)
-          coins = inputCoins fixture <-> additional <-> requested
-          next = returned & coinTxOutL .~ coins
-       in if next == returned
-            then next
-            else returnWithCoinFee (attempts - 1) requested fixture next
+  let shortfall = max mempty (returnDeposit fixture <-> releasedDeposits fixture)
+      coins = inputCoins fixture <-> shortfall <-> requested
+  installReturn (SJust $ returned & coinTxOutL .~ coins) fixture
 
 -- | Set the return's application ADA directly, retaining its assets and payload.
--- Reprice the final bytes and update the optional legacy total before re-signing.
+-- Update the optional legacy total before re-signing.
 withReturnCoins :: Coin -> Fixture -> ImpTestM DijkstraEra Fixture
 withReturnCoins coins fixture = do
   returned <- expectJust $ strictMaybeToMaybe $ signedTx fixture ^. bodyTxL . collateralReturnTxBodyL

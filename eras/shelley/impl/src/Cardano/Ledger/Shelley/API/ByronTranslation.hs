@@ -166,7 +166,7 @@ translateToShelleyLedgerStateFromUtxo transCtxt epochNo utxoByron =
       LedgerState
         { lsAccountingState =
             AccountingState
-              { asUTxOStore = mkUTxOStore legacyDepositCalculation utxoShelley
+              { asUTxOStore = mkUTxOStore def utxoShelley
               , asDeposited = Coin 0
               , asFees = Coin 0
               , asInstantStake = mempty

@@ -156,7 +156,7 @@ fund generated@Scenario {body, content, bytePrice, sourceCoins} = do
                     [balanceOutput, output]
                 ]
       allocation = Pricing.outputDeposit parameters output
-      minimumAmount = if content == Implicit then minimumCoins parameters output else Coin 0
+      minimumAmount = minimumCoins parameters output
   state <- Release.readAccountingState
   output ^. coinTxOutL `shouldBe` minimumAmount
   pure $ Fixture (ReleaseTx (Pricing.LedgerState state parameters) tx) allocation minimumAmount
@@ -190,11 +190,11 @@ withDatum :: Scenario -> TxOut DijkstraEra -> TxOut DijkstraEra
 withDatum generated =
   datumTxOutL .~ mkInlineDatum (Plutus.B $ BS.replicate (payloadBytes generated) 0)
 
--- | Independent byte-price equation over the complete accepted output encoding.
--- Dijkstra's implicit wrapper adds no bytes. This never calls the production
--- minimum-coin predicate or treats a Store allocation as application ADA.
+-- | The minimum application ADA is zero for a Store-backed output. Only a
+-- legacy output retains Babbage's full-encoding minimum, including its coin.
 minimumCoins :: PParams DijkstraEra -> TxOut DijkstraEra -> Coin
-minimumCoins parameters output =
+minimumCoins _ (NewTxOut _) = Coin 0
+minimumCoins parameters output@(LegacyTxOut _) =
   case parameters ^. ppCoinsPerUTxOByteL of
     CoinPerByte (CompactCoin price) ->
       Coin $ toInteger price * (160 + toInteger (sizedSize $ mkSized (eraProtVerLow @DijkstraEra) output))

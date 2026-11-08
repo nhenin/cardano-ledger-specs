@@ -239,11 +239,12 @@ conwayUtxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 conwayUtxoTransition = do
-  TRC (Shelley.UtxoEnv _ pp certState, ledgerState, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
   Babbage.babbageUtxoValidation
   () <- trans @(EraRule "UTXOS" era) $ TRC ((), (), stAnnTx)
   Accounting.projectTx
+    slot
     pp
     certState
     (lsAccountingState ledgerState)

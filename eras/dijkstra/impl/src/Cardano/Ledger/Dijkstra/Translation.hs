@@ -9,7 +9,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Cardano.Ledger.Dijkstra.Translation () where
+module Cardano.Ledger.Dijkstra.Translation (
+  migrateLegacyStore,
+) where
 
 import Cardano.Ledger.Binary (DecoderError)
 import Cardano.Ledger.Conway (ConwayEra)
@@ -28,7 +30,6 @@ import Cardano.Ledger.Conway.Governance (
   translateProposals,
  )
 import Cardano.Ledger.Conway.Governance.DRepPulser (PulsingSnapshot (..))
-import Cardano.Ledger.Conway.TxBody (upgradeBabbageTxOut)
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Genesis (DijkstraGenesis (..))
 import Cardano.Ledger.Dijkstra.Governance ()
@@ -37,7 +38,6 @@ import Cardano.Ledger.Dijkstra.Tx ()
 import Cardano.Ledger.Dijkstra.TxAuxData ()
 import Cardano.Ledger.Dijkstra.TxBody (upgradeGovAction, upgradeProposals)
 import Cardano.Ledger.Dijkstra.TxWits ()
-import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
@@ -46,9 +46,10 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import qualified Cardano.Ledger.State as Store
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
-import Lens.Micro ((%~), (&), (.~), (^.))
+import Lens.Micro ((&), (.~), (^.))
 
 type instance TranslationContext DijkstraEra = DijkstraGenesis
 
@@ -122,16 +123,17 @@ instance TranslateEra DijkstraEra VState where
 
 instance TranslateEra DijkstraEra LedgerState where
   translateEra ctx ls =
-    pure
-      LedgerState
-        { lsAccountingState =
-            translateEra' ctx (lsAccountingState ls)
-              & asUTxOStoreL %~ activateDepositParameters (govState ^. curPParamsGovStateL)
-        , lsCertState = translateCertState ctx $ ls ^. lsCertStateL
-        , lsGovState = govState
-        }
-    where
-      govState = translateEra' ctx . lsGovState $ ls
+    translateEra' ctx (lsGovState ls)
+      & \govState ->
+        pure
+          LedgerState
+            { lsAccountingState =
+                migrateAccountingState
+                  (DepositFormulaV1 $ govState ^. curPParamsGovStateL . ppCoinsPerUTxOByteL)
+                  (lsAccountingState ls)
+            , lsCertState = translateCertState ctx $ ls ^. lsCertStateL
+            , lsGovState = govState
+            }
 
 translateCertState ::
   TranslationContext DijkstraEra ->
@@ -217,29 +219,41 @@ instance TranslateEra DijkstraEra ConwayGovState where
         , cgsDRepPulsingState = translateEra' ctxt cgsDRepPulsingState
         }
 
-instance TranslateEra DijkstraEra AccountingState where
-  translateEra ctxt accountingState =
-    pure
-      AccountingState
-        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
-        , asDeposited = asDeposited accountingState
-        , asFees = asFees accountingState
-        , asInstantStake = coerce . asInstantStake $ accountingState
-        , asDonation = asDonation accountingState
-        }
+-- | Migrate with the fork's effective formula, available from the containing
+-- LedgerState. Standalone Store/AccountingState translation cannot infer it.
+migrateAccountingState ::
+  DepositFormula ->
+  AccountingState ConwayEra ->
+  AccountingState DijkstraEra
+migrateAccountingState formula accountingState =
+  AccountingState
+    { asUTxOStore = migrateLegacyStore formula . asUTxOStore $ accountingState
+    , asDeposited = asDeposited accountingState
+    , asFees = asFees accountingState
+    , asInstantStake = coerce . asInstantStake $ accountingState
+    , asDonation = asDonation accountingState
+    }
 
-instance TranslateEra DijkstraEra UTxOStore where
-  translateEra ctxt =
-    fmap (Store.mkUTxOStore legacyDepositCalculation)
-      . translateEra ctxt
-      . Store.allocations
+-- | Start with the migration formula and no dated changes. Existing Conway
+-- outputs use AtStoreMigration; their ADA stays in their legacy payloads.
+migrateLegacyStore ::
+  DepositFormula -> UTxOStore ConwayEra -> UTxOStore DijkstraEra
+migrateLegacyStore formula =
+  Store.mkUTxOStore (mkDepositFormulaHistory formula)
+    . migrateLegacyOutputs
+    . Store.allocations
 
 instance TranslateEra DijkstraEra IndexedUTxOs where
-  translateEra _ =
-    pure . IndexedUTxOs.translateLegacyOutputs upgradeImplicit
-    where
-      -- Conway cannot contain store-backed outputs. The provisional legacy
-      -- conversion records a re-encoded size and zero rate, not recovered history.
-      -- These entries contribute no separately held deposit.
-      upgradeImplicit :: TxOut ConwayEra -> LegacyTxOut DijkstraEra
-      upgradeImplicit (LegacyTxOut output) = upgradeBabbageTxOut output
+  translateEra _ = pure . migrateLegacyOutputs
+
+-- | Mark every translated output for the formula in effect at Store migration.
+migrateLegacyOutputs :: IndexedUTxOs ConwayEra -> IndexedUTxOs DijkstraEra
+migrateLegacyOutputs =
+  IndexedUTxOs.IndexedUTxOs
+    . IndexedUTxOs.mapTxOuts
+      ( \output ->
+          Unspent
+            { Unspent.output = upgradeTxOut @DijkstraEra output
+            , allocatedAt = Unspent.AtStoreMigration
+            }
+      )

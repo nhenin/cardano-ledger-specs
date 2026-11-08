@@ -141,7 +141,7 @@ readBinIndexedUTxOs ::
   IO (IndexedUTxOs CurrentEra)
 readBinIndexedUTxOs fp = do
   ls <- readNewEpochState fp
-  -- Retain each entry's accepted size and historical calculation.
+  -- Retain each entry's output and allocation origin.
   pure $! allocations $ ls ^. utxoStoreG
 
 newtype Count = Count Int

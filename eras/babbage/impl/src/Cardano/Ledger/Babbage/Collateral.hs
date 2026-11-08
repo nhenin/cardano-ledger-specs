@@ -37,7 +37,7 @@ collAdaBalance txBody utxoCollateral = toDeltaCoin $
     colbal = sumAllCoin utxoCollateral
 
 -- | Index the proposed collateral return, preserving its supplied size.
--- The Store records its calculation only when the return is allocated.
+-- The Store records its allocation origin only when the return is allocated.
 collOuts ::
   BabbageEraTxBody era =>
   TxBody TopTx era ->

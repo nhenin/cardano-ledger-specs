@@ -3,26 +3,40 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Versioned deposit calculations using recorded pricing inputs.
+-- | Versioned deposit formulas and the history that selects them.
 module Cardano.Ledger.State.Accounting.UTxOs.Deposit (
-  DepositCalculation (..),
+  -- * Formula
+  DepositFormula (..),
   DepositAmount (..),
-  ByteSize (..),
-  calculateDeposit,
-  legacyDepositCalculation,
+
+  -- * History
+  DepositFormulaHistory (..),
+  DepositPeriod (..),
+  mkDepositFormulaHistory,
+  appendFormula,
+  formulaAt,
+  latestFormula,
+  periods,
 ) where
 
+import Cardano.Ledger.BaseTypes (SlotNo (..))
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
+  decodeMapContents,
+  decodeRecordNamed,
   decodeRecordSum,
   encodeListLen,
   encodeWord,
  )
 import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), CompactForm (CompactCoin))
 import Control.DeepSeq (NFData)
+import Control.Monad (foldM, guard)
 import Data.Aeson (ToJSON (..), object, (.=))
-import Data.Int (Int64)
+import qualified Data.Bifunctor
+import Data.Default (Default (..))
+import Data.Function ((&))
+import qualified Data.Map.Strict as Map
 import GHC.Generics (Generic)
 import NoThunks.Class (NoThunks)
 
@@ -36,57 +50,141 @@ instance ToJSON DepositAmount where
   toJSON = toJSON . toCoin
 
 -- | Each version carries the pricing parameters recorded at allocation.
--- V2 provisionally uses the same formula as V1.
-data DepositCalculation
-  = DepositCalculationV1 !CoinPerByte
-  | DepositCalculationV2 !CoinPerByte
+-- V1 prices 250 base bytes and 74 bytes per native asset.
+-- V2 experiments with 260 and 80; both include datum and reference script bytes.
+data DepositFormula
+  = DepositFormulaV1 !CoinPerByte
+  | DepositFormulaV2 !CoinPerByte
   deriving (Eq, Ord, Show, Generic)
 
--- | Compatibility calculation for legacy outputs without recorded pricing.
--- Their deposits remain inside the output and contribute zero to the Store.
-legacyDepositCalculation :: DepositCalculation
-legacyDepositCalculation = DepositCalculationV1 (CoinPerByte (CompactCoin 0))
+-- | Default baseline: V1 at 4,310 lovelace per byte, the mainnet parameter
+-- verified on 6 November 2026. This is a fixed protocol choice for this model;
+-- later price changes belong in 'formulaChanges', not in this default.
+instance Default DepositFormula where
+  def = DepositFormulaV1 . CoinPerByte $ CompactCoin 4310
 
--- | An output size measured in bytes. Calculations use the measured size;
--- entry decoding rejects negative sizes supplied by persisted data.
-newtype ByteSize = ByteSize
-  { unByteSize :: Int64
+-- | A baseline formula and its dated changes. The baseline permanently prices
+-- migrated outputs and covers dated allocations before the first change.
+-- Every allocation has a formula, including when no changes are recorded.
+-- This history starts with the prototype's common initial formula; it does not
+-- reconstruct pre-fork prices or require a dated migration boundary.
+data DepositFormulaHistory = DepositFormulaHistory
+  { initialFormula :: !DepositFormula
+  , formulaChanges :: !(Map.Map SlotNo DepositFormula)
   }
-  deriving (Eq, Ord, Show, Generic)
+  deriving (Eq, Show, Generic)
 
--- | Deposit = (160 + output bytes) × recorded coins per byte.
--- Integer arithmetic preserves the result even at the Int64 size bound.
-calculateDeposit :: DepositCalculation -> ByteSize -> Coin
-calculateDeposit calculation (ByteSize size) = case calculation of
-  DepositCalculationV1 (CoinPerByte (CompactCoin rate)) ->
-    Coin $ (160 + toInteger size) * toInteger rate
-  DepositCalculationV2 (CoinPerByte (CompactCoin rate)) ->
-    Coin $ (160 + toInteger size) * toInteger rate
+-- | The formula effective over @[fromInclusive, untilExclusive)@.
+-- 'Nothing' marks the baseline's open lower bound or the final open upper bound.
+data DepositPeriod = DepositPeriod
+  { fromInclusive :: !(Maybe SlotNo)
+  , untilExclusive :: !(Maybe SlotNo)
+  , formula :: !DepositFormula
+  }
+  deriving (Eq, Show, Generic)
 
-instance NFData ByteSize
+-- | Start with an explicitly supplied baseline and no dated changes.
+mkDepositFormulaHistory :: DepositFormula -> DepositFormulaHistory
+mkDepositFormulaHistory baseline =
+  DepositFormulaHistory {initialFormula = baseline, formulaChanges = Map.empty}
 
-instance NoThunks ByteSize
+instance Default DepositFormulaHistory where
+  def = mkDepositFormulaHistory def
 
-instance NFData DepositCalculation
+-- | Add a strictly later activation. Never overwrite or insert into historical
+-- periods, even when the proposed formula equals an earlier formula.
+-- The first change may occur at any slot; the baseline is never replaced.
+appendFormula ::
+  SlotNo -> DepositFormula -> DepositFormulaHistory -> Maybe DepositFormulaHistory
+appendFormula slot pricing history = do
+  guard $ maybe True ((slot >) . fst) . Map.lookupMax . formulaChanges $ history
+  pure history {formulaChanges = Map.insert slot pricing $ formulaChanges history}
 
-instance NoThunks DepositCalculation
+-- | Use the latest change at or before this slot, otherwise the baseline.
+formulaAt :: SlotNo -> DepositFormulaHistory -> DepositFormula
+formulaAt slot history =
+  (maybe (initialFormula history) snd . Map.lookupLE slot . formulaChanges) $ history
 
-instance ToJSON DepositCalculation where
+-- | The latest dated formula, or the baseline when there are no changes.
+latestFormula :: DepositFormulaHistory -> DepositFormula
+latestFormula history =
+  (maybe (initialFormula history) snd . Map.lookupMax . formulaChanges) $ history
+
+-- | Read the complete history as contiguous, half-open periods.
+periods :: DepositFormulaHistory -> [DepositPeriod]
+periods history =
+  Map.toAscList (formulaChanges history)
+    & \activations ->
+      zipWith
+        ( \(start, price) end ->
+            DepositPeriod {fromInclusive = start, untilExclusive = end, formula = price}
+        )
+        ((Nothing, initialFormula history) : map (Data.Bifunctor.first Just) activations)
+        (map (Just . fst) activations <> [Nothing])
+
+instance NFData DepositFormulaHistory
+
+instance NoThunks DepositFormulaHistory
+
+instance NFData DepositPeriod
+
+instance NoThunks DepositPeriod
+
+instance ToJSON DepositFormulaHistory where
+  toJSON history =
+    object
+      [ "initialFormula" .= initialFormula history
+      , "formulaChanges" .= Map.mapKeysMonotonic (\(SlotNo slot) -> slot) (formulaChanges history)
+      ]
+
+instance ToJSON DepositPeriod where
+  toJSON period =
+    object
+      [ "fromInclusive" .= fromInclusive period
+      , "untilExclusive" .= untilExclusive period
+      , "formula" .= formula period
+      ]
+
+instance EncCBOR DepositFormulaHistory where
+  encCBOR history =
+    encodeListLen 2 <> encCBOR (initialFormula history) <> encCBOR (formulaChanges history)
+
+-- Validate activation order before building the map: decoding through Map alone
+-- could otherwise discard duplicate slots and silently rewrite historical prices.
+instance DecCBOR DepositFormulaHistory where
+  decCBOR = decodeRecordNamed "DepositFormulaHistory" (const 2) $ do
+    baseline <- decCBOR
+    activations <- decodeMapContents $ (,) <$> decCBOR <*> decCBOR
+    foldM
+      ( \history (slot, pricing) ->
+          maybe
+            (fail "DepositFormulaHistory: activation slots must be strictly increasing")
+            pure
+            (appendFormula slot pricing history)
+      )
+      (mkDepositFormulaHistory baseline)
+      activations
+
+instance NFData DepositFormula
+
+instance NoThunks DepositFormula
+
+instance ToJSON DepositFormula where
   toJSON = \case
-    DepositCalculationV1 rate -> object ["version" .= (1 :: Word), "coinsPerByte" .= rate]
-    DepositCalculationV2 rate -> object ["version" .= (2 :: Word), "coinsPerByte" .= rate]
+    DepositFormulaV1 rate -> object ["version" .= (1 :: Word), "coinsPerByte" .= rate]
+    DepositFormulaV2 rate -> object ["version" .= (2 :: Word), "coinsPerByte" .= rate]
 
-instance EncCBOR DepositCalculation where
+instance EncCBOR DepositFormula where
   encCBOR = \case
-    DepositCalculationV1 rate -> encodeListLen 2 <> encodeWord 1 <> encCBOR rate
-    DepositCalculationV2 rate -> encodeListLen 2 <> encodeWord 2 <> encCBOR rate
+    DepositFormulaV1 rate -> encodeListLen 2 <> encodeWord 1 <> encCBOR rate
+    DepositFormulaV2 rate -> encodeListLen 2 <> encodeWord 2 <> encCBOR rate
 
-instance DecCBOR DepositCalculation where
-  decCBOR = decodeRecordSum "DepositCalculation" $ \case
+instance DecCBOR DepositFormula where
+  decCBOR = decodeRecordSum "DepositFormula" $ \case
     1 -> do
       rate <- decCBOR
-      pure (2, DepositCalculationV1 rate)
+      pure (2, DepositFormulaV1 rate)
     2 -> do
       rate <- decCBOR
-      pure (2, DepositCalculationV2 rate)
-    version -> fail $ "Unknown DepositCalculation version: " <> show version
+      pure (2, DepositFormulaV2 rate)
+    version -> fail $ "Unknown DepositFormula version: " <> show version

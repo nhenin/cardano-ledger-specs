@@ -53,8 +53,10 @@ library
     Cardano.Ledger.Dijkstra.TxWits
     Cardano.Ledger.Dijkstra.UTxO
     Cardano.Ledger.Dijkstra.UTxOs.Deposit
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula
     Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx
     Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
+    Cardano.Ledger.Dijkstra.UTxOs.Unspent
 
   other-modules:
     Cardano.Ledger.Dijkstra.Block
@@ -406,6 +408,8 @@ test-suite tests
     cardano-protocol:{cardano-protocol, testlib},
     cardano-strict-containers,
     containers,
+    data-default,
     microlens,
+    microlens-mtl,
     plutus-ledger-api,
     validation-selective,

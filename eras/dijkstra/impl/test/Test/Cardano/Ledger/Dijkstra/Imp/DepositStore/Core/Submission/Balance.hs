@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Fund real assets and exact illustrated deposits for transaction-balance
 -- specifications. Re-signing deliberately performs no fee or value fixup.
@@ -14,23 +13,18 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance (
   fundTenAdaWithTwoAdaDeposit,
 ) where
 
-import Cardano.Ledger.Binary (Sized (sizedSize), mkSized)
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), PolicyID (..), multiAssetFromList)
-import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
 import Cardano.Ledger.Shelley.Scripts (ShelleyEraScript (mkRequireSignature))
 import Cardano.Ledger.Val (Val (coin, isAdaOnly, (<->)), inject)
-import qualified Data.ByteString as BS
-import Data.List (find)
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
-import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   liveOutputStore,
@@ -147,11 +141,12 @@ fundNativeAssets quantity proposal = do
 fundTenAdaWithTwoAdaDeposit :: Coin -> ImpTestM DijkstraEra ReleaseTx
 fundTenAdaWithTwoAdaDeposit topFunding = do
   modifyPParams $
-    (ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2_000))
+    (ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 8_000))
       . (ppMaxTxSizeL .~ 100_000)
   address <- freshKeyAddrNoPtr_
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-  let source = twoAdaDepositOutput address
+  -- V1 charges 8,000 × 250 lovelace for this plain ADA-only source.
+  let source = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject $ Coin 10_000_000
       implicitFunding = mkBasicTxOutWithImplicitDeposit address $ inject topFunding
   Pricing.outputDeposit parameters source `shouldBe` Coin 2_000_000
   funding <-
@@ -183,30 +178,3 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
             . outputsTxBodyL
             .~ SSeq.singleton implicitFunding
   pure $ ReleaseTx (Pricing.LedgerState state parameters) tx
-
--- | Select a measured 840-byte Store output. With the 160-byte overhead and
--- the fixture price of 2000 lovelace per byte, its recorded deposit is two ADA.
-twoAdaDepositOutput :: Addr -> TxOut DijkstraEra
-twoAdaDepositOutput address =
-  case find ((== 840) . sizedSize . mkSized (eraProtVerLow @DijkstraEra)) (paddedSources address) of
-    Just output -> output
-    Nothing -> error "No inline datum length gives the exact two-ADA fixture deposit"
-
--- | Search around the measured padding length, using a second CBOR integer
--- width to cover any size skipped by byte-string chunk boundaries.
-paddedSources :: Addr -> [TxOut DijkstraEra]
-paddedSources address =
-  let measured = sizedSize $ mkSized (eraProtVerLow @DijkstraEra) $ paddedSource address 700 0
-      estimatedPadding = 700 + 840 - fromIntegral measured
-   in [ paddedSource address padding marker
-      | padding <- [estimatedPadding - 4 .. estimatedPadding + 4]
-      , marker <- [0, 24]
-      ]
-
--- | Preserve exactly ten application ADA while varying irrelevant inline datum
--- bytes solely to obtain the independently verified two-ADA source deposit.
-paddedSource :: Addr -> Int -> Integer -> TxOut DijkstraEra
-paddedSource address padding marker =
-  mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets $ inject $ Coin 10_000_000)
-    & datumTxOutL
-      .~ mkInlineDatum (Plutus.List [Plutus.B $ BS.replicate padding 0, Plutus.I marker])

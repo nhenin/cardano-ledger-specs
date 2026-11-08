@@ -106,12 +106,17 @@ instance ShelleyEraImp DijkstraEra where
 
   impSatisfyNativeScript = impDijkstraSatisfyNativeScript
 
-  -- Direct test parameter updates model the same activation boundary as an epoch.
-  -- Historical allocations keep their creation calculation.
+  -- A direct test price change starts at a new slot. It cannot overwrite the
+  -- calculation used by outputs already allocated in the current slot.
   modifyPParams f = do
+    previousParameters <- getsPParams id
+    when
+      (f previousParameters ^. ppCoinsPerUTxOByteL /= previousParameters ^. ppCoinsPerUTxOByteL)
+      passTick
     conwayModifyPParams f
+    slot <- getCurSlotNo
     parameters <- getsPParams id
-    modifyNES $ utxoStoreL %~ activateDepositParameters parameters
+    modifyNES $ utxoStoreL %~ activateDepositParameters slot parameters
 
   fixupTx = dijkstraFixupTx
   expectTxSuccess = impBabbageExpectTxSuccess

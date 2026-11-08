@@ -27,6 +27,7 @@ module Cardano.Ledger.State.Accounting (
 
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core (EraTx (Tx), PParams, TopTx)
+import Cardano.Ledger.Slot (SlotNo)
 import qualified Cardano.Ledger.State.Accounting.Deposits as Deposits
 import qualified Cardano.Ledger.State.Accounting.Donation as Donation
 import Cardano.Ledger.State.Accounting.Era (EraAccounting (..))
@@ -52,19 +53,20 @@ projectTx ::
   , EraStake era
   , EraCertState era
   ) =>
+  SlotNo ->
   PParams era ->
   CertState era ->
   AccountingState era ->
   Tx TopTx era ->
   TxProjected era
-projectTx pp certState accountingState tx =
+projectTx slot pp certState accountingState tx =
   accountingState
     & Donation.projectTx tx
     & Deposits.projectTx pp certState tx
     & \(depositChange, withDeposits) ->
       withDeposits
         & asUTxOStore
-        & Store.projectTx tx
+        & Store.projectTx slot tx
         & adaptProjectedTxModels depositChange withDeposits
         & Stake.projectTx
         & Fees.projectTx (asUTxOStore accountingState) tx

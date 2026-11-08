@@ -236,7 +236,7 @@ exampleNewEpochState value ppp pp =
               { lsAccountingState =
                   AccountingState
                     { asUTxOStore =
-                        mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $
+                        mkUTxOStore def . IndexedUTxOs.fromLegacyTxOuts $
                           Map.singleton
                             (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
                             (mkBasicLegacyTxOut addr value)

@@ -18,6 +18,7 @@ import Cardano.Ledger.Plutus (Datum (..))
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.State
 import Cardano.Ledger.TxIn (TxIn (..))
+import Data.Default (def)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro
@@ -49,7 +50,7 @@ conwayStates = do
       outputMap =
         Map.fromList $
           zipWith (\index txOut -> (TxIn inputId $ TxIx index, txOut)) [0 ..] (take 1 outputs <> outputs)
-      outputStore = mkUTxOStore legacyDepositCalculation . legacyIndexedUTxOs $ outputMap
+      outputStore = mkUTxOStore def . legacyIndexedUTxOs $ outputMap
       accountingStateL = nesEsL . esLStateL . lsAccountingStateL
       accountStatesL = nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL
       withPots factor =

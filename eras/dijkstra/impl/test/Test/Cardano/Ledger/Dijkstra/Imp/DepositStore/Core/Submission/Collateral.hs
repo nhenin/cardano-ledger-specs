@@ -113,7 +113,7 @@ withCoinFee requestedCoinFee fixture = do
   let additionalDeposit = max mempty (returnDeposit fixture <-> releasedDeposit fixture)
       returnCoins = inputCoins fixture <-> additionalDeposit <-> requestedCoinFee
       collateralReturn = originalReturn & coinTxOutL .~ returnCoins
-  -- These fixtures keep all changed coin amounts in the same CBOR width.
+  -- Changing application ADA preserves all three priced output features.
   TopTx.outputDeposit (protocolParameters fixture) collateralReturn `shouldBe` returnDeposit fixture
   rederiveAddrTxWits $
     tx fixture

@@ -117,7 +117,7 @@ import NoThunks.Class (NoThunks (..))
 -- UTxOs
 --------------------------------------------------------------------------------
 
--- | Read all unspent outputs with their accepted sizes and deposit calculations.
+-- | Read all unspent outputs with their allocation origins.
 getIndexedUTxOs ::
   NewEpochState era ->
   IndexedUTxOs era

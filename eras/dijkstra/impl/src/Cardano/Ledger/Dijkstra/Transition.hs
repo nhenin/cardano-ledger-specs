@@ -20,7 +20,6 @@ import Cardano.Ledger.Dijkstra.Genesis
 import Cardano.Ledger.Dijkstra.PParams (ppLeiosCommitteeSizeL)
 import Cardano.Ledger.Dijkstra.Rules.Snap (kesMaxKeyAgeEpochs)
 import Cardano.Ledger.Dijkstra.Translation ()
-import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Shelley.Genesis (ShelleyGenesis (..))
 import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState,
@@ -33,7 +32,7 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Transition
 import Cardano.Ledger.State (
-  DepositCalculation (..),
+  DepositFormula (..),
   certPStateL,
   mkEmptyUTxOStore,
   mkGoSnapShot,
@@ -44,8 +43,8 @@ import Cardano.Ledger.State (
   ssStakeGoL,
   ssStakeMarkL,
   ssStakeSetL,
-  utxoStoreL,
  )
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (mkDepositFormulaHistory)
 import GHC.Generics
 import Lens.Micro
 import NoThunks.Class (NoThunks (..))
@@ -59,17 +58,18 @@ instance EraTransition DijkstraEra where
 
   mkTransitionConfig = DijkstraTransitionConfig
 
-  initialUTxOStore pp = mkEmptyUTxOStore $ DepositCalculationV1 (pp ^. ppCoinsPerUTxOByteL)
+  -- A chain initialized directly in Dijkstra begins its history at genesis.
+  initialUTxOStore pp =
+    mkEmptyUTxOStore . mkDepositFormulaHistory $ DepositFormulaV1 (pp ^. ppCoinsPerUTxOByteL)
 
   -- Genesis registrations bypass POOL, so restore their tracked VRF key hashes.
-  injectIntoTestState hasFS cfg nes = do
-    initialized <- conwayInjectIntoTestState hasFS cfg nes
-    let pp = initialized ^. nesEsL . curPParamsEpochStateL
-    pure
-      $ seatInitialLeiosCommittee cfg
-        . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
-        . (utxoStoreL %~ activateDepositParameters pp)
-      $ initialized
+  -- Fund injection preserves the Store's initialized history and existing origins.
+  injectIntoTestState hasFS cfg =
+    fmap
+      ( seatInitialLeiosCommittee cfg
+          . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
+      )
+      . conwayInjectIntoTestState hasFS cfg
 
   tcPreviousEraConfigL =
     lens dtcConwayTransitionConfig (\dtc pc -> dtc {dtcConwayTransitionConfig = pc})

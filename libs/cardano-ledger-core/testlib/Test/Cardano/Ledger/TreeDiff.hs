@@ -51,7 +51,11 @@ import Type.Reflection (Typeable, typeRep)
 -- Coin
 instance ToExpr Coin
 
-instance ToExpr DepositCalculation
+instance ToExpr DepositFormula
+
+instance ToExpr DepositFormulaHistory
+
+instance ToExpr DepositPeriod
 
 instance ToExpr DepositAmount where
   toExpr = toExpr . toCoin
@@ -61,6 +65,8 @@ instance ToExpr (TxOut era) => ToExpr (IndexedTxOs era) where
 
 instance ToExpr a => ToExpr (Unspent a)
 
+instance ToExpr AllocatedAt
+
 instance ToExpr (TxOut era) => ToExpr (IndexedUTxOs era) where
   toExpr = toExpr . unIndexedUTxOs
 
@@ -68,7 +74,10 @@ instance ToExpr (TxOut era) => ToExpr (UTxOStore era) where
   toExpr store =
     App
       "UTxOStore"
-      [toExpr $ currentCalculation store, toExpr $ totalDepositAmount store, toExpr $ allocations store]
+      [ toExpr $ depositFormulaHistory store
+      , toExpr $ totalDepositAmount store
+      , toExpr $ allocations store
+      ]
 
 instance ToExpr StrictlyPositiveCoin where
   toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]

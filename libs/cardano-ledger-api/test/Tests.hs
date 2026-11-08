@@ -20,6 +20,7 @@ import qualified Test.Cardano.Ledger.Api.Transition.InitialFundsSpec as InitialF
 import qualified Test.Cardano.Ledger.Api.Tx as Tx (spec)
 import qualified Test.Cardano.Ledger.Api.Tx.Body as TxBody (spec)
 import qualified Test.Cardano.Ledger.Api.Tx.Out as TxOut (spec)
+import qualified Test.Cardano.Ledger.Api.UnspentSpec as Unspent (spec)
 import Test.Cardano.Ledger.Api.Upgrade (BinaryUpgradeOpts (..))
 import qualified Test.Cardano.Ledger.Api.Upgrade as Upgrade
 import Test.Cardano.Ledger.Babbage.Binary.Annotator ()
@@ -43,6 +44,7 @@ apiSpec =
       StateQuery.spec
       AccountingTx.spec
       IndexedUTxOs.spec
+      Unspent.spec
     describe "Transition" InitialFunds.spec
     describe "Imp" $ do
       ImpQuery.spec @ConwayEra

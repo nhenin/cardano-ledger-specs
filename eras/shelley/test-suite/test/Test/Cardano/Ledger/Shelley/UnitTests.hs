@@ -280,7 +280,7 @@ aliceGivesBobLovelace
 accountingState :: AccountingState ShelleyEra
 accountingState =
   AccountingState
-    ( mkUTxOStore legacyDepositCalculation $
+    ( mkUTxOStore def $
         genesisCoins
           genesisId
           [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin

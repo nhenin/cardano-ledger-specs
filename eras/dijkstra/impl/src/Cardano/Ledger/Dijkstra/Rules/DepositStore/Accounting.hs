@@ -30,7 +30,7 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
 ) where
 
 import Cardano.Ledger.BaseTypes (TxIx, txIxToInt)
-import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), Sized (..))
+import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
@@ -39,9 +39,7 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
-  ByteSize (..),
-  DepositCalculation,
-  calculateDeposit,
+  DepositFormula,
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
@@ -108,35 +106,34 @@ instance DecCBOR DepositStoreAccountingFailure where
     -- Tag 9 belonged to the removed independent-balance solvency failure.
     tag -> Invalid tag
 
--- | Price the accepted serialized size of a new output, including its output
--- variant. Implicit deposits are already in the output coins and add no Store
--- obligation. The supplied calculation is the Store's current pricing policy.
-requiredUTxODeposit :: DepositCalculation -> Sized (TxOut era) -> Coin
-requiredUTxODeposit calculation output = case sizedValue output of
+-- | A new output allocates a deposit under the active formula. A legacy
+-- output carries its reserve in its own ADA.
+requiredUTxODeposit :: EraTxOut era => DepositFormula -> TxOut era -> Coin
+requiredUTxODeposit formula output = case output of
   LegacyTxOut _ -> mempty
-  NewTxOut _ -> calculateDeposit calculation . ByteSize $ sizedSize output
+  NewTxOut newOutput -> getDepositNewTxOut formula newOutput
 
 -- | The body's own regular outputs only; collateral and nested bodies are
 -- accounted separately.
-allocatedUTxODeposits :: DijkstraEraTxBody era => DepositCalculation -> TxBody l era -> Coin
-allocatedUTxODeposits calculation body = foldMap (requiredUTxODeposit calculation) (body ^. sizedOutputsTxBodyL)
+allocatedUTxODeposits :: DijkstraEraTxBody era => DepositFormula -> TxBody l era -> Coin
+allocatedUTxODeposits formula body = foldMap (requiredUTxODeposit formula) (body ^. outputsTxBodyL)
 
 -- | Release historical deposits selected by this body's ordinary inputs.
--- The same allocation owns the output and its calculation inputs. Unknown
+-- The same allocation owns the output and its formula inputs. Unknown
 -- references remain the existing BadInputs rule's responsibility.
 releasedUTxODeposits ::
   EraTxBody era =>
   UTxOStore era -> TxBody l era -> Coin
 releasedUTxODeposits store body =
   Store.toCoin $
-    IndexedUTxOs.allocatedDepositTotalAmount (body ^. inputsTxBodyL) $
+    IndexedUTxOs.allocatedDepositTotalAmount (Store.depositFormulaHistory store) (body ^. inputsTxBodyL) $
       Store.allocations store
 
 requiredNetUTxODeposit ::
   DijkstraEraTxBody era =>
   UTxOStore era -> TxBody l era -> Coin
 requiredNetUTxODeposit store body =
-  allocatedUTxODeposits (Store.currentCalculation store) body <-> releasedUTxODeposits store body
+  allocatedUTxODeposits (Store.currentFormula store) body <-> releasedUTxODeposits store body
 
 requiredTxTotalNetUTxODeposit ::
   (EraTx era, DijkstraEraTxBody era) =>
@@ -308,11 +305,13 @@ collateralDepositSettlement store body =
   let consumed = body ^. collateralInputsTxBodyL
       consumedAllocations = IndexedUTxOs.restrictToInputs consumed $ Store.allocations store
       collateralOutputs = IndexedUTxOs.txOuts consumedAllocations
-      released = Store.toCoin $ IndexedUTxOs.sumDepositAmounts consumedAllocations
+      released =
+        Store.toCoin $
+          IndexedUTxOs.sumDepositAmounts (Store.depositFormulaHistory store) consumedAllocations
       returnDeposit =
         foldMap
-          (requiredUTxODeposit $ Store.currentCalculation store)
-          (body ^. sizedCollateralReturnTxBodyL)
+          (requiredUTxODeposit $ Store.currentFormula store)
+          (body ^. collateralReturnTxBodyL)
       inputCoins = sumAllCoin collateralOutputs
       returnCoins = foldMap (^. coinTxOutL) (body ^. collateralReturnTxBodyL)
       additionalDeposit = max mempty (returnDeposit <-> released)

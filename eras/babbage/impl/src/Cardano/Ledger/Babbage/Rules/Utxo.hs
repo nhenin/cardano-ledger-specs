@@ -476,6 +476,7 @@ utxoTransition = do
     trans @(EraRule "UTXOS" era) $
       TRC (Alonzo.UtxosEnv slot pp certState, lsGovState ledgerState, stAnnTx)
   Accounting.projectTx
+    slot
     pp
     certState
     (lsAccountingState ledgerState)

@@ -101,6 +101,7 @@ import Control.State.Transition (
  )
 import Data.Foldable (Foldable (foldMap'))
 import qualified Data.Foldable as F (foldl')
+import qualified Data.Map.Strict as Map
 import Data.Monoid (Sum (getSum))
 import qualified Data.Monoid as Monoid (Sum (..))
 import Data.Sequence (Seq)
@@ -377,8 +378,7 @@ validateBodyRefScriptsSizeTooBig pp blockBody utxo =
 
 -- | Read accepted inputs from allocations. From protocol version 11, also
 -- account for outputs proposed by earlier transactions in the same block.
--- This scan needs output payloads and sizes only. Project the selected accepted
--- entries explicitly; the LEDGERS rule records metadata when it accepts new outputs.
+-- Count the script payloads in live and in-block outputs.
 totalRefScriptSizeInBlock ::
   (AlonzoEraTx era, BabbageEraTxBody era) =>
   ProtVer -> StrictSeq (Tx TopTx era) -> IndexedUTxOs era -> Int
@@ -389,9 +389,9 @@ totalRefScriptSizeInBlock protVer txs allocations
       snd $ F.foldl' accum (initialOutputs, 0) txs
   where
     blockInputs = foldMap (^. bodyTxL . allInputsTxBodyF) txs
-    initialOutputs = IndexedUTxOs.toIndexedTxOs . IndexedUTxOs.restrictToInputs blockInputs $ allocations
+    initialOutputs = IndexedUTxOs.mapTxOuts id . IndexedUTxOs.restrictToInputs blockInputs $ allocations
     accum (!outputs, !totalSize) tx =
-      let updatedOutputs = outputs <> toAdd
+      let updatedOutputs = Map.union outputs (IndexedTxOs.mapTxOuts id toAdd)
           toAdd
             | Phase2Valid <- tx ^. isPhase2ValidTxL = outputsTxBody $ tx ^. bodyTxL
             | otherwise = collOuts $ tx ^. bodyTxL
@@ -399,7 +399,7 @@ totalRefScriptSizeInBlock protVer txs allocations
           scriptSize =
             sum
               [ originalBytesSize script
-              | output <- IndexedTxOs.txOuts $ IndexedTxOs.restrictToInputs inputs outputs
+              | output <- Map.elems $ Map.restrictKeys outputs inputs
               , SJust script <- [output ^. referenceScriptTxOutL]
               ]
        in (updatedOutputs, totalSize + scriptSize)

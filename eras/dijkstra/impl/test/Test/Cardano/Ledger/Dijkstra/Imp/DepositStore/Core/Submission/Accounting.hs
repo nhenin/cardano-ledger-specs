@@ -3,7 +3,7 @@
 {-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Real ledger funding, codec-sized outputs and witness preparation for the
+-- | Real ledger funding, one-ADA output deposits and witness preparation for the
 -- accounting specs. This adapter never supplies or repairs a deposit declaration.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting (
   fundAccountingScenario,
@@ -15,14 +15,12 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting 
   subTxIdAt,
 ) where
 
-import Cardano.Ledger.Binary (Sized (sizedSize), mkSized)
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
@@ -32,9 +30,7 @@ import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUT
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
-import qualified Data.ByteString as BS
 import Data.Foldable (toList)
-import Data.List (find)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map.Strict as Map
@@ -44,7 +40,6 @@ import qualified Data.Set as Set
 import Data.Traversable (mapAccumL)
 import Data.Typeable (Typeable)
 import Lens.Micro
-import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   liveOutputStore,
@@ -59,12 +54,12 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest
 import Test.Cardano.Ledger.Imp.Common (forM_, shouldBe)
 
 -- | Establish every input and its deposit with a real accepted funding
--- transaction. Source and output deposits are exactly one ADA each: byte price
--- 1000 times a measured priced size of 1000. Parent and children are undeclared.
+-- transaction. Each ADA-only Store output has a V1 deposit of 4,000 × 250
+-- lovelace. Parent and children are undeclared.
 fundAccountingScenario :: Accounting.AccountingScenario -> ImpTestM DijkstraEra ReleaseTx
 fundAccountingScenario plan = do
   modifyPParams $
-    (ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 1_000))
+    (ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 4_000))
       . (ppMaxTxSizeL .~ 100_000)
   address <- freshKeyAddrNoPtr_
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
@@ -143,32 +138,9 @@ proposalBody address inputs operations =
               )
         )
 
--- | Choose an inline byte-string length whose actual encoded output size is 840
--- bytes. Adding the fixed 160-byte charge gives exactly 1000 priced bytes. The
--- search crosses CBOR chunk boundaries instead of assuming a padding length.
+-- | An ADA-only output with no datum or reference script pays V1's base charge.
 unitDepositOutput :: Addr -> Coin -> TxOut DijkstraEra
-unitDepositOutput address amount =
-  case find ((== 840) . sizedSize . mkSized (eraProtVerLow @DijkstraEra)) (paddedOutputs address amount) of
-    Just output -> output
-    Nothing -> error "No inline datum length gives the exact one-ADA fixture deposit"
-
--- | Estimate the byte-string length from a nearby encoded output, then search
--- a small neighborhood. A second CBOR integer width fills any size skipped at a
--- byte-string chunk boundary, so the deposit does not depend on address encoding.
-paddedOutputs :: Addr -> Coin -> [TxOut DijkstraEra]
-paddedOutputs address amount =
-  let measured = sizedSize $ mkSized (eraProtVerLow @DijkstraEra) $ paddedOutput address amount 700 0
-      estimatedPadding = 700 + 840 - fromIntegral measured
-   in [ paddedOutput address amount padding marker
-      | padding <- [estimatedPadding - 4 .. estimatedPadding + 4]
-      , marker <- [0, 24]
-      ]
-
--- | Keep datum contents semantically irrelevant while controlling encoded width.
-paddedOutput :: Addr -> Coin -> Int -> Integer -> TxOut DijkstraEra
-paddedOutput address amount padding marker =
-  mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets $ inject amount)
-    & datumTxOutL .~ mkInlineDatum (Plutus.List [Plutus.B $ BS.replicate padding 0, Plutus.I marker])
+unitDepositOutput address = mkBasicTxOutWithStoreBackedDeposit address . ApplicationAssets . inject
 
 -- | Balance only child application ADA, then preserve the supplied declarations
 -- and Store-backed outputs while ordinary fee fixup adds parent funding/witnesses.
@@ -219,7 +191,7 @@ balanceChild state child =
 
 -- | Funding interpretation of the declaration supplied by the spec. This is
 -- solely application balance preparation; required deposits use an independent
--- oracle over the funded Store records and priced output bytes.
+-- oracle over the funded Store records and output features.
 localDeclaredAmount :: SubTx.SubTxUTxODepositDeclaration -> Coin
 localDeclaredAmount declaration = case declaration of
   SubTx.NoUTxODepositDeclaration -> Coin 0

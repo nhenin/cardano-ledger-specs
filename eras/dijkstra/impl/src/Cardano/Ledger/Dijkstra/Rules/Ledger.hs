@@ -84,7 +84,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   lsGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Slot (epochFromSlot)
+import Cardano.Ledger.Slot (epochFromSlot, slotToEpochBoundary)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
@@ -392,12 +392,15 @@ dijkstraLedgerTransition = do
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
+  (activationSlot, _) <- liftSTS $ slotToEpochBoundary slot
+
   -- Synchronize effective parameters once for the batch (also covering direct
   -- ledger callers). Preserve the active formula version and historical entries.
   -- Retain the previous store before SubTxs consume any entries.
   -- Witness checks and whole-batch accounting retain these original allocations,
-  -- including each output's historical calculation and accepted size.
-  let activeLedgerState = ledgerState & utxoStoreL %~ activateDepositParameters pp
+  -- including each output's payload and allocation origin, together with
+  -- the Store's shared formula history.
+  let activeLedgerState = ledgerState & utxoStoreL %~ activateDepositParameters activationSlot pp
       previousUTxOStore = activeLedgerState ^. utxoStoreG
       originalAllocations =
         IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $

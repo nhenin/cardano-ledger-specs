@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | Allocation records belong to live Store-backed output references. New records
--- use accepted output sizes; unconsumed records retain their creation-time amounts.
+-- price the output contents; unconsumed records retain their creation-time amounts.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.AllocationsSpec (spec) where
 
 import qualified Cardano.Ledger.Binary as Binary
@@ -16,16 +16,16 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.State (
-  DepositCalculation (..),
-  activateNewCalculation,
+  DepositFormula (..),
+  activateNewFormula,
   allocations,
-  currentCalculation,
+  currentFormula,
   lookupUTxO,
   utxoStoreL,
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
-import Cardano.Ledger.Val (inject)
+import Cardano.Ledger.Val (inject, (<->))
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as SSeq
@@ -39,6 +39,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Ledger
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO as InputRoles
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   assertDepositTotal,
+  expectedOutputDeposit,
   liveOutputStore,
   recordedAmounts,
   retainsCreationMetadata,
@@ -58,11 +59,13 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
 import Test.Cardano.Ledger.Dijkstra.ImpTest (
   fixupTx,
   freshKeyAddrNoPtr_,
+  getCurSlotNo,
   getsNES,
   modifyNES,
   modifyPParams,
+  passTick,
  )
-import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe, shouldNotBe)
+import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 
 {- FOURMOLU_DISABLE -}
 spec :: Spec
@@ -113,17 +116,17 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
             (IndexedUTxOs.inputIds . IndexedUTxOs.filterByTxOut (not . isImplicitOutput) . allocations . liveOutputStore $ accountingState)
 
   -- The accepted wire output has one more byte than its canonical re-encoding.
-  -- Its measured allocation survives a real state-codec restore, changed prices
+  -- Its V1 base deposit is independent of that byte and survives a real state-codec restore, changed prices
   -- and reference-only use; consuming it finally removes precisely that record.
   prop "DS-STATE-ALLOCATIONS-P03 - snapshotRestore ∧ priceChanged ∧ referenceOnly ⇒ recordedDepositAfter = creationDeposit; consumed ⇒ recordAbsent" $
     forAll (Coin <$> chooseInteger (50000000, 60000000)) $ \coins -> do
       (allocationTx, acceptedBytes) <- Effects.buildAndSignNoncanonicalAllocation coins
       let source = txInAt 0 allocationTx
-          creationDeposit = Coin $ 1000 * (160 + toInteger acceptedBytes)
+          creationDeposit = Coin $ 1000 * 250
           version = eraProtVerLow @DijkstraEra
       submitTx allocationTx >>= isAccepted
       allocatedState <- readAccountingState
-      retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin 1000) allocatedState
+      retainsCreationMetadata source (CoinPerByte $ CompactCoin 1000) allocatedState
       let records = recordedAmounts $ liveOutputStore allocatedState
       Map.lookup source records `shouldBe` Just creationDeposit
       canonicalOutput <- expectJust $
@@ -131,29 +134,30 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       fromIntegral (Binary.sizedSize $ Binary.mkSized version canonicalOutput) `shouldBe` acceptedBytes - 1
       Effects.restoreAccountingState allocatedState
       -- Formula activation and parameter activation affect future allocations only.
-      modifyNES $ utxoStoreL %~ activateNewCalculation (DepositCalculationV2 $ CoinPerByte $ CompactCoin 1000)
+      passTick
+      activationSlot <- getCurSlotNo
+      modifyNES $ utxoStoreL %~ activateNewFormula activationSlot (DepositFormulaV2 $ CoinPerByte $ CompactCoin 1000)
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2000)
       activatedState <- readAccountingState
-      let activeCalculation = DepositCalculationV2 $ CoinPerByte $ CompactCoin 2000
-      currentCalculation (liveOutputStore activatedState) `shouldBe` activeCalculation
+      let activeFormula = DepositFormulaV2 $ CoinPerByte $ CompactCoin 2000
+      currentFormula (liveOutputStore activatedState) `shouldBe` activeFormula
       allocations (liveOutputStore activatedState) `shouldBe` allocations (liveOutputStore allocatedState)
-      parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-      Pricing.outputDeposit parameters canonicalOutput `shouldNotBe` creationDeposit
+      expectedOutputDeposit activeFormula canonicalOutput `shouldBe` Coin (2000 * 260)
       referenceTx <- fixupTx $ mkBasicTx mkBasicTxBody & bodyTxL . referenceInputsTxBodyL .~ Set.singleton source
       submitTx referenceTx >>= isAccepted
       referencedState <- readAccountingState
-      currentCalculation (liveOutputStore referencedState) `shouldBe` activeCalculation
-      retainsCreationMetadata source acceptedBytes (CoinPerByte $ CompactCoin 1000) referencedState
+      currentFormula (liveOutputStore referencedState) `shouldBe` activeFormula
+      retainsCreationMetadata source (CoinPerByte $ CompactCoin 1000) referencedState
       recordedAmounts (liveOutputStore referencedState) `shouldBe` records
       address <- freshKeyAddrNoPtr_
       spendingTx <- fixupTx $
-        Pricing.declareNetDeposit (Coin $ negate $ 1000 * (160 + toInteger acceptedBytes)) $
+        Pricing.declareNetDeposit (Coin 0 <-> creationDeposit) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject coins)
       submitTx spendingTx >>= isAccepted
       consumedState <- readAccountingState
-      currentCalculation (liveOutputStore consumedState) `shouldBe` activeCalculation
+      currentFormula (liveOutputStore consumedState) `shouldBe` activeFormula
       assertDepositTotal consumedState
       recordedAmounts (liveOutputStore consumedState) `shouldBe` Map.delete source records
 

@@ -2,7 +2,7 @@
 
 -- | Dijkstra's amounts for shared transaction accounting. Collateral settlement
 -- uses historical input deposits from the original Store and prices the proposed
--- return using its accepted size and the Store's current calculation:
+-- return using its output components and the Store's current formula:
 --
 -- @
 -- collateralFee = inputADA - returnADA - max 0 (returnDeposit - releasedDeposit)

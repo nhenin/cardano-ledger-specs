@@ -11,7 +11,13 @@
 
 module Test.Cardano.Ledger.CanonicalState.Spec (spec) where
 
-import Cardano.Ledger.BaseTypes (EpochInterval, NonNegativeInterval, NonZero, UnitInterval)
+import Cardano.Ledger.BaseTypes (
+  EpochInterval,
+  NonNegativeInterval,
+  NonZero,
+  SlotNo (..),
+  UnitInterval,
+ )
 import Cardano.Ledger.CanonicalState.BasicTypes (CanonicalExUnits (..))
 import Cardano.Ledger.CanonicalState.CDDL.Validate (invalidSpecs, validSpecs)
 import Cardano.Ledger.CanonicalState.Conway (CanonicalGovActionState)
@@ -31,7 +37,7 @@ import qualified Cardano.Ledger.CanonicalState.Namespace.GovPParams.V0 as GovPPa
 import qualified Cardano.Ledger.CanonicalState.Namespace.GovProposals.Roots.V0 as GovProposals.Roots.V0
 import qualified Cardano.Ledger.CanonicalState.Namespace.GovProposals.V0 as GovProposals.V0
 import qualified Cardano.Ledger.CanonicalState.Namespace.UTxO.V0 as UTxO.V0
-import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Coin (Coin (..), CoinPerByte (..), CompactForm (..))
 import Cardano.Ledger.Conway (ConwayEra)
 import Cardano.Ledger.Core (
   AccountAddress,
@@ -46,9 +52,12 @@ import Cardano.Ledger.Core (
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.DRep (DRep)
 import Cardano.Ledger.State (
+  DepositFormula (..),
+  DepositFormulaHistory (..),
   PoolMetadata,
   StakePoolRelay,
-  legacyDepositCalculation,
+  mkDepositFormulaHistory,
+  mkEmptyUTxOStore,
   mkUTxOStore,
   toCoin,
   totalDepositAmount,
@@ -88,18 +97,25 @@ spec mReferenceCDDLs sampleCount = do
       Just referenceCDDLs ->
         forM_ referenceCDDLs runConformanceTest
 
-  describe "Conway UTxO namespace" $
-    prop "import(export(outputs)) preserves allocations and zero external deposits" $
-      forAll (resize 5 arbitrary) $ \(outputs :: IndexedUTxOs ConwayEra) -> do
-        -- Conway's namespace contains outputs only. Import reconstructs their
-        -- canonical legacy metadata, with no separately held deposit.
-        let store = mkUTxOStore legacyDepositCalculation outputs
-            source = def & utxoStoreL .~ store
-        restored <-
-          importNamespaceEntries @ConwayEra @"utxo/v0" def $
-            canonicalNamespaceEntries @ConwayEra @"utxo/v0" source
-        restored ^. utxoStoreG `shouldBe` store
-        toCoin (totalDepositAmount $ restored ^. utxoStoreG) `shouldBe` Coin 0
+  describe "Conway UTxO namespace"
+    $ prop
+      "import(export(outputs)) preserves the incoming history, allocations and zero external deposits"
+    $ forAll (resize 5 arbitrary)
+    $ \(outputs :: IndexedUTxOs ConwayEra) -> do
+      -- The namespace carries no history. Loading receives it from the target state.
+      let sourceHistory = mkDepositFormulaHistory $ DepositFormulaV1 $ CoinPerByte $ CompactCoin 3
+          targetHistory =
+            DepositFormulaHistory
+              { initialFormula = DepositFormulaV1 $ CoinPerByte $ CompactCoin 5
+              , formulaChanges = Map.singleton (SlotNo 50) $ DepositFormulaV2 $ CoinPerByte $ CompactCoin 11
+              }
+          source = def & utxoStoreL .~ mkUTxOStore sourceHistory outputs
+          target = def & utxoStoreL .~ mkEmptyUTxOStore targetHistory
+      restored <-
+        importNamespaceEntries @ConwayEra @"utxo/v0" target $
+          canonicalNamespaceEntries @ConwayEra @"utxo/v0" source
+      restored ^. utxoStoreG `shouldBe` mkUTxOStore targetHistory outputs
+      toCoin (totalDepositAmount $ restored ^. utxoStoreG) `shouldBe` Coin 0
 
   describe "types" $ do
     describe "blocks/v0" $ do

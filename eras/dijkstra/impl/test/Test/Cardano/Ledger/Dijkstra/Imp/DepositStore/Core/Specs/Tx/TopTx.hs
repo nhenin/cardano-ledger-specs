@@ -1,6 +1,5 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE NumericUnderscores #-}
-{-# LANGUAGE TypeApplications #-}
 
 -- | Generated standalone transaction scenarios and queries over real ledger snapshots.
 -- Scenarios describe amounts and output forms. Submission fixtures establish their
@@ -18,7 +17,6 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (
   sourceOutputs,
   createdOutputs,
   outputDeposit,
-  sizedOutputDeposit,
   allocatedDeposits,
   releasedDeposits,
   createdAllocations,
@@ -29,13 +27,13 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (
 ) where
 
 import Cardano.Ledger.BaseTypes (TxIx (..))
-import Cardano.Ledger.Binary (Sized (..), mkSized)
-import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (AccountingState)
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormula (DepositFormulaV1))
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
@@ -45,6 +43,7 @@ import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, elements, vectorOf)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedOutputDeposit,
   liveOutputStore,
   recordedAmounts,
  )
@@ -89,8 +88,8 @@ standaloneTopTxOnlyImplicitOutputs = standaloneTopTx ImplicitOutputs
 
 -- | Standalone TopTx, equal nonzero allocations and releases. Consume one to five
 -- store-backed outputs and create the same number, optionally alongside an implicit
--- output. Application amounts share the same CBOR width, so equal counts under the
--- unchanged price give equal deposits. Submission support checks the actual totals
+-- output. Every Store-backed output pays the same V1 base charge, so equal
+-- counts give equal deposits. Submission support checks the actual totals
 -- against recorded source deposits before the spec supplies its declaration.
 standaloneTopTxWithEqualAllocationsAndReleases :: Gen ReleaseScenario
 standaloneTopTxWithEqualAllocationsAndReleases = do
@@ -100,7 +99,7 @@ standaloneTopTxWithEqualAllocationsAndReleases = do
 
 -- | Standalone TopTx requiring a net allocation. Consume at least one store-backed
 -- output and create one more store-backed output than is consumed. The fixed policy
--- and equal-width application amounts make the new allocation exceed the release.
+-- charges the same base amount for each plain output, so allocation exceeds release.
 standaloneTopTxRequiringNetAllocation :: Gen ReleaseScenario
 standaloneTopTxRequiringNetAllocation = do
   scenario <- standaloneTopTx StoreBackedOutputs
@@ -147,24 +146,14 @@ createdOutputs address scenario released = case outputForms scenario of
 storeBackedOutput :: Addr -> Coin -> TxOut DijkstraEra
 storeBackedOutput address = mkBasicTxOutWithStoreBackedDeposit address . ApplicationAssets . inject
 
--- | Independent specification formula for the current fixed policy. Only the
--- serialized store-backed output is priced; external allocations are excluded.
+-- | External deposit expected by these V1 transaction scenarios at the active rate.
 outputDeposit :: PParams DijkstraEra -> TxOut DijkstraEra -> Coin
-outputDeposit pp = sizedOutputDeposit pp . mkSized (eraProtVerLow @DijkstraEra)
-
--- | Accepted bodies already carry the size charged by the protocol. Use it
--- directly: canonical re-encoding can be shorter than the submitted output.
-sizedOutputDeposit :: PParams DijkstraEra -> Sized (TxOut DijkstraEra) -> Coin
-sizedOutputDeposit _ (Sized (LegacyTxOut _) _) = mempty
-sizedOutputDeposit pp (Sized (NewTxOut _) acceptedBytes) =
-  case pp ^. ppCoinsPerUTxOByteL of
-    CoinPerByte (CompactCoin price) ->
-      Coin $ toInteger price * (160 + toInteger acceptedBytes)
+outputDeposit pp = expectedOutputDeposit (DepositFormulaV1 $ pp ^. ppCoinsPerUTxOByteL)
 
 allocatedDeposits :: LedgerState -> Tx TopTx DijkstraEra -> Coin
 allocatedDeposits ledgerState topTx =
-  foldMap (sizedOutputDeposit $ protocolParameters ledgerState) $
-    topTx ^. bodyTxL . sizedOutputsTxBodyL
+  foldMap (outputDeposit $ protocolParameters ledgerState) $
+    topTx ^. bodyTxL . outputsTxBodyL
 
 -- | Read only records belonging to this transaction's ordinary inputs.
 releasedDeposits :: LedgerState -> Tx TopTx DijkstraEra -> Coin
@@ -187,9 +176,9 @@ createdAllocations ledgerState topTx =
 createdBodyAllocations :: PParams DijkstraEra -> Tx l DijkstraEra -> Map.Map TxIn Coin
 createdBodyAllocations parameters tx =
   Map.fromList
-    [ (txInAt index tx, sizedOutputDeposit parameters output)
-    | (index, output@(Sized (NewTxOut _) _)) <-
-        zip [0 ..] $ toList $ tx ^. bodyTxL . sizedOutputsTxBodyL
+    [ (txInAt index tx, outputDeposit parameters output)
+    | (index, output@(NewTxOut _)) <-
+        zip [0 ..] $ toList $ tx ^. bodyTxL . outputsTxBodyL
     ]
 
 -- | The declaration supplied by TopTx, without deriving or repairing its amount.

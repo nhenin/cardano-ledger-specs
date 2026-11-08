@@ -39,6 +39,7 @@ import Cardano.Ledger.Shelley.Rewards (
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData (rnf), deepseq)
+import Data.Default (def)
 import Data.Foldable (fold)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -48,9 +49,9 @@ import Lens.Micro
 -- ================================================
 
 -- | Initialize output storage from complete unspent entries and compute its
--- cached instant stake. Preserve each entry's size and historical calculation.
+-- cached instant stake. Use each output's allocation origin to price its deposit.
 smartAccountingState ::
-  EraStake era =>
+  (EraStake era, EraNewTxOut era) =>
   PParams era ->
   IndexedUTxOs era ->
   Coin ->
@@ -59,7 +60,7 @@ smartAccountingState ::
   AccountingState era
 smartAccountingState _pp utxo c1 c2 donation =
   AccountingState
-    (mkUTxOStore legacyDepositCalculation utxo)
+    (mkUTxOStore def utxo)
     c1
     c2
     (addInstantStake (IndexedUTxOs.txOuts utxo) mempty)

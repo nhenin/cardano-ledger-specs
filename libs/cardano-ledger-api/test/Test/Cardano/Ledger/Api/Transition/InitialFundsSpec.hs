@@ -7,8 +7,7 @@
 
 module Test.Cardano.Ledger.Api.Transition.InitialFundsSpec (spec) where
 
-import Cardano.Ledger.BaseTypes (Network (..), StrictMaybe (..))
-import Cardano.Ledger.Binary (Sized (..), mkSized)
+import Cardano.Ledger.BaseTypes (Network (..), SlotNo (..), StrictMaybe (..))
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..))
@@ -22,14 +21,17 @@ import Cardano.Ledger.Shelley.Genesis (
   initialFundsPseudoTxIn,
  )
 import Cardano.Ledger.Shelley.LedgerState (NewEpochState)
-import Cardano.Ledger.Shelley.Transition (EraTransition (..), registerInitialFunds)
+import Cardano.Ledger.Shelley.Transition (EraTransition (..), registerInitialFunds, tcInitialFundsL)
+import Cardano.Ledger.Slot (EpochSize (..))
 import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Val (inject)
 import Data.Default (def)
 import qualified Data.ListMap as ListMap
 import qualified Data.Map.Strict as Map
+import Data.Maybe (fromJust)
 import Lens.Micro
 import qualified System.FS.Sim.MockFS as MockFS
 import System.FS.Sim.STM (simHasFS')
@@ -43,58 +45,83 @@ spec = describe "Initial funds" $ do
   initialFundsSpec @ShelleyEra
   initialFundsSpec @DijkstraEra
 
-  describe "Dijkstra historical deposits" $
-    prop "adding initial funds preserves accepted sizes, calculations and the deposit total" $
-      forAll (resize 0 $ arbitrary @(TransitionConfig DijkstraEra)) $ \transitionConfig -> do
-        let stakingCredential = KeyHashObj $ mkKeyHash @Staking 1
-            existingAddress = mkAddr (mkKeyHash @Payment 1) stakingCredential
-            fundedAddress = mkAddr (mkKeyHash @Payment 2) stakingCredential
-            existingInput = initialFundsPseudoTxIn existingAddress
-            existingOutput =
-              mkBasicTxOutWithStoreBackedDeposit @DijkstraEra
-                existingAddress
-                (ApplicationAssets . inject $ Coin 4)
-            canonicalSizedOutput = mkSized (eraProtVerLow @DijkstraEra) existingOutput
-            existingAllocation =
-              Unspent
-                { sizedOutput = canonicalSizedOutput {sizedSize = sizedSize canonicalSizedOutput + 17}
-                , depositCalculation = DepositCalculationV1 . CoinPerByte . CompactCoin $ 3
-                }
-            initialFunds = ListMap.ListMap [(fundedAddress, Coin 7)]
-            fundingConfig =
-              transitionConfig
-                & tcShelleyGenesisL %~ \genesis ->
-                  genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
-            previousStore =
-              Store.mkUTxOStore legacyDepositCalculation $
-                IndexedUTxOs.singleton existingInput existingAllocation
-            previousState =
-              def @(NewEpochState DijkstraEra)
-                & utxoStoreL .~ previousStore
-                & reservesL .~ Coin 100
-                & instantStakeL . instantStakeCredentialsL .~ Map.singleton stakingCredential (CompactCoin 99)
-        fs <- simHasFS' MockFS.empty
-        fundedState <- registerInitialFunds fs fundingConfig previousState
-        let fundedStore = fundedState ^. utxoStoreG
-        IndexedUTxOs.lookupUTxO existingInput (Store.allocations fundedStore)
-          `shouldBe` Just existingAllocation
-        Store.totalDepositAmount fundedStore `shouldBe` Store.totalDepositAmount previousStore
-        fundedState ^. reservesL `shouldBe` Coin 93
-        fundedState
-          ^. instantStakeG
-            . instantStakeCredentialsL
-            `shouldBe` Map.singleton stakingCredential (CompactCoin 11)
+  describe "Dijkstra historical deposits"
+    $ prop
+      "initial funds use AtStoreMigration and preserve accepted entries with nonzero history"
+    $ forAll ((,) <$> resize 0 (arbitrary @(TransitionConfig DijkstraEra)) <*> choose (1, 1000))
+    $ \(transitionConfig, epochLength) -> do
+      let stakingCredential = KeyHashObj $ mkKeyHash @Staking 1
+          existingAddress = mkAddr (mkKeyHash @Payment 1) stakingCredential
+          fundedAddress = mkAddr (mkKeyHash @Payment 2) stakingCredential
+          existingInput = initialFundsPseudoTxIn existingAddress
+          fundedInput = initialFundsPseudoTxIn fundedAddress
+          existingOutput =
+            mkBasicTxOutWithStoreBackedDeposit @DijkstraEra
+              existingAddress
+              (ApplicationAssets . inject $ Coin 4)
+          existingAllocation =
+            Unspent
+              { Unspent.output = existingOutput
+              , allocatedAt = AtSlot (SlotNo 1234)
+              }
+          initialFunds = ListMap.ListMap [(fundedAddress, Coin 7)]
+          fundingConfig =
+            transitionConfig
+              & tcShelleyGenesisL %~ \genesis ->
+                genesis
+                  { sgNetworkId = Testnet
+                  , sgInitialFunds = initialFunds
+                  , sgExtraConfig = SNothing
+                  , -- Full injection computes committee key ages in epochs.
+                    sgEpochLength = EpochSize epochLength
+                  }
+          history =
+            fromJust $
+              appendFormula
+                (SlotNo 1000)
+                (DepositFormulaV2 $ CoinPerByte $ CompactCoin 7)
+                (mkDepositFormulaHistory $ DepositFormulaV1 $ CoinPerByte $ CompactCoin 3)
+          previousStore = Store.mkUTxOStore history $ IndexedUTxOs.singleton existingInput existingAllocation
+          previousState =
+            def @(NewEpochState DijkstraEra)
+              & utxoStoreL .~ previousStore
+              & reservesL .~ Coin 100
+              & instantStakeL . instantStakeCredentialsL .~ Map.singleton stakingCredential (CompactCoin 99)
+      fs <- simHasFS' MockFS.empty
+      fundedState <- registerInitialFunds fs fundingConfig previousState
+      let fundedStore = fundedState ^. utxoStoreG
+      IndexedUTxOs.lookupUTxO existingInput (Store.allocations fundedStore)
+        `shouldBe` Just existingAllocation
+      (allocatedAt <$> IndexedUTxOs.lookupUTxO fundedInput (Store.allocations fundedStore))
+        `shouldBe` Just AtStoreMigration
+      Store.totalDepositAmount fundedStore `shouldBe` Store.totalDepositAmount previousStore
+      Store.depositFormulaHistory fundedStore `shouldBe` Store.depositFormulaHistory previousStore
+      fundedState ^. reservesL `shouldBe` Coin 93
+      fundedState
+        ^. instantStakeG
+          . instantStakeCredentialsL
+          `shouldBe` Map.singleton stakingCredential (CompactCoin 11)
+      -- Re-entering the complete injection path must not migrate the Store again.
+      initializedState <-
+        injectIntoTestState fs (fundingConfig & tcInitialFundsL .~ mempty) fundedState
+      initializedState ^. utxoStoreG `shouldBe` fundedStore
 
 initialFundsSpec ::
   forall era.
   (EraTransition era, Arbitrary (TransitionConfig era)) =>
   Spec
 initialFundsSpec = describe (eraName @era) $ do
+  let stakingCredential = KeyHashObj $ mkKeyHash @Staking 1
+      existingAddress = mkAddr (mkKeyHash @Payment 1) stakingCredential
+      fundedAddress = mkAddr (mkKeyHash @Payment 2) stakingCredential
+      existingInput = initialFundsPseudoTxIn existingAddress
+      fundedInput = initialFundsPseudoTxIn fundedAddress
+      history = mkDepositFormulaHistory $ DepositFormulaV1 $ CoinPerByte $ CompactCoin 3
   prop "disjoint initial funds preserve existing outputs and reconstruct stake from all outputs" $
     forAll (resize 0 $ arbitrary @(TransitionConfig era)) $ \transitionConfig -> do
       let existingOutput = mkCoinTxOut @era existingAddress (Coin 4)
           previousStore =
-            Store.mkUTxOStore legacyDepositCalculation . IndexedUTxOs.fromLegacyTxOuts $
+            Store.mkUTxOStore history . IndexedUTxOs.fromLegacyTxOuts $
               Map.singleton existingInput existingOutput
           previousState =
             def @(NewEpochState era)
@@ -117,6 +144,8 @@ initialFundsSpec = describe (eraName @era) $ do
                        ]
                    )
       Store.totalDepositAmount fundedStore `shouldBe` Store.totalDepositAmount previousStore
+      (allocatedAt <$> IndexedUTxOs.lookupUTxO fundedInput (Store.allocations fundedStore))
+        `shouldBe` Just AtStoreMigration
       fundedState ^. reservesL `shouldBe` Coin 93
       fundedState ^. treasuryL `shouldBe` Coin 23
       fundedState
@@ -131,7 +160,10 @@ initialFundsSpec = describe (eraName @era) $ do
             transitionConfig
               & tcShelleyGenesisL %~ \genesis ->
                 genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
-          previousState = def @(NewEpochState era) & reservesL .~ Coin 100
+          previousState =
+            def @(NewEpochState era)
+              & utxoStoreL .~ Store.mkEmptyUTxOStore history
+              & reservesL .~ Coin 100
       fs <- simHasFS' MockFS.empty
       fundedState <- registerInitialFunds fs fundingConfig previousState
       IndexedUTxOs.mapTxOuts id (Store.allocations $ fundedState ^. utxoStoreG)
@@ -150,7 +182,7 @@ initialFundsSpec = describe (eraName @era) $ do
               & tcShelleyGenesisL %~ \genesis ->
                 genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
           previousStore =
-            Store.mkUTxOStore legacyDepositCalculation
+            Store.mkUTxOStore history
               . IndexedUTxOs.fromLegacyTxOuts
               . Map.singleton existingInput
               $ mkCoinTxOut @era existingAddress (Coin 4)
@@ -173,9 +205,3 @@ initialFundsSpec = describe (eraName @era) $ do
       fs <- simHasFS' MockFS.empty
       registerInitialFunds fs mainnetConfig (def @(NewEpochState era))
         `shouldThrow` (== InjectionNotAllowedOnMainnet)
-  where
-    stakingCredential = KeyHashObj $ mkKeyHash @Staking 1
-    existingAddress = mkAddr (mkKeyHash @Payment 1) stakingCredential
-    fundedAddress = mkAddr (mkKeyHash @Payment 2) stakingCredential
-    existingInput = initialFundsPseudoTxIn existingAddress
-    fundedInput = initialFundsPseudoTxIn fundedAddress

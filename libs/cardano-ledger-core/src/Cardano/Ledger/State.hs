@@ -6,7 +6,8 @@ module Cardano.Ledger.State (
   module Cardano.Ledger.State.Accounting.UTxOs.Store,
   module Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs,
   module Cardano.Ledger.State.Accounting.UTxOs.Deposit,
-  Unspent (..),
+  AllocatedAt (..),
+  Unspent (Unspent, allocatedAt),
 
   -- * Certificates
   module Cardano.Ledger.State.Certificates,
@@ -43,7 +44,10 @@ import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs hiding (
   toList,
  )
 import Cardano.Ledger.State.Accounting.UTxOs.Store
-import Cardano.Ledger.State.Accounting.UTxOs.Unspent (Unspent (..))
+import Cardano.Ledger.State.Accounting.UTxOs.Unspent (
+  AllocatedAt (..),
+  Unspent (Unspent, allocatedAt),
+ )
 import Cardano.Ledger.State.Certificates
 import Cardano.Ledger.State.Certificates.Account
 import Cardano.Ledger.State.Certificates.StakePool

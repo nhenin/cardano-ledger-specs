@@ -56,7 +56,6 @@ module Cardano.Ledger.Shelley.Transition (
 
 import Cardano.Ledger.Address
 import Cardano.Ledger.BaseTypes
-import Cardano.Ledger.Binary (mkSized)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential
@@ -73,8 +72,7 @@ import Cardano.Ledger.Shelley.Translation (
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
-import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
-import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.Val
 import Control.Monad (unless, when)
 import Control.Monad.Class.MonadST (MonadST)
@@ -133,9 +131,9 @@ class
     TransitionConfig (PreviousEra era) ->
     TransitionConfig era
 
-  -- | Initialize empty output storage for this era's effective parameters.
-  -- Earlier eras keep the canonical legacy calculation because their state
-  -- format does not carry a separately held deposit policy.
+  -- | Initialize empty output storage for this era.
+  -- Earlier eras use the default baseline without dated changes; Dijkstra
+  -- overrides this with a baseline derived from its effective parameters.
   initialUTxOStore :: PParams era -> UTxOStore era
   initialUTxOStore _ = def
 
@@ -639,6 +637,8 @@ resetStakeDistribution nes =
 -- In production, the genesis should /not/ contain any initial funds.
 --
 -- The given funds are /added/ to the existing UTxO.
+-- Imported entries use 'AtStoreMigration'; no transaction acceptance slot is known.
+-- The supplied Store's history and existing allocation origins are preserved.
 --
 -- PRECONDITION: the given funds must not be part of the existing UTxO.
 -- > forall (addr, _) in initialFunds.
@@ -668,10 +668,14 @@ registerInitialFunds hasFS tc newEpochState = do
   when (tc ^. tcNetworkIDG == Mainnet) $
     throwIO InjectionNotAllowedOnMainnet
   let genesis = tc ^. tcShelleyGenesisL
-      addInitialFund (!outputs, !totalFunds) (address, amount) =
+      addInitialFund (!entries, !totalFunds) (address, amount) =
         let input = initialFundsPseudoTxIn address
-            output = mkSized (eraProtVerLow @era) $ mkBasicTxOutWithImplicitDeposit address (inject amount)
-         in (Map.insert input output outputs, totalFunds <> amount)
+            entry =
+              Unspent
+                { Unspent.output = mkBasicTxOutWithImplicitDeposit address (inject amount)
+                , allocatedAt = AtStoreMigration
+                }
+         in (Map.insert input entry entries, totalFunds <> amount)
   initialFundsSource <-
     resolveInjectionSource
       "initialFunds"
@@ -679,13 +683,15 @@ registerInitialFunds hasFS tc newEpochState = do
       secInitialFunds
       (sgInitialFunds genesis)
 
-  (initialOutputs, totalInitialFunds) <-
+  (initialAllocations, totalInitialFunds) <-
     foldInjectionData hasFS initialFundsSource addInitialFund (Map.empty, mempty)
 
-  let fundedStore = StoreInternals.allocate (IndexedTxOs.IndexedTxOs initialOutputs) previousStore
+  let fundedStore =
+        Store.mkUTxOStore (Store.depositFormulaHistory previousStore) $
+          existingAllocations <> IndexedUTxOs.IndexedUTxOs initialAllocations
   -- Check only the injected inputs; existing outputs and their historical
   -- metadata remain in the Store throughout initialization.
-  case find (`IndexedUTxOs.member` existingAllocations) . Map.keys $ initialOutputs of
+  case find (`IndexedUTxOs.member` existingAllocations) . Map.keys $ initialAllocations of
     Just input -> error $ "initial fund part of UTxO: " <> show input
     Nothing ->
       pure $!

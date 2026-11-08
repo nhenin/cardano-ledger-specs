@@ -138,7 +138,7 @@ declaredOrdinaryProposal proposal =
     (Accounting.withExactLocalSubTxDeclarations proposal)
 
 -- | Create a real signed body whose Store output uses an indefinite CBOR map.
--- It decodes to the same output as the canonical definite map, but costs one
+-- It decodes to the same output as the canonical definite map, and uses one
 -- additional accepted byte. Decode the complete modified body before signing;
 -- never manufacture a 'Binary.Sized' value or edit its cached size.
 -- The returned byte count is measured directly from the supplied wire encoding.
@@ -146,7 +146,7 @@ buildAndSignNoncanonicalAllocation :: Coin -> ImpTestM DijkstraEra (Tx TopTx Dij
 buildAndSignNoncanonicalAllocation = buildAndSignNoncanonicalAllocationAtRate (CoinPerByte $ CompactCoin 1000)
 
 -- | Allocate under the supplied rate so one reachable ledger can retain several
--- creation prices. The size still comes from decoding the actual accepted bytes.
+-- creation rates. This ADA-only output incurs exactly the V1 base charge.
 buildAndSignNoncanonicalAllocationAtRate ::
   CoinPerByte -> Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, Int)
 buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) coins = do
@@ -157,7 +157,7 @@ buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) 
       canonical = BSL.toStrict $ Binary.serialize version output
       noncanonical = BS.cons 0xbf (BS.tail canonical) <> BS.singleton 0xff
       acceptedBytes = BS.length noncanonical
-      requiredDeposit = Coin $ toInteger price * (160 + toInteger acceptedBytes)
+      requiredDeposit = Coin $ toInteger price * 250
   -- The fixture has just address and applicationAssets, hence a two-field map.
   BS.head canonical `shouldBe` 0xa2
   Binary.decodeFull @(TxOut DijkstraEra) version (BSL.fromStrict noncanonical) `shouldBe` Right output
@@ -189,13 +189,13 @@ buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) 
 -- | The child creates a noncanonical output and delegates its deposit funding to
 -- TopTx. Decode and sign the child first, then sign the parent with its final ID.
 buildAndSignNoncanonicalSubAllocation ::
-  Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, TxIn, Int)
+  Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, TxIn)
 buildAndSignNoncanonicalSubAllocation coins = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 1000)
   address <- freshKeyAddrNoPtr_
   let output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject coins
       acceptedBytes = fromIntegral (BSL.length $ Binary.serialize (eraProtVerLow @DijkstraEra) output) + 1
-      deposit = 1000 * (160 + toInteger acceptedBytes)
+      deposit = 1000 * 250
       child =
         mkBasicTx mkBasicTxBody
           & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
@@ -216,7 +216,7 @@ buildAndSignNoncanonicalSubAllocation coins = do
   signed <-
     rederiveAddrTxWits $
       prepared & bodyTxL . subTransactionsTxBodyL .~ OMap.fromFoldable [signedChild]
-  pure (signed, txInAt 0 signedChild, measuredBytes)
+  pure (signed, txInAt 0 signedChild)
 
 -- | Change only an output's CBOR map framing inside a prepared transaction.
 -- Witnesses are rederived without balancing or replacing the decoded body.

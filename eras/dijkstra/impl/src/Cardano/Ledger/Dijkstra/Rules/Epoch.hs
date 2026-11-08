@@ -16,7 +16,7 @@
 
 module Cardano.Ledger.Dijkstra.Rules.Epoch () where
 
-import Cardano.Ledger.BaseTypes (ProtVer, ShelleyBase)
+import Cardano.Ledger.BaseTypes (ProtVer, ShelleyBase, epochInfoPure)
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Conway.Governance (
   ConwayEraGov (..),
@@ -70,8 +70,9 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Rewards ()
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Slot (EpochNo)
+import Cardano.Ledger.Slot (EpochNo, epochInfoFirst)
 import Cardano.Ledger.Val (zero)
+import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition (
   Embed (..),
   STS (..),
@@ -160,6 +161,8 @@ epochTransition = do
       , eNo
       ) <-
     judgmentContext
+  epochInfo <- liftSTS $ asks epochInfoPure
+  let activationSlot = epochInfoFirst epochInfo eNo
   let chainAccountState0 = epochState0 ^. chainAccountStateL
       govState0 = lsGovState ledgerState0
       curPParams = govState0 ^. curPParamsGovStateL
@@ -216,7 +219,7 @@ epochTransition = do
       accountingState1
         & asDepositedL .~ totalObligation certState2 govState1
         & asDonationL .~ zero
-        & asUTxOStoreL %~ activateDepositParameters (govState1 ^. curPParamsGovStateL)
+        & asUTxOStoreL %~ activateDepositParameters activationSlot (govState1 ^. curPParamsGovStateL)
     ledgerState1 =
       ledgerState0
         & lsCertStateL .~ certState2

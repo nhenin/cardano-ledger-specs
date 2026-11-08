@@ -4,8 +4,7 @@
 -- obligation. The expected output fields come directly from the Conway state.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.TranslationSpec (spec) where
 
-import qualified Cardano.Ledger.Binary as Binary
-import Cardano.Ledger.Coin (CompactForm (..))
+import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Shelley.LedgerState
@@ -57,17 +56,22 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
         recordedAmounts (liveOutputStore accountingState) `shouldBe` Map.empty
         -- Translation activates the effective Dijkstra rate for future outputs;
-        -- imported legacy outputs retain their zero-deposit historical metadata.
-        currentCalculation (liveOutputStore accountingState)
-          `shouldBe` DepositCalculationV1 (translatedState ^. nesEsL . curPParamsEpochStateL . ppCoinsPerUTxOByteL)
+        -- imported legacy outputs resolve the initial fork formula through AtStoreMigration.
+        currentFormula (liveOutputStore accountingState)
+          `shouldBe` DepositFormulaV1 (translatedState ^. nesEsL . curPParamsEpochStateL . ppCoinsPerUTxOByteL)
+        initialFormula (depositFormulaHistory $ liveOutputStore accountingState)
+          `shouldBe` currentFormula (liveOutputStore accountingState)
+        formulaChanges (depositFormulaHistory $ liveOutputStore accountingState)
+          `shouldBe` Map.empty
         let entries = allocations $ liveOutputStore accountingState
         IndexedUTxOs.inputIds entries `shouldBe` Map.keysSet translatedOutputs
         forM_ (IndexedUTxOs.unspentOutputs entries) $ \entry -> case Unspent.toTxOut entry of
           LegacyTxOut _ -> do
-            -- Imported legacy outputs use explicit compatibility metadata; their
-            -- historical accepted size cannot be recovered from the Conway state.
-            sizedOutput entry `shouldBe` Binary.mkSized (eraProtVerLow @DijkstraEra) (Unspent.toTxOut entry)
-            depositCalculation entry `shouldBe` DepositCalculationV1 (CoinPerByte $ CompactCoin 0)
+            -- Migration marks the retained output without inventing its original
+            -- creation date. The initial formula needs no dated activation.
+            allocatedAt entry `shouldBe` AtStoreMigration
+            Unspent.computeExternalDeposit (depositFormulaHistory $ liveOutputStore accountingState) entry
+              `shouldBe` Coin 0
           NewTxOut _ -> expectationFailure "Every translated Conway output must remain a LegacyTxOut"
         toCoin (totalDepositAmount $ liveOutputStore accountingState)
           `shouldBe` expectedDepositTotal (liveOutputStore accountingState)

@@ -10,67 +10,103 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Unspent outputs and the metadata retained for their deposit calculation.
+-- | Unspent outputs and the metadata retained for their deposit formula.
 module Cardano.Ledger.State.Accounting.UTxOs.Unspent (
+  AllocatedAt (..),
   Unspent (..),
   toTxOut,
-  depositAmount,
+  allocationFormula,
+  computeExternalDeposit,
   encodeWith,
   fromLegacyTxOut,
 ) where
 
+import Cardano.Ledger.BaseTypes (SlotNo)
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   DecShareCBOR (..),
   Decoder,
   EncCBOR (..),
   Encoding,
-  Sized (..),
   decodeRecordNamed,
+  decodeRecordSum,
   encodeListLen,
-  mkSized,
+  encodeWord,
  )
 import Cardano.Ledger.Coin (Coin)
-import Cardano.Ledger.Core.Era (eraProtVerLow)
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
-  ByteSize (..),
-  DepositCalculation,
-  calculateDeposit,
-  legacyDepositCalculation,
+  DepositFormula,
+  DepositFormulaHistory (initialFormula),
+  formulaAt,
  )
-import Cardano.Ledger.TxOut (EraTxOut (..), TxOut (..))
+import Cardano.Ledger.TxOut (
+  EraNewTxOut (..),
+  EraTxOut (LegacyTxOut),
+  TxOut (..),
+ )
 import Control.DeepSeq (NFData)
-import Control.Monad (when)
 import Data.Aeson (ToJSON (..), object, (.=))
 import GHC.Generics (Generic)
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
--- | An unspent value retaining its FULL accepted output size and the deposit
--- calculation chosen at creation. Construction does not re-encode the output.
--- The wrapped TxOut determines whether its deposit is separately held.
+-- | The first Store migration or a subsequent dated allocation. Migration
+-- entries permanently use the history's initial formula; no original
+-- creation date is invented for outputs imported from a legacy representation.
+data AllocatedAt
+  = AtStoreMigration
+  | AtSlot !SlotNo
+  deriving (Eq, Ord, Show, Generic)
+
+-- | An accepted output and the origin that selects its deposit formula.
 data Unspent output = Unspent
-  { sizedOutput :: !(Sized output)
-  , depositCalculation :: !DepositCalculation
+  { output :: !output
+  , allocatedAt :: !AllocatedAt
   }
   deriving (Eq, Show, Generic)
 
--- | Import an output from a legacy format that did not store deposit metadata.
--- The canonical size and zero-rate calculation are compatibility values; they
--- are never used to reconstruct a store-backed output's historical deposit.
-fromLegacyTxOut :: forall era. EraTxOut era => LegacyTxOut era -> Unspent (TxOut era)
-fromLegacyTxOut output =
-  let sized = mkSized (eraProtVerLow @era) . LegacyTxOut $ output
-   in sizedSize sized `seq`
-        Unspent {sizedOutput = sized, depositCalculation = legacyDepositCalculation}
+-- | Import an output whose legacy encoding contains neither a creation slot
+-- nor pricing metadata. The migration marker resolves the initial Store formula;
+-- earlier-era payload codecs continue to contain no new metadata.
+fromLegacyTxOut :: LegacyTxOut era -> Unspent (TxOut era)
+fromLegacyTxOut txOut = Unspent (LegacyTxOut txOut) AtStoreMigration
 
 toTxOut :: Unspent (TxOut era) -> TxOut era
-toTxOut = sizedValue . sizedOutput
+toTxOut = output
 
-depositAmount :: Unspent (TxOut era) -> Coin
-depositAmount (Unspent (Sized output size) calculation) =
-  case output of
-    LegacyTxOut _ -> mempty
-    NewTxOut _ -> calculateDeposit calculation $ ByteSize size
+-- | The contribution to the separately held Store total. A legacy reserve is
+-- already included in its output and must never be credited a second time.
+-- Only eras supporting new outputs implement their deposit formula.
+computeExternalDeposit :: EraNewTxOut era => DepositFormulaHistory -> Unspent (TxOut era) -> Coin
+computeExternalDeposit history (Unspent txOut origin) = case txOut of
+  LegacyTxOut _ -> mempty
+  NewTxOut newOutput -> getDepositNewTxOut (allocationFormula history origin) newOutput
+
+-- | Resolve the migration baseline or the interval containing a dated allocation.
+allocationFormula :: DepositFormulaHistory -> AllocatedAt -> DepositFormula
+allocationFormula history origin = case origin of
+  AtStoreMigration -> initialFormula history
+  AtSlot slot -> formulaAt slot history
+
+instance NFData AllocatedAt
+
+instance NoThunks AllocatedAt
+
+instance ToJSON AllocatedAt where
+  toJSON origin = case origin of
+    AtStoreMigration -> object ["kind" .= ("atStoreMigration" :: String)]
+    AtSlot slot -> object ["kind" .= ("atSlot" :: String), "slot" .= slot]
+
+instance EncCBOR AllocatedAt where
+  encCBOR origin = case origin of
+    AtStoreMigration -> encodeListLen 1 <> encodeWord 0
+    -- Tags 1 and 2 belonged to retired per-entry formula encodings.
+    AtSlot slot -> encodeListLen 2 <> encodeWord 3 <> encCBOR slot
+
+instance DecCBOR AllocatedAt where
+  decCBOR = decodeRecordSum "AllocatedAt" $ \tag -> case tag of
+    0 -> pure (1, AtStoreMigration)
+    3 -> (\slot -> (2, AtSlot slot)) <$> decCBOR
+    _ -> fail $ "AllocatedAt: unknown allocation origin " <> show tag
 
 instance NFData a => NFData (Unspent a)
 
@@ -80,12 +116,8 @@ deriving via
     NoThunks (Unspent a)
 
 instance ToJSON a => ToJSON (Unspent a) where
-  toJSON (Unspent (Sized output size) calculation) =
-    object
-      [ "output" .= output
-      , "acceptedSize" .= size
-      , "calculation" .= calculation
-      ]
+  toJSON (Unspent value origin) =
+    object ["output" .= value, "allocatedAt" .= origin]
 
 instance EncCBOR a => EncCBOR (Unspent a) where
   encCBOR = encodeWith encCBOR
@@ -97,17 +129,11 @@ instance DecShareCBOR a => DecShareCBOR (Unspent a) where
   type Share (Unspent a) = Share a
   decShareCBOR sharing = decodeUnspent $ decShareCBOR sharing
 
--- Preserve the recorded size explicitly: Sized's ordinary codec recalculates it.
 decodeUnspent :: Decoder s a -> Decoder s (Unspent a)
-decodeUnspent decodeOutput = decodeRecordNamed "Unspent" (const 3) $ do
-  output <- decodeOutput
-  size <- decCBOR
-  when (size < 0) $ fail $ "Unspent: negative output size " <> show size
-  Unspent (Sized output size) <$> decCBOR
+decodeUnspent decodeOutput =
+  decodeRecordNamed "Unspent" (const 2) $
+    Unspent <$> decodeOutput <*> decCBOR
 
 encodeWith :: (a -> Encoding) -> Unspent a -> Encoding
-encodeWith encodeOutput (Unspent (Sized output size) calculation) =
-  encodeListLen 3
-    <> encodeOutput output
-    <> encCBOR size
-    <> encCBOR calculation
+encodeWith encodeOutput (Unspent value origin) =
+  encodeListLen 2 <> encodeOutput value <> encCBOR origin

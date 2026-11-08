@@ -113,9 +113,15 @@ import Cardano.Ledger.Plutus.Data (
   dataToBinaryData,
  )
 import Cardano.Ledger.Plutus.Language (Language (..), plutusBinary)
+import Cardano.Ledger.Shelley.LedgerState (NewEpochState, curPParamsEpochStateL, nesEsL)
 import Cardano.Ledger.State (
   BlsKey (..),
+  DepositFormula (DepositFormulaV1),
   StakePoolParams (..),
+  allocations,
+  mkDepositFormulaHistory,
+  mkUTxOStore,
+  utxoStoreL,
  )
 import Cardano.Slotting.Slot (SlotInterval (..))
 import qualified Data.ByteString as Strict
@@ -127,7 +133,7 @@ import qualified Data.OMap.Strict as OMap
 import qualified Data.OSet.Strict as OSet
 import Data.Proxy (Proxy (..))
 import qualified Data.Sequence.Strict as StrictSeq
-import Lens.Micro ((%~), (&), (.~), (<>~))
+import Lens.Micro ((%~), (&), (.~), (<>~), (^.))
 import qualified PlutusLedgerApi.Common as P
 import Test.Cardano.Ledger.Alonzo.Arbitrary (alwaysSucceeds)
 import Test.Cardano.Ledger.Alonzo.Examples (
@@ -164,9 +170,24 @@ ledgerExamples =
             injectFailure $
               Conway.DelegateeStakePoolNotRegisteredDELEG (mkKeyHash 1)
     )
-    exampleBabbageNewEpochState
+    exampleDijkstraNewEpochState
     exampleDijkstraTx
     exampleDijkstraGenesis
+
+-- | The inherited legacy outputs enter Dijkstra with a real initial history.
+-- Their allocation marker keeps this baseline after later parameter changes.
+exampleDijkstraNewEpochState :: NewEpochState DijkstraEra
+exampleDijkstraNewEpochState =
+  exampleBabbageNewEpochState
+    & \state ->
+      state
+        & utxoStoreL
+          %~ mkUTxOStore
+            ( mkDepositFormulaHistory $
+                DepositFormulaV1 $
+                  state ^. nesEsL . curPParamsEpochStateL . ppCoinsPerUTxOByteL
+            )
+            . allocations
 
 exampleDijkstraTx :: Tx TopTx DijkstraEra
 exampleDijkstraTx =

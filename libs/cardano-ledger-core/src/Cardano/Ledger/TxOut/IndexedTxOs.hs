@@ -43,8 +43,7 @@ import GHC.Generics (Generic)
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 import Prelude hiding (null)
 
--- | Proposed outputs or an explicit output-only view of accepted entries.
--- Retain their original sizes without claiming historical deposit calculations.
+-- | Proposed outputs with the encoded sizes supplied by the transaction body.
 newtype IndexedTxOs era = IndexedTxOs
   { unIndexedTxOs :: Map TxIn (Sized (TxOut era))
   }

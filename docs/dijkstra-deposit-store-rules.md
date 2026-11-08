@@ -26,13 +26,13 @@ Appendices contain the open design questions and supporting references.
       <summary><a href="#ds-pricing">1.4 Deposit calculation</a></summary>
       <dl>
         <dd>
-          <a href="#ds-pricing-p01">1.4.1 P01 - Records the deposit priced from accepted bytes</a><br>
-          <a href="#ds-pricing-n01">1.4.2 N01 - allocates each UTxO capacity deposit as coinsPerUTxOByte * (160 + accepted serialized output size)</a><br>
-          <a href="#ds-pricing-n02">1.4.3 N02 - uses the same UTxO capacity deposit formula for a store-backed collateral return</a><br>
-          <a href="#ds-pricing-n03">1.4.4 N03 - includes address, application assets, datum and reference script in the priced size</a><br>
-          <a href="#ds-pricing-n04">1.4.5 N04 - excludes the external UTxO capacity deposit amount and Store declaration from the priced output</a><br>
-          <a href="#ds-pricing-n05">1.4.6 N05 - handles CBOR size boundaries when an application coin amount changes</a><br>
-          <a href="#ds-pricing-n06">1.4.7 N06 - assigns no DepositStore obligation to implicit outputs</a><br>
+          <a href="#ds-pricing-p01">1.4.1 P01 - Price each created output</a><br>
+          <a href="#ds-pricing-n01">1.4.2 N01 - Count distinct native assets</a><br>
+          <a href="#ds-pricing-n02">1.4.3 N02 - Price an applied collateral return</a><br>
+          <a href="#ds-pricing-n03">1.4.4 N03 - Measure datum and reference script payloads</a><br>
+          <a href="#ds-pricing-n04">1.4.5 N04 - Vary the declaration independently</a><br>
+          <a href="#ds-pricing-n05">1.4.6 N05 - Preserve the price across ADA encoding boundaries</a><br>
+          <a href="#ds-pricing-n06">1.4.7 N06 - Keep a legacy reserve inside its output</a><br>
         </dd>
       </dl>
     </details>
@@ -550,7 +550,7 @@ Appendices contain the open design questions and supporting references.
               <dd>
                 <a href="#ds-state-allocations-p01">3.2.1.1 P01 - Ordinary records</a><br>
                 <a href="#ds-state-allocations-p02">3.2.1.2 P02 - Collateral records</a><br>
-                <a href="#ds-state-allocations-p03">3.2.1.3 P03 - Retained accepted size</a><br>
+                <a href="#ds-state-allocations-p03">3.2.1.3 P03 - Restore the historical deposit</a><br>
                 <a href="#ds-state-allocations-n01">3.2.1.4 N01 - Zero-priced allocations still have records</a><br>
                 <a href="#ds-state-allocations-p04">3.2.1.5 P04 - No ordinary records on failure</a><br>
               </dd>
@@ -567,6 +567,7 @@ Appendices contain the open design questions and supporting references.
                 <a href="#ds-state-balance-p05">3.2.2.5 P05 - Refund mixed historical prices</a><br>
                 <a href="#ds-state-balance-p06">3.2.2.6 P06 - Restore and refund a child output</a><br>
                 <a href="#ds-state-balance-p07">3.2.2.7 P07 - Restore and refund a collateral return</a><br>
+                <a href="#ds-state-balance-p08">3.2.2.8 P08 - Refund across formula versions</a><br>
               </dd>
             </dl>
           </details>
@@ -709,125 +710,178 @@ deposit metadata is outside the serialized output.
 
 ### 1.2 DepositStore
 
-> **Keep each live output with its original deposit calculation; maintain their exact total.**
-
-`UTxOStore` owns the `currentCalculation`, one map from `TxIn` to `Unspent (TxOut era)` and a
-cached `totalDepositAmount`. Every allocation retains a sized output and a
-`DepositCalculation`; the `TxOut` distinguishes legacy and Store-backed outputs.
-For newly accepted outputs, the size is that of the complete accepted output,
-including its variant encoding. It is retained explicitly because canonical
-re-encoding can be shorter. Legacy outputs retain the supplied metadata too,
-while their external deposit remains zero.
-
-The store and its wrappers use record fields:
+> **Retain the output and its allocation origin. The origin selects the formula for its refund.**
 
 ```haskell
 data UTxOStore era = UTxOStore
-  { currentCalculation :: !DepositCalculation
+  { depositFormulaHistory :: !DepositFormulaHistory
   , totalDepositAmount :: !DepositAmount
   , allocations :: !(IndexedUTxOs era)
   }
 
-newtype DepositAmount = DepositAmount
-  { toCoin :: Coin
-  }
+newtype DepositAmount = DepositAmount {toCoin :: Coin}
 
 newtype IndexedUTxOs era = IndexedUTxOs
   { unIndexedUTxOs :: Map TxIn (Unspent (TxOut era))
   }
 
 data Unspent output = Unspent
-  { sizedOutput :: !(Sized output)
-  , depositCalculation :: !DepositCalculation
+  { output :: !output
+  , allocatedAt :: !AllocatedAt
+  }
+
+data AllocatedAt
+  = AtStoreMigration
+  | AtSlot !SlotNo
+
+data DepositFormulaHistory = DepositFormulaHistory
+  { initialFormula :: !DepositFormula
+  , formulaChanges :: !(Map SlotNo DepositFormula)
   }
 ```
 
-| Quantity | Meaning |
+An accepted output enters the Store as `Unspent output (AtSlot slot)`.
+The fork imports each translated legacy output as `Unspent output AtStoreMigration`.
+The output provides the asset, datum and script measurements for [Deposit calculation](#ds-pricing).
+
+**History always has a baseline.** `mkDepositFormulaHistory baseline` starts with no dated
+changes. The default is V1 at **4310 lovelace per byte**, with no dated changes;
+`Default UTxOStore` uses this history and empty allocations. `initialFormula`
+prices imported entries permanently and all dated entries preceding the first change.
+Each subsequent change retains its formula and parameters over $[s_i,s_{i+1})$; the final interval has no upper bound.
+
+**Prototype migration uses one initial formula.** Imported outputs and new outputs
+allocated before the first change use the same baseline. This history records
+changes introduced after the fork; it does not reconstruct pre-fork pricing or
+require a migration slot. Later activations affect newly allocated outputs while
+existing entries retain their allocation-time formula.
+
+| Allocation | Formula retained |
 | --- | --- |
-| `allocatedUTxODeposit(output)` | Creation-time price multiplied by `160 + acceptedSize`; zero for a legacy allocation. |
-| `storeBalance` | Cached sum of the deposits calculated from the live allocations' historical metadata. |
+| Imported at migration | `initialFormula = DepositFormulaV1 rateA` |
+| New, before the first change | `DepositFormulaV1 rateA` |
+| New, after a parameter change | `DepositFormulaV1 rateB` |
+| New, after a formula-version change | `DepositFormulaV2 rateC` |
+
+V1 prices a base of 250 bytes plus 74 bytes per distinct native asset. The experimental
+V2 changes these coefficients to 260 and 80. Both add the datum and reference script
+payload lengths and multiply by their recorded rate.
+
+Let $f_b$ be the baseline formula and $(s_i,f_i)$ the ordered changes:
 
 $$
-\text{storeBalance}
-= \sum_{\text{output}\in\text{live store-backed outputs}}
-\text{allocatedUTxODeposit(output)}
+H(s)=
+\begin{cases}
+f_b & \text{if no change starts at or before }s \\
+f_j & j=\max\{i\mid s_i\leq s\}
+\end{cases}
 $$
 
-Construct an allocation directly as
-`Unspent {sizedOutput = acceptedOutput, depositCalculation = calculation}`,
-preserving the accepted full-output size and explicit calculation. Construction is pure;
-`mkUTxOStore` accepts a current calculation and historical `IndexedUTxOs`, preserves the entries and derives the cached total. Persisted metadata is checked during decoding.
-`allocate` receives proposed `IndexedTxOs`, preserves occupied references, records the Store's `currentCalculation` on each new entry and adds their deposits; `release` removes
-selected entries and subtracts their historical deposits. Both preserve exact
-cached equality for a valid Store.
-`Store.Internals.projectValidTxBody body` composes these operations for one body's regular inputs and
-outputs. Each projection returns `TxProjected`, containing `updatedStore`,
-`consumedOutputs` and `producedOutputs`. `updateInstantStake` applies those same
-entries to the stake index. The accounting rule installs both results and emits
-`TxUTxODiff`; retained entries at colliding output references are excluded from
-`producedOutputs` and add no stake. Successful TopTx and SubTx paths use the same
-result type, with SubTx execution selected by the ledger.
-`Store.Internals.projectInvalidTxBody body` selects the collateral inputs and return on phase-2 failure.
-`Store.projectTx tx` selects the appropriate body projection from the transaction's
-phase-2 validity tag. It projects only TopTx's own effects; SubTx execution remains
-under the ledger's control.
-Snapshot decoding validates both metadata and cached equality. The exported record
-selectors also support direct record updates, whose callers must preserve the
-relationship between the allocations and their total.
-The cached total and allocation metadata describe the same ADA, counted once;
-there is no unallocated Store surplus. Legacy outputs occupy the same map and
-retain their existing minimum-ADA requirement, with no external deposit.
+| Allocation origin | Formula $F_H(u)$ |
+| --- | --- |
+| `AtStoreMigration` | The baseline $f_b$, including after later changes. |
+| `AtSlot slot` | $H(\text{slot})$: the latest applicable change, otherwise the baseline. |
 
-**Allocate** stores the new output with its accepted size and creation-time price.
-**Release** removes the consumed allocation and makes its exact historical deposit
-available. A release can fund a new allocation in the same transaction. A price
-change affects new allocations; it does not reprice existing allocations.
+`formulaAt`, `latestFormula` and the Store's derived `currentFormula`
+return a formula directly. `periods` includes the baseline interval with
+`fromInclusive = Nothing`; the last interval has `untilExclusive = Nothing`.
 
-**Activate** selects the calculation for future allocations. At an effective parameter
-change, the ledger updates the current rate while preserving the selected formula version.
-Existing entries and the cached total remain unchanged:
+**The output variant determines where the reserve is held.** Let $C(u)$ be the
+output ADA and $P(u)=F_H(u)(\text{output}(u))$ its calculated deposit.
+
+| View | `LegacyTxOut` | `NewTxOut` |
+| --- | --- | --- |
+| `computeDeposit` | $\min(C(u),P(u))$ | $P(u)$ |
+| Application ADA | $C(u)-\min(C(u),P(u))$ | $C(u)$ |
+| `computeExternalDeposit` | $0$ | $P(u)$ |
+| Stored output payload | Unchanged; reserve remains included | Unchanged; deposit is external |
+
+Native assets are preserved in both application views. When a legacy output cannot
+cover the calculated reserve, its application ADA is zero. This is a **view**, not
+a transfer or payload rewrite. Spending that output still provides its complete
+value; its reserve must never be credited a second time.
 
 $$
-\begin{aligned}
-S' &= \text{activateNewCalculation}(c,S) \\
-\text{currentCalculation}(S') &= c \\
-\text{allocations}(S') &= \text{allocations}(S) \\
-\text{totalDepositAmount}(S') &= \text{totalDepositAmount}(S)
-\end{aligned}
+\text{totalDepositAmount}(S)
+= \sum_{u\in\text{allocations}(S)}
+\text{computeExternalDeposit}(\text{depositFormulaHistory}(S),u)
 $$
 
-Accounting queries read the retained allocations directly. `Unspent.depositAmount`
-calculates one historical deposit and `allocatedDepositTotalAmount` sums selected input refunds.
-The amount reads are pure:
+The cached total contains only separately held deposits. Legacy reserves remain
+inside output ADA; there is no unallocated Store surplus.
+
+**Builder queries use explicit history and return values directly.** Every
+allocation resolves either the baseline or a dated change:
 
 ```haskell
-Unspent.depositAmount :: Unspent (TxOut era) -> Coin
-sumDepositAmounts :: IndexedUTxOs era -> DepositAmount
-allocatedDepositTotalAmount :: Set TxIn -> IndexedUTxOs era -> DepositAmount
+-- Dijkstra builder queries, shown specialized to the active era.
+computeDeposit ::
+  DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> Coin
+
+computeApplicationAssets ::
+  DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> ApplicationAssets DijkstraEra
+
+-- The shared Store sums only separately held deposits.
+computeExternalDeposit ::
+  EraNewTxOut era => DepositFormulaHistory -> Unspent (TxOut era) -> Coin
+
+-- Resolve many inputs against the same history.
+depositFor = computeDeposit (depositFormulaHistory store)
+depositFor entry
 ```
 
-Entry decoding rejects negative persisted sizes. Store operations rely on measured
-output sizes. `lookupUTxO`, `allocatedDepositTotalAmount` and
-`sumDepositAmounts` operate on `IndexedUTxOs era`; callers supply the Store's
-`allocations` field and use `toCoin` explicitly when Coin arithmetic is needed.
-Store construction consumes the aggregate `DepositAmount` directly.
-Consumers read `sizedOutput` and `depositCalculation`;
-the wrapped `TxOut` retains its `LegacyTxOut` or `NewTxOut` constructor.
-`mkEmptyUTxOStore` creates the empty Store. Its `EncCBOR` instance owns snapshot
-encoding; `IndexedUTxOs` retains ordinary CBOR for query results.
-Store-backed allocations remain present even when priced at zero. Earlier eras keep their legacy encodings and zero separately held deposits.
-`DepositCalculationV2` is accepted with the same provisional formula as V1.
-Genesis and translation initialize V1; rate updates preserve an already selected V1 or V2.
-Unknown encoded calculation versions are rejected.
+`mkUTxOStore history entries` preserves output payloads and allocation origins and
+derives the external total. `sumDepositAmounts history entries` and
+`allocatedDepositTotalAmount history inputs entries` return `DepositAmount`;
+use `toCoin` explicitly for Coin arithmetic.
 
-Legacy imports that lack accepted metadata currently use `mkSized` at the era's
-lowest protocol version and `DepositCalculationV1` with a zero byte price. These
-are provisional compatibility values, not recovered historical size or policy.
-This does not represent the historical minimum-ADA formula used for a legacy
-output: those formulas and their parameters changed between eras. Legacy history
-representation remains an unresolved design issue; the compatibility value must
-not be interpreted as a recovered creation policy. This fallback does not apply
-to Store-backed outputs whose supplied metadata is available.
+| Operation | Contract |
+| --- | --- |
+| `allocate slot outputs` | Keep occupied references and record each new output with `allocatedAt = AtSlot slot`. |
+| `release inputs` | Remove selected entries and debit their historical **external** deposits. |
+| `appendFormula slot formula` | Add the first dated change or one strictly after the latest; reject replacement or insertion into existing periods. |
+| `activateNewFormula slot formula` | Append without repricing existing entries; reapplying the latest formula is a no-op. |
+
+Activation preserves existing entries and the cached total. Effective parameter
+changes use the **actual epoch boundary slot**, even when the first transaction
+arrives later. TopTx, its SubTxs and any collateral return record their ledger slot.
+
+```haskell
+Store.projectTx slot tx previousStore
+Store.Internals.projectValidTxBody slot body previousStore
+Store.Internals.projectInvalidTxBody slot body previousStore
+```
+
+Each projection returns `TxProjected {updatedStore, consumedOutputs, producedOutputs}`.
+Regular and collateral paths report actual Store changes; retained colliding
+references are not produced again. Stake updates use those same entries. The ledger
+selects SubTx execution and controls event emission.
+
+**Migration initializes the baseline.** `mkDepositFormulaHistory formula` records V1
+with the effective translated protocol parameters as `initialFormula`; dated
+changes start empty. Imported entries retain the translated output and `AtStoreMigration`. Their baseline-priced reserve remains embedded
+and capped by existing ADA. No creation slot is invented or recovered. Later changes
+do not reprice these entries; the external total starts at zero.
+
+Test-network initial funds also enter as `AtStoreMigration`. Injection preserves
+the supplied Store's complete history and existing entries, including when dated
+changes begin at a nonzero slot. A network started directly in Dijkstra begins
+with V1 at its effective genesis rate and no dated changes.
+
+**Persistence preserves the pricing inputs.** History encodes
+`[initialFormula, formulaChanges]`; Dijkstra entries encode
+`[output, allocatedAt]`; the Store encodes
+`[depositFormulaHistory, cachedTotal, allocationMap]`. Decoding validates entry shape, activation order, formula versions and the cached total. Prior
+per-entry formula and nullable/history-map schemas are not this format.
+
+Before Dijkstra, existing payload-only formats remain unchanged. They preserve no
+Store history or original creation dates. Ordinary legacy decoding uses the default
+V1/4310 history. `Store.decodeUTxOStoreWithFormula baseline credentials` allows
+a caller to override that baseline. Dijkstra snapshots remain self-contained and
+retain their persisted history. The assigned legacy baseline is a model policy,
+not recovery of each output's original minimum deposit.
+
+Empty Stores retain their baseline and dated changes. Zero-priced new outputs still receive allocation records.
 
 [Ledger effects](#ds-state) specifies the resulting allocations and exact cached total.
 
@@ -899,74 +953,100 @@ The [body-field reference](#transaction-body-fields) maps these concepts to the 
 
 ### 1.4 Deposit calculation
 
-> **Scope:** The full pricing matrix below remains deferred. Historical size/rate retention, zero pricing and invalid metadata have focused codec and ledger regression checks.
-
-> **Determine the deposit required by a new store-backed output.**
->
-> Accepted serialized size $\longrightarrow$ required deposit in ADA.
-
-**Decision:** V1 uses the existing fixed formula with the price recorded at allocation creation.
-
-Each newly created store-backed output requires the existing byte-based minimum-UTxO amount, held externally as its allocated UTxO capacity deposit:
+**At the Dijkstra fork and at direct Dijkstra genesis, V1 is the initial formula.**
+Dijkstra evaluates both output forms, including migrated `LegacyTxOut`s. Earlier-era
+pricing rules stay unchanged; they do not implement this formula.
+The rate $p$ is the effective `coinsPerUTxOByte`, in lovelace per byte. For an output $o$:
 
 $$
-\mathrm{requiredUTxODeposit}(\mathrm{output})=\mathrm{coinsPerUTxOByte}\bigl(160+\mathrm{acceptedSize}(\mathrm{output})\bigr).
+\begin{aligned}
+F_{1,p}(o) &= p\,(250 + 74N(o) + D(o) + R(o)) \\
+F_{2,p}(o) &= p\,(260 + 80N(o) + D(o) + R(o))
+\end{aligned}
 $$
 
-`acceptedSize` is the size of the accepted serialized output under the existing CBOR-sized-output convention. It includes its address, application assets, datum, reference script and their encoding overhead. The fixed 160-byte overhead remains. The Store balance, external allocated amount and transaction body's Store declaration are outside the output and add no bytes to its priced size.
+| Component | Measurement |
+| --- | --- |
+| $N(o)$ | Number of distinct native assets. Each pair of policy ID and asset name counts once, regardless of quantity. ADA contributes zero. |
+| $D(o)$ | No datum: zero. Datum hash: length of the hash in bytes. Inline datum: length of its original payload in bytes. |
+| $R(o)$ | No reference script: zero. Otherwise, the original byte length of the underlying native or Plutus script. |
 
-For finalized output contents and fixed parameters, the amount is determined. Moving that amount into the external Store does not add a deposit field to the output or require a size fixed point for that field. This does not remove iteration from transaction balancing: changing application ADA, assets, address, datum or script changes the output and requires pricing its resulting size again.
+The lengths count payload bytes. Address length, application ADA and the outer CBOR
+envelopes of the datum, script and output contribute no term. The proposed transaction
+still supplies `Sized` outputs for the [legacy minimum-coin rule](#ds-tx-minimum-coin).
 
-The same formula applies to ordinary store-backed outputs and a store-backed collateral return. A body's allocated amount is the sum for its own new store-backed outputs. Implicit-deposit outputs retain their existing minimum-coin validation and incur no DepositStore obligation.
+The Store holds the full computed amount externally for each created `NewTxOut`.
+For a `LegacyTxOut`, its embedded reserve is capped at the output's ADA.
+The [allocation origin](#section-1-1) selects the formula and rate on refund.
 
-Capture the accepted sized output and the applicable price in its allocation. Later release calculates the historical amount from that immutable metadata under `DS-STATE-ALLOCATIONS`; reserializing a decoded CBOR output need not reproduce its accepted size, even at a constant price. Parameter changes leave existing records unchanged under `DS-PRICING-HISTORY`.
+**Experiment.** Two otherwise identical Store-backed outputs contain two distinct
+native assets, no datum and no reference script. At $p=4310$, their deposits depend
+on which side of the V2 activation slot $s$ they were allocated.
+
+| Allocation slot | Price at allocation | Refund when spent after $s$ |
+| --- | ---: | ---: |
+| Before $s$ (V1) | $4310(250+74\cdot2)=1{,}715{,}380$ lovelace | 1,715,380 lovelace |
+| At $s$ (V2) | $4310(260+80\cdot2)=1{,}810{,}200$ lovelace | 1,810,200 lovelace |
+
+The [live-ledger experiment](#ds-state-balance-p08) accepts these outputs, restores their snapshot and spends both under V2. The refund remains the sum of their historical deposits.
+
+The following cases describe the pricing contract across ordinary outputs and collateral.
 
 <a id="ds-pricing-p01" name="ds-pricing-p01"></a>
 
-#### 1.4.1 P01 - Records the deposit priced from accepted bytes
+#### 1.4.1 P01 - Price each created output
 
-$$
-\text{newRecordedDeposit(output)}
-=\text{coinsPerUTxOByte}\cdot(160+\text{acceptedSize(output)})
-$$
-
-Under a fixed pricing policy, independently calculate each allocation from the accepted output bytes and compare it with the ledger's newly recorded amount. Cover ordinary TopTx and SubTx outputs and collateral returns created on accepted phase-2 failure. Require accepted executions with newly created store-backed outputs in each applicable category, rather than satisfying the property with implicit-only outputs or an unapplied collateral return. Include accepted encodings whose size differs from reserialization. The equation checks the price actually assigned, not a pricing helper against itself.
+For each newly created Store-backed reference, compute $N$, $D$ and $R$ from its
+output. Compare the independently calculated $F_{v,p}(o)$ with the allocation read
+from the ledger. Include TopTx, SubTx and an applied collateral return.
 
 <a id="ds-pricing-n01" name="ds-pricing-n01"></a>
 
-#### 1.4.2 N01 - allocates each UTxO capacity deposit as coinsPerUTxOByte * (160 + accepted serialized output size)
+#### 1.4.2 N01 - Count distinct native assets
 
-Given new store-backed outputs of independently known accepted sizes, expect each recorded allocation to equal the byte price multiplied by its size plus 160. Include equal-valued outputs at different indices: each occurrence incurs its own full storage requirement, even when its amount equals another output's amount.
+Under V1, increasing a token's quantity leaves the deposit unchanged. Adding a new
+asset name under the same policy increases it by $74p$. The same asset name under
+a different policy is also a distinct asset. Under V2 each additional asset costs $80p$.
 
 <a id="ds-pricing-n02" name="ds-pricing-n02"></a>
 
-#### 1.4.3 N02 - uses the same UTxO capacity deposit formula for a store-backed collateral return
+#### 1.4.3 N02 - Price an applied collateral return
 
-Apply an accepted phase-2 failure that creates a store-backed collateral return and compare its recorded allocation with the same accepted-size formula used for an ordinary output. A return supplied on ordinary success is not created and provides no new allocation to observe. Outcome selection changes whether it is created, not the price of its storage.
+An accepted phase-2 failure creating a Store-backed collateral return allocates
+$F_{v,p}(o)$ for its output. The same output under the same formula and rate costs
+the same on the ordinary path.
 
 <a id="ds-pricing-n03" name="ds-pricing-n03"></a>
 
-#### 1.4.4 N03 - includes address, application assets, datum and reference script in the priced size
+#### 1.4.4 N03 - Measure datum and reference script payloads
 
-Vary address, application assets, datum and reference-script contents independently, including absent and present optional components. Measure their accepted bytes and encoding overhead independently and compare the assigned allocation. Optional contents can change the amount even when application ADA is unchanged; reserializing decoded contents is not the accepted-size oracle.
+For fixed assets and rate, a datum hash of 32 bytes adds $32p$. An inline datum
+of $d$ bytes adds $dp$. Adding a reference script of $r$ bytes adds another $rp$.
+Exercise absent payloads, native scripts and Plutus scripts.
 
 <a id="ds-pricing-n04" name="ds-pricing-n04"></a>
 
-#### 1.4.5 N04 - excludes the external UTxO capacity deposit amount and Store declaration from the priced output
+#### 1.4.5 N04 - Vary the declaration independently
 
-At the pricing boundary, hold finalized accepted output bytes fixed while varying surrounding external deposit accounting and body declarations. Those amounts must add no bytes to the priced output. This observation concerns the size used for pricing, not ledger acceptance of an inexact declaration; exact declaration checks remain a separate prerequisite.
+Hold the output and formula fixed and vary the surrounding body declaration. The
+required deposit stays fixed. Accounting compares the declared amount with that
+independently calculated requirement.
 
 <a id="ds-pricing-n05" name="ds-pricing-n05"></a>
 
-#### 1.4.6 N05 - handles CBOR size boundaries when an application coin amount changes
+#### 1.4.6 N05 - Preserve the price across ADA encoding boundaries
 
-Use application coin pairs 23/24, 255/256, 65535/65536 and 4294967295/4294967296 lovelace while holding other output contents fixed. Price the resulting accepted output bytes separately and compare the assigned deposits. A coin change can change storage size, so the previous price cannot simply be reused.
+For two Store-backed outputs with identical $N,D,R$, change application ADA from
+23 to 24 lovelace. Their coin encodings differ in length, but both incur the same
+external deposit. The same reasoning applies to a change in address length.
 
 <a id="ds-pricing-n06" name="ds-pricing-n06"></a>
 
-#### 1.4.7 N06 - assigns no DepositStore obligation to implicit outputs
+#### 1.4.7 N06 - Keep a legacy reserve inside its output
 
-Given implicit-deposit outputs alone and mixed with store-backed outputs, assign no external Store obligation or allocation record to the implicit occurrences. Their full coins remain in their value and existing minimum-coin validation still applies; removing the Store obligation is not an exemption from that validation.
+A `LegacyTxOut` with $C$ lovelace contributes zero to the external total. Its
+reserve is $\min(C,F_{v,p}(o))$ and its application ADA is the remainder. Its
+minimum-coin validation at transaction submission uses the legacy byte-based rule.
 
 <a id="transaction-rules" name="transaction-rules"></a>
 
@@ -1723,7 +1803,7 @@ $$
 \text{requiredDeposit(protocolParameters, output)}
 $$
 
-It uses serialized sizes and a positive deposit price. Implicit outputs
+It prices each output’s asset count, datum and reference script at a positive rate. Implicit outputs
 contribute zero; no SubTx declaration is supplied.
 
 <a id="ds-tx-presence-activity-creation-f02" name="ds-tx-presence-activity-creation-f02"></a>
@@ -3520,8 +3600,7 @@ zero to the required total. It contributes no declared value to a sum of declara
 are assumed. Accepted controls satisfy the other transaction rules. Rejection must
 include the targeted exactness failure; a [Balance](#ds-tx-accounting-balance) failure alone is insufficient.
 The same required ordinary amounts apply on both phase-2 outcomes; [Execution](#ds-state-execution)
-selects the effects actually applied. Historical pricing changes remain deferred under
-DS-PRICING-HISTORY.
+selects the effects actually applied. [Historical pricing](#ds-pricing-history) determines each released deposit.
 
 <a id="ds-tx-exactness-contribution" name="ds-tx-exactness-contribution"></a>
 <a id="ds-tx-exactness-subtx" name="ds-tx-exactness-subtx"></a>
@@ -3831,7 +3910,7 @@ $$
 \end{aligned}
 $$
 
-The output still has an address and encoding overhead. Use positive pricing and declare the exact allocation.
+The formula charges its base even when the application value is empty. Use a positive rate and declare the exact allocation.
 
 <a id="ds-tx-exactness-contribution-n09" name="ds-tx-exactness-contribution-n09"></a>
 <a id="ds-tx-exactness-subtx-n08" name="ds-tx-exactness-subtx-n08"></a>
@@ -5640,7 +5719,7 @@ $$
 $$
 
 `acceptedSize(output)` is the encoded size of the submitted output, including its coin.
-The Store-backed exemption changes where storage is paid; it does not waive the
+The separate [Store formula](#ds-pricing) uses native assets and payload lengths. Store-backed outputs still require the
 [allocation declaration](#ds-tx-declarations-requirements-operations-allocation),
 [exact deposit accounting](#ds-tx-accounting-net-change-subtx), or other output constraints.
 
@@ -6057,12 +6136,10 @@ SubTx script through the upstream batch evaluator.
 
 ### 3.2 Store
 
-`UTxOStore` owns the `currentCalculation`, one indexed map of `Unspent (TxOut era)`
-and a checked cached `totalDepositAmount`. Each allocation owns its output, size
-and historical calculation.
-Accepted outputs retain their supplied metadata; legacy imports use the provisional
-compatibility metadata described in [DepositStore](#section-1-1). Output references and allocations
-therefore share one map; the cached total represents the Store ADA, counted once.
+`UTxOStore` owns `depositFormulaHistory`, one indexed map of `Unspent (TxOut era)` and a
+checked cached `totalDepositAmount`. Each entry retains its output and allocation origin (`AtStoreMigration` or `AtSlot slot`). History resolves its
+formula as described in [DepositStore](#section-1-1). Output references and
+allocations share one map; the cached total counts only separately held ADA.
 
 <a id="ds-state-allocations" name="ds-state-allocations"></a><a id="ds-state-store-allocations" name="ds-state-store-allocations"></a>
 
@@ -6074,7 +6151,7 @@ therefore share one map; the cached total represents the Store ADA, counted once
 
 Here, $\mathit{recordsBefore}$ is mathematical notation for the deposits calculated from retained creation-time metadata, not a separate ledger type or stored map. The owning allocation map also contains legacy outputs, whose external deposit is zero.
 Construct $\mathit{newAllocations}$ only for Store-backed outputs in
-$\mathit{createdOutputs}$, priced from their accepted serialized sizes under
+$\mathit{createdOutputs}$, priced from their contents and allocation-time formulas under
 [Deposit calculation](#ds-pricing). Implicit outputs have no external-deposit record in this view; their legacy allocations remain in the owning map. A Store-backed output priced at zero still has a deposit record. For either accepted outcome:
 
 $$
@@ -6098,11 +6175,11 @@ calculated allocations and retained releases.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L72)** | **Ordinary records.** Derive records from signed Store-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
-| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L93)** | **Collateral records.** Generate mixed input forms and absent, implicit or Store-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Store-backed return; reference-only records survive. |
-| <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L118)** | **Retained accepted size.** Submit a noncanonical CBOR output whose accepted encoding is one byte longer than its canonical encoding. Restore the serialized UTxO state, double the byte price and reference the output: its creation record is unchanged. Spending it removes precisely that record. |
-| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L162)** | **Zero-priced allocations still have records.** Spend translated implicit sources and create Store-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; implicit sources never acquire allocation records. |
-| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L186)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
+| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L75)** | **Ordinary records.** Derive records from signed Store-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
+| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L96)** | **Collateral records.** Generate mixed input forms and absent, implicit or Store-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Store-backed return; reference-only records survive. |
+| <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L121)** | **Restore the historical deposit.** Submit a noncanonical CBOR output whose accepted encoding is one byte longer than its canonical encoding. Restore the serialized state, activate V2 and double the byte price, then reference the output: its payload, allocation origin and V1 deposit are unchanged. Spending it removes precisely that record. |
+| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L166)** | **Zero-priced allocations still have records.** Spend translated implicit sources and create Store-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; implicit sources never acquire allocation records. |
+| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L190)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
 
 Historical release **amounts** are checked separately by [Balance P03](#ds-state-balance-p03).
 
@@ -6138,23 +6215,22 @@ $$
 $$
 
 The transfer assertion compares the observed amount with independently calculated
-allocations and releases. Separate assertions recompute the total from each stored
-accepted size and creation price, without trusting the cached total or calling the
-production pricing function. Old records retain their creation amounts; new allocations
-use the applicable price. This introduces no new pricing mechanism. Historical
-repricing policy remains a separate [design question](#ds-pricing-history).
+allocations and releases. Separate assertions recompute the total from each output’s
+asset count, datum and script, using the version and rate selected by its origin.
+[Historical pricing](#ds-pricing-history) keeps the original refund for each allocation.
 
 <a id="ds-state-balance-n01" name="ds-state-balance-n01"></a><a id="ds-state-balance-n03" name="ds-state-balance-n03"></a>
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L48)** | **Ordinary transfer.** Measure new deposits from signed outputs and releases from the consumed records. The sum of the resulting records changes by their difference, including multi-SubTx local/delegated funding and zero net replacement. |
-| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L69)** | **Collateral transfer.** Successful scripts release only ordinary records, including inputs shared with collateral. Failed scripts apply only the return deposit minus recorded collateral releases; deposits of all unspent outputs remain recorded. |
-| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L90)** | **Historical release after restoration.** Create an allocation from genuinely noncanonical accepted bytes, restore the state and change the price. Spending the output reduces the Store by the original allocation, not a newly calculated deposit. |
-| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L114)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
-| <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L128)** | **Mixed historical prices.** Accept two noncanonical outputs at different prices, restore their state and consume both while creating a replacement at a third price. The balance changes by the current new deposit minus both historical deposits. Retained metadata and cache totals are checked independently. |
-| <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L164)** | **Child output history.** Accept a noncanonical SubTx output, restore its allocation and change the price. A later spend of the child's own reference releases exactly its original contribution. |
-| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L187)** | **Collateral-return history.** Accept a real script failure with a noncanonical Store-backed return. Restore that applied allocation, change the price and spend the return; its original accepted size and creation price determine the refund. |
+| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L61)** | **Ordinary transfer.** Measure new deposits from signed outputs and releases from the consumed records. The sum of the resulting records changes by their difference, including multi-SubTx local/delegated funding and zero net replacement. |
+| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L82)** | **Collateral transfer.** Successful scripts release only ordinary records, including inputs shared with collateral. Failed scripts apply only the return deposit minus recorded collateral releases; deposits of all unspent outputs remain recorded. |
+| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L103)** | **Historical release after restoration.** Create an allocation from genuinely noncanonical accepted bytes, restore the state and change the price. Spending the output reduces the Store by the original allocation, not a newly calculated deposit. |
+| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L127)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
+| <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L141)** | **Mixed historical prices.** Accept two noncanonical outputs at different prices, restore their state and consume both while creating a replacement at a third price. The balance changes by the current new deposit minus both historical deposits. Retained metadata and cache totals are checked independently. |
+| <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L175)** | **Child output history.** Accept a noncanonical SubTx output, restore its allocation and change the price. A later spend of the child's own reference releases exactly its original contribution. |
+| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** Accept a real script failure with a noncanonical Store-backed return. Restore that applied allocation, change the price and spend the return; its contents and allocation-time formula determine the refund. |
+| <a id="ds-state-balance-p08" name="ds-state-balance-p08"></a>**8.&nbsp;[P08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L227)** | **Across formula versions.** Accept identical two-asset outputs before and after V2 activation, restore the state and spend both together. Each refunds its allocation-time formula: $\text{refund}=F_{1,p}(o)+F_{2,p}(o)$. |
 
 <a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
 **Exact cache invariant.** The former solvency comparison is replaced by equality:
@@ -6259,7 +6335,7 @@ contract observes the actual applied state.
 
 Translation establishes legacy allocations with zero external deposits. Ordinary epoch processing preserves an
 existing allocation map and therefore its derived balance. Effective parameter changes
-update only the calculation for future allocations.
+update only the formula for future allocations.
 
 <a id="ds-state-initialization" name="ds-state-initialization"></a><a id="36-initialization" name="36-initialization"></a><a id="ds-state-translation" name="ds-state-translation"></a>
 
@@ -6278,10 +6354,10 @@ $$
 
 Every translated output is implicit and has a legacy allocation in the owning map.
 Here `recordsAfter` denotes the empty external-deposit view; the cached total is zero.
-The Store's `currentCalculation` starts at V1 with the translated effective byte price.
-The current import path supplies provisional metadata using `mkSized` at the era's
-lowest protocol version and a zero-rate V1 calculation. It does not recover the
-output's original accepted size or historical policy; migration design is deferred.
+Migration initializes V1 from the effective translated protocol parameters with
+`mkDepositFormulaHistory formula`, leaving dated changes empty. Each imported entry
+is marked `AtStoreMigration`. Its translated output and this permanent baseline
+determine its embedded reserve. Its reserve is capped by its existing ADA, and remains inside that value.
 Preserve each output’s semantic address, value, datum
 and reference script under era translation; do not extract its implicit minimum
 coin. Translate a complete Conway `NewEpochState`, then compare these fields with
@@ -6292,7 +6368,7 @@ field across two different era types.
 
 | Case | Contract | Scenario axes |
 | --- | --- | --- |
-| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L39)** | **Introduce legacy allocations.** Apply the real era translation; compare the listed fields independently with their source values, require one legacy allocation per output and assert a zero cached total and empty external-deposit view. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
+| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L38)** | **Introduce legacy allocations.** Apply the real era translation; compare the listed fields independently with their source values, require one legacy allocation per output and assert a zero cached total and empty external-deposit view. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
 
 <a id="ds-state-epoch" name="ds-state-epoch"></a>
 
@@ -6307,14 +6383,16 @@ $$
 
 | Case | Contract | Scenario axes |
 | --- | --- | --- |
-| <a id="ds-state-epoch-n01" name="ds-state-epoch-n01"></a><a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a><a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L27)** | **Retain the populated Store.** Cross actual epoch boundaries and compare the complete allocation map. | Fund one to five live allocations through an accepted transaction and cross two successive boundaries. Verify each epoch advanced and protocol parameters stayed unchanged; the cached balance and all historical metadata are preserved. |
-| <a id="ds-state-epoch-n02" name="ds-state-epoch-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L48)** | **Activate the effective price.** A scheduled parameter update changes the current rate without repricing live entries. | Cross real epoch boundaries with V1 and V2 selected. Compare the effective parameters, current calculation, complete allocation map and cached total. |
+| <a id="ds-state-epoch-n01" name="ds-state-epoch-n01"></a><a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a><a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L37)** | **Retain the populated Store.** Cross actual epoch boundaries and compare the complete allocation map. | Fund one to five live allocations through an accepted transaction and cross two successive boundaries. Verify each epoch advanced and protocol parameters stayed unchanged; the cached balance and all historical metadata are preserved. |
+| <a id="ds-state-epoch-n02" name="ds-state-epoch-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L59)** | **Activate the effective price.** A scheduled parameter update changes the current rate without repricing live entries. | Cross real epoch boundaries with V1 and V2 selected. Compare the effective parameters, current formula, complete allocation map and cached total. |
 
-For N02, $V$ is the selected formula version and $r'$ the newly effective byte price:
+For N02, $V$ is the selected formula version, $r'$ the newly effective byte price,
+and $s'$ the first slot of the epoch where the update becomes effective. Append
+$(s',V(r'))$ to history; entries allocated earlier retain their earlier formula:
 
 $$
 \begin{aligned}
-\text{currentCalculationAfter} &= V(r') \\
+\text{currentFormulaAfter} &= V(r') \\
 \text{allocationsAfter} &= \text{allocationsBefore} \\
 \text{totalDepositAmountAfter} &= \text{totalDepositAmountBefore}
 \end{aligned}
@@ -6494,46 +6572,25 @@ Compare the complete resulting voting distribution with an independent expectati
 
 #### A.1 Historical pricing
 
-> **Preserve the basis of an output’s original deposit when pricing parameters change.**
+> **A recorded allocation keeps its original pricing interval after later activations.**
 
-**Decision:** Every Store-backed allocation retains its accepted full-output size
-and explicit `DepositCalculation`. Production creates `DepositCalculationV1 CoinPerByte`.
-The V1 formula is
-`creationCoinPerByte × (160 + acceptedSize)`. Refunds use this metadata directly,
-including after a state snapshot is restored. The current price applies only to new
-outputs. No policy history or policy index is needed for this design.
+`DepositFormulaHistory` contains the fork's initial formula and ordered activations.
+Each `Unspent` holds its output and allocation origin. The history is shared across
+entries and persists even when the Store is empty.
 
-For example, an output accepted at 100 bytes and 4 lovelace per byte contributes
-1040 lovelace. A later price of 6 does not change that contribution or its refund.
-Noncanonical accepted encodings can be longer than canonical re-encoding; the
-snapshot therefore stores the accepted size separately from the output payload.
+| Allocation | Formula on refund | Reserve |
+| --- | --- | --- |
+| Imported legacy output | `initialFormula` | Capped by its ADA and held inside the output. |
+| Dated legacy output | Formula active at its allocation slot | Capped by its ADA and held inside the output. |
+| Dated new output | Formula active at its allocation slot | Full calculated amount held in the Store. |
 
-The calculation module exposes a pure function and an explicit size type:
+A parameter change records the current version with its new rate at the effective
+epoch boundary. Activating experimental V2 records a new version and effective
+slot. Both are prospective. The [two-output example](#ds-pricing) gives the exact
+refunds before and at the activation slot.
 
-```haskell
-newtype ByteSize = ByteSize {unByteSize :: Int64}
-
-calculateDeposit :: DepositCalculation -> ByteSize -> Coin
-```
-
-`DepositCalculationV2 CoinPerByte` provisionally uses the same formula as V1:
-`(160 + size) × rate`. Codecs and checked Store operations accept both versions;
-unknown encoded versions, such as 3, are rejected. Negative sizes are rejected by
-checked Store insertion and entry decoding, rather than by `calculateDeposit`.
-Production still selects V1. No parameter-driven version selection or historical
-policy migration is introduced by this provisional V2 parity.
-
-Conway translation creates only legacy allocations, with zero external deposit.
-Their current import metadata is provisional: `mkSized` at the era's lowest
-protocol version and a zero-rate V1 calculation, not recovered history. Newly
-accepted legacy outputs instead retain their supplied size and calculation.
-An existing Store-backed output without its original size and price cannot be
-converted by guessing these values from current parameters or canonical bytes.
-Earlier experimental Dijkstra snapshots are rejected under [State representation](#ds-state-representation).
-
-Explicit repricing remains outside this implementation. Such a transition would
-need to specify changes to historical records and the corresponding ADA transfers
-together. Exact net declarations still disallow voluntary excess allocations.
+A distinct future proposal to reprice existing entries would need to specify how
+to fund or release the difference for each live output.
 
 <a id="ds-plutus-compatibility" name="ds-plutus-compatibility"></a>
 
@@ -6612,18 +6669,18 @@ This open question does not change the agreed destination bound or the existing 
 
 #### A.4 State representation
 
-> **Keep accepted outputs, sizes and historical calculations together.**
+> **Keep accepted outputs and allocation origins together; retain formula history in the Store.**
 
 ```text
 LedgerState
 ├── lsAccountingState :: AccountingState
 │   ├── asUTxOStore :: UTxOStore
-│   │   ├── currentCalculation :: DepositCalculation
+│   │   ├── depositFormulaHistory :: DepositFormulaHistory
 │   │   ├── totalDepositAmount :: DepositAmount
 │   │   └── allocations :: IndexedUTxOs
 │   │       └── TxIn → Unspent TxOut
-│   │           ├── sizedOutput
-│   │           └── depositCalculation
+│   │           ├── output
+│   │           └── allocatedAt :: AllocatedAt
 │   ├── asDeposited  — certificate and governance deposit pot
 │   ├── asFees
 │   ├── asInstantStake
@@ -6685,8 +6742,8 @@ The collection types distinguish output inspection from recorded unspent entries
 
 | Type | Contents | Scope |
 | --- | --- | --- |
-| `IndexedTxOs` | `TxIn → Sized TxOut` | Proposed outputs or an explicit output-only view; no historical calculation. |
-| `IndexedUTxOs` | `TxIn → Unspent TxOut` | Recorded outputs with their historical size and calculation. |
+| `IndexedTxOs` | `TxIn → Sized TxOut` | Proposed transaction outputs with their supplied sizes. |
+| `IndexedUTxOs` | `TxIn → Unspent TxOut` | Recorded output payloads and allocation origins. Pricing resolves the formula from history. |
 
 `allocations store` supplies the complete allocation state of that Store; selections
 remain `IndexedUTxOs`. There is no additional `Allocations` wrapper. A body alone
@@ -6694,11 +6751,22 @@ cannot recover historical deposit parameters or establish which outputs remain u
 
 | Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
 | --- | --- |
-| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and calculation activation. |
+| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and formula activation. |
 | [`Store.Internals`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
 | [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
-| [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output, original size and calculation; `toTxOut`, `depositAmount` and entry codecs. |
-| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | `DepositAmount`, `ByteSize`, `DepositCalculation` and `calculateDeposit`. |
+| [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output and allocation origin; `toTxOut`, historical formula selection, `computeExternalDeposit` and entry codecs. |
+| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | `DepositFormulaHistory`, half-open formula periods, versioned formulas and `DepositAmount`. |
+
+Dijkstra owns the formula evaluation and the migrated-output reserve view:
+
+| Module under `Cardano.Ledger.Dijkstra.UTxOs` | Responsibility |
+| --- | --- |
+| [`Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Calculate V1 or V2 from native-asset count, datum bytes and reference-script bytes. |
+| [`Unspent`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated legacy reserve at its output ADA. |
+
+The shared Store calls `getDepositNewTxOut` only for `NewTxOut`. Legacy entries
+contribute zero to its external total. Earlier eras have no `NewTxOut` values and
+need no implementation of Dijkstra's pricing rule.
 
 [`Cardano.Ledger.TxOut.IndexedTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
 owns construction, indexing and selection of sized outputs. Each collection has its own
@@ -6711,17 +6779,15 @@ IndexedUTxOs.lookupUTxO input entries
 IndexedUTxOs.restrictToInputs inputs entries
 IndexedUTxOs.withoutInputs inputs entries
 IndexedUTxOs.filterByTxOut predicate entries
-IndexedUTxOs.sumDepositAmounts entries
+IndexedUTxOs.sumDepositAmounts history entries
 ```
 
-Selections preserve each entry's accepted size and historical calculation.
+Selections preserve each entry's output payload and allocation origin.
 `extractInputs` returns the remaining and extracted entries in one traversal.
 `txOuts` supplies payloads for output-only arithmetic; `mapTxOuts` projects payloads
 at external boundaries such as Plutus contexts, diagnostic maps and the formal model.
-These projections do not replace the stored entries. `toIndexedTxOs` explicitly retains
-outputs and recorded sizes while dropping historical calculations. The block reference-script
-check uses this view after selecting its relevant stored inputs, then combines it with
-outputs proposed earlier in the block. Deposit accounting never uses this projection.
+The block reference-script check reads the scripts on selected input payloads and
+outputs proposed earlier in the block. It measures the scripts themselves.
 
 `AccountingState`, `LedgerState`, `EpochState` and `NewEpochState` expose the complete
 Store through `CanGetUTxOStore.utxoStoreG` and `CanSetUTxOStore.utxoStoreL`.
@@ -6744,28 +6810,29 @@ data TxProjected era = TxProjected
   , producedOutputs :: !(IndexedUTxOs era)
   }
 
-projectTx :: EraTx era => Tx TopTx era -> UTxOStore era -> TxProjected era
+projectTx :: EraTx era => SlotNo -> Tx TopTx era -> UTxOStore era -> TxProjected era
 
 allocate ::
   EraTxOut era =>
-  IndexedTxOs era -> UTxOStore era -> UTxOStore era
+  SlotNo -> IndexedTxOs era -> UTxOStore era -> UTxOStore era
 
-activateNewCalculation :: DepositCalculation -> UTxOStore era -> UTxOStore era
+activateNewFormula :: SlotNo -> DepositFormula -> UTxOStore era -> UTxOStore era
 ```
 
 The body builder preserves bounded output-index enumeration and excludes collateral return.
 Babbage, Conway and Dijkstra retain the body's original `Sized` values; earlier eras
-construct canonical legacy sizes. No pricing calculation is attached while inspecting a body.
+construct canonical legacy sizes. No deposit formula is selected while inspecting a body.
 `producedTxOuts` selects regular outputs or collateral return according to the phase-2 outcome,
 without claiming ledger acceptance.
 
-`allocate` records `currentCalculation` when new outputs enter the Store. Existing
-inputs are resolved through the previous Store and retain their own historical calculation.
+`allocate slot` records `AtSlot slot` when new outputs enter the Dijkstra Store.
+Existing inputs retain their allocation origin; history resolves the original
+formula for their refund. Migrated entries continue to use the baseline.
 The transition is explicit:
 
 ```haskell
 TxProjected {updatedStore, consumedOutputs, producedOutputs} =
-  Store.projectTx tx previousStore
+  Store.projectTx slot tx previousStore
 
 updatedInstantStake =
   updateInstantStake consumedOutputs producedOutputs previousInstantStake
@@ -6777,7 +6844,7 @@ previous Store; produced entries come from the updated Store and exclude retaine
 colliding references. `updateInstantStake` belongs to `State.Accounting.InstantStake`
 and uses these actual changes. The accounting rule installs both results and emits
 `TxUTxODiff consumedOutputs producedOutputs`. The result's complete Store is not
-included in that event; historical sizes and calculations are preserved in its entries.
+included in that event. Its entries preserve the output payload and allocation origin.
 
 `Store.Internals.projectValidTxBody` releases the body's regular inputs and allocates its regular outputs.
 It neither validates the body nor traverses nested SubTxs. The ledger selects the
@@ -6789,7 +6856,7 @@ These operations maintain the invariant for a valid Store:
 
 $$
 \text{totalDepositAmount}(S)
-= \sum_{u\in\text{allocations}(S)} \text{depositAmount}(u)
+= \sum_{u\in\text{allocations}(S)} \text{computeExternalDeposit}(\text{depositFormulaHistory}(S),u)
 $$
 
 The `allocate` primitive preserves an existing entry and its historical deposit
@@ -6803,21 +6870,31 @@ map-union behavior. References released by the projection may be allocated again
 
 - Before Dijkstra, `IndexedUTxOs` retains the ordinary payload-map CBOR used by queries.
   `UTxOStore` uses MemPack inputs and output payloads, preserving ledger snapshot bytes
-  and credential sharing. Decoding reconstructs canonical legacy metadata with zero
-  separately held deposits; this is not recovered historical pricing.
-- Dijkstra collections encode complete entries as `TxIn → [output, acceptedSize, calculation]`.
-  The Store encodes `[currentCalculation, cachedTotal, allocationMap]` and validates the total.
+  and credential sharing. Decoding reconstructs canonical legacy entries marked
+  `AtStoreMigration` with zero external deposits. These bytes contain no Store
+  history: ordinary decoding supplies the default V1/4310 baseline; the optional
+  `decodeUTxOStoreWithFormula` decoder accepts a different caller-supplied one.
+  Neither recovers each output's original creation-era pricing.
+- Dijkstra collections encode complete entries as `TxIn → [output, allocatedAt]`.
+  The Store encodes `[depositFormulaHistory, cachedTotal, allocationMap]`; history is
+  `[initialFormula, formulaChanges]`. Decoding validates change order and the
+  external total.
   Its `EncCBOR` instance retains MemPack inputs and output payloads plus explicit metadata.
   Standalone Store encoding now uses this same snapshot format.
 - The retired standalone Dijkstra `TxOutMap` payload encoding cannot represent complete
   entries. Its replacement has the complete-entry format. The previous two-field Store
-  snapshot is rejected: its active policy cannot be recovered from historical entries,
-  especially when the Store is empty.
-- Legacy import builds entries with `IndexedUTxOs.fromLegacyTxOuts`, then constructs
-  the Store with `mkUTxOStore legacyDepositCalculation`. Complete stored entries are
-  restored with `mkUTxOStore`, preserving their recorded size and calculation.
-  Store era translations delegate to the existing `TranslateEra` instance for
-  `IndexedUTxOs` and introduce no new ADA transfers.
+  snapshot is rejected: its history cannot be recovered from individual entries,
+  especially when the Store is empty. The former formula-bearing entry format
+  is also distinct from the new `AllocatedAt` encoding.
+- Before Dijkstra, legacy import builds `AtStoreMigration` entries with
+  `IndexedUTxOs.fromLegacyTxOuts`; Store construction receives either default or
+  caller-supplied history. Earlier-era Store translations preserve source history; Conway
+  canonical import retains the destination state's supplied history because its
+  namespace contains outputs only. The Dijkstra fork initializes its baseline from
+  the effective translated protocol parameters, with no dated changes. Future changes
+  retain their actual activation slots. `mkUTxOStore history entries` restores complete entries
+  with their payloads and allocation origins. No migration
+  operation extracts reserve ADA from a legacy payload or creates an external credit.
 
 Stake updates still fold output payloads directly. Address inspection and witness verification
 remain in `Address` and `Keys.WitVKey`; neither belongs to the indexed collection.
@@ -6858,7 +6935,7 @@ owns them; retired identifiers are not separate executable assertions:
 | Execution P01, N01, N04 | [UTxO N01](#ds-state-utxo-n01) and [N02](#ds-state-utxo-n02): ordinary effects and inactive collateral. |
 | Execution N02, N03 | [UTxO N03](#ds-state-utxo-n03): collateral effects; [N05](#ds-state-utxo-n05): overlapping input roles. |
 | Execution F01, P02 | [Rejected submissions](#ds-state-execution-f01): no applied result; snapshot comparison would retest the submission adapter. |
-| Allocations P01–P03, N01–N08 | [Allocations](#ds-state-allocations): ordinary/collateral records, retained accepted size, zero-priced records and inactive ordinary operations after phase-2 failure. |
+| Allocations P01–P03, N01–N08 | [Allocations](#ds-state-allocations): ordinary/collateral records, historical refunds, zero-priced records and inactive ordinary operations after phase-2 failure. |
 | Balance P01–P03, N01–N03; Solvency P01, N02 | [Balance](#ds-state-balance): ordinary/collateral transfers and historical releases; balance is the record sum. |
 | Solvency N01, F01 | [Retired balance mismatch cases](#ds-state-solvency-n01): mismatched cached totals are rejected by checked construction and decoding. |
 | Fees P01; Conservation N01 | Existing identities retained under [Fees](#ds-state-fees) and [Conservation](#ds-state-conservation). |
@@ -7038,7 +7115,7 @@ The previously individually tagged declaration-dependency cases map as follows:
 
 > **Locate the implementation entry points for each responsibility.**
 >
-> Declaration forms $\longrightarrow$ domain APIs · Validation $\longrightarrow$ ledger rules · Pricing $\longrightarrow$ output size.
+> Declaration forms $\longrightarrow$ domain APIs · Validation $\longrightarrow$ ledger rules · Pricing $\longrightarrow$ asset count and payload lengths.
 
 The executable suite mirrors the rule chapters:
 
@@ -7230,8 +7307,8 @@ expectations remain specification support.
 - [Transaction fields, operations and lenses](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
 - [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut.hs)
 - [Dijkstra output representations](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
-- [Existing byte-based minimum-UTxO formula](../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs)
-- [Serialized size measurement](../libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Decoding/Sized.hs)
+- [Legacy output minimum-coin rule](../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs)
+- [Serialized size measurement for proposed outputs](../libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Decoding/Sized.hs)
 - [TopTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
 - [SubTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/SubUtxo.hs)
 

@@ -35,7 +35,7 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (rederiveAddrTxWits, simulateThenRes
 import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
 
 -- | Every sample includes both real script outcomes and every deposit relationship.
--- The return's final serialized bytes determine its deposit, including at zero ADA.
+-- Changing only the return's application ADA preserves its deposit, even at zero.
 -- Other collateral and ordinary requirements hold throughout these funded fixtures.
 {- FOURMOLU_DISABLE -}
 spec :: Spec

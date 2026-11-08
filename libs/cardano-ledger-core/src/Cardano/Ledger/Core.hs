@@ -533,7 +533,7 @@ txIdTxBody :: EraTxBody era => TxBody l era -> TxId
 txIdTxBody = TxId . hashAnnotated
 
 -- | Index proposed regular outputs, retaining the body's supplied sizes.
--- This assigns output references without recording a deposit calculation.
+-- This assigns output references without recording an allocation origin.
 -- The bounded indices retain the existing @TxIx@ limit; collateral returns
 -- are indexed separately by 'collateralOutputsTxBody'.
 outputsTxBody :: forall era l. EraTxBody era => TxBody l era -> IndexedTxOs era

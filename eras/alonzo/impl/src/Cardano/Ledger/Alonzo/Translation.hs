@@ -135,10 +135,11 @@ instance TranslateEra AlonzoEra LedgerState where
         }
 
 instance TranslateEra AlonzoEra Store.UTxOStore where
-  translateEra ctxt =
-    fmap (Store.mkUTxOStore legacyDepositCalculation)
+  translateEra ctxt store =
+    fmap (Store.mkUTxOStore $ Store.depositFormulaHistory store)
       . translateEra ctxt
       . Store.allocations
+      $ store
 
 instance TranslateEra AlonzoEra AccountingState where
   translateEra ctxt accountingState =

@@ -60,14 +60,14 @@ getGKeys nes = Map.keysSet $ unGenDelegs (ls ^. lsCertStateL . certDStateL . dsG
 --  contains the specified transaction outputs.
 genesisState ::
   forall era.
-  (EraGov era, EraCertState era, EraStake era) =>
+  (EraGov era, EraCertState era, EraStake era, EraNewTxOut era) =>
   Map (KeyHash GenesisRole) GenDelegPair ->
   IndexedUTxOs era ->
   LedgerState era
 genesisState genDelegs0 utxo0 =
   LedgerState
     ( AccountingState
-        (mkUTxOStore legacyDepositCalculation utxo0)
+        (mkUTxOStore def utxo0)
         (Coin 0)
         (Coin 0)
         mempty

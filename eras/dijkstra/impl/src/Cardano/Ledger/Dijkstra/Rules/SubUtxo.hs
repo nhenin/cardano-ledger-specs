@@ -189,7 +189,7 @@ data DijkstraSubUtxoEvent era
     TxUTxODiff
       -- | Consumed entries from the previous Store, retaining their historical metadata.
       (IndexedUTxOs era)
-      -- | Created entries from the updated Store, including their recorded calculation.
+      -- | Created entries from the updated Store, retaining their sizes and allocation origins.
       (IndexedUTxOs era)
   deriving (Generic)
 
@@ -284,7 +284,7 @@ dijkstraSubUtxoTransition = do
   case topTxIsPhase2Valid of
     Phase2Valid -> do
       let withDonation = lsAccountingState ledgerState & asDonationL <>~ txBody ^. treasuryDonationTxBodyL
-          Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = StoreInternals.projectValidTxBody txBody (asUTxOStore withDonation)
+          Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = StoreInternals.projectValidTxBody slot txBody (asUTxOStore withDonation)
       tellEvent $ TxUTxODiff consumedOutputs producedOutputs
       pure $
         ledgerState

@@ -131,6 +131,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as SBS
 import Data.Coerce
+import Data.Default (def)
 import Data.Foldable
 import Data.Functor.Identity (Identity)
 import Data.Int
@@ -1569,7 +1570,7 @@ instance HasSimpleRep (UTxOStore ConwayEra) where
   type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[IndexedUTxOs ConwayEra]]
   type SimpleRep (UTxOStore ConwayEra) = IndexedUTxOs ConwayEra
   toSimpleRep = allocations
-  fromSimpleRep = mkUTxOStore legacyDepositCalculation
+  fromSimpleRep = mkUTxOStore def
 
 instance HasSpec (UTxOStore ConwayEra)
 

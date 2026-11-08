@@ -1,7 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -58,6 +60,7 @@ import Cardano.Ledger.Core.Era (AtLeastEra, Era (PreviousEra))
 import Cardano.Ledger.Core.PParams (EraPParams, PParams, ppProtocolVersionL)
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (KeyRole (Staking))
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormula)
 import Cardano.Ledger.Val (Val (..), inject)
 import Control.DeepSeq (NFData)
 import Data.Aeson (FromJSON, ToJSON)
@@ -262,6 +265,13 @@ class EraNewTxOut era where
 
   -- | Read or replace application assets without accessing the deposit store.
   applicationAssetsTxOutL :: Lens' (NewTxOut era) (ApplicationAssets era)
+
+  -- | Price a new output using its recorded formula. Earlier eras have no
+  -- values of 'NewTxOut'; their default is an empty match, not a zero price.
+  getDepositNewTxOut :: DepositFormula -> NewTxOut era -> Coin
+  default getDepositNewTxOut ::
+    NewTxOut era ~ NoNewTxOut era => DepositFormula -> NewTxOut era -> Coin
+  getDepositNewTxOut _ unavailable = case (unavailable :: NoNewTxOut era) of {}
 
 -- | Construct a transaction output whose value includes its implicit deposit.
 mkBasicTxOutWithImplicitDeposit ::

@@ -69,6 +69,7 @@ import Cardano.Ledger.Core (
 import Cardano.Ledger.Credential (Credential, StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Scripts ()
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Deposit
 import Cardano.Ledger.Keys (KeyRole (Staking))
 import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Plutus.Data (Datum (..), binaryDataToData, dataToBinaryData)
@@ -240,6 +241,8 @@ instance EraNewTxOut DijkstraEra where
   applicationAssetsTxOutL =
     lens storeBackedApplicationAssets (\output assets -> output {storeBackedApplicationAssets = assets})
   {-# INLINE applicationAssetsTxOutL #-}
+
+  getDepositNewTxOut pricing = Deposit.calculateDeposit pricing . NewTxOut
 
 instance AlonzoEraTxOut DijkstraEra where
   dataHashTxOutL =
