@@ -3654,3 +3654,14 @@ checkpoint; this is not a fully green CI result.
 Evidence: `/private/tmp/deposit-ci-batch-balance-regression.log`,
 `/private/tmp/ci-b78-conformance-failed.log`, and
 [CI run 42473172769](https://github.com/nhenin/cardano-ledger-specs/actions/runs/42473172769).
+
+The follow-up generator audit found the same issue in the TopTx/SubTx funding
+amounts of the consumed-value test. Seed `1` reproduced it with 1,046,130 lovelace.
+Both ranges now start at 1,100,000, retaining their upper bounds and the
+consumed-value oracle. All 47 Dijkstra UTXO conformance cases pass with each
+counterexample seed: `1` in 0.5376 seconds and `112043838` in 0.5547 seconds.
+Intentional insufficient-output cases are unchanged.
+
+Evidence: `/private/tmp/deposit-ci-consumed-values-seed1.log`,
+`/private/tmp/deposit-ci-utxo-seed1.log`, and
+`/private/tmp/deposit-ci-utxo-seed112043838.log`.

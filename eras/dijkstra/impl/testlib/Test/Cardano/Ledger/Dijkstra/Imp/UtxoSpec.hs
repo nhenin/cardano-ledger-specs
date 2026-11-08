@@ -246,9 +246,10 @@ spec = describe "UTXO" $ do
             (topAccount, topWithdrawal) <- freshFundedAccount
             (subAccount, subWithdrawal) <- freshFundedAccount
 
-            topInAmount <- Coin <$> choose (1_000_000, 2_000_000)
+            -- Both funding outputs must exceed the initial ADA-only minimum.
+            topInAmount <- Coin <$> choose (1_100_000, 2_000_000)
             topIn <- txInWithFunds topInAmount
-            subInAmount <- Coin <$> choose (1_000_000, 2_000_000)
+            subInAmount <- Coin <$> choose (1_100_000, 2_000_000)
             subIn <- txInWithFunds subInAmount
 
             let subTx :: Tx SubTx era
