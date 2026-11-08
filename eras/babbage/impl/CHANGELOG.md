@@ -1,9 +1,13 @@
 # Version history for `cardano-ledger-babbage`
 
+## 1.15.0.2
+
+* Return proposed `IndexedTxOs` from `collOuts`, retaining the supplied collateral-return size and output index. Accepted legacy outputs retain canonical allocation metadata and existing encodings.
+* Translate existing Store allocations and preserve their formula history; legacy outputs contribute zero separately held deposit.
+
 ## 1.15.0.1
 
-* Return proposed `IndexedTxOs` from `collOuts`, retaining the supplied collateral-return size and output index. `Store.allocate` records the calculation on acceptance; earlier eras retain canonical legacy metadata and encodings.
-* Initialize the new UTxO DepositStore state to empty during era translation.
+*
 
 ## 1.15.0.0
 

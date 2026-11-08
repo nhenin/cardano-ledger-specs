@@ -1,16 +1,7 @@
 # Revision history for `cardano-ledger-dijkstra`
 
-## 0.5.0.0
+## 0.5.0.1
 
-* Change the field type of `RequiredTopLevelGuardsNotSupported` to `NonEmptySet (Credential Guard)`
-* Add `Cardano.Ledger.Dijkstra.Block.Endorser`, with `DijkstraEndorserBlock` and related types, and the `EraEndorserBlock` class
-* Extend `DijkstraEraForecast` with Peras protocol parameters
-* Validate the treasury value and the reference scripts size in `LEDGER`, and the treasury value in `SUBLEDGER`, regardless of phase-2 validity
-* Add `POOLREAP` rule for Dijkstra:
-  - Add `Cardano.Ledger.Dijkstra.Rules.PoolReap` module
-  - Change `EraRule "POOLREAP" DijkstraEra` from `Shelley.POOLREAP` to `POOLREAP`
-  - Add `EraRuleEvent "POOLREAP" DijkstraEra` type instance
-* Rename `requiredTopLevelGuardsL` to `requiredTopLevelGuardsTxBodyL`
 * Persist `DepositFormulaHistory` with an explicit baseline and dated changes. `currentFormula` is the latest change, or the baseline when there are none. Append effective rate changes at the actual epoch boundary, preserving the selected formula version and every existing allocation's pricing. Fork and genesis use V1, `p * (250 + 74*N + D + R)`. Experimental V2 uses `p * (260 + 80*N + D + R)`. Both count distinct native assets and datum/reference-script payload bytes.
 * `Dijkstra.UTxOs.Deposit.Formula.computeDeposit` measures outputs as `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`, delegates V1/V2 arithmetic to core `Deposit.computeDeposit`, and returns `DepositAmount`. Historical reserve/application queries remain in `Dijkstra.UTxOs.Unspent`; its `computeDeposit` also returns `DepositAmount`. Both migrated legacy outputs and new outputs use Dijkstra pricing; earlier-era minimum-coin rules are unchanged.
 * Require newly proposed `LegacyTxOut`s, including collateral returns, to contain the full uncapped deposit under the Store's current V1/V2 formula. TopTx and SubTx minimum-coin validation use that active formula; `NewTxOut` keeps zero minimum application ADA with external deposit funding. Existing and migrated reserves remain capped and historical. Parameter-only `getMinCoinTxOut`/`getMinCoinSizedTxOut` use V1 at the supplied rate; builders targeting another active version use explicit-formula `computeDeposit`. Earlier eras are unchanged.
@@ -34,6 +25,17 @@
 * Add an optional `NetUTxODepositChange` to top-level transaction bodies, with a net allocation or a net release referencing a top-level output by index; encode it at CBOR key `28` and describe it in the CDDL schema.
 * Add an optional `SubTxNetUTxODepositChange` to sub-transaction bodies at CBOR key `28`: net allocations can request funding from the top-level transaction; net releases declare their amount and either a local output index or an explicit request to delegate accounting to the top-level transaction.
 * Add the store-backed transaction output format to the CDDL schema, using key `4` for application assets.
+
+## 0.5.0.0
+
+* Change the field type of `RequiredTopLevelGuardsNotSupported` to `NonEmptySet (Credential Guard)`
+* Add `Cardano.Ledger.Dijkstra.Block.Endorser`, with `DijkstraEndorserBlock` and related types, and the `EraEndorserBlock` class
+* Extend `DijkstraEraForecast` with Peras protocol parameters
+* Validate the treasury value and the reference scripts size in `LEDGER`, and the treasury value in `SUBLEDGER`, regardless of phase-2 validity
+* Add `POOLREAP` rule for Dijkstra:
+  - Add `Cardano.Ledger.Dijkstra.Rules.PoolReap` module
+  - Change `EraRule "POOLREAP" DijkstraEra` from `Shelley.POOLREAP` to `POOLREAP`
+  - Add `EraRuleEvent "POOLREAP" DijkstraEra` type instance
 * Add `DijkstraEraForecast`, exposing the Leios voting committee and the Leios protocol parameters from a forecast
 * Replace the reused `BabbageForecast` with `DijkstraForecast`, which additionally carries the Leios voting committee and the Leios protocol parameters, and instantiates `DijkstraEraForecast`
 * Add `getDijkstraSupplementalDataHashes` and use it for `getSupplementalDataHashes`, so that,
@@ -43,6 +45,7 @@
 * Change `seatInitialLeiosCommittee` to accept a `TransitionConfig` and also seat the Leios voting committee (CIP-0164) in the set and go snapshots
 * Add `Embed (SNAP era) (TICKF era)` instance, so that `TICKF` runs the Dijkstra `SNAP` rule
 * Change `eraMaxLanguage` to `PlutusV4`
+* Rename `requiredTopLevelGuardsL` to `requiredTopLevelGuardsTxBodyL`
 
 ### `testlib`
 

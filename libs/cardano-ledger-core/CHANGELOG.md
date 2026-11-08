@@ -1,14 +1,12 @@
 # Version history for `cardano-ledger-core`
 
-## 1.23.0.0
+## 1.23.0.1
 
 * Return `TxProjected {updatedStore, consumedOutputs, producedOutputs}` from `Store.projectTx` and both internal body projections. Report only actually inserted outputs, excluding retained collisions. Add `State.Accounting.InstantStake.updateInstantStake` to apply these consumed/produced entries independently of Store projection. Existing ledger events retain their entry-only payload.
 * Limit the public `State.Accounting.UTxOs.Store` interface to transaction projection (`projectTx`), construction, record queries and formula activation. Move `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release` to `Store.Internals`; `Cardano.Ledger.State` no longer reexports these operations.
 * Move Store snapshot encoding into `EncCBOR (UTxOStore era)` and remove `encodeUTxOStore`. Standalone Store CBOR uses MemPack inputs and output payloads. Pre-Dijkstra snapshot and query formats remain unchanged; Dijkstra persists complete allocation metadata and history.
 * Remove `Store.fromLegacyAllocations`. Legacy import and fixtures compose `IndexedUTxOs.fromLegacyTxOuts` with `mkUTxOStore history`.
 * Remove `Store.translateLegacyStore`. Era-specific `TranslateEra` instances reuse the `IndexedUTxOs` translation and reconstruct the Store with `mkUTxOStore`, preserving the source history. Conway canonical import preserves the incoming state's history.
-* Remove `DecCBOR` instances from `Data` and `PlutusData`
-* Add optional `BlsKeyState` argument to `mkStakePoolState`
 * Replace the payload-only `UTxO` / `TxOutMap` and separate `Allocations` collection with `IndexedTxOs` for sized output proposals and `IndexedUTxOs` for complete accepted entries. The modules are `TxOut.IndexedTxOs` and `State.Accounting.UTxOs.IndexedUTxOs`; both types are reexported by `Core`.
 * Replace `txouts` with `Core.outputsTxBody`, returning `IndexedTxOs` without selecting a deposit formula. Add `sizedOutputsTxBodyG`, implemented by each era to retain its output sizes; preserve bounded regular-output indices.
 * Use `IndexedUTxOs.mapTxOuts` to inspect accepted outputs. `Unspent` stores the output and its allocation origin.
@@ -25,8 +23,13 @@
 * Expose complete Store access through `CanGetUTxOStore` / `CanSetUTxOStore` in `Cardano.Ledger.State.Accounting.UTxOs`, alongside `EraUTxO` and `ScriptsProvided`. Keep the model and operations in `State.Accounting.UTxOs.Store`; remove the experimental `UTxOs` sum type and whole-Store output projections.
 * Place accepted entries in `State.Accounting.UTxOs.IndexedUTxOs` and `Unspent` in `State.Accounting.UTxOs.Unspent`. `allocatedDepositTotalAmount` and `sumDepositAmounts` take history explicitly. `State.Accounting.UTxOs.Deposit` owns `DepositAmount`, `DepositFormula` and `DepositFormulaHistory`. `mkDepositFormulaHistory baseline` starts with no dated changes. `Default DepositFormula` is V1 at 4310 lovelace per byte; `Default DepositFormulaHistory` uses it with an empty change map, and `Default UTxOStore` has that history with no allocations. This is a fixed model default, not recovered historical pricing; `appendFormula` accepts the first change at any slot and requires subsequent changes to be strictly later. `formulaAt` and `latestFormula` are total; `DepositPeriod.fromInclusive = Nothing` identifies the baseline interval.
 * Add `EraNewTxOut.getDepositNewTxOut` for external deposits, with the formula supplied by Store history. Only Dijkstra implements pricing; earlier eras have no `NewTxOut` values. `computeExternalDeposit history entry` returns zero for legacy outputs and uses the allocation-time formula for new outputs. Aggregate external totals return `DepositAmount`, converted with `toCoin`. The core `Deposit.computeDeposit` evaluates V1/V2 from `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`, each wrapping `Natural`, and returns `DepositAmount`. Dijkstra owns output measurement and migrated legacy reserve queries.
-* Remove `OutputStoreError` and the ambiguous `fromLegacyTxOutMap` import. `mkUTxOStore` and `allocate` return a Store directly and retain measured sizes and allocation origins. `IndexedUTxOs.fromLegacyTxOuts` accepts only `LegacyTxOut` payloads and marks them `AtStoreMigration` without inventing creation dates. Decoders reject malformed persisted metadata.
+* Remove `OutputStoreError` and the ambiguous `fromLegacyTxOutMap` import. `mkUTxOStore` and `allocate` return a Store directly and retain outputs and allocation origins. `IndexedUTxOs.fromLegacyTxOuts` accepts only `LegacyTxOut` payloads and marks them `AtStoreMigration` without inventing creation dates. Decoders reject malformed persisted metadata.
 * Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
+
+## 1.23.0.0
+
+* Remove `DecCBOR` instances from `Data` and `PlutusData`
+* Add optional `BlsKeyState` argument to `mkStakePoolState`
 * Select the Leios voting committee (CIP-0164) when the mark snapshot is created, instead of when it rotates into the set position:
   - Add `msStakePoolDistr`, `msLeiosMaxKeyAge` and `msLeiosCommittee` fields to `MarkSnapShot`, memoizing lazily the stake pool distribution and the committee
   - Add `mkMarkSnapShot`
