@@ -3593,10 +3593,39 @@ the uncapped V1 helper result.
 
 A broader `UTXO` run completed 438 examples with eight setup failures: inherited
 script/voting fixtures explicitly fund a 1 ADA legacy output below the new
-1.0775 ADA minimum. These fixtures still require adjustment; this checkpoint
+1.0775 ADA minimum. These fixtures still required adjustment at that point; this checkpoint
 does not claim a green full suite or CI.
+
+The later [CI fixture checkpoint](#ci-fixtures--8-november-2026) below records
+the fixes and broader successful reruns.
 
 Evidence: `/private/tmp/legacy-formula-build.log`,
 `/private/tmp/legacy-formula-api-tests.log`,
 `/private/tmp/legacy-formula-ledger-tests.log`, and
 `/private/tmp/legacy-formula-utxo-tests.log`.
+
+## CI fixtures — 8 November 2026
+
+Validated sources are pushed at `65cd47ca7`. The all-package build passed with
+GHC 9.6.7. Shared fixtures now fund legacy outputs above the Dijkstra minimum;
+coupled stake weights and proposal deposits scale together, preserving voting
+ratios, thresholds and assertions. The API minimum-coin oracle now uses V1's
+component formula.
+
+Seed `20261108`, with `+RTS -N2 -RTS`, produced:
+
+| Suite | Examples | Failures | Pending | Seconds |
+| --- | ---: | ---: | ---: | ---: |
+| Dijkstra Imp | 811 | 0 | 0 | 158.2691 |
+| Conway Imp | 1,484 | 0 | 0 | 296.2370 |
+| API, complete | 357 | 0 | 0 | 326.4008 |
+| Dijkstra conformance | 782 | 0 | 1 | 624.9922 |
+
+The conformance pending case predates this change. Dijkstra's remaining non-Imp
+tests were still running at this checkpoint. These results do not claim a fully
+green CI run.
+
+Evidence: `/private/tmp/deposit-ci-build-all.log`,
+`/private/tmp/deposit-ci-imp-tests.log`, `/private/tmp/deposit-ci-conway-imp-tests.log`,
+`/private/tmp/deposit-ci-api-full-tests.log`, and
+`/private/tmp/deposit-ci-dijkstra-conformance.log`.

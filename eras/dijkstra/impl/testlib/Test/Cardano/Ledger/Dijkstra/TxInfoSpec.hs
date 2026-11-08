@@ -74,7 +74,6 @@ spec ::
   , Inject (BabbageContextError era) (ContextError era)
   , DijkstraEraTxBody era
   , EraUTxO era
-  , Arbitrary (Value era)
   , AlonzoEraTxWits era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   ) =>
