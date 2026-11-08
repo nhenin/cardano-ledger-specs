@@ -7,7 +7,9 @@
 module Test.Cardano.Ledger.Api.UnspentSpec (spec) where
 
 import Cardano.Ledger.Allegra.Scripts (AllegraEraScript (mkTimeStart))
+import Cardano.Ledger.Babbage.TxOut (datumBabbageTxOutL, referenceScriptBabbageTxOutL)
 import Cardano.Ledger.BaseTypes (SlotNo (..), StrictMaybe (..), TxIx (..))
+import Cardano.Ledger.Binary (Sized (..))
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Credential (Credential (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
@@ -33,6 +35,8 @@ import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
 import qualified Cardano.Ledger.Val as Val
 import qualified Data.ByteString.Short as SBS
+import Data.Default (def)
+import Data.Int (Int64)
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromJust)
 import qualified Data.Set as Set
@@ -143,6 +147,26 @@ spec = describe "Unspent deposit formula" $ do
       Store.totalDepositAmount store `shouldBe` DepositAmount (Coin 3_525_580)
       Store.totalDepositAmount afterFirst `shouldBe` DepositAmount (Coin 1_810_200)
       Store.totalDepositAmount afterBoth `shouldBe` DepositAmount (Coin 0)
+
+  prop
+    "new legacy output: minimum = V1(N,D,R), without capping by output ADA or pricing its supplied size"
+    $ \policy ->
+      forAll
+        ((,,) <$> chooseInteger (1, 10_000) <*> chooseInteger (0, 100) <*> choose (0, maxBound :: Int64))
+        $ \(price, lovelace, suppliedSize) -> do
+          inline <- expectRight $ makeBinaryData @DijkstraEra $ SBS.pack [0x43, 1, 2, 3]
+          let parameters = def & ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin $ fromInteger price)
+              assets =
+                MaryValue (Coin lovelace) $
+                  multiAssetFromList [(policy, AssetName "A", 1), (policy, AssetName "B", 2)]
+              legacy =
+                mkBasicLegacyTxOut @DijkstraEra address assets
+                  & datumBabbageTxOutL .~ Datum inline
+                  & referenceScriptBabbageTxOutL .~ SJust (fromNativeScript $ mkTimeStart @DijkstraEra $ SlotNo 0)
+              -- N = 2, D = 4, R = 3: the required reserve is 405p, even with only 0–100 lovelace present.
+              expectedMinimum = Coin $ 405 * price
+          getMinCoinTxOut @DijkstraEra parameters legacy `shouldBe` expectedMinimum
+          getMinCoinSizedTxOut @DijkstraEra parameters (Sized legacy suppliedSize) `shouldBe` expectedMinimum
 
   describe "Legacy: reserve = min(output ADA, calculated deposit)" $ do
     -- An ADA-only output needs 250 × 4310 lovelace. Only 1 ADA is available here.

@@ -82,7 +82,6 @@ getConsumedDijkstraValue ::
   forall era l.
   ( DijkstraEraTxBody era
   , EraUTxO era
-  , Value era ~ MaryValue
   , STxLevel l era ~ STxBothLevels l era
   ) =>
   PParams era ->
@@ -111,7 +110,6 @@ dijkstraProducedValue ::
   forall era.
   ( DijkstraEraTxBody era
   , EraUTxO era
-  , Value era ~ MaryValue
   ) =>
   PParams era ->
   (KeyHash StakePool -> Bool) ->
@@ -150,9 +148,7 @@ declaredDepositAllocation txBody =
 -- Excludes fees and certificate deposits, which are accounted for once per
 -- batch.
 localProducedValue ::
-  ( DijkstraEraTxBody era
-  , Value era ~ MaryValue
-  ) =>
+  DijkstraEraTxBody era =>
   PParams era ->
   TxBody l era ->
   MaryValue

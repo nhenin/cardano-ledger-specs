@@ -67,6 +67,7 @@ library
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin
     Cardano.Ledger.Dijkstra.Rules.Entities
     Cardano.Ledger.Dijkstra.Rules.Epoch
     Cardano.Ledger.Dijkstra.Rules.Gov

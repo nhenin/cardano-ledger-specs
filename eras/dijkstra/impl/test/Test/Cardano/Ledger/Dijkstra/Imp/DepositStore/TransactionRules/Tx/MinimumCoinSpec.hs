@@ -5,11 +5,11 @@
 -- their minimum ADA. These cases isolate that distinction with fully funded,
 -- exactly declared deposits and otherwise valid transactions.
 --
--- Each generated sample covers TopTx and SubTx outputs, on both phase-2 outcomes.
+-- Each generated sample covers V1 and V2, TopTx and SubTx outputs, on both phase-2 outcomes.
 -- Invalid phase 2 uses a genuinely failing script and valid collateral. Acceptance
 -- then means the collateral outcome, not creation of the proposed ordinary output.
--- Every selected output survives preparation unchanged. Minimum coin is calculated
--- independently from its final encoded size, including the coin's own encoded width.
+-- Every selected output survives preparation unchanged. Legacy minimum coin uses
+-- the active Store formula over its assets, datum and script, independently of ADA.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.MinimumCoinSpec (spec) where
 
 import Cardano.Ledger.Coin (Coin (..))
@@ -41,7 +41,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "DS-TX-MINIMUM-COIN - Minimum coin" $ do
+  describe "DS-TX-MINIMUM-COIN - Active formula ∈ {V1, V2}: legacy outputs retain the reserve; new outputs fund it externally" $ do
     -- Native assets need no accompanying application ADA when their storage
     -- deposit is funded externally. Tokens come from an accepted funding transaction.
     prop "DS-TX-MINIMUM-COIN-N01 - storeBacked(output) ∧ nativeAssets(output) ≠ ∅ ∧ applicationADA(output) = 0 ⇒ accepted" $
@@ -85,7 +85,7 @@ spec =
             >>= submitTx >>= isAccepted
 
     -- Implicit outputs pay for their storage through ADA in the output itself.
-    -- Equality is sufficient; there is no external allocation or declaration.
+    -- Equality with the active V1 or V2 formula is sufficient; there is no external allocation or declaration.
     prop "DS-TX-MINIMUM-COIN-N04 - implicit(output) ∧ outputADA(output) = minimumCoin(output) ⇒ accepted" $
       forAll MinimumCoin.implicitMinimum $ \scenarios ->
         forM_ scenarios $ \scenario -> do
@@ -93,7 +93,8 @@ spec =
           MinimumCoin.buildAndSignTx scenario proposal >>= submitTx >>= isAccepted
 
     -- Move one lovelace from the selected output to another implicit output.
-    -- Balance and encoded width stay unchanged: only the minimum-coin bound fails.
+    -- Balance stays unchanged: only the active formula bound fails. The amount
+    -- still satisfies the former Babbage byte-size rule, which must no longer decide admission.
     -- The original exact-minimum control is accepted after the rejected variant.
     prop "DS-TX-MINIMUM-COIN-F01 - implicit(output) ∧ outputADA(output) = minimumCoin(output) - 1 ⇒ rejected" $
       forAll MinimumCoin.implicitMinimum $ \scenarios ->

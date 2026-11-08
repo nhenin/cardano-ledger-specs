@@ -30,10 +30,12 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Rules (DijkstraLedgerPredFailure, DijkstraUtxoPredFailure)
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Formula
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (SLanguage (..), hashPlutusScript)
 import Cardano.Ledger.Shelley.LedgerState (esLStateL, nesEsL)
+import Cardano.Ledger.State (DepositAmount (toCoin), currentFormula)
 import Data.Bifunctor (first)
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -113,7 +115,7 @@ removeTopTxDeclaration tx =
 -- For each supplied SubTx declaration:
 --
 -- * Submit a funding transaction that creates an implicit-deposit output of
---   one ADA at a fresh address in the test ledger.
+--   the active minimum ADA at a fresh address in the test ledger.
 -- * Build a SubTx that spends that output, initially creates no outputs, and
 --   carries exactly the supplied declaration, including absence or explicit zero.
 --
@@ -137,7 +139,11 @@ fundedImplicitSubTx ::
   SubTx.SubTxUTxODepositDeclaration -> ImpTestM DijkstraEra (Tx SubTx DijkstraEra)
 fundedImplicitSubTx declaration = do
   address <- freshKeyAddr_
-  input <- sendCoinTo address (Coin 1_000_000)
+  pricing <- currentFormula <$> getUTxOStore
+  input <-
+    sendCoinTo address $
+      toCoin . Formula.computeDeposit pricing $
+        mkBasicTxOutWithImplicitDeposit @DijkstraEra address mempty
   pure $ subTxWithDepositDeclaration input declaration
 
 -- | Exercise the phase-2 failure path with a real failing TopTx script.

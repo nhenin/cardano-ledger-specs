@@ -6,7 +6,7 @@
 
 -- | Real funding and generated output forms for minimum-coin specifications.
 -- Store-backed application assets are distinct from their externally funded
--- deposit. Implicit outputs retain their byte-priced minimum application ADA.
+-- deposit. Newly created legacy outputs retain the active formula amount in ADA.
 -- Every supplied declaration remains the specification's explicit choice.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.MinimumCoin (
   Body (..),
@@ -32,6 +32,7 @@ import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), PolicyID (..),
 import Cardano.Ledger.Plutus (mkInlineDatum)
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, nesEsL)
 import Cardano.Ledger.Shelley.Scripts (ShelleyEraScript (mkRequireSignature))
+import Cardano.Ledger.State (DepositFormula (..), activateNewFormula, currentFormula, utxoStoreL)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
 import qualified Data.ByteString as BS
@@ -45,6 +46,7 @@ import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (expectedOutputDeposit)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (isImplicitOutput)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
@@ -63,12 +65,12 @@ data Content = NativeAssets | InlineDatum | ReferenceScript | AddressOnly | Impl
   deriving (Eq, Show)
 
 -- | Generated price, payload size, token quantity and funding vary each sample.
--- Body, output content and phase-2 outcome are enumerated by the public generators.
+-- Formula version, body, output content and phase-2 outcome are enumerated by the public generators.
 data Scenario = Scenario
   { body :: Body
   , phase2 :: IsPhase2Valid
   , content :: Content
-  , bytePrice :: Integer
+  , depositFormula :: DepositFormula
   , payloadBytes :: Int
   , tokenQuantity :: Integer
   , sourceCoins :: Coin
@@ -98,12 +100,12 @@ storeBackedDatumOrReferenceScript = scenarios [InlineDatum, ReferenceScript]
 storeBackedAddressOnly :: Gen [Scenario]
 storeBackedAddressOnly = scenarios [AddressOnly]
 
--- | An implicit output exactly at its own size-dependent minimum. An inline
--- datum varies the serialized size, and the application coin is solved as a fixed point.
+-- | A legacy output exactly at the active formula amount. Its inline datum
+-- varies the priced payload; changing the output ADA does not change its deposit.
 implicitMinimum :: Gen [Scenario]
 implicitMinimum = scenarios [Implicit]
 
--- | Vary numeric premises while exhaustively visiting the body/content/path product.
+-- | Vary numeric premises while visiting both formulas, bodies and phase-2 paths.
 scenarios :: [Content] -> Gen [Scenario]
 scenarios contents = do
   price <- chooseInteger (1_000, 4_310)
@@ -111,8 +113,16 @@ scenarios contents = do
   quantity <- chooseInteger (1, 10_000)
   application <- Coin <$> chooseInteger (200_000_000, 210_000_000)
   pure
-    [ Scenario owner validity payload price bytes quantity application
-    | payload <- contents
+    [ Scenario
+        owner
+        validity
+        payload
+        (version $ CoinPerByte $ CompactCoin $ fromInteger price)
+        bytes
+        quantity
+        application
+    | version <- [DepositFormulaV1, DepositFormulaV2]
+    , payload <- contents
     , owner <- [TopTxOutput, SubTxOutput]
     , validity <- [Phase2Valid, Phase2Invalid]
     ]
@@ -122,8 +132,15 @@ scenarios contents = do
 -- change; output one is the selected test output and must survive preparation intact.
 -- The target body's declaration is deliberately absent for the specification.
 fund :: Scenario -> ImpTestM DijkstraEra Fixture
-fund generated@Scenario {body, content, bytePrice, sourceCoins} = do
-  modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin $ fromInteger bytePrice)
+fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
+  modifyPParams $
+    ppCoinsPerUTxOByteL .~ case depositFormula of
+      DepositFormulaV1 price -> price
+      DepositFormulaV2 price -> price
+  passTick
+  slot <- getCurSlotNo
+  modifyNES $ utxoStoreL %~ activateNewFormula slot depositFormula
+  currentFormula <$> getUTxOStore >>= (`shouldBe` depositFormula)
   address <- freshKeyAddrNoPtr_
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
   assets <- case content of
@@ -138,7 +155,7 @@ fund generated@Scenario {body, content, bytePrice, sourceCoins} = do
         & bodyTxL . mintTxBodyL .~ assets
         & bodyTxL . outputsTxBodyL .~ SSeq.singleton source
   impGetUTxO (txInAt (0 :: Int) funding) >>= (`shouldBe` source)
-  output <- outputForScenario generated parameters address $ MaryValue (Coin 0) assets
+  output <- outputForScenario generated address $ MaryValue (Coin 0) assets
   let balanceOutput = mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 20_000_000
       ownBody =
         mkBasicTx mkBasicTxBody
@@ -155,8 +172,8 @@ fund generated@Scenario {body, content, bytePrice, sourceCoins} = do
                     (Set.singleton $ txInAt (0 :: Int) funding)
                     [balanceOutput, output]
                 ]
-      allocation = Pricing.outputDeposit parameters output
-      minimumAmount = minimumCoins parameters output
+      allocation = expectedOutputDeposit depositFormula output
+      minimumAmount = minimumCoins depositFormula output
   state <- Release.readAccountingState
   output ^. coinTxOutL `shouldBe` minimumAmount
   pure $ Fixture (ReleaseTx (Pricing.LedgerState state parameters) tx) allocation minimumAmount
@@ -171,8 +188,8 @@ bodyWithOutputs inputs outputs =
 -- | Construct the selected output without choosing a declaration. A reference
 -- script is stored, not executed; its presence does not introduce a minting policy.
 outputForScenario ::
-  Scenario -> PParams DijkstraEra -> Addr -> MaryValue -> ImpTestM DijkstraEra (TxOut DijkstraEra)
-outputForScenario generated parameters address assets =
+  Scenario -> Addr -> MaryValue -> ImpTestM DijkstraEra (TxOut DijkstraEra)
+outputForScenario generated address assets =
   case content generated of
     NativeAssets -> pure $ mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets assets
     InlineDatum -> pure $ withDatum generated $ mkBasicTxOutWithStoreBackedDeposit address mempty
@@ -183,30 +200,33 @@ outputForScenario generated parameters address assets =
           & referenceScriptTxOutL .~ SJust (fromNativeScript $ mkRequireSignature scriptKey)
     AddressOnly -> pure $ mkBasicTxOutWithStoreBackedDeposit address mempty
     Implicit ->
-      pure $ atMinimum parameters $ withDatum generated $ mkBasicTxOutWithImplicitDeposit address mempty
+      pure $
+        atMinimum (depositFormula generated) $
+          withDatum generated $
+            mkBasicTxOutWithImplicitDeposit address mempty
 
 -- | Vary a semantically irrelevant inline byte string, including CBOR length boundaries.
 withDatum :: Scenario -> TxOut DijkstraEra -> TxOut DijkstraEra
 withDatum generated =
   datumTxOutL .~ mkInlineDatum (Plutus.B $ BS.replicate (payloadBytes generated) 0)
 
--- | The minimum application ADA is zero for a Store-backed output. Only a
--- legacy output retains Babbage's full-encoding minimum, including its coin.
-minimumCoins :: PParams DijkstraEra -> TxOut DijkstraEra -> Coin
+-- | New outputs hold no implicit reserve. A legacy output retains the same
+-- amount that the independent oracle prices for a new output with identical
+-- assets, datum and script. Its ADA does not participate in that calculation.
+minimumCoins :: DepositFormula -> TxOut DijkstraEra -> Coin
 minimumCoins _ (NewTxOut _) = Coin 0
-minimumCoins parameters output@(LegacyTxOut _) =
-  case parameters ^. ppCoinsPerUTxOByteL of
-    CoinPerByte (CompactCoin price) ->
-      Coin $ toInteger price * (160 + toInteger (sizedSize $ mkSized (eraProtVerLow @DijkstraEra) output))
+minimumCoins pricing output@(LegacyTxOut legacy) =
+  expectedOutputDeposit pricing $
+    mkBasicTxOutWithStoreBackedDeposit
+      (output ^. addrTxOutL)
+      (ApplicationAssets $ legacy ^. valueTxOutL)
+      & datumTxOutL .~ (output ^. datumTxOutL)
+      & referenceScriptTxOutL .~ (output ^. referenceScriptTxOutL)
 
--- | Solve coin = price * (160 + serializedSize(output)) after placing that coin
--- in the output itself, so CBOR coin-width changes are included in the boundary.
-atMinimum :: PParams DijkstraEra -> TxOut DijkstraEra -> TxOut DijkstraEra
-atMinimum parameters output =
-  let required = minimumCoins parameters output
-   in if output ^. coinTxOutL == required
-        then output
-        else atMinimum parameters $ output & coinTxOutL .~ required
+-- | Place the required reserve directly in the legacy output. No serialization
+-- fixed point is needed: the formula does not price its ADA amount or encoding.
+atMinimum :: DepositFormula -> TxOut DijkstraEra -> TxOut DijkstraEra
+atMinimum pricing output = output & coinTxOutL .~ minimumCoins pricing output
 
 -- | Build exact financial balance and signatures while preserving the selected
 -- output and all explicit declarations. The invalid path executes a genuinely
@@ -246,21 +266,32 @@ onlyChild tx = case OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL of
 
 -- | Remove exactly one lovelace from the selected implicit output and return it
 -- to TopTx change. Re-sign without fixup; the declaration, Store pricing, fees and
--- complete transaction balance stay intact. Recompute the minimum from the final
--- bytes to prove that the deficit remains exactly one despite CBOR size changes.
+-- complete transaction balance stay intact. The active formula is independent
+-- of the changed ADA; the proposed output remains exactly one lovelace short.
+-- It still meets the former Babbage bound, so this specifically tests the new rule.
 oneLovelaceBelowMinimum ::
   Scenario -> Tx TopTx DijkstraEra -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
 oneLovelaceBelowMinimum generated tx = do
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
+  pricing <- currentFormula <$> getUTxOStore
+  pricing `shouldBe` depositFormula generated
   let before = selectedOutput generated tx
-      required = minimumCoins parameters before
+      required = minimumCoins pricing before
       changed =
         changeSelectedCoin generated (Coin 0 <-> Coin 1) tx
           & bodyTxL . outputsTxBodyL %~ changeCoinAt 0 (Coin 1)
   content generated `shouldBe` Implicit
   before ^. coinTxOutL `shouldBe` required
-  minimumCoins parameters (selectedOutput generated changed) `shouldBe` required
+  minimumCoins pricing (selectedOutput generated changed) `shouldBe` required
   selectedOutput generated changed ^. coinTxOutL `shouldBe` (required <-> Coin 1)
+  let CoinPerByte (CompactCoin price) = parameters ^. ppCoinsPerUTxOByteL
+      previousMinimum =
+        Coin $
+          toInteger price
+            * ( 160
+                  + toInteger (sizedSize $ mkSized (eraProtVerLow @DijkstraEra) $ selectedOutput generated changed)
+              )
+  (previousMinimum <= required <-> Coin 1) `shouldBe` True
   signed <- Submission.resignTx changed
   signed ^. bodyTxL . feeTxBodyL `shouldBe` (tx ^. bodyTxL . feeTxBodyL)
   signed ^. sizeTxF `shouldBe` (tx ^. sizeTxF)

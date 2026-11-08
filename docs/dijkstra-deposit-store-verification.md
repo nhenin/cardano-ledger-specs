@@ -164,6 +164,15 @@ and every slot resolves a formula.
 Legacy reserve is `min(outputADA, calculatedDeposit)`; its application view subtracts
 only this ADA reserve and preserves every native asset. New outputs retain their
 full application value and use the full historical formula as their external deposit.
+
+For newly proposed Dijkstra `LegacyTxOut`s, including collateral returns, the
+minimum ADA is the **uncapped current-formula deposit**. TopTx and SubTx validation
+read `currentFormula` from the Store. The parameter-only `getMinCoinTxOut` and
+`getMinCoinSizedTxOut` helpers use V1 at the supplied rate; builders targeting V2
+must pass the active formula to `Dijkstra.UTxOs.Deposit.Formula.computeDeposit`.
+Existing allocations retain their capped historical reserve. New output forms
+retain zero minimum application ADA with their full deposit funded externally.
+Earlier-era minimum-coin rules remain unchanged.
 `computeExternalDeposit history legacyEntry` returns zero, preventing a second
 credit of embedded ADA. A new-form entry contributes its calculated historical
 deposit, using the baseline before the first dated change.
@@ -254,7 +263,7 @@ Historical local evidence:
 `/private/tmp/ds-conservation-scope-audit.json`.
 
 Production state owns each live output in one allocation map. Both accepted output
-forms retain their supplied full-output size and allocation origin. History resolves
+forms retain their output payload and allocation origin. History resolves
 the applicable formula; migrated entries keep the initial formula. Legacy reserves
 remain inside output ADA and have zero external deposit. Decoding validates persisted
 metadata. `mkUTxOStore history` derives the cached external total; `allocate` and
@@ -266,16 +275,15 @@ settlement. Store ADA is included once in the ledger total.
 
 The business suite contains Transaction rules and Ledger effects. The full Pricing,
 Stake and Voting matrices remain deferred; focused metadata and codec properties
-cover historical pricing, malformed sizes and cached totals. All 16 current
-metadata properties passed, including provisional V1/V2 parity and unknown-version
-rejection. Grammar has 21 codec checks; the reusable positive
+cover historical pricing, formula evolution, entry codecs and cached totals.
+Dated results below record which revision was executed. Grammar has 21 codec checks; the reusable positive
 amount type has five independent ledger-core checks. One technical fixture property
 remains outside the business specification. The old model-only release fixture checks
 have been replaced by real ledger submissions.
 
 | Semantic responsibility and executable spec | Current implementation or verification |
 | --- | --- |
-| [DS-PRICING](dijkstra-deposit-store-rules.md#ds-pricing) | The full pricing matrix remains deferred; focused metadata codecs and ledger lifecycle regressions cover retained accepted size, creation price and zero pricing. |
+| [DS-PRICING](dijkstra-deposit-store-rules.md#ds-pricing) | The full pricing matrix remains deferred; focused formula, codec and ledger lifecycle checks cover typed output measures, historical pricing, formula evolution and zero pricing. |
 | [DS-TX-DECLARATIONS-GRAMMAR](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs) | Twenty-one declaration checks are implemented in separate TopTx and SubTx modules: typed amount integration, absent versus zero, legal forms and malformed payloads. Both levels have separate zero, negative and overflowing amount cases, generated structural inputs, and properties for generated negative or overflowing release indices. The former zero-delegation accounting case is implemented as Accounting Attribution N01, covering active and inactive explicit-zero children. |
 | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs) | P01 generates independent input/output deposit forms for TopTx and zero to four SubTxs at zero deposit price. It checks each active body's omitted declaration against its own ledger failure, then accepts the declared control, on ordinary success and real phase-2 failure paths. Activity is derived from actual input/output forms, independently of production predicates and amounts. |
 | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs) | All 17 checks pass. N05/F02 cover standalone allocation and omission; N06–N08/F07–F08 retain the own-output scope checks. F06 uses production Conway-to-Dijkstra output conversion followed by real funding, then rejects omission and accepts its declared control. N09 accepts independent parent/child allocations with exact local and aggregate declarations. |
@@ -290,7 +298,7 @@ have been replaced by real ledger submissions.
 | [DS-TX-SETTLEMENT-DESIGNATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | All 12 generated properties pass. Exact net releases require a TopTx output precisely when its attributed change is negative. Allocation and explicit-zero totals have no designation field. Both correct and incorrect designation branches are exercised with genuine phase-2 failure. |
 | [DS-TX-SETTLEMENT-OUTPUT-INDEX](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | All 11 generated properties pass. Indices resolve only within the declaring body’s regular outputs, including first/last boundaries, empty child outputs, foreign parent/child/sibling sequences and collateral return. Ledger rejections require exactly the intended failure and then accept the unchanged control. |
 | [DS-TX-SETTLEMENT-OUTPUT-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. Application ADA must cover the required share; external Store deposits cannot satisfy this bound. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. Stronger refund-provenance guarantees remain open in A.3. |
-| [DS-TX-MINIMUM-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | All five generated properties pass. Each sample covers both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Implicit outputs retain the independently priced minimum; one lovelace below produces exactly the owner’s minimum-coin failure, then the unchanged control is accepted. |
+| [DS-TX-MINIMUM-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | Generated properties cover both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Proposed legacy outputs must fund the independently computed active-formula minimum; the one-lovelace-below case isolates the owner's minimum-coin failure and includes the exact-minimum control. Executed evidence below retains its revision scope. |
 | [Inherited collateral rules](dijkstra-deposit-store-rules.md#ds-collateral-existing-rules) | Existing UTXO/UTXOW checks are linked individually. Five generic scope requirements and two authorization requirements remain explicit coverage gaps or incomplete Store-backed extensions; they are no longer counted as DepositStore executable placeholders. |
 | [DS-COLLATERAL-FUNDING](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | All three generated contracts pass: accept sufficient application-coin funding, reject deficits despite excess released deposits, and derive collateral funding independently of ordinary declarations. Each sample covers nine input/return configurations on both real script outcomes. F01 also rejects zero application coins without a return, despite ample released deposits. P02 is an isolated calculation, not ledger acceptance. |
 | [DS-COLLATERAL-TOTAL](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Both generated contracts pass: an absent or exact input-minus-return total accepts; either one-lovelace mismatch rejects with exactly IncorrectTotalCollateralField. Store funding, excess-release and absent-return cases run with both script outcomes. |
@@ -3561,3 +3569,34 @@ Evidence: `/private/tmp/typed-deposit-build.log`,
 `/private/tmp/typed-deposit-core-tests.log`, `/private/tmp/typed-deposit-api-tests.log`,
 `/private/tmp/typed-deposit-binary-tests.log`, and
 `/private/tmp/typed-deposit-ledger-tests.log`.
+
+## Active-formula minimum coin — 8 November 2026
+
+Working-tree validation on `2dfcbf5fd`. Dijkstra now checks proposed legacy outputs,
+including collateral returns, against the uncapped current Store formula. Existing
+legacy reserves remain capped and historical; new outputs still fund their deposits
+externally. Earlier-era production minimum-coin rules are unchanged.
+
+The Dijkstra and API test targets built successfully. Seed `20261108`, with
+`+RTS -N2 -RTS`, produced:
+
+| Suite | Selection | Examples | Seconds |
+| --- | --- | ---: | ---: |
+| API | `Unspent deposit formula` | 15 | 0.0923 |
+| Dijkstra | `DepositStore` | 214 | 180.4384 |
+
+All 229 selected examples passed. The five minimum-coin contracts exercise V1/V2,
+TopTx/SubTx and both phase-2 outcomes. Collateral Funding P03 rejects a legacy
+return one lovelace below its active minimum, then accepts the exact amount.
+The API check proves that neither low output ADA nor supplied outer size changes
+the uncapped V1 helper result.
+
+A broader `UTXO` run completed 438 examples with eight setup failures: inherited
+script/voting fixtures explicitly fund a 1 ADA legacy output below the new
+1.0775 ADA minimum. These fixtures still require adjustment; this checkpoint
+does not claim a green full suite or CI.
+
+Evidence: `/private/tmp/legacy-formula-build.log`,
+`/private/tmp/legacy-formula-api-tests.log`,
+`/private/tmp/legacy-formula-ledger-tests.log`, and
+`/private/tmp/legacy-formula-utxo-tests.log`.

@@ -30,7 +30,7 @@ import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  Sized (..),
+  Sized (sizedValue),
  )
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin)
@@ -46,6 +46,7 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   validateSubTxAllocationDeclarationPresence,
   validateSubTxReleaseDeclarationPresence,
  )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin (validateMinimumCoin)
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
@@ -63,7 +64,6 @@ import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
-import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
@@ -273,9 +273,9 @@ dijkstraSubUtxoTransition = do
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
   runTest $
-    Babbage.validateImplicitDeposits
-      pp
-      [Sized output size | Sized (LegacyTxOut output) size <- toList allSizedOutputs]
+    validateMinimumCoin
+      (Store.currentFormula . asUTxOStore . lsAccountingState $ ledgerState)
+      allOutputs
 
   netId <- liftSTS $ asks networkId
   runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs

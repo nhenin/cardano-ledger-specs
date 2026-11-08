@@ -66,6 +66,7 @@ import Cardano.Ledger.Dijkstra.Scripts (
  )
 import Cardano.Ledger.Dijkstra.UTxO
 import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Formula
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.Shelley.API (mkStAnnTx)
 import Cardano.Ledger.Shelley.LedgerState
@@ -77,13 +78,14 @@ import Cardano.Ledger.Shelley.Scripts (
   pattern RequireSignature,
  )
 import Cardano.Ledger.State
-import Cardano.Ledger.Tools (ensureMinCoinTxOut)
 import Cardano.Ledger.Val
+import Control.Monad (forM)
 import Control.Monad.State (gets)
 import Data.Foldable
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
+import Data.Sequence.Strict (StrictSeq (..))
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Conway.ImpTest
@@ -426,7 +428,67 @@ dijkstraFixupTx tx = do
   fixedUp <- fixupScriptWits =<< addCollateralInputForSubTxs =<< fixupSubTransactions tx
   isLegacy <- detectLegacyMode fixedUp
   balancedInLegacy <- if isLegacy then balanceSubTransactions fixedUp else pure fixedUp
-  babbageFixupTx balancedInLegacy
+  -- Keep the inherited fixup order, using the Store's active formula for output
+  -- funding. Parameter-only Babbage helpers cannot select a later formula version.
+  pure balancedInLegacy
+    >>= addNativeScriptTxWits
+    >>= fixupAuxDataHash
+    >>= addCollateralInput
+    >>= addRootTxIn
+    >>= fixupScriptWits
+    >>= fixupOutputDatums
+    >>= fixupDatums
+    >>= fixupRedeemerIndices
+    >>= fixupDijkstraTxOuts
+    >>= fixupDijkstraCollateralReturn
+    >>= fixupDijkstraFees
+    >>= fixupRedeemers
+    >>= fixupPPHash
+    >>= updateAddrTxWits
+
+-- | Fund unspecified legacy output amounts with the active formula. Explicit
+-- nonzero amounts remain untouched so tests can propose insufficient reserves.
+fixupDijkstraTxOuts :: DijkstraEraImp era => Tx l era -> ImpTestM era (Tx l era)
+fixupDijkstraTxOuts tx = do
+  pricing <- currentFormula <$> getUTxOStore
+  outputs <- forM (tx ^. bodyTxL . outputsTxBodyL) $ \case
+    output@(LegacyTxOut _)
+      | output ^. coinTxOutL == zero -> do
+          amount <- arbitrary
+          pure $ output & coinTxOutL .~ max amount (toCoin $ Formula.computeDeposit pricing output)
+    output -> pure output
+  pure $ tx & bodyTxL . outputsTxBodyL .~ outputs
+
+-- | A legacy collateral return holds its reserve in ADA; a new return funds
+-- its deposit externally and therefore needs no minimum application ADA.
+fixupDijkstraCollateralReturn :: DijkstraEraImp era => Tx TopTx era -> ImpTestM era (Tx TopTx era)
+fixupDijkstraCollateralReturn tx = do
+  pricing <- currentFormula <$> getUTxOStore
+  pure $
+    tx
+      & bodyTxL . collateralReturnTxBodyL
+        %~ fmap
+          ( \case
+              output@(LegacyTxOut _) ->
+                output & coinTxOutL %~ max (toCoin $ Formula.computeDeposit pricing output)
+              output@(NewTxOut _) -> output
+          )
+
+-- | The inherited fee builder can append change using its parameter-only V1
+-- minimum. Fold that change into fees if it cannot cover the active reserve;
+-- never alter the outputs supplied by the test.
+fixupDijkstraFees :: DijkstraEraImp era => Tx TopTx era -> ImpTestM era (Tx TopTx era)
+fixupDijkstraFees tx = do
+  pricing <- currentFormula <$> getUTxOStore
+  withFees <- alonzoFixupFees tx
+  pure $ case withFees ^. bodyTxL . outputsTxBodyL of
+    outputs :|> change@(LegacyTxOut _)
+      | length outputs == length (tx ^. bodyTxL . outputsTxBodyL)
+      , change ^. coinTxOutL < toCoin (Formula.computeDeposit pricing change) ->
+          withFees
+            & bodyTxL . outputsTxBodyL .~ outputs
+            & bodyTxL . feeTxBodyL <>~ (change ^. coinTxOutL)
+    _ -> withFees
 
 detectLegacyMode ::
   DijkstraEraImp era =>
@@ -464,6 +526,7 @@ addCollateralInputForSubTxs tx
           pure $ tx & bodyTxL . collateralInputsTxBodyL %~ Set.insert collateralInput
 
 fixupSubTransactions ::
+  forall era.
   ( HasCallStack
   , DijkstraEraImp era
   ) =>
@@ -483,7 +546,7 @@ fixupSubTransactions tx = impAnn "fixupSubTransactions" $ do
         >=> fixupScriptWits
         >=> fixupOutputDatums
         >=> fixupDatums
-        >=> fixupTxOuts
+        >=> fixupDijkstraTxOuts
         >=> addMissingRedeemers
         >=> fixupPPHash
         >=> updateAddrTxWits
@@ -495,9 +558,14 @@ fixupSubTransactions tx = impAnn "fixupSubTransactions" $ do
       | not (Set.null (subTx ^. bodyTxL . inputsTxBodyL)) = pure subTx
       | otherwise = do
           addr <- freshKeyAddrNoPtr_
+          pricing <- currentFormula <$> getUTxOStore
           -- restore default fixup behaviour temporarily,
           -- to make sure it isn't affected by any higher-level fixup modifications
-          newTxIn <- withFixup fixupTx $ sendCoinTo addr (Coin 1_000_000)
+          newTxIn <-
+            withFixup fixupTx $
+              sendCoinTo addr $
+                toCoin . Formula.computeDeposit pricing $
+                  mkBasicTxOutWithImplicitDeposit @era addr mempty
           pure $ subTx & bodyTxL . inputsTxBodyL .~ Set.singleton newTxIn
 
 balanceSubTransactions ::
@@ -521,6 +589,7 @@ balanceSubTransactions topTx = do
     Just b -> pure $ topTx & bodyTxL . subTransactionsTxBodyL %~ (OMap.|> b)
 
 mkBalancerSubTx ::
+  forall era.
   DijkstraEraImp era =>
   -- | Cumulated consumed value by all sub-transactions
   Coin ->
@@ -528,7 +597,7 @@ mkBalancerSubTx ::
   Coin ->
   ImpTestM era (Maybe (Tx SubTx era))
 mkBalancerSubTx consumed produced = do
-  pp <- getsNES $ nesEsL . curPParamsEpochStateL
+  pricing <- currentFormula <$> getUTxOStore
   case consumed `compare` produced of
     EQ -> pure Nothing
     ord -> do
@@ -539,8 +608,7 @@ mkBalancerSubTx consumed produced = do
           LT -> (mempty, produced <-> consumed)
         -- a buffer to make both the input UTxO and the change output satisfy minCoin. It's added on both sides, so it cancels out.
         minChangeCoin =
-          LegacyTxOut (ensureMinCoinTxOut pp (mkBasicLegacyTxOut addr mempty))
-            ^. coinTxOutL
+          toCoin . Formula.computeDeposit pricing $ mkBasicTxOutWithImplicitDeposit @era addr mempty
         inputCoin = minChangeCoin <> shortfall
         changeCoin = minChangeCoin <> surplus
         changeOut = mkBasicTxOutWithImplicitDeposit addr (inject changeCoin)

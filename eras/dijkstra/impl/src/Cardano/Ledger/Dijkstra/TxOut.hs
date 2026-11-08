@@ -27,11 +27,11 @@ import Cardano.Ledger.Address (
   fromCborBothAddr,
  )
 import Cardano.Ledger.Alonzo.Core (AlonzoEraTxOut (..))
+import Cardano.Ledger.Babbage.Core (ppCoinsPerUTxOByteL)
 import Cardano.Ledger.Babbage.TxOut (
   BabbageEraTxOut (..),
   BabbageTxOut (BabbageTxOut),
   addrEitherBabbageTxOutL,
-  babbageMinUTxOValue,
   datumBabbageTxOutL,
   internBabbageTxOut,
   referenceScriptBabbageTxOutL,
@@ -73,7 +73,10 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Deposit
 import Cardano.Ledger.Keys (KeyRole (Staking))
 import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Plutus.Data (Datum (..), binaryDataToData, dataToBinaryData)
-import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (toCoin))
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
+  DepositAmount (toCoin),
+  DepositFormula (DepositFormulaV1),
+ )
 import Control.DeepSeq (NFData (..), rwhnf)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.:), (.=))
 import qualified Data.Aeson as Aeson
@@ -233,7 +236,11 @@ instance EraLegacyTxOut DijkstraEra where
   valueEitherTxOutL = valueEitherBabbageTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
-  getMinCoinSizedTxOut = babbageMinUTxOValue
+  -- This parameter-only helper uses Dijkstra's initial formula. Ledger validation
+  -- uses the Store's active formula, which also supports later V2 activations.
+  -- The default sized method discards the enclosing output size.
+  getMinCoinTxOut pp =
+    toCoin . Deposit.computeDeposit (DepositFormulaV1 $ pp ^. ppCoinsPerUTxOByteL) . LegacyTxOut
 
 instance EraNewTxOut DijkstraEra where
   mkBasicNewTxOut address assets =

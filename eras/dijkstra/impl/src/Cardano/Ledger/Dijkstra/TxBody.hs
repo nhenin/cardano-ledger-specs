@@ -17,6 +17,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -159,7 +160,7 @@ import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Keys (HasKeyRole (..))
-import Cardano.Ledger.Mary.Value (MultiAsset)
+import Cardano.Ledger.Mary.Value (MaryValue, MultiAsset)
 import Cardano.Ledger.MemoBytes (
   EqRaw,
   Mem,
@@ -1663,6 +1664,7 @@ instance
 
 class
   ( ConwayEraTxBody era
+  , Value era ~ MaryValue
   , ToJSON (TxBody SubTx era)
   , FromJSON (TxBody SubTx era)
   ) =>

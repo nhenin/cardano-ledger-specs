@@ -105,7 +105,6 @@ import Cardano.Ledger.Dijkstra.TxBody (
   requiredTopLevelGuardsTxBodyL,
   subTransactionsTxBodyL,
  )
-import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Cardano.Ledger.Plutus (OrdExUnits (..))
 import Cardano.Ledger.Plutus.Data (
   Data (..),
@@ -234,7 +233,6 @@ exampleDijkstraBasedTopTx ::
   forall era.
   ( AlonzoEraTx era
   , DijkstraEraTxBody era
-  , Value era ~ MaryValue
   , DijkstraEraScript era
   , EraPlutusTxInfo PlutusV1 era
   , EraPlutusTxInfo PlutusV2 era
@@ -251,7 +249,6 @@ exampleDijkstraBasedSubTx ::
   forall era.
   ( AlonzoEraTx era
   , DijkstraEraTxBody era
-  , Value era ~ MaryValue
   , DijkstraEraScript era
   , EraPlutusTxInfo PlutusV1 era
   , EraPlutusTxInfo PlutusV2 era
@@ -273,7 +270,6 @@ addDijkstraBasedTopTxFeatures ::
   , EraPlutusTxInfo 'PlutusV2 era
   , EraPlutusTxInfo 'PlutusV3 era
   , EraPlutusTxInfo 'PlutusV4 era
-  , Value era ~ MaryValue
   ) =>
   Tx TopTx era ->
   Tx TopTx era
@@ -303,7 +299,6 @@ addDijkstraBasedTxFeatures ::
   , DijkstraEraScript era
   , EraPlutusTxInfo 'PlutusV1 era
   , EraPlutusTxInfo 'PlutusV4 era
-  , Value era ~ MaryValue
   ) =>
   Tx l era ->
   Tx l era

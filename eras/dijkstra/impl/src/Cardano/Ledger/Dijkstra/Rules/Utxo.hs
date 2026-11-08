@@ -46,7 +46,7 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  Sized (..),
+  Sized (sizedValue),
  )
 import Cardano.Ledger.Binary.Coders (
   Decode (..),
@@ -71,6 +71,7 @@ import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   validateTopTxNetUTxODepositDeclaration,
   validateTopTxReleaseDeclarationPresence,
  )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin (validateMinimumCoin)
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (
@@ -86,6 +87,7 @@ import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (produced)
 import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (inject)
 import Control.DeepSeq (NFData)
@@ -103,7 +105,6 @@ import Control.State.Transition.Extended (
   validate,
  )
 import Data.Bifunctor
-import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
 import Data.Set.NonEmpty (NonEmptySet)
@@ -464,14 +465,11 @@ dijkstraUtxoTransition = do
             postSubsPState
             txBody
 
-  -- Apply the byte-based minimum only to implicit-deposit outputs, preserving their cached size.
-  let allSizedOutputs = txBody ^. allSizedOutputsTxBodyF
-  runTest $
-    Babbage.validateImplicitDeposits
-      pp
-      [Sized output size | Sized (LegacyTxOut output) size <- toList allSizedOutputs]
+  -- Proposed legacy outputs, including the collateral return, contain the
+  -- deposit priced by the active Store formula. Existing allocations keep theirs.
+  let allOutputs = fmap sizedValue $ txBody ^. allSizedOutputsTxBodyF
+  runTest $ validateMinimumCoin (Store.currentFormula previousUTxOStore) allOutputs
 
-  let allOutputs = fmap sizedValue allSizedOutputs
   {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}
   runTest $ Alonzo.validateOutputTooBigUTxO pp allOutputs
 

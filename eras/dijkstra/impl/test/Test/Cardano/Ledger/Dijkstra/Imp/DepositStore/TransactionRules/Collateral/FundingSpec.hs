@@ -6,16 +6,20 @@
 -- their surplus cannot replace those application coins.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.FundingSpec (spec) where
 
-import Cardano.Ledger.Coin (Coin (..), toDeltaCoin)
+import Cardano.Ledger.Coin (Coin (..), CompactForm (..), toDeltaCoin)
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Rules (
   CollateralDepositSettlement (..),
-  DijkstraUtxoPredFailure (InsufficientCollateral),
+  DijkstraUtxoPredFailure (BabbageOutputTooSmallUTxO, InsufficientCollateral),
   collateralDepositSettlement,
  )
+import Cardano.Ledger.Shelley.LedgerState (utxoStoreL)
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormula (..))
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.Val ((<->))
-import Data.Maybe.Strict (StrictMaybe (..))
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.Maybe.Strict (StrictMaybe (..), strictMaybeToMaybe)
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (
@@ -31,8 +35,14 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   isRejectedOnlyWith,
   submitTx,
  )
-import Test.Cardano.Ledger.Dijkstra.ImpTest (rederiveAddrTxWits, simulateThenRestore)
-import Test.Cardano.Ledger.Imp.Common (shouldBe, shouldSatisfy)
+import Test.Cardano.Ledger.Dijkstra.ImpTest (
+  getCurSlotNo,
+  modifyNES,
+  passTick,
+  rederiveAddrTxWits,
+  simulateThenRestore,
+ )
+import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe, shouldSatisfy)
 
 -- | Every sample includes both real script outcomes and every deposit relationship.
 -- Changing only the return's application ADA preserves its deposit, even at zero.
@@ -133,4 +143,32 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
           collateralReturnDeposit settlement `shouldBe` returnDeposit
           collateralAdditionalDeposit settlement `shouldBe` additionalDeposit
           collateralCoinFee settlement `shouldBe` inputCoins <-> returnCoins <-> additionalDeposit
+
+  -- The input is allocated before the selected formula is activated. Its release
+  -- stays historical; the newly proposed legacy return must contain the full
+  -- current reserve. N = R = 0; its inline byte-string datum contributes its
+  -- payload plus one CBOR header byte below 24 bytes, otherwise two (up to 48).
+  -- withReturnCoins adjusts total collateral and re-signs without repairing the return.
+  prop "DS-COLLATERAL-FUNDING-P03 - legacy(return) ∧ activeFormula ∈ {V1, V2} ⇒ exact reserve accepted ∧ reserve − 1 rejected" $
+    forAll (Collateral.scenarios [StoreBacked] (Just Implicit) Phase2Invalid) $ \scenario ->
+      forM_ [(DepositFormulaV1, 250), (DepositFormulaV2, 260)] $ \(version, baseBytes) ->
+        simulateThenRestore $ do
+          fixture <- Collateral.buildAndSign scenario
+          passTick
+          activationSlot <- getCurSlotNo
+          let price = Collateral.bytePrice scenario
+              payloadBytes = toInteger $ Collateral.returnBytes scenario
+              datumBytes = payloadBytes + if payloadBytes < 24 then 1 else 2
+              requiredDeposit = Coin $ price * (baseBytes + datumBytes)
+          modifyNES $ utxoStoreL %~ Store.activateNewFormula activationSlot
+            (version $ CoinPerByte $ CompactCoin $ fromInteger price)
+
+          underfunded <- Collateral.withReturnCoins (requiredDeposit <-> Coin 1) fixture
+          returned <- expectJust . strictMaybeToMaybe $
+            Collateral.signedTx underfunded ^. bodyTxL . collateralReturnTxBodyL
+          submitTx (Collateral.signedTx underfunded) >>= isRejectedOnlyWith
+            (BabbageOutputTooSmallUTxO @DijkstraEra $ (returned, requiredDeposit) :| [])
+
+          funded <- Collateral.withReturnCoins requiredDeposit fixture
+          submitTx (Collateral.signedTx funded) >>= isAccepted
 {- FOURMOLU_ENABLE -}
