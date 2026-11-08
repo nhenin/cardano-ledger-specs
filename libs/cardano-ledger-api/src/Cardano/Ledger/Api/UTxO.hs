@@ -6,6 +6,7 @@ module Cardano.Ledger.Api.UTxO (
   -- * Allocation-time deposit queries
   AllocatedAt (..),
   Unspent (Unspent, allocatedAt),
+  DepositAmount (..),
   DepositFormulaHistory (..),
   mkDepositFormulaHistory,
   appendFormula,
@@ -18,6 +19,7 @@ import Cardano.Ledger.Api.Era ()
 import Cardano.Ledger.Dijkstra.UTxOs.Unspent (computeApplicationAssets, computeDeposit)
 import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
+  DepositAmount (..),
   DepositFormulaHistory (..),
   appendFormula,
   formulaAt,

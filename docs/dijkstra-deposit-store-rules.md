@@ -811,12 +811,13 @@ The cached total contains only separately held deposits. Legacy reserves remain
 inside output ADA; there is no unallocated Store surplus.
 
 **Builder queries use explicit history and return values directly.** Every
-allocation resolves either the baseline or a dated change:
+allocation resolves either the baseline or a dated change. The reserve query returns
+`DepositAmount`; use `toCoin` when combining it with output ADA:
 
 ```haskell
 -- Dijkstra builder queries, shown specialized to the active era.
 computeDeposit ::
-  DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> Coin
+  DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> DepositAmount
 
 computeApplicationAssets ::
   DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> ApplicationAssets DijkstraEra
@@ -970,6 +971,25 @@ $$
 | $N(o)$ | Number of distinct native assets. Each pair of policy ID and asset name counts once, regardless of quantity. ADA contributes zero. |
 | $D(o)$ | No datum: zero. Datum hash: length of the hash in bytes. Inline datum: length of its original payload in bytes. |
 | $R(o)$ | No reference script: zero. Otherwise, the original byte length of the underlying native or Plutus script. |
+
+**The formula takes typed measures.** `NativeAssetCount`, `DatumBytes` and
+`ReferenceScriptBytes` each wrap `Natural`. The core calculation depends on these
+nonnegative quantities, without knowing an output representation:
+
+```haskell
+computeDeposit ::
+  DepositFormula ->
+  NativeAssetCount ->
+  DatumBytes ->
+  ReferenceScriptBytes ->
+  DepositAmount
+```
+
+Dijkstra's `Deposit.Formula.computeDeposit` extracts those measures from a `TxOut`
+and calls this core function. `Unspent.computeDeposit` additionally selects the
+historical formula and caps a legacy reserve. Both return `DepositAmount`;
+`getDepositNewTxOut` and `computeExternalDeposit` expose `Coin` through `toCoin`
+at the shared Store boundary.
 
 The lengths count payload bytes. Address length, application ADA and the outer CBOR
 envelopes of the datum, script and output contribute no term. The proposed transaction
@@ -6755,13 +6775,13 @@ cannot recover historical deposit parameters or establish which outputs remain u
 | [`Store.Internals`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
 | [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
 | [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output and allocation origin; `toTxOut`, historical formula selection, `computeExternalDeposit` and entry codecs. |
-| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | `DepositFormulaHistory`, half-open formula periods, versioned formulas and `DepositAmount`. |
+| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | Versioned formula arithmetic over `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`; `DepositAmount`, history and half-open formula periods. |
 
-Dijkstra owns the formula evaluation and the migrated-output reserve view:
+Dijkstra owns output measurement and the migrated-output reserve view:
 
 | Module under `Cardano.Ledger.Dijkstra.UTxOs` | Responsibility |
 | --- | --- |
-| [`Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Calculate V1 or V2 from native-asset count, datum bytes and reference-script bytes. |
+| [`Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Extract the three typed measures from a `TxOut` and call the core `computeDeposit`; return `DepositAmount`. |
 | [`Unspent`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated legacy reserve at its output ADA. |
 
 The shared Store calls `getDepositNewTxOut` only for `NewTxOut`. Legacy entries

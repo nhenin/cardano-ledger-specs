@@ -3,11 +3,17 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Versioned deposit formulas and the history that selects them.
+-- | Deposit amounts, versioned formulas and the history that selects them.
 module Cardano.Ledger.State.Accounting.UTxOs.Deposit (
   -- * Formula
   DepositFormula (..),
   DepositAmount (..),
+  computeDeposit,
+
+  -- * Output measurements
+  NativeAssetCount (..),
+  DatumBytes (..),
+  ReferenceScriptBytes (..),
 
   -- * History
   DepositFormulaHistory (..),
@@ -39,8 +45,10 @@ import Data.Function ((&))
 import qualified Data.Map.Strict as Map
 import GHC.Generics (Generic)
 import NoThunks.Class (NoThunks)
+import Numeric.Natural (Natural)
 
--- | The separately held deposit total; application ADA remains in the outputs.
+-- | A capacity deposit amount. The output variant determines whether the amount
+-- is included in its ADA or held separately in the Store.
 newtype DepositAmount = DepositAmount
   { toCoin :: Coin
   }
@@ -49,6 +57,18 @@ newtype DepositAmount = DepositAmount
 instance ToJSON DepositAmount where
   toJSON = toJSON . toCoin
 
+-- | Number of distinct native assets (policy, asset name), excluding ADA.
+newtype NativeAssetCount = NativeAssetCount Natural
+  deriving (Eq, Ord, Show)
+
+-- | Datum payload bytes, or hash bytes for a datum hash. Absence contributes zero.
+newtype DatumBytes = DatumBytes Natural
+  deriving (Eq, Ord, Show)
+
+-- | Reference-script payload bytes, excluding enclosing output fields.
+newtype ReferenceScriptBytes = ReferenceScriptBytes Natural
+  deriving (Eq, Ord, Show)
+
 -- | Each version carries the pricing parameters recorded at allocation.
 -- V1 prices 250 base bytes and 74 bytes per native asset.
 -- V2 experiments with 260 and 80; both include datum and reference script bytes.
@@ -56,6 +76,24 @@ data DepositFormula
   = DepositFormulaV1 !CoinPerByte
   | DepositFormulaV2 !CoinPerByte
   deriving (Eq, Ord, Show, Generic)
+
+-- | Compute the deposit from the output's domain measurements.
+-- V1: @p * (250 + 74*N + D + R)@.
+-- V2: @p * (260 + 80*N + D + R)@, for the formula-evolution experiment.
+-- Natural and Integer arithmetic preserves the amount without machine overflow.
+-- Legacy reserve capping belongs to the output query, not to the formula.
+computeDeposit ::
+  DepositFormula ->
+  NativeAssetCount ->
+  DatumBytes ->
+  ReferenceScriptBytes ->
+  DepositAmount
+computeDeposit pricing (NativeAssetCount n) (DatumBytes d) (ReferenceScriptBytes r) =
+  DepositAmount . Coin $ case pricing of
+    DepositFormulaV1 (CoinPerByte (CompactCoin rate)) ->
+      toInteger rate * toInteger (250 + 74 * n + d + r)
+    DepositFormulaV2 (CoinPerByte (CompactCoin rate)) ->
+      toInteger rate * toInteger (260 + 80 * n + d + r)
 
 -- | Default baseline: V1 at 4,310 lovelace per byte, the mainnet parameter
 -- verified on 6 November 2026. This is a fixed protocol choice for this model;

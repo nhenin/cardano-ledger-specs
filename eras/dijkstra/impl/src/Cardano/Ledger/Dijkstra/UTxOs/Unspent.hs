@@ -4,12 +4,11 @@ module Cardano.Ledger.Dijkstra.UTxOs.Unspent (
   computeApplicationAssets,
 ) where
 
-import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
 import Cardano.Ledger.Dijkstra.TxOut ()
-import Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula (calculateDeposit)
-import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormulaHistory)
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Formula
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (..), DepositFormulaHistory)
 import Cardano.Ledger.State.Accounting.UTxOs.Unspent (
   Unspent (Unspent),
   allocationFormula,
@@ -23,11 +22,11 @@ import Lens.Micro ((&), (^.))
 computeDeposit ::
   DepositFormulaHistory ->
   Unspent (TxOut DijkstraEra) ->
-  Coin
+  DepositAmount
 computeDeposit history (Unspent output origin) =
-  calculateDeposit (allocationFormula history origin) output
+  Formula.computeDeposit (allocationFormula history origin) output
     & \deposit -> case output of
-      LegacyTxOut _ -> min (output ^. coinTxOutL) deposit
+      LegacyTxOut _ -> DepositAmount . min (output ^. coinTxOutL) $ toCoin deposit
       NewTxOut _ -> deposit
 
 -- | View application assets without modifying the stored output. Only the ADA
@@ -38,5 +37,5 @@ computeApplicationAssets ::
   ApplicationAssets DijkstraEra
 computeApplicationAssets history entry = case toTxOut entry of
   LegacyTxOut output ->
-    ApplicationAssets . modifyCoin (<-> computeDeposit history entry) $ output ^. valueTxOutL
+    ApplicationAssets . modifyCoin (<-> toCoin (computeDeposit history entry)) $ output ^. valueTxOutL
   NewTxOut output -> output ^. applicationAssetsTxOutL

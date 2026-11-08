@@ -73,6 +73,7 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Deposit
 import Cardano.Ledger.Keys (KeyRole (Staking))
 import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Plutus.Data (Datum (..), binaryDataToData, dataToBinaryData)
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (toCoin))
 import Control.DeepSeq (NFData (..), rwhnf)
 import Data.Aeson (FromJSON (..), ToJSON (..), (.:), (.=))
 import qualified Data.Aeson as Aeson
@@ -242,7 +243,7 @@ instance EraNewTxOut DijkstraEra where
     lens storeBackedApplicationAssets (\output assets -> output {storeBackedApplicationAssets = assets})
   {-# INLINE applicationAssetsTxOutL #-}
 
-  getDepositNewTxOut pricing = Deposit.calculateDeposit pricing . NewTxOut
+  getDepositNewTxOut pricing = toCoin . Deposit.computeDeposit pricing . NewTxOut
 
 instance AlonzoEraTxOut DijkstraEra where
   dataHashTxOutL =

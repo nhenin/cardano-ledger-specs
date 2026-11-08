@@ -10,7 +10,7 @@ import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula (calculateDeposit)
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Formula
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Unspent as DijkstraUnspent
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import Cardano.Ledger.State
@@ -216,14 +216,14 @@ spec = describe "UTxOStore historical metadata" $ do
           history = mkDepositFormulaHistory baseline
           store = mkUTxOStore history $ IndexedUTxOs.fromLegacyTxOuts $ Map.singleton input output
           expectedReserve =
-            min (Unspent.toTxOut entry ^. coinTxOutL) $
-              calculateDeposit baseline (Unspent.output entry)
+            min (Unspent.toTxOut entry ^. coinTxOutL) . toCoin $
+              Formula.computeDeposit baseline (Unspent.output entry)
       allocations store `shouldBe` IndexedUTxOs.singleton input entry
       allocatedAt entry `shouldBe` AtStoreMigration
       depositFormulaHistory store `shouldBe` history
       currentFormula store `shouldBe` baseline
       cachedTotal store `shouldBe` Coin 0
-      DijkstraUnspent.computeDeposit history entry `shouldBe` expectedReserve
+      DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount expectedReserve
       Unspent.computeExternalDeposit history entry `shouldBe` Coin 0
       Binary.decodeFull version (Binary.serialize version store) `shouldBe` Right store
 
@@ -243,10 +243,12 @@ spec = describe "UTxOStore historical metadata" $ do
             IndexedUTxOs.singleton (TxIn txId $ TxIx 0) entry
         updated = activateNewFormula newSlot (DepositFormulaV2 newRate) previous
         expectedReserve = min (output ^. coinTxOutL) $ Coin (250 * 1000)
-    DijkstraUnspent.computeDeposit (depositFormulaHistory previous) entry `shouldBe` expectedReserve
+    DijkstraUnspent.computeDeposit (depositFormulaHistory previous) entry
+      `shouldBe` DepositAmount expectedReserve
     DijkstraUnspent.computeApplicationAssets (depositFormulaHistory previous) entry
       `shouldBe` ApplicationAssets (Val.inject $ (output ^. coinTxOutL) Val.<-> expectedReserve)
-    DijkstraUnspent.computeDeposit (depositFormulaHistory updated) entry `shouldBe` expectedReserve
+    DijkstraUnspent.computeDeposit (depositFormulaHistory updated) entry
+      `shouldBe` DepositAmount expectedReserve
     Unspent.computeExternalDeposit (depositFormulaHistory updated) entry `shouldBe` Coin 0
     allocations updated `shouldBe` allocations previous
     cachedTotal updated `shouldBe` Coin 0
@@ -256,7 +258,7 @@ spec = describe "UTxOStore historical metadata" $ do
     restoredEntry <- expectJust $ lookupUTxO (TxIn txId $ TxIx 0) $ allocations restored
     allocatedAt restoredEntry `shouldBe` AtStoreMigration
     DijkstraUnspent.computeDeposit (depositFormulaHistory restored) restoredEntry
-      `shouldBe` expectedReserve
+      `shouldBe` DepositAmount expectedReserve
 
   prop "allocation marker roundtrip ⇒ migration remains distinct from a real allocation at slot zero" $ \slot ->
     forAll storeOutput $ \output -> do
@@ -299,8 +301,10 @@ spec = describe "UTxOStore historical metadata" $ do
       forAll storeOutput $ \output ->
         forM_ [0, 1, maxBound, generatedRate] $ \coinsPerByte -> do
           let p = rate coinsPerByte
-          calculateDeposit (DepositFormulaV1 p) output `shouldBe` Coin (250 * toInteger coinsPerByte)
-          calculateDeposit (DepositFormulaV2 p) output `shouldBe` Coin (260 * toInteger coinsPerByte)
+          Formula.computeDeposit (DepositFormulaV1 p) output
+            `shouldBe` DepositAmount (Coin (250 * toInteger coinsPerByte))
+          Formula.computeDeposit (DepositFormulaV2 p) output
+            `shouldBe` DepositAmount (Coin (260 * toInteger coinsPerByte))
 
   prop "V2 allocation ⇒ output and origin survive construction, queries and codecs" $ \txId creationRate@(CoinPerByte (CompactCoin coinsPerByte)) ->
     forAll storeOutput $ \backed ->
@@ -333,7 +337,7 @@ spec = describe "UTxOStore historical metadata" $ do
           entry = Unspent output (AtSlot oldSlot)
           history = mkDepositFormulaHistory $ DepositFormulaV1 $ rate 4310
           expectedReserve = min (Coin coins) $ Coin (250 * 4310)
-          reserve = DijkstraUnspent.computeDeposit history entry
+          reserve = toCoin $ DijkstraUnspent.computeDeposit history entry
           ApplicationAssets application = DijkstraUnspent.computeApplicationAssets history entry
       reserve `shouldBe` expectedReserve
       reserve <> Val.coin application `shouldBe` Coin coins
@@ -345,7 +349,7 @@ spec = describe "UTxOStore historical metadata" $ do
     forAll storeOutput $ \output -> do
       let entry = Unspent output (AtSlot oldSlot)
           history = mkDepositFormulaHistory $ DepositFormulaV1 oldRate
-      DijkstraUnspent.computeDeposit history entry `shouldBe` Coin (250 * 1000)
+      DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin (250 * 1000))
       Unspent.computeExternalDeposit history entry `shouldBe` Coin (250 * 1000)
       case output of
         NewTxOut application ->
@@ -365,12 +369,12 @@ spec = describe "UTxOStore historical metadata" $ do
         case output of
           LegacyTxOut legacy -> do
             let reserve = min (output ^. coinTxOutL) baselinePrice
-            DijkstraUnspent.computeDeposit history entry `shouldBe` reserve
+            DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount reserve
             Unspent.computeExternalDeposit history entry `shouldBe` Coin 0
             DijkstraUnspent.computeApplicationAssets history entry
               `shouldBe` ApplicationAssets (Val.modifyCoin (Val.<-> reserve) $ legacy ^. valueTxOutL)
           NewTxOut created -> do
-            DijkstraUnspent.computeDeposit history entry `shouldBe` baselinePrice
+            DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount baselinePrice
             Unspent.computeExternalDeposit history entry `shouldBe` baselinePrice
             DijkstraUnspent.computeApplicationAssets history entry
               `shouldBe` (created ^. applicationAssetsTxOutL)

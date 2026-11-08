@@ -56,7 +56,7 @@ spec = describe "Unspent deposit formula" $ do
     formulaAt allocationSlot history `shouldBe` pricing
     forM_ [AtStoreMigration, AtSlot (SlotNo 0), AtSlot allocationSlot] $ \origin -> do
       let entry = Unspent {Unspent.output = output, allocatedAt = origin}
-      DijkstraUnspent.computeDeposit history entry `shouldBe` Coin 1_077_500
+      DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 1_077_500)
       DijkstraUnspent.computeApplicationAssets history entry
         `shouldBe` (ApplicationAssets $ Val.inject $ Coin 922_500)
       Unspent.computeExternalDeposit history entry `shouldBe` Coin 0
@@ -71,7 +71,7 @@ spec = describe "Unspent deposit formula" $ do
             (ApplicationAssets $ Val.inject $ Coin 2_000_000)
     forM_ [legacy, new] $ \output -> do
       let entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
-      DijkstraUnspent.computeDeposit zeroPricedHistory entry `shouldBe` Coin 0
+      DijkstraUnspent.computeDeposit zeroPricedHistory entry `shouldBe` DepositAmount (Coin 0)
       DijkstraUnspent.computeApplicationAssets zeroPricedHistory entry
         `shouldBe` (ApplicationAssets $ Val.inject $ Coin 2_000_000)
       Unspent.computeExternalDeposit zeroPricedHistory entry `shouldBe` Coin 0
@@ -100,8 +100,10 @@ spec = describe "Unspent deposit formula" $ do
                     forM_ [(SNothing, 0), (SJust nativeScript, 3)] $ \(script, r) -> do
                       let entry = Unspent (output & datumTxOutL .~ datum & referenceScriptTxOutL .~ script) AtStoreMigration
                           v2 = mkDepositFormulaHistory $ DepositFormulaV2 $ CoinPerByte $ CompactCoin 4310
-                      DijkstraUnspent.computeDeposit history entry `shouldBe` Coin (4310 * (250 + 74 * 2 + d + r))
-                      DijkstraUnspent.computeDeposit v2 entry `shouldBe` Coin (4310 * (260 + 80 * 2 + d + r))
+                      DijkstraUnspent.computeDeposit history entry
+                        `shouldBe` DepositAmount (Coin (4310 * (250 + 74 * 2 + d + r)))
+                      DijkstraUnspent.computeDeposit v2 entry
+                        `shouldBe` DepositAmount (Coin (4310 * (260 + 80 * 2 + d + r)))
 
     it
       "Plutus reference script ⇒ R = payload bytes, without the enclosing language tag or output fields"
@@ -116,8 +118,8 @@ spec = describe "Unspent deposit formula" $ do
           $ \output -> do
             let entry = Unspent (output & referenceScriptTxOutL .~ SJust (fromPlutusScript plutus)) AtStoreMigration
                 v2 = mkDepositFormulaHistory $ DepositFormulaV2 $ CoinPerByte $ CompactCoin 4310
-            DijkstraUnspent.computeDeposit history entry `shouldBe` Coin (4310 * (250 + 173))
-            DijkstraUnspent.computeDeposit v2 entry `shouldBe` Coin (4310 * (260 + 173))
+            DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin (4310 * (250 + 173)))
+            DijkstraUnspent.computeDeposit v2 entry `shouldBe` DepositAmount (Coin (4310 * (260 + 173)))
 
     prop "two identical allocations spent after V2 activation refund their own V1 and V2 amounts" $ \policy txId -> do
       let assets =
@@ -147,7 +149,7 @@ spec = describe "Unspent deposit formula" $ do
     it "requiredDeposit > outputADA ⇒ reserve = outputADA ∧ applicationADA = 0" $ do
       let output = mkBasicTxOutWithImplicitDeposit @DijkstraEra address (Val.inject $ Coin 1_000_000)
           entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
-      DijkstraUnspent.computeDeposit history entry `shouldBe` Coin 1_000_000
+      DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 1_000_000)
       DijkstraUnspent.computeApplicationAssets history entry
         `shouldBe` (ApplicationAssets $ Val.inject $ Coin 0)
       Unspent.computeExternalDeposit history entry `shouldBe` Coin 0
@@ -156,7 +158,7 @@ spec = describe "Unspent deposit formula" $ do
     it "requiredDeposit < outputADA ⇒ reserve = requiredDeposit ∧ applicationADA = outputADA − reserve" $ do
       let output = mkBasicTxOutWithImplicitDeposit @DijkstraEra address (Val.inject $ Coin 2_000_000)
           entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
-      DijkstraUnspent.computeDeposit history entry `shouldBe` Coin 1_077_500
+      DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 1_077_500)
       DijkstraUnspent.computeApplicationAssets history entry
         `shouldBe` (ApplicationAssets $ Val.inject $ Coin 922_500)
       Unspent.computeExternalDeposit history entry `shouldBe` Coin 0
@@ -168,7 +170,7 @@ spec = describe "Unspent deposit formula" $ do
               output = mkBasicTxOutWithImplicitDeposit @DijkstraEra address originalValue
               entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
               reserve = min lovelace $ (250 + 74 * nativeAssetsIn originalValue) * 4310
-          DijkstraUnspent.computeDeposit history entry `shouldBe` Coin reserve
+          DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin reserve)
           DijkstraUnspent.computeApplicationAssets history entry
             `shouldBe` (ApplicationAssets $ Val.modifyCoin (const $ Coin $ lovelace - reserve) originalValue)
           Unspent.computeExternalDeposit history entry `shouldBe` Coin 0
@@ -178,7 +180,7 @@ spec = describe "Unspent deposit formula" $ do
       let output = mkBasicTxOutWithImplicitDeposit @DijkstraEra address (Val.inject $ Coin 0)
           entry =
             Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
-      DijkstraUnspent.computeDeposit history entry `shouldBe` Coin 0
+      DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 0)
       DijkstraUnspent.computeApplicationAssets history entry
         `shouldBe` (ApplicationAssets $ Val.inject $ Coin 0)
 
@@ -186,7 +188,8 @@ spec = describe "Unspent deposit formula" $ do
       let output = mkBasicTxOutWithImplicitDeposit @DijkstraEra address (Val.inject $ Coin 2_000_000)
           entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
           store = Store.mkUTxOStore history $ IndexedUTxOs.singleton (TxIn txId $ TxIx 0) entry
-      DijkstraUnspent.computeDeposit (Store.depositFormulaHistory store) entry `shouldBe` Coin 1_077_500
+      DijkstraUnspent.computeDeposit (Store.depositFormulaHistory store) entry
+        `shouldBe` DepositAmount (Coin 1_077_500)
       Store.totalDepositAmount store `shouldBe` DepositAmount {toCoin = Coin 0}
 
   describe "New: reserve is external; application assets are unchanged" $
@@ -209,7 +212,7 @@ spec = describe "Unspent deposit formula" $ do
           ]
           $ \(slot, reserve) -> do
             let entry = Unspent {Unspent.output = output, allocatedAt = AtSlot slot}
-            DijkstraUnspent.computeDeposit evolved entry `shouldBe` reserve
+            DijkstraUnspent.computeDeposit evolved entry `shouldBe` DepositAmount reserve
             Unspent.computeExternalDeposit evolved entry `shouldBe` reserve
             DijkstraUnspent.computeApplicationAssets evolved entry `shouldBe` ApplicationAssets originalValue
 
@@ -225,7 +228,7 @@ spec = describe "Unspent deposit formula" $ do
     forM_ [(legacy, Coin 922_500, Coin 0), (new, Coin 2_000_000, Coin 1_077_500)] $
       \(output, applicationCoin, externalDeposit) -> do
         let entry = Unspent {Unspent.output = output, allocatedAt = AtSlot allocationSlot}
-        DijkstraUnspent.computeDeposit evolved entry `shouldBe` Coin 1_077_500
+        DijkstraUnspent.computeDeposit evolved entry `shouldBe` DepositAmount (Coin 1_077_500)
         DijkstraUnspent.computeApplicationAssets evolved entry
           `shouldBe` (ApplicationAssets $ Val.inject applicationCoin)
         Unspent.computeExternalDeposit evolved entry `shouldBe` externalDeposit
@@ -251,7 +254,7 @@ spec = describe "Unspent deposit formula" $ do
         evolved =
           fromJust $
             appendFormula (SlotNo 200) (DepositFormulaV2 $ CoinPerByte $ CompactCoin 7000) history
-    DijkstraUnspent.computeDeposit evolved entry `shouldBe` Coin 1_077_500
+    DijkstraUnspent.computeDeposit evolved entry `shouldBe` DepositAmount (Coin 1_077_500)
     DijkstraUnspent.computeApplicationAssets evolved entry
       `shouldBe` (ApplicationAssets $ Val.inject $ Coin 922_500)
     Unspent.computeExternalDeposit evolved entry `shouldBe` Coin 0

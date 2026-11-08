@@ -147,14 +147,20 @@ builders, lenses, value wrappers and collection queries. `Core` preserves its
 existing output exports. The five collection queries are imported directly from
 `TxOut`, rather than through `State` or `LegacyUTxOMap`.
 
-`Dijkstra.UTxOs.Deposit.Formula.calculateDeposit` prices Dijkstra output contents.
-The shared Store calls `EraNewTxOut.getDepositNewTxOut` only for new outputs;
-earlier-era implementations gain no formula or measurement methods.
+`State.Accounting.UTxOs.Deposit.computeDeposit` applies the selected formula to
+`NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`, each wrapping `Natural`,
+and returns `DepositAmount`. `Dijkstra.UTxOs.Deposit.Formula.computeDeposit` extracts
+these measures from an output and delegates the arithmetic to that core function.
+Dijkstra's `EraNewTxOut.getDepositNewTxOut` instance converts the result with
+`toCoin` for the shared Store. Earlier-era implementations gain no formula
+or measurement methods.
 The fork starts with V1 at the effective rate. V1 charges $p(250 + 74N + D + R)$,
 and experimental V2 charges $p(260 + 80N + D + R)$. $N$ counts non-ADA asset
 identities. $D$ and $R$ count datum and reference-script payload bytes.
 `Dijkstra.UTxOs.Unspent` exposes `computeDeposit history entry` and
-`computeApplicationAssets history entry` through the public API. These queries are total: every history supplies a baseline, and every slot resolves a formula.
+`computeApplicationAssets history entry` through the public API. The deposit query
+returns `DepositAmount`. These queries are total: every history supplies a baseline,
+and every slot resolves a formula.
 Legacy reserve is `min(outputADA, calculatedDeposit)`; its application view subtracts
 only this ADA reserve and preserves every native asset. New outputs retain their
 full application value and use the full historical formula as their external deposit.
@@ -3526,3 +3532,32 @@ Evidence: `/private/tmp/will-ledger-nix-build.log`,
 `/private/tmp/will-unspent-final-tests.log`,
 `/private/tmp/will-history-final-tests.log`, and
 `/private/tmp/will-api-golden-tests.log`.
+
+## Typed deposit calculation — 8 November 2026
+
+Working-tree validation on `660d0d96c`. The core `Deposit.computeDeposit` now owns
+V1/V2 arithmetic and accepts `NativeAssetCount`, `DatumBytes` and
+`ReferenceScriptBytes`, each backed by `Natural`. Dijkstra extracts the measures
+from the output. Both the output calculation and the historical `Unspent` query
+return `DepositAmount`; conversion to `Coin` is explicit at existing interfaces.
+No older-era source was changed in this refactor.
+
+Core, API and Dijkstra test targets built successfully with the Nix build command
+above. The following groups passed with seed `20261108` and `+RTS -N2 -RTS`:
+
+| Suite | `--match` | Examples | Seconds |
+| --- | --- | ---: | ---: |
+| Core | `Deposit` | 18 | 0.0412 |
+| API | `Unspent deposit formula` | 14 | 0.0963 |
+| Dijkstra | `UTxOStore historical metadata` | 26 | 54.2557 |
+| Dijkstra | `DepositStore` | 213 | 182.3523 |
+
+All 271 selected examples passed. The four new core formula checks cover independent
+reference amounts, zero rates, generated marginal costs and exact arithmetic beyond
+`Word64`. Existing output-measurement, legacy-reserve, historical-refund, snapshot
+and ledger checks remain green. This is targeted local evidence, not a full CI run.
+
+Evidence: `/private/tmp/typed-deposit-build.log`,
+`/private/tmp/typed-deposit-core-tests.log`, `/private/tmp/typed-deposit-api-tests.log`,
+`/private/tmp/typed-deposit-binary-tests.log`, and
+`/private/tmp/typed-deposit-ledger-tests.log`.
