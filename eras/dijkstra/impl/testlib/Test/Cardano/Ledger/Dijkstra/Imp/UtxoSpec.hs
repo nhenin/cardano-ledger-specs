@@ -701,9 +701,10 @@ data BatchAmounts = BatchAmounts
 
 genBatchOnlyBalancedAmounts :: ImpTestM era BatchAmounts
 genBatchOnlyBalancedAmounts = do
-  -- we are restricted in the lower bound by min utxo size
-  -- and in the upper bound by the hardcoded collateral in `makeCollateralInput`
-  m <- Coin <$> choose (1_000_000, 2_000_000)
+  -- The smallest output carries m: keep it above the initial formula's
+  -- ADA-only minimum of 1,077,500 lovelace. The upper bound is constrained
+  -- by the hardcoded collateral in `makeCollateralInput`.
+  m <- Coin <$> choose (1_100_000, 2_000_000)
   pure $ mkAmounts m
   where
     mkAmounts m =

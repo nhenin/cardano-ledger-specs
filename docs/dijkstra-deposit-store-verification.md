@@ -3629,3 +3629,28 @@ Evidence: `/private/tmp/deposit-ci-build-all.log`,
 `/private/tmp/deposit-ci-imp-tests.log`, `/private/tmp/deposit-ci-conway-imp-tests.log`,
 `/private/tmp/deposit-ci-api-full-tests.log`, and
 `/private/tmp/deposit-ci-dijkstra-conformance.log`.
+
+## Remaining suites and CI seed — 8 November 2026
+
+At `b78e8e47a`, Dijkstra's remaining non-Imp tests completed with 634 examples,
+zero failures and two pre-existing pending cases in 3,136.6500 seconds. Together
+with the preceding checkpoint, local verification covers 4,068 examples with
+zero failures and three pre-existing pending cases.
+
+CI compiled successfully with GHC 9.6, 9.10, 9.12 and 9.14; the Nix hash check
+also passed. Conformance seed `112043838` exposed two additional fixture funding
+failures in the normal/legacy variants of “tx balanced across the batch and
+unbalanced at the top level”: the generated input funding was 1,037,132 lovelace,
+below the active minimum of 1,077,500. Failure occurred before the balance
+assertions. The generator's lower bound is corrected to 1,100,000; its upper
+bound remains 2,000,000 to preserve collateral sufficiency. All balance
+multipliers and assertions are unchanged.
+
+The complete Dijkstra conformance `UTXO/Value preservation` group passes with
+the failing CI seed after the correction: 13 examples, zero failures, in
+0.1760 seconds. The Dijkstra/Conway CI jobs were still pending at this
+checkpoint; this is not a fully green CI result.
+
+Evidence: `/private/tmp/deposit-ci-batch-balance-regression.log`,
+`/private/tmp/ci-b78-conformance-failed.log`, and
+[CI run 42473172769](https://github.com/nhenin/cardano-ledger-specs/actions/runs/42473172769).
