@@ -445,7 +445,6 @@ genesisChainAccountState =
 -- | Creates the UTxO for a new ledger with the specified
 -- genesis TxId and transaction outputs.
 genesisCoins ::
-  EraTxOut era =>
   TxId ->
   [TxOut era] ->
   IndexedUTxOs era

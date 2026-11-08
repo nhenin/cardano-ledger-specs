@@ -18,7 +18,7 @@ import Cardano.Ledger.Binary (Sized (sizedValue), mkSized, serialize)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), multiAssetFromList)
-import Cardano.Ledger.Plutus.Data (Datum (..), hashBinaryData, makeBinaryData)
+import Cardano.Ledger.Plutus.Data (hashBinaryData, makeBinaryData)
 import qualified Cardano.Ledger.Val as Val
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Short as SBS
