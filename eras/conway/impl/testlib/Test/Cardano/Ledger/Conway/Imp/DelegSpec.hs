@@ -203,7 +203,7 @@ spec = describe "DELEG" $ do
           & bodyTxL . certsTxBodyL
             .~ [RegDepositTxCert cred expectedDeposit]
 
-      (drepCred, _, _) <- setupSingleDRep 1_000_000
+      (drepCred, _, _) <- setupSingleDRep 2_000_000
       submitAnyTx_ $
         mkBasicTx mkBasicTxBody
           & bodyTxL . certsTxBodyL
@@ -235,7 +235,7 @@ spec = describe "DELEG" $ do
       $ whenPostBootstrap
       $ do
         committee <- registerInitialCommittee
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         deposit <- getsNES $ nesEsL . curPParamsEpochStateL . ppDRepDepositL
         donateToTreasury $ Coin 5_000_000
         impAnn "Withdrawal is ratified by the vote of the DRep with delegated stake" $ do
@@ -447,7 +447,7 @@ spec = describe "DELEG" $ do
       expectStakeCredNotRegistered cred
       expectNotDelegatedVote cred
     it "Delegate vote and undelegate after delegating to some stake pools" $ do
-      (khSPO, _, _) <- setupPoolWithStake $ Coin 1_000_000
+      (khSPO, _, _) <- setupPoolWithStake $ Coin 2_000_000
       expectedDeposit <- getsNES $ nesEsL . curPParamsEpochStateL . ppKeyDepositL
       cred <- KeyHashObj <$> freshKeyHash
       submitAnyTx_ $

@@ -351,7 +351,7 @@ committeeExpiryResignationDiscountSpec =
   describe "Expired and resigned committee members are discounted from quorum" $ do
     it "Expired" $ whenPostBootstrap $ do
       modifyPParams $ ppCommitteeMinSizeL .~ 2
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
       -- Elect a committee of 2 members
       committeeColdC1 <- KeyHashObj <$> freshKeyHash
@@ -383,7 +383,7 @@ committeeExpiryResignationDiscountSpec =
       isCommitteeAccepted gaiConstitution `shouldReturn` False
     it "Resigned" $ whenPostBootstrap $ do
       modifyPParams $ ppCommitteeMinSizeL .~ 2
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
       -- Elect a committee of 2 members
       committeeColdC1 <- KeyHashObj <$> freshKeyHash
@@ -465,7 +465,7 @@ paramChangeAffectsProposalsSpec =
       it "Increasing the threshold prevents a hitherto-ratifiable proposal from being ratified" $ whenPostBootstrap $ do
         (drepC, hotCommitteeC, _) <- electBasicCommittee
         setCommitteeUpdateThreshold $ 1 %! 2 -- small threshold
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         (_gaiParent, gaiChild) <- submitTwoExampleProposalsAndVoteOnTheChild [] [(drep, VoteYes)]
         isDRepAccepted gaiChild `shouldReturn` True
         enactCommitteeUpdateThreshold
@@ -474,11 +474,11 @@ paramChangeAffectsProposalsSpec =
           hotCommitteeC
         isDRepAccepted gaiChild `shouldReturn` False
       it "Decreasing the threshold ratifies a hitherto-unratifiable proposal" $ whenPostBootstrap $ do
-        -- This sets up a stake pool with 1_000_000 Coin
+        -- The committee fixture delegates 2 ADA to its DRep and stake pool.
         (drepC, hotCommitteeC, _) <- electBasicCommittee
         setCommitteeUpdateThreshold $ 1 %! 1 -- too large threshold
-        (drep, _, _) <- setupSingleDRep 3_000_000
-        (spoC, _, _) <- setupPoolWithStake $ Coin 3_000_000
+        (drep, _, _) <- setupSingleDRep 6_000_000
+        (spoC, _, _) <- setupPoolWithStake $ Coin 6_000_000
         (gaiParent, gaiChild) <-
           submitTwoExampleProposalsAndVoteOnTheChild [(spoC, VoteYes)] [(drep, VoteYes)]
         logAcceptedRatio gaiChild
@@ -517,14 +517,13 @@ paramChangeAffectsProposalsSpec =
             (^. pvtCommitteeNormalL) <$> getsPParams ppPoolVotingThresholdsL `shouldReturn` threshold
 
       it "Increasing the threshold prevents a hitherto-ratifiable proposal from being ratified" $ whenPostBootstrap $ do
-        -- This sets up a stake pool with 1_000_000 Coin
+        -- The committee fixture delegates 2 ADA to its DRep and stake pool.
         (drepC, hotCommitteeC, _) <- electBasicCommittee
         setCommitteeUpdateThreshold $ 1 %! 2
-        (poolKH1, _paymentC1, _stakingC1) <- setupPoolWithStake $ Coin 2_000_000
-        (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 1_000_000
+        (poolKH1, _paymentC1, _stakingC1) <- setupPoolWithStake $ Coin 4_000_000
+        (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 2_000_000
         passEpoch -- Make the new pool distribution count
-        -- bootstrap: 1 % 2 stake yes (2_000_000); 1 % 2 stake abstain; yes / stake - abstain == 1 % 2
-        -- post-bootstrap: 1 % 2 stake yes (2_000_000); 1 % 4 stake didn't vote; 1 % 4 stake no
+        -- Stake weights 2:1:1: the yes vote carries half the total stake.
         (_gaiParent, gaiChild) <-
           submitTwoExampleProposalsAndVoteOnTheChild
             [(poolKH1, VoteYes), (poolKH2, VoteNo)]
@@ -533,13 +532,12 @@ paramChangeAffectsProposalsSpec =
         enactCommitteeUpdateThreshold (65 %! 100) drepC hotCommitteeC
         isSpoAccepted gaiChild `shouldReturn` False
       it "Decreasing the threshold ratifies a hitherto-unratifiable proposal" $ whenPostBootstrap $ do
-        -- This sets up a stake pool with 1_000_000 Coin
+        -- The committee fixture delegates 2 ADA to its DRep and stake pool.
         (drepC, hotCommitteeC, _) <- electBasicCommittee
         setCommitteeUpdateThreshold $ 1 %! 1 -- too large threshold
-        (poolKH1, _paymentC1, _stakingC1) <- setupPoolWithStake $ Coin 4_000_000
-        (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 1_000_000
-        -- bootstrap: 1 % 2 stake yes (2_000_000); 1 % 2 stake abstain; yes / stake - abstain == 1 % 2
-        -- post-bootstrap: 1 % 2 stake yes (2_000_000); 1 % 4 stake didn't vote; 1 % 4 stake no
+        (poolKH1, _paymentC1, _stakingC1) <- setupPoolWithStake $ Coin 8_000_000
+        (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 2_000_000
+        -- Stake weights 4:1:1: the yes vote carries two thirds of the total stake.
         (gaiParent, gaiChild) <-
           submitTwoExampleProposalsAndVoteOnTheChild
             [(poolKH1, VoteYes), (poolKH2, VoteNo)]
@@ -558,9 +556,9 @@ paramChangeAffectsProposalsSpec =
         getLastEnactedCommittee `shouldReturn` SJust (GovPurposeId gaiChild)
     it "A parent ParameterChange proposal can prevent its child from being enacted" $ whenPostBootstrap $ do
       hotCommitteeCs <- registerInitialCommittee
-      (drepC, _, _) <- setupSingleDRep 1_000_000
+      (drepC, _, _) <- setupSingleDRep 2_000_000
       -- Setup one other DRep with equal stake
-      _ <- setupSingleDRep 1_000_000
+      _ <- setupSingleDRep 2_000_000
       -- Set a smaller DRep threshold
       drepVotingThresholds <- getsPParams ppDRepVotingThresholdsL
       modifyPParams $
@@ -609,7 +607,7 @@ committeeMinSizeAffectsInFlightProposalsSpec =
       -- Ensure sufficient amount in the treasury
       submitAnyTx_ $ mkBasicTx (mkBasicTxBody & treasuryDonationTxBodyL .~ amount)
       hotCommitteeCs <- registerInitialCommittee
-      (drepC, _, _) <- setupSingleDRep 1_000_000
+      (drepC, _, _) <- setupSingleDRep 2_000_000
       passEpoch
       setCommitteeMinSize 2
       gaiTW <- submitTreasuryWithdrawal amount
@@ -707,7 +705,7 @@ votingSpec =
     -- so we have to run them only post-bootstrap
     it "SPO needs to vote on security-relevant parameter changes" $ whenPostBootstrap $ do
       ccCreds <- registerInitialCommittee
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (khPool, _, _) <- setupPoolWithStake $ Coin 42_000_000
       initTxFeePerByte <- getsNES $ nesEsL . curPParamsEpochStateL . ppTxFeePerByteL
       gaidThreshold <- impAnn "Update StakePool thresholds" $ do
@@ -857,11 +855,11 @@ votingSpec =
         describe "Proposal deposits contribute to active voting stake" $ do
           it "Directly" $ whenPostBootstrap $ do
             -- Only modify the applicable thresholds
-            modifyPParams $ ppGovActionDepositL .~ Coin 1_000_000
+            modifyPParams $ ppGovActionDepositL .~ Coin 2_000_000
             -- Setup DRep delegation without stake #1
             (drepKH1, stakingKH1) <- setupDRepWithoutStake
             -- Setup DRep delegation #2
-            (_drepKH2, _stakingKH2, _paymentKP2) <- setupSingleDRep 1_000_000
+            (_drepKH2, _stakingKH2, _paymentKP2) <- setupSingleDRep 2_000_000
             (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
             -- Make a note of the account address for the delegator to DRep #1
             dRepAccountAddress <- getAccountAddressFor $ KeyHashObj stakingKH1
@@ -896,11 +894,11 @@ votingSpec =
             getLastEnactedCommittee `shouldReturn` SJust (GovPurposeId addCCGaid)
           it "After switching delegations" $ whenPostBootstrap $ do
             -- Only modify the applicable thresholds
-            modifyPParams $ ppGovActionDepositL .~ Coin 1_000_000
+            modifyPParams $ ppGovActionDepositL .~ Coin 2_000_000
             -- Setup DRep delegation without stake #1
             (drepKH1, stakingKH1) <- setupDRepWithoutStake
             -- Setup DRep delegation #2
-            (_drepKH2, _stakingKH2, _paymentKP2) <- setupSingleDRep 1_000_000
+            (_drepKH2, _stakingKH2, _paymentKP2) <- setupSingleDRep 2_000_000
             -- Setup DRep delegation #3
             (_drepKH3, stakingKH3) <- setupDRepWithoutStake
             (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
@@ -909,7 +907,7 @@ votingSpec =
             dRepAccountAddress3 <- getAccountAddressFor $ KeyHashObj stakingKH3
             -- Submit committee proposals
             -- The proposal deposits comes from the root UTxO
-            -- After this both stakingKH1 and stakingKH3 are expected to have 1_000_000 ADA of stake, each
+            -- After this both stakingKH1 and stakingKH3 are expected to have 2_000_000 lovelace of stake, each
             cc <- KeyHashObj <$> freshKeyHash
             curEpochNo <- getsNES nesELL
             let
@@ -948,7 +946,7 @@ votingSpec =
       describe "Predefined DReps" $ do
         it "acceptedRatio with default DReps" $ whenPostBootstrap $ do
           (drep1, _, committeeGovId) <- electBasicCommittee
-          (_, drep2Staking, _) <- setupSingleDRep 1_000_000
+          (_, drep2Staking, _) <- setupSingleDRep 2_000_000
 
           paramChangeGovId <-
             submitParameterChange SNothing $ def & ppuTxFeePerByteL .~ SJust (CoinPerByte $ CompactCoin 1000)
@@ -959,7 +957,7 @@ votingSpec =
 
           kh <- freshKeyHash
           _ <- registerStakeCredential (KeyHashObj kh)
-          _ <- delegateToDRep (KeyHashObj kh) (Coin 1_000_000) DRepAlwaysNoConfidence
+          _ <- delegateToDRep (KeyHashObj kh) (Coin 2_000_000) DRepAlwaysNoConfidence
           passEpoch
           -- AlwaysNoConfidence vote acts like a 'No' vote for actions other than NoConfidence
           calculateDRepAcceptedRatio paramChangeGovId `shouldReturn` 1 % 3
@@ -980,12 +978,12 @@ votingSpec =
           initialMembers <- getCommitteeMembers
 
           -- drep2 won't explicitly vote, but eventually delegate to AlwaysNoConfidence
-          (drep2, drep2Staking, _) <- setupSingleDRep 1_000_000
+          (drep2, drep2Staking, _) <- setupSingleDRep 2_000_000
 
           -- we register another drep with the same stake as drep1, which will vote No -
           -- in order to make it necessary to redelegate to AlwaysNoConfidence,
           -- rather than just unregister
-          (drep3, _, _) <- setupSingleDRep 1_000_000
+          (drep3, _, _) <- setupSingleDRep 2_000_000
           (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
 
           noConfidenceGovId <- submitGovAction $ NoConfidence (SJust committeeGovId)
@@ -1017,7 +1015,7 @@ votingSpec =
           (drep1, comMember, _) <- electBasicCommittee
           initialTreasury <- getTreasury
 
-          (drep2, drep2Staking, _) <- setupSingleDRep 1_000_000
+          (drep2, drep2Staking, _) <- setupSingleDRep 2_000_000
 
           accountAddress <- registerAccountAddress
           govId <- submitTreasuryWithdrawals [(accountAddress, initialTreasury)]
@@ -1190,11 +1188,11 @@ votingSpec =
                     { dvtCommitteeNormal = 0 %! 1
                     , dvtCommitteeNoConfidence = 0 %! 1
                     }
-                & ppGovActionDepositL .~ Coin 600_000
+                & ppGovActionDepositL .~ Coin 1_200_000
             -- Setup Pool delegation #1
             (poolKH1, stakingC1) <- setupPoolWithoutStake
             -- Setup Pool delegation #2
-            (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 1_000_000
+            (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 2_000_000
             -- Make a note of the account address for the delegator to SPO #1
             spoAccountAddress <- getAccountAddressFor stakingC1
             -- Submit the first committee proposal, the one we will test active voting stake against.
@@ -1240,11 +1238,11 @@ votingSpec =
                     { dvtCommitteeNormal = 0 %! 1
                     , dvtCommitteeNoConfidence = 0 %! 1
                     }
-                & ppGovActionDepositL .~ Coin 1_000_000
+                & ppGovActionDepositL .~ Coin 2_000_000
             -- Setup Pool delegation #1
             (poolKH1, stakingC1) <- setupPoolWithoutStake
             -- Setup Pool delegation #2
-            (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 1_000_000
+            (poolKH2, _paymentC2, _stakingC2) <- setupPoolWithStake $ Coin 2_000_000
             -- Setup Pool delegation #3
             (_poolKH3, stakingC3) <- setupPoolWithoutStake
             -- Make a note of the account addresss for the delegators to SPOs #1 and #3
@@ -1252,7 +1250,7 @@ votingSpec =
             spoAccountAddress3 <- getAccountAddressFor stakingC3
             -- Submit committee proposals
             -- The proposal deposits come from the root UTxO
-            -- After this both stakingC1 and stakingC3 are expected to have 1_000_000 ADA of stake, each
+            -- After this both stakingC1 and stakingC3 are expected to have 2_000_000 lovelace of stake, each
             cc <- KeyHashObj <$> freshKeyHash
             curEpochNo <- getsNES nesELL
             let
@@ -1284,7 +1282,7 @@ votingSpec =
     describe "Interaction between governing bodies" $ do
       it "Motion of no-confidence" $ whenPostBootstrap $ do
         (drep, _, committeeGovId) <- electBasicCommittee
-        (spoC, _, _) <- setupPoolWithStake $ Coin 1_000_000
+        (spoC, _, _) <- setupPoolWithStake $ Coin 2_000_000
         initialMembers <- getCommitteeMembers
         noConfidenceGovId <- submitGovAction $ NoConfidence (SJust committeeGovId)
 
@@ -1299,7 +1297,7 @@ votingSpec =
         getCommitteeMembers `shouldReturn` initialMembers
       it "Update committee - normal state" $ whenPostBootstrap $ do
         (drep, _, committeeGovId) <- electBasicCommittee
-        (spoC, _, _) <- setupPoolWithStake $ Coin 1_000_000
+        (spoC, _, _) <- setupPoolWithStake $ Coin 2_000_000
         SJust initialCommittee <- getsNES $ newEpochStateGovStateL . committeeGovStateL
         let initialThreshold = initialCommittee ^. committeeThresholdL
         gid <- submitGovAction $ UpdateCommittee (SJust committeeGovId) mempty mempty (1 %! 100)
@@ -1317,8 +1315,8 @@ votingSpec =
         currentCommittee ^. committeeThresholdL `shouldBe` initialThreshold
       it "Hard-fork initiation" $ whenPostBootstrap $ do
         ccMembers <- registerInitialCommittee
-        (drep, _, _) <- setupSingleDRep 1_000_000
-        (spoC, _, _) <- setupPoolWithStake $ Coin 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
+        (spoC, _, _) <- setupPoolWithStake $ Coin 2_000_000
         curProtVer <- getProtVer
         nextMajorVersion <- succVersion $ pvMajor curProtVer
         let nextProtVer = curProtVer {pvMajor = nextMajorVersion}
@@ -1343,7 +1341,7 @@ votingSpec =
               & ppPoolVotingThresholdsL . pvtMotionNoConfidenceL .~ 0 %! 1
               & ppDRepVotingThresholdsL . dvtMotionNoConfidenceL .~ 0 %! 1
           (_drep, _, committeeGovId) <- electBasicCommittee
-          _ <- setupPoolWithStake $ Coin 1_000_000
+          _ <- setupPoolWithStake $ Coin 2_000_000
 
           -- There is a committee initially
           getCommitteeMembers `shouldNotReturn` mempty
@@ -1440,9 +1438,9 @@ votingSpec =
 
       describe "After bootstrap phase" $ do
         it "Default vote is No in general" $ whenPostBootstrap $ do
-          (spoC1, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
-          (spoC2, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
-          (_spoC3, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
+          (spoC1, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
+          (spoC2, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
+          (_spoC3, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
 
           cc <- KeyHashObj <$> freshKeyHash
           gid <- submitUpdateCommittee Nothing mempty [(cc, EpochInterval 5)] (1 %! 2)
@@ -1478,10 +1476,10 @@ votingSpec =
           nextMajorVersion <- succVersion $ pvMajor curProtVer
           let nextProtVer = curProtVer {pvMajor = nextMajorVersion}
 
-          (spoC1, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
-          (spoC2, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
+          (spoC1, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
+          (spoC2, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
           hotCs <- registerInitialCommittee
-          (drep, _, _) <- setupSingleDRep 1_000_000
+          (drep, _, _) <- setupSingleDRep 2_000_000
 
           gid <- submitGovAction $ HardForkInitiation SNothing nextProtVer
 
@@ -1512,7 +1510,7 @@ votingSpec =
                 <> "YES: 1; ABSTAIN: 0; NO (default): 1 -> YES / total - ABSTAIN == 1 % 2"
             )
             $ do
-              delegateSPORewardAddressToDRep_ spoC1 (Coin 1_000_000) DRepAlwaysAbstain
+              delegateSPORewardAddressToDRep_ spoC1 (Coin 2_000_000) DRepAlwaysAbstain
               calculatePoolAcceptedRatio gid `shouldReturn` (1 %! 2)
 
           impAnn
@@ -1528,8 +1526,8 @@ votingSpec =
           getLastEnactedHardForkInitiation `shouldReturn` SJust (GovPurposeId gid)
 
         it "Staking address delegated to AlwaysNoConfidence" $ whenPostBootstrap $ do
-          (spoC, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
-          (drep, _, _) <- setupSingleDRep 1_000_000
+          (spoC, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
+          (drep, _, _) <- setupSingleDRep 2_000_000
 
           gid <- submitGovAction $ NoConfidence SNothing
 
@@ -1552,7 +1550,7 @@ votingSpec =
                 <> "YES: 1; ABSTAIN: 0; NO (default): 0 -> YES / total - ABSTAIN == 1 % 1"
             )
             $ do
-              delegateSPORewardAddressToDRep_ spoC (Coin 1_000_000) DRepAlwaysNoConfidence
+              delegateSPORewardAddressToDRep_ spoC (Coin 2_000_000) DRepAlwaysNoConfidence
               calculatePoolAcceptedRatio gid `shouldReturn` 1
 
           passNEpochs 2
@@ -1560,9 +1558,9 @@ votingSpec =
           getCommitteeMembers `shouldReturn` mempty
 
         it "Staking address delegated to AlwaysAbstain" $ whenPostBootstrap $ do
-          (spoC1, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
-          (spoC2, _payment, _staking) <- setupPoolWithStake $ Coin 1_000_000
-          (drep, _, _) <- setupSingleDRep 1_000_000
+          (spoC1, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
+          (spoC2, _payment, _staking) <- setupPoolWithStake $ Coin 2_000_000
+          (drep, _, _) <- setupSingleDRep 2_000_000
 
           gid <- submitGovAction $ NoConfidence SNothing
 
@@ -1592,7 +1590,7 @@ votingSpec =
                 <> "YES: 1; ABSTAIN: 1; NO (default): 0 -> YES / total - ABSTAIN == 1 % 1"
             )
             $ do
-              delegateSPORewardAddressToDRep_ spoC1 (Coin 1_000_000) DRepAlwaysAbstain
+              delegateSPORewardAddressToDRep_ spoC1 (Coin 2_000_000) DRepAlwaysAbstain
               calculatePoolAcceptedRatio gid `shouldReturn` 1
 
           passNEpochs 2
@@ -1612,7 +1610,7 @@ delayingActionsSpec =
       $ whenPostBootstrap
       $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         gai0 <- submitConstitution SNothing
         gai1 <- submitConstitution $ SJust (GovPurposeId gai0)
         gai2 <- submitConstitution $ SJust (GovPurposeId gai1)
@@ -1639,7 +1637,7 @@ delayingActionsSpec =
       $ whenPostBootstrap
       $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         pGai0 <-
           submitParameterChange
             SNothing
@@ -1684,7 +1682,7 @@ delayingActionsSpec =
       -- TODO: Re-enable after issue is resolved, by removing this override
       disableInConformanceIt "Same lineage" $ whenPostBootstrap $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         modifyPParams $ ppGovActionLifetimeL .~ EpochInterval 2
         gai0 <- submitConstitution SNothing
         gai1 <- submitConstitution $ SJust (GovPurposeId gai0)
@@ -1711,7 +1709,7 @@ delayingActionsSpec =
       -- TODO: Re-enable after issue is resolved, by removing this override
       disableInConformanceIt "Other lineage" $ whenPostBootstrap $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         modifyPParams $ ppGovActionLifetimeL .~ EpochInterval 2
         pGai0 <-
           submitParameterChange
@@ -1756,7 +1754,7 @@ delayingActionsSpec =
         getLastEnactedParameterChange `shouldReturn` SNothing
         getParameterChangeProposals `shouldReturn` Map.empty
       it "proposals to update the committee get delayed if the expiration exceeds the max term" $ whenPostBootstrap $ do
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
         maxTermLength <- getsNES $ nesEsL . curPParamsEpochStateL . ppCommitteeMaxTermLengthL
 
@@ -1857,7 +1855,7 @@ committeeMaxTermLengthSpec =
         pp
           & ppCommitteeMaxTermLengthL .~ termLength
 
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 10_000_000
       initialMembers <- getCommitteeMembers
 
@@ -1925,7 +1923,7 @@ committeeMaxTermLengthSpec =
         pp
           & ppCommitteeMaxTermLengthL .~ termLength
 
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 10_000_000
       initialMembers <- getCommitteeMembers
 
@@ -1978,7 +1976,7 @@ committeeMaxTermLengthSpec =
         pp
           & ppCommitteeMaxTermLengthL .~ termLength
 
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 10_000_000
       initialMembers <- getCommitteeMembers
 

@@ -518,7 +518,7 @@ missingVKeyWitnessSources =
   ,
     ( "voting as a DRep"
     , do
-        (drepCredential, _, _) <- setupSingleDRep 1_000_000
+        (drepCredential, _, _) <- setupSingleDRep 2_000_000
         govActionId <- submitGovAction InfoAction
         keyHash <- expectJust $ credKeyHashWitness drepCredential
         pure (voteSubTx VoteYes (DRepVoter drepCredential) govActionId, keyHash)

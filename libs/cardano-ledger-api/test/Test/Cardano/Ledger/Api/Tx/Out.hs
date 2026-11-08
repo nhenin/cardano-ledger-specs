@@ -2,19 +2,26 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Test.Cardano.Ledger.Api.Tx.Out (spec) where
 
+import Cardano.Ledger.Allegra.Scripts (AllegraEraScript (mkTimeStart))
 import Cardano.Ledger.Api.Era
 import Cardano.Ledger.Api.Tx.Out
-import Cardano.Ledger.BaseTypes (pvMajor, strictMaybeToMaybe)
+import Cardano.Ledger.Babbage.TxOut (datumBabbageTxOutL, referenceScriptBabbageTxOutL)
+import Cardano.Ledger.BaseTypes (SlotNo (..), StrictMaybe (..), pvMajor, strictMaybeToMaybe)
 import Cardano.Ledger.Binary (Sized (sizedValue), mkSized, serialize)
 import Cardano.Ledger.Coin
 import Cardano.Ledger.Conway.Core
+import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), multiAssetFromList)
+import Cardano.Ledger.Plutus.Data (Datum (..), hashBinaryData, makeBinaryData)
 import qualified Cardano.Ledger.Val as Val
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Short as SBS
 import Data.Default (Default (def))
 import Data.Functor.Identity
 import Data.Word (Word64)
@@ -115,6 +122,42 @@ propSetBabbageMinTxOut =
          in Val.coin (txOut' ^. valueTxOutL)
               `shouldBe` Coin (fromIntegral $ (160 + sz) * (unCompactCoin . unCoinPerByte) (pp ^. ppCoinsPerUTxOByteL))
 
+propSetDijkstraMinTxOut :: Spec
+propSetDijkstraMinTxOut =
+  prop "setDijkstraMinTxOut: ADA = p × (250 + 74N + D + R)" $ \(original :: LegacyTxOut DijkstraEra) policy ->
+    forAll (oneof [pure 0, choose (1, 1_000_000)]) $ \rate -> do
+      inline <- expectRight $ makeBinaryData @DijkstraEra $ SBS.pack [0x43, 1, 2, 3]
+      let pp = def & ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin rate)
+          nativeScript = fromNativeScript @DijkstraEra $ mkTimeStart @DijkstraEra (SlotNo 0)
+          -- The datum payload takes four bytes; its hash takes 32; the native script [4,0] takes three.
+          datumCases = [(NoDatum, 0), (DatumHash $ hashBinaryData inline, 32), (Datum inline, 4)]
+      forM_
+        [ (mempty, 0)
+        , (multiAssetFromList [(policy, AssetName "A", 1)], 1)
+        , (multiAssetFromList [(policy, AssetName "A", 1), (policy, AssetName "B", 2)], 2)
+        ]
+        $ \(assets, n) ->
+          forM_ datumCases $ \(datum, d) ->
+            forM_ [(SNothing, 0), (SJust nativeScript, 3)] $ \(script, r) -> do
+              let txOut =
+                    original
+                      & valueTxOutL .~ MaryValue mempty assets
+                      & datumBabbageTxOutL .~ datum
+                      & referenceScriptBabbageTxOutL .~ script
+                  expectedMinimum = Coin $ toInteger rate * (250 + 74 * n + d + r)
+                  expectedOutput = txOut & valueTxOutL %~ Val.modifyCoin (const expectedMinimum)
+              setMinCoinTxOut pp txOut `shouldBe` expectedOutput
+              sizedValue (setMinCoinSizedTxOut pp $ mkSized (eraProtVerHigh @DijkstraEra) txOut)
+                `shouldBe` expectedOutput
+
+propSetDijkstraEnsureMinTxOut :: Spec
+propSetDijkstraEnsureMinTxOut =
+  prop "setEnsureMinTxOut" $ \(pp :: PParams DijkstraEra) txOut ->
+    forAll (choose (0, 1_000_000)) $ \rate ->
+      propSetEnsureMinTxOutWith @DijkstraEra
+        (pp & ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin rate))
+        txOut
+
 propSetEnsureMinTxOutWith ::
   forall era.
   (EraTxOut era, Eq (LegacyTxOut era), Show (LegacyTxOut era)) =>
@@ -190,5 +233,5 @@ spec =
       propSetBabbageMinTxOut @ConwayEra
       propSetBabbageEnsureMinTxOut @ConwayEra
     describe "DijkstraEra" $ do
-      propSetBabbageMinTxOut @DijkstraEra
-      propSetBabbageEnsureMinTxOut @DijkstraEra
+      propSetDijkstraMinTxOut
+      propSetDijkstraEnsureMinTxOut

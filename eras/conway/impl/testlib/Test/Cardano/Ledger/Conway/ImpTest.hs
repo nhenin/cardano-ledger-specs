@@ -1369,10 +1369,11 @@ electBasicCommittee ::
     , GovPurposeId 'CommitteePurpose
     )
 electBasicCommittee = do
-  (drep, _, _) <- setupSingleDRep 1_000_000
+  -- Equal 2 ADA stakes also satisfy the initial Dijkstra output minimum.
+  (drep, _, _) <- setupSingleDRep 2_000_000
   logString $ "Registered DRep: " <> showExpr drep
 
-  (spoC, _, _) <- setupPoolWithStake $ Coin 1_000_000
+  (spoC, _, _) <- setupPoolWithStake $ Coin 2_000_000
   logString $ "Registered SPO: " <> showExpr spoC
 
   impAnn "Registering committee member" $ do

@@ -2109,7 +2109,8 @@ freshKeyAddrNoPtr_ = snd <$> freshKeyAddrNoPtr
 freshFundedTxIn :: (ShelleyEraImp era, HasCallStack) => ImpTestM era TxIn
 freshFundedTxIn = do
   addr <- freshKeyAddr_
-  amount <- uniformRM (Coin 1_000_000, Coin 3_000_000)
+  -- Fixture funding stays above the initial Dijkstra minimum; tests use input identity.
+  amount <- uniformRM (Coin 2_000_000, Coin 3_000_000)
   sendCoinTo addr amount
 
 -- | Looks up the keypair corresponding to the `BootstrapAddress`. The `BootstrapAddress`

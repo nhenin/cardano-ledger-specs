@@ -118,8 +118,8 @@ spec = describe "CERTS" $ do
 
       (accountAddress1, reward1, stakeKey1) <- setupAccountAddress
       (accountAddress2, reward2, stakeKey2) <- setupAccountAddress
-      void $ delegateToDRep (KeyHashObj stakeKey1) (Coin 1_000_000) DRepAlwaysAbstain
-      void $ delegateToDRep (KeyHashObj stakeKey2) (Coin 1_000_000) DRepAlwaysAbstain
+      void $ delegateToDRep (KeyHashObj stakeKey1) (Coin 2_000_000) DRepAlwaysAbstain
+      void $ delegateToDRep (KeyHashObj stakeKey2) (Coin 2_000_000) DRepAlwaysAbstain
 
       -- Force legacy mode by including a PV3 script in our Tx's
       txIn <- produceScript . hashPlutusScript $ alwaysSucceedsNoDatum SPlutusV3
