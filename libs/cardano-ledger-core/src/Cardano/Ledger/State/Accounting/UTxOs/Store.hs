@@ -28,7 +28,7 @@ import Cardano.Ledger.BaseTypes (SlotNo)
 import Cardano.Ledger.Core (EraNewTxOut, EraTx (..), IsPhase2Valid (..), TxLevel (TopTx))
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
   DepositAmount (..),
-  DepositFormula,
+  DepositFormula (..),
   DepositFormulaHistory,
   appendFormula,
   latestFormula,
@@ -71,11 +71,16 @@ currentFormula :: UTxOStore era -> DepositFormula
 currentFormula = latestFormula . depositFormulaHistory
 
 -- | Append a later activation without rewriting any historical period.
+-- Once V2 is active, V1 cannot be reactivated. Rates may increase or decrease
+-- within the active version; earlier allocations keep their historical formula.
 -- Reapplying the current formula is a no-op. Callers supply the actual
 -- activation boundary, before allocating outputs under the new formula.
 activateNewFormula :: SlotNo -> DepositFormula -> UTxOStore era -> UTxOStore era
 activateNewFormula slot formula store
   | formula == currentFormula store = store
+  | DepositFormulaV2 _ <- currentFormula store
+  , DepositFormulaV1 _ <- formula =
+      error "Deposit formula activation cannot downgrade the formula version"
   | any
       ( \entry -> case allocatedAt entry of
           AtStoreMigration -> False

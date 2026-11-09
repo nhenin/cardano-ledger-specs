@@ -104,6 +104,31 @@ spec = describe "UTxOStore historical metadata" $ do
         depositFormulaHistory released `shouldBe` depositFormulaHistory activated
         Binary.decodeFull version (Binary.serialize version released) `shouldBe` Right released
 
+  prop "V2 → V1 ⇒ version downgrade rejected from both baseline and activated histories" $ \initialRate activeRate proposedRate -> do
+    let baseline = mkEmptyUTxOStore (mkDepositFormulaHistory $ DepositFormulaV2 activeRate) :: UTxOStore DijkstraEra
+        activated =
+          activateNewFormula newSlot (DepositFormulaV2 activeRate) $
+            mkEmptyUTxOStore (mkDepositFormulaHistory $ DepositFormulaV1 initialRate)
+    forM_ [baseline, activated] $ \previous ->
+      evaluate (activateNewFormula laterSlot (DepositFormulaV1 proposedRate) previous)
+        `shouldThrow` errorCall "Deposit formula activation cannot downgrade the formula version"
+
+  prop "V1 and V2: p + 1 → p → p + 1 is allowed; identical formulas are no-ops" $
+    \(CoinPerByte (CompactCoin generatedRate)) -> do
+      let lowerCoins = min generatedRate (maxBound - 1)
+          lowerRate = rate lowerCoins
+          higherRate = rate (lowerCoins + 1)
+      forM_ [DepositFormulaV1, DepositFormulaV2] $ \formulaWithRate -> do
+        let previous = mkEmptyUTxOStore (mkDepositFormulaHistory $ formulaWithRate higherRate) :: UTxOStore DijkstraEra
+            decreased = activateNewFormula newSlot (formulaWithRate lowerRate) previous
+            increased = activateNewFormula laterSlot (formulaWithRate higherRate) decreased
+        currentFormula decreased `shouldBe` formulaWithRate lowerRate
+        formulaAt oldSlot (depositFormulaHistory decreased) `shouldBe` formulaWithRate higherRate
+        currentFormula increased `shouldBe` formulaWithRate higherRate
+        formulaAt newSlot (depositFormulaHistory increased) `shouldBe` formulaWithRate lowerRate
+        activateNewFormula oldSlot (formulaWithRate lowerRate) decreased `shouldBe` decreased
+        activateNewFormula newSlot (formulaWithRate higherRate) increased `shouldBe` increased
+
   prop "changed activation at or before an existing allocation ⇒ repricing is rejected" $ \txId ->
     forAll storeOutput $ \output -> do
       let previous =

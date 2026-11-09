@@ -2,6 +2,7 @@
 
 ## 1.23.0.1
 
+* Reject V2-to-V1 downgrades in `Store.activateNewFormula`; allow rate increases and decreases within the active version while retaining historical formulas.
 * Return `TxProjected {updatedStore, consumedOutputs, producedOutputs}` from `Store.projectTx` and both internal body projections. Report only actually inserted outputs, excluding retained collisions. Add `State.Accounting.InstantStake.updateInstantStake` to apply these consumed/produced entries independently of Store projection. Existing ledger events retain their entry-only payload.
 * Limit the public `State.Accounting.UTxOs.Store` interface to transaction projection (`projectTx`), construction, record queries and formula activation. Move `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release` to `Store.Internals`; `Cardano.Ledger.State` no longer reexports these operations.
 * Move Store snapshot encoding into `EncCBOR (UTxOStore era)` and remove `encodeUTxOStore`. Standalone Store CBOR uses MemPack inputs and output payloads. Pre-Dijkstra snapshot and query formats remain unchanged; Dijkstra persists complete allocation metadata and history.

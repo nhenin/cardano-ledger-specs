@@ -842,11 +842,19 @@ use `toCoin` explicitly for Coin arithmetic.
 | `allocate slot outputs` | Keep occupied references and record each new output with `allocatedAt = AtSlot slot`. |
 | `release inputs` | Remove selected entries and debit their historical **external** deposits. |
 | `appendFormula slot formula` | Add the first dated change or one strictly after the latest; reject replacement or insertion into existing periods. |
-| `activateNewFormula slot formula` | Append without repricing existing entries; reapplying the latest formula is a no-op. |
+| `activateNewFormula slot formula` | Append without repricing existing entries; reject V2 → V1. Rates may increase or decrease within either version. Reapplying the latest formula is a no-op. |
 
 Activation preserves existing entries and the cached total. Effective parameter
 changes use the **actual epoch boundary slot**, even when the first transaction
 arrives later. TopTx, its SubTxs and any collateral return record their ledger slot.
+
+Formula activation only moves forward in version:
+
+$$
+\mathrm{version}(F_{\mathrm{next}}) \geq \mathrm{version}(F_{\mathrm{active}})
+$$
+
+Existing V1 allocations still use V1 for their refunds after V2 becomes active.
 
 ```haskell
 Store.projectTx slot tx previousStore

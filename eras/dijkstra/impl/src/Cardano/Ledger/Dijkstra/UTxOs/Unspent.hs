@@ -34,8 +34,10 @@ capLegacyDeposit output deposit
   | LegacyTxOut _ <- output = min deposit (DepositAmount $ output ^. coinTxOutL)
   | otherwise = deposit
 
--- | View application assets without modifying the stored output. Only the ADA
--- reserve is removed from a legacy value; every native asset remains unchanged.
+-- | View application assets without modifying the stored output.
+-- For a valid legacy output, application ADA is @max 0 (outputADA - formulaDeposit)@:
+-- it is zero when the formula deposit meets or exceeds the output ADA, never negative.
+-- Only the ADA reserve is deducted; every native asset remains unchanged.
 computeApplicationAssets ::
   DepositFormulaHistory ->
   Unspent (TxOut DijkstraEra) ->
