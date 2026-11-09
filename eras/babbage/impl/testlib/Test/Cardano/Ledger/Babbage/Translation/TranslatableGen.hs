@@ -102,7 +102,7 @@ genTxOut (SupportedLanguage slang) = do
     SPlutusV1 -> oneof [pure NoDatum, DatumHash <$> (arbitrary :: Gen DataHash)]
     _ -> arbitrary
   pure $
-    mkBasicTxOutWithImplicitDeposit addr value
+    mkBasicTxOutWithLegacyTxOut addr value
       & datumTxOutL .~ datum
       & referenceScriptTxOutL .~ script
 

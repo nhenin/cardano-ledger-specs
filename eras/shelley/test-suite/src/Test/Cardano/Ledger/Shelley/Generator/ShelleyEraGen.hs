@@ -134,4 +134,4 @@ instance MinGenTxout ShelleyEra where
     LegacyTxOut $ output & valueTxOutL %~ (v <+>)
   genEraTxOut _genenv genVal addrs = do
     values <- replicateM (length addrs) genVal
-    pure (zipWith mkBasicTxOutWithImplicitDeposit addrs values)
+    pure (zipWith mkBasicTxOutWithLegacyTxOut addrs values)

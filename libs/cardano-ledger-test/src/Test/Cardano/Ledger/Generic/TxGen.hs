@@ -168,7 +168,7 @@ genTxOut val = do
       ScriptHashObj scriptHash -> do
         maybeCoreScript <- lookupScript scriptHash (Just Spending)
         genDataHashField maybeCoreScript
-  pure . dataHashFields $ mkBasicTxOutWithImplicitDeposit addr val
+  pure . dataHashFields $ mkBasicTxOutWithLegacyTxOut addr val
 
 -- ====================================================================
 
@@ -681,7 +681,7 @@ genCollateralUTxO collateralAddresses (Coin fee) utxo = do
         txIn <- lift (resize 30 (arbitrary :: Gen TxIn))
         if Map.member txIn utxo || Map.member txIn coll || txIn `Map.member` entriesInUse
           then genNewCollateral addr coll um c
-          else pure (um, Map.insert txIn (mkBasicTxOutWithImplicitDeposit addr (inject c)) coll, c)
+          else pure (um, Map.insert txIn (mkBasicTxOutWithLegacyTxOut addr (inject c)) coll, c)
       -- Either pick a collateral from a map or generate a completely new one
       genCollateral addr coll um
         | Map.null um = genNewCollateral addr coll um =<< lift genPositiveVal
@@ -921,7 +921,7 @@ genAlonzoTxAndInfo slot = do
   collateralAddresses <- replicateM maxCollateralCount genNoScriptRecipient
   bogusCollateralKeyWitsMakers <- fmap concat . forM collateralAddresses $ \a ->
     fmap List.singleton . genTxOutKeyWitness Nothing $
-      mkBasicTxOutWithImplicitDeposit a (inject maxCoin)
+      mkBasicTxOutWithLegacyTxOut a (inject maxCoin)
   networkId <- lift $ elements [SNothing, SJust Testnet]
 
   -- 6. Generate bogus collateral fields, and functions for updating them when we know their real values

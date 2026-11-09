@@ -113,7 +113,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> recordedDeposit) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin coins)
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin coins)
       previousStore <- liveOutputStore <$> readAccountingState
       Map.lookup source (recordedAmounts previousStore) `shouldBe` Just recordedDeposit
       submitTx spendingTx >>= isAccepted
@@ -186,7 +186,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> release) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin coins)
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin coins)
       submitTx spendingTx >>= isAccepted
       after <- readAccountingState
       assertDepositTotal after
@@ -215,7 +215,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> release) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ unAssets $ sumAllAssets [returned])
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ unAssets $ sumAllAssets [returned])
       submitTx spendingTx >>= isAccepted
       after <- readAccountingState
       assertDepositTotal after
@@ -255,7 +255,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> (v1 <> v2)) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ inputs
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address (value <> value))
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address (value <> value))
       submitTx signed >>= isAccepted
       after <- readAccountingState
       storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal before <-> (v1 <> v2)

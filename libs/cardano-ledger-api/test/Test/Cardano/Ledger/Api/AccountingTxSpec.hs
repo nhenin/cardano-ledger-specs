@@ -264,6 +264,6 @@ accountingPolicySpec parameters template collateralReturn donation = describe (e
 
 testOutput :: EraTxOut era => Coin -> TxOut era
 testOutput =
-  mkBasicTxOutWithImplicitDeposit
+  mkBasicTxOutWithLegacyTxOut
     (mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1))
     . inject

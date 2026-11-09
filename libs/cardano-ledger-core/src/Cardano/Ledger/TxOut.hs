@@ -26,7 +26,7 @@ module Cardano.Ledger.TxOut (
   Value,
   Assets (..),
   ApplicationAssets (..),
-  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithLegacyTxOut,
   mkBasicTxOutWithStoreBackedDeposit,
   mkCoinTxOut,
   bootAddrTxOutF,
@@ -274,12 +274,12 @@ class EraNewTxOut era where
   getDepositNewTxOut _ unavailable = case (unavailable :: NoNewTxOut era) of {}
 
 -- | Construct a transaction output whose value includes its implicit deposit.
-mkBasicTxOutWithImplicitDeposit ::
+mkBasicTxOutWithLegacyTxOut ::
   (EraLegacyTxOut era, HasCallStack) =>
   Addr ->
   Value era ->
   TxOut era
-mkBasicTxOutWithImplicitDeposit address =
+mkBasicTxOutWithLegacyTxOut address =
   LegacyTxOut . mkBasicLegacyTxOut address
 
 -- | Construct a transaction output whose capacity deposit is held in a separate store.

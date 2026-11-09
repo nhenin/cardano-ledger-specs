@@ -113,7 +113,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
               . outputsTxBodyL
               .~ SSeq.fromList
                 [ source
-                , mkBasicTxOutWithImplicitDeposit aliceAddress $ inject aliceChange
+                , mkBasicTxOutWithLegacyTxOut aliceAddress $ inject aliceChange
                 ]
             & bodyTxL
               . feeTxBodyL
@@ -136,7 +136,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton
-                (mkBasicTxOutWithImplicitDeposit parentAddress $ inject $ Coin 10_000_000)
+                (mkBasicTxOutWithLegacyTxOut parentAddress $ inject $ Coin 10_000_000)
             & bodyTxL
               . subTransactionsTxBodyL
               .~ OMap.fromFoldable
@@ -177,7 +177,7 @@ spendingTx address input amount =
     & bodyTxL
       . outputsTxBodyL
       .~ SSeq.singleton
-        (mkBasicTxOutWithImplicitDeposit address $ inject amount)
+        (mkBasicTxOutWithLegacyTxOut address $ inject amount)
 
 -- | Prepare the explicitly declared proposal using normal fees and witnesses,
 -- retaining the source in its selected owner body. The real spender signs there;

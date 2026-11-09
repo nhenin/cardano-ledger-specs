@@ -87,7 +87,7 @@ forAllPostConwayAllocationTx scenarios check =
     parameters <- getsNES $ nesEsL . curPParamsEpochStateL
     let outputs = TopTx.createdOutputs address scenario
         sourceCoins = foldMap (^. coinTxOutL) outputs <> Coin 10_000_000
-        conwayOutput = mkBasicTxOutWithImplicitDeposit @ConwayEra address $ inject sourceCoins
+        conwayOutput = mkBasicTxOutWithLegacyTxOut @ConwayEra address $ inject sourceCoins
         translatedOutput = upgradeTxOut @DijkstraEra conwayOutput
     translatedOutput ^. coinTxOutL `shouldBe` sourceCoins
     translatedOutput ^. addrTxOutL `shouldBe` address

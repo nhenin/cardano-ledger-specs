@@ -216,7 +216,7 @@ spec = describe "BBODY" $ do
           then freshKeyAddr_
           else freshKeyAddrNoPtr_
       pure $
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
           & referenceScriptTxOutL .~ pure (fromNativeScript script)
 
     txs <- simulateThenRestore $ do

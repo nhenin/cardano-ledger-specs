@@ -198,8 +198,8 @@ spec = describe "UTXO" $ do
                   mkBasicTxBody
                     & mintTxBodyL .~ tokens (topBurnAmount + subBurnAmount)
                     & outputsTxBodyL
-                      .~ [ mkBasicTxOutWithImplicitDeposit tokenAddr (MaryValue mempty (tokens topBurnAmount))
-                         , mkBasicTxOutWithImplicitDeposit tokenAddr (MaryValue mempty (tokens subBurnAmount))
+                      .~ [ mkBasicTxOutWithLegacyTxOut tokenAddr (MaryValue mempty (tokens topBurnAmount))
+                         , mkBasicTxOutWithLegacyTxOut tokenAddr (MaryValue mempty (tokens subBurnAmount))
                          ]
             topOut <- freshTxOut
             subOut <- freshTxOut
@@ -657,13 +657,13 @@ spec = describe "UTXO" $ do
     txInWithFunds :: Coin -> ImpTestM era TxIn
     txInWithFunds amount = freshKeyAddr_ >>= \a -> sendCoinTo a amount
     mkTxOut :: Coin -> ImpTestM era (TxOut era)
-    mkTxOut amount = freshKeyAddr_ >>= \a -> pure $ mkBasicTxOutWithImplicitDeposit a (inject amount)
+    mkTxOut amount = freshKeyAddr_ >>= \a -> pure $ mkBasicTxOutWithLegacyTxOut a (inject amount)
     produceScriptAt :: ScriptHash -> Coin -> ImpTestM era TxIn
     produceScriptAt scriptHash amount = do
       let addr = mkAddr scriptHash StakeRefNull
       let tx =
             mkBasicTx mkBasicTxBody
-              & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr (inject amount)]
+              & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr (inject amount)]
       txInAt 0 <$> submitTx tx
 
 noBalanceFixup ::

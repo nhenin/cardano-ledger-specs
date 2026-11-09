@@ -584,8 +584,8 @@ instance MinGenTxout AlonzoEra where
     let makeTxOut addr val =
           case addr of
             Addr _network (ScriptHashObj shash) _stakeref ->
-              mkBasicTxOutWithImplicitDeposit addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
-            _ -> mkBasicTxOutWithImplicitDeposit addr val
+              mkBasicTxOutWithLegacyTxOut addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
+            _ -> mkBasicTxOutWithLegacyTxOut addr val
     pure (zipWith makeTxOut addrs values)
 
 -- | If an Address is script address, we can find a potential data hash for it from

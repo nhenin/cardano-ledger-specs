@@ -217,7 +217,7 @@ addAlonzoBasedTxFeatureExamples tx =
       )
     & bodyTxL . outputsTxBodyL
       <>~ StrictSeq.fromList
-        [ mkBasicTxOutWithImplicitDeposit
+        [ mkBasicTxOutWithLegacyTxOut
             (mkAddr examplePayKey exampleStakeKey)
             (exampleMultiAssetValue 3)
             & dataHashTxOutL .~ SJust (mkDummySafeHash 1)

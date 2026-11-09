@@ -757,7 +757,7 @@ defaultInitImpTestState nes = do
     rootAddr :: Addr
     rootAddr = mkAddr rootKeyHash StakeRefNull
     rootTxOut :: TxOut era
-    rootTxOut = mkBasicTxOutWithImplicitDeposit rootAddr $ inject rootCoin
+    rootTxOut = mkBasicTxOutWithLegacyTxOut rootAddr $ inject rootCoin
     rootCoin = Coin (toInteger (sgMaxLovelaceSupply shelleyGenesis))
     rootTxIn :: TxIn
     rootTxIn = TxIn (mkTxId 0) minBound
@@ -1320,7 +1320,7 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   changeBeforeFee <- ensureNonNegativeCoin $ coin consumedValue <-> coin producedValue
   logToExpr changeBeforeFee
   let
-    changeBeforeFeeTxOut = mkBasicTxOutWithImplicitDeposit addr (inject changeBeforeFee)
+    changeBeforeFeeTxOut = mkBasicTxOutWithLegacyTxOut addr (inject changeBeforeFee)
     txNoWits = tx & bodyTxL . outputsTxBodyL %~ (:|> changeBeforeFeeTxOut)
     outsBeforeFee = tx ^. bodyTxL . outputsTxBodyL
     suppliedFee = txOriginal ^. bodyTxL . feeTxBodyL
@@ -2067,7 +2067,7 @@ freshKeyAddr_ = snd <$> freshKeyAddr
 freshTxOutWithCoin :: EraTxOut era => Coin -> ImpTestM era (TxOut era)
 freshTxOutWithCoin c = do
   addr <- freshKeyAddr_
-  pure . mkBasicTxOutWithImplicitDeposit addr $ inject c
+  pure . mkBasicTxOutWithLegacyTxOut addr $ inject c
 
 freshMainnetKeyAddr_ :: (HasKeyPairs s, MonadState s m, HasStatefulGen g m) => m Addr
 freshMainnetKeyAddr_ = do
@@ -2187,7 +2187,7 @@ sendValueTo addr amount = do
     submitTxAnn
       ("Giving " <> show amount <> " to " <> show addr)
       $ mkBasicTx mkBasicTxBody
-        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr amount)
+        & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut addr amount)
   pure $ txInAt 0 tx
 
 sendValueTo_ :: (ShelleyEraImp era, HasCallStack) => Addr -> Value era -> ImpTestM era ()
@@ -2568,7 +2568,7 @@ produceScript scriptHash = do
   let addr = mkAddr scriptHash StakeRefNull
   let tx =
         mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit addr mempty)
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut addr mempty)
   logString $ "Produced script: " <> show scriptHash
   txInAt 0 <$> submitTx tx
 

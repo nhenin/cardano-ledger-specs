@@ -602,14 +602,14 @@ mkTxWithPlutusAndBootstrapAddress slang = do
   let scriptHash = hashPlutusScript $ alwaysSucceedsWithDatum slang
       datumHash = hashData datum
       txOutScript =
-        mkBasicTxOutWithImplicitDeposit @era (mkAddr scriptHash StakeRefNull) mempty
+        mkBasicTxOutWithLegacyTxOut @era (mkAddr scriptHash StakeRefNull) mempty
           & dataHashTxOutL .~ SJust datumHash
   tx <-
     submitTx $
       mkBasicTx $
         mkBasicTxBody & outputsTxBodyL .~ [txOutScript]
   let txIn = txInAt 0 tx
-      txOutBootstrapAddr = mkBasicTxOutWithImplicitDeposit @era (AddrBootstrap ba) mempty
+      txOutBootstrapAddr = mkBasicTxOutWithLegacyTxOut @era (AddrBootstrap ba) mempty
   return $
     AnyLevelTx $
       mkBasicTx
@@ -633,4 +633,4 @@ mkTokenMintingTx sh = do
     AnyLevelTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . mintTxBodyL .~ ma
-        & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr (MaryValue mempty ma)]
+        & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr (MaryValue mempty ma)]

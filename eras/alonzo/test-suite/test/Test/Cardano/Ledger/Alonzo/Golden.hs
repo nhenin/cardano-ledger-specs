@@ -94,21 +94,21 @@ goldenUTxOEntryMinAda =
   describe "golden tests - UTxOEntryMinAda" $ do
     it "one policy, one (smallest) name, yes datum hash" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit carlAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)])
+        ( mkBasicTxOutWithLegacyTxOut carlAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)])
             & dataHashTxOutL .~ SJust (hashData @AlonzoEra (Data (PV1.List [])))
         )
         `shouldBe` Coin 1655136
     it "one policy, one (smallest) name, no datum hash" $
       calcMinUTxO
-        (mkBasicTxOutWithImplicitDeposit bobAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)]))
+        (mkBasicTxOutWithLegacyTxOut bobAddr (valueFromList (Coin 1407406) [(pid1, smallestName, 1)]))
         `shouldBe` Coin 1310316
     it "one policy, one (small) name" $
       calcMinUTxO
-        (mkBasicTxOutWithImplicitDeposit aliceAddr (valueFromList (Coin 1444443) [(pid1, smallName 1, 1)]))
+        (mkBasicTxOutWithLegacyTxOut aliceAddr (valueFromList (Coin 1444443) [(pid1, smallName 1, 1)]))
         `shouldBe` Coin 1344798
     it "one policy, three (small) names" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit
+        ( mkBasicTxOutWithLegacyTxOut
             aliceAddr
             ( valueFromList
                 (Coin 1555554)
@@ -121,11 +121,11 @@ goldenUTxOEntryMinAda =
         `shouldBe` Coin 1448244
     it "one policy, one (largest) name" $
       calcMinUTxO
-        (mkBasicTxOutWithImplicitDeposit carlAddr (valueFromList (Coin 1555554) [(pid1, largestName 65, 1)]))
+        (mkBasicTxOutWithLegacyTxOut carlAddr (valueFromList (Coin 1555554) [(pid1, largestName 65, 1)]))
         `shouldBe` Coin 1448244
     it "one policy, three (largest) name, with hash" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit
+        ( mkBasicTxOutWithLegacyTxOut
             carlAddr
             ( valueFromList
                 (Coin 1962961)
@@ -139,14 +139,14 @@ goldenUTxOEntryMinAda =
         `shouldBe` Coin 2172366
     it "two policies, one (smallest) name" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit
+        ( mkBasicTxOutWithLegacyTxOut
             aliceAddr
             (valueFromList (Coin 1592591) [(pid1, smallestName, 1), (pid2, smallestName, 1)])
         )
         `shouldBe` Coin 1482726
     it "two policies, one (smallest) name, with hash" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit
+        ( mkBasicTxOutWithLegacyTxOut
             aliceAddr
             (valueFromList (Coin 1592591) [(pid1, smallestName, 1), (pid2, smallestName, 1)])
             & dataHashTxOutL .~ SJust (hashData @AlonzoEra (Data (PV1.Constr 0 [])))
@@ -154,14 +154,14 @@ goldenUTxOEntryMinAda =
         `shouldBe` Coin 1827546
     it "two policies, two (small) names" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit
+        ( mkBasicTxOutWithLegacyTxOut
             bobAddr
             (valueFromList (Coin 1629628) [(pid1, smallName 1, 1), (pid2, smallName 2, 1)])
         )
         `shouldBe` Coin 1517208
     it "three policies, ninety-six (small) names" $
       calcMinUTxO
-        ( mkBasicTxOutWithImplicitDeposit
+        ( mkBasicTxOutWithLegacyTxOut
             aliceAddr
             ( let f i c = (i, smallName c, 1)
                in valueFromList

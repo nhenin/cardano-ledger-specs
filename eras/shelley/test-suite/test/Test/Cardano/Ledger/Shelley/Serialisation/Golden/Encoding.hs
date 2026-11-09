@@ -403,7 +403,7 @@ tests =
        in checkEncodingCBOR
             shelleyProtVer
             "txout"
-            (mkBasicTxOutWithImplicitDeposit @ShelleyEra a (Coin 2))
+            (mkBasicTxOutWithLegacyTxOut @ShelleyEra a (Coin 2))
             ( T (TkListLen 2)
                 <> S a
                 <> S (Coin 2)

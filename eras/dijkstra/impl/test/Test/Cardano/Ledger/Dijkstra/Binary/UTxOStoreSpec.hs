@@ -123,7 +123,7 @@ spec = describe "UTxOStore historical metadata" $ do
 
   prop "two wire encodings of one output yield identical Store snapshots and refunds" $ \txId ->
     forAll storeOutput $ \backed ->
-      forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) mempty, backed] $ \output -> do
+      forM_ [mkBasicTxOutWithLegacyTxOut (backed ^. addrTxOutL) mempty, backed] $ \output -> do
         accepted <- acceptedOutput output
         history <-
           expectJust $
@@ -190,7 +190,7 @@ spec = describe "UTxOStore historical metadata" $ do
       StoreInternals.allocate laterSlot proposed reallocated `shouldBe` reallocated
 
   prop "legacy and zero-priced new allocations retain their slots with zero external deposits" $ \txId address creationRate -> do
-    let implicit = mkBasicTxOutWithImplicitDeposit address mempty :: TxOut DijkstraEra
+    let implicit = mkBasicTxOutWithLegacyTxOut address mempty :: TxOut DijkstraEra
         backed = mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets mempty) :: TxOut DijkstraEra
         legacyInput = TxIn txId $ TxIx 0
         backedInput = TxIn txId $ TxIx 1
@@ -228,7 +228,7 @@ spec = describe "UTxOStore historical metadata" $ do
       Binary.decodeFull version (Binary.serialize version store) `shouldBe` Right store
 
   prop "baseline-only history ⇒ Dijkstra snapshots preserve empty and populated stores" $ \txId address baseline -> do
-    let output = mkBasicTxOutWithImplicitDeposit address mempty :: TxOut DijkstraEra
+    let output = mkBasicTxOutWithLegacyTxOut address mempty :: TxOut DijkstraEra
         entry = Unspent output AtStoreMigration
     forM_ [mempty, IndexedUTxOs.singleton (TxIn txId $ TxIx 0) entry] $ \entries -> do
       let store = mkUTxOStore (mkDepositFormulaHistory baseline) entries
@@ -236,7 +236,7 @@ spec = describe "UTxOStore historical metadata" $ do
         `shouldBe` Right store
 
   prop "AtStoreMigration ⇒ the initial formula remains in force after later activations" $ \txId address -> do
-    let output = mkBasicTxOutWithImplicitDeposit address (Val.inject $ Coin 100000000) :: TxOut DijkstraEra
+    let output = mkBasicTxOutWithLegacyTxOut address (Val.inject $ Coin 100000000) :: TxOut DijkstraEra
         entry = Unspent output AtStoreMigration
         previous =
           mkUTxOStore (mkDepositFormulaHistory $ DepositFormulaV1 oldRate) $
@@ -308,7 +308,7 @@ spec = describe "UTxOStore historical metadata" $ do
 
   prop "V2 allocation ⇒ output and origin survive construction, queries and codecs" $ \txId creationRate@(CoinPerByte (CompactCoin coinsPerByte)) ->
     forAll storeOutput $ \backed ->
-      forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) mempty, backed] $ \output -> do
+      forM_ [mkBasicTxOutWithLegacyTxOut (backed ^. addrTxOutL) mempty, backed] $ \output -> do
         let accepted = Binary.mkSized version output
         let pricing = DepositFormulaV2 creationRate
             history = mkDepositFormulaHistory pricing
@@ -333,7 +333,7 @@ spec = describe "UTxOStore historical metadata" $ do
 
   prop "legacy reserve = min(output ADA, historical price); reserve + application ADA = output ADA" $ \address ->
     forM_ [0, 1, 1000000, 100000000] $ \coins -> do
-      let output = mkBasicTxOutWithImplicitDeposit address (Val.inject $ Coin coins) :: TxOut DijkstraEra
+      let output = mkBasicTxOutWithLegacyTxOut address (Val.inject $ Coin coins) :: TxOut DijkstraEra
           entry = Unspent output (AtSlot oldSlot)
           history = mkDepositFormulaHistory $ DepositFormulaV1 $ rate 4310
           expectedReserve = min (Coin coins) $ Coin (250 * 4310)
@@ -359,7 +359,7 @@ spec = describe "UTxOStore historical metadata" $ do
 
   prop "allocation before the first change ⇒ baseline deposit and application value" $
     forAll storeOutput $ \backed ->
-      forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) (Val.inject $ Coin 100000000), backed] $ \output -> do
+      forM_ [mkBasicTxOutWithLegacyTxOut (backed ^. addrTxOutL) (Val.inject $ Coin 100000000), backed] $ \output -> do
         history <-
           expectJust $
             appendFormula newSlot (DepositFormulaV2 newRate) $
@@ -381,7 +381,7 @@ spec = describe "UTxOStore historical metadata" $ do
 
   prop "allocation before the first change ⇒ snapshot retains the baseline refund" $ \txId ->
     forAll storeOutput $ \backed ->
-      forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) mempty, backed] $ \output -> do
+      forM_ [mkBasicTxOutWithLegacyTxOut (backed ^. addrTxOutL) mempty, backed] $ \output -> do
         history <-
           expectJust $
             appendFormula newSlot (DepositFormulaV2 newRate) $
@@ -410,7 +410,7 @@ spec = describe "UTxOStore historical metadata" $ do
     "retired per-entry formula metadata ⇒ decoding rejected instead of inventing allocation slots"
     $ forAll storeOutput
     $ \backed ->
-      forM_ [mkBasicTxOutWithImplicitDeposit (backed ^. addrTxOutL) mempty, backed] $ \output ->
+      forM_ [mkBasicTxOutWithLegacyTxOut (backed ^. addrTxOutL) mempty, backed] $ \output ->
         forM_ [DepositFormulaV1 oldRate, DepositFormulaV2 oldRate] $ \pricing ->
           decodeAllocation
             ( Binary.encodeListLen 3
@@ -478,7 +478,7 @@ spec = describe "UTxOStore historical metadata" $ do
         `shouldSatisfy` isLeft
 
   prop "retired tagged-sum entries and snapshots ⇒ decoding rejected for both output variants" $ \txId address -> do
-    let implicit = mkBasicTxOutWithImplicitDeposit address mempty :: TxOut DijkstraEra
+    let implicit = mkBasicTxOutWithLegacyTxOut address mempty :: TxOut DijkstraEra
         backed = mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets mempty) :: TxOut DijkstraEra
         retiredLegacy = Binary.encodeListLen 2 <> Binary.encodeWord 0 <> Binary.encCBOR implicit
         retiredNew =

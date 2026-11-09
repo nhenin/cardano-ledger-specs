@@ -406,7 +406,7 @@ fundSubTxReleaseScenario scenario = do
       childDeposits = map (recordedInputDeposit allocationRecords) childInputs
       children = zipWith3 (subTxSettlingItsSource address) childSources childInputs childDeposits
       ownOutputs =
-        [ mkBasicTxOutWithImplicitDeposit address $ inject $ amount <> ownDeposit
+        [ mkBasicTxOutWithLegacyTxOut address $ inject $ amount <> ownDeposit
         | amount <- maybeToList $ Children.topTxSource scenario
         ]
       tx =
@@ -446,7 +446,7 @@ sourceOutput :: Addr -> Children.Source -> TxOut DijkstraEra
 sourceOutput address (Children.StoreBackedSource amount) =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
 sourceOutput address (Children.ImplicitSource amount) =
-  mkBasicTxOutWithImplicitDeposit address $ inject amount
+  mkBasicTxOutWithLegacyTxOut address $ inject amount
 
 recordedInputDeposit :: Map.Map TxIn Coin -> TxIn -> Coin
 recordedInputDeposit records input = Map.findWithDefault mempty input records
@@ -460,7 +460,7 @@ subTxSettlingItsSource address source input deposit =
   subTxWithDepositDeclaration input SubTx.NoUTxODepositDeclaration
     & bodyTxL . outputsTxBodyL
       .~ SSeq.singleton
-        (mkBasicTxOutWithImplicitDeposit address $ inject $ Children.sourceApplicationCoins source <> deposit)
+        (mkBasicTxOutWithLegacyTxOut address $ inject $ Children.sourceApplicationCoins source <> deposit)
 
 -- | Additional ordinary inputs across TopTx and every SubTx may fund fees, but
 -- cannot introduce a Store release absent from the original release scenario.
@@ -614,7 +614,7 @@ preparePhase2InvalidReleaseTx tx = do
       & bodyTxL . collateralInputsTxBodyL .~ Set.singleton collateralInput
       & bodyTxL . totalCollateralTxBodyL .~ SJust (Coin 5_000_000)
       & bodyTxL . collateralReturnTxBodyL
-        .~ SJust (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 5_000_000)
+        .~ SJust (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 5_000_000)
 
 -- | Check that preparation has preserved the release scenario: the input is
 -- still live and store-backed, belongs only to the intended ordinary body, and
@@ -745,7 +745,7 @@ buildAndSignCollateralOnlyTx scenario declarations = do
             then Children.StoreBackedSource $ Release.collateralReturnCoins scenario
             else Children.ImplicitSource $ Release.collateralReturnCoins scenario
       preparationReturn =
-        mkBasicTxOutWithImplicitDeposit address $ inject $ Release.collateralReturnCoins scenario
+        mkBasicTxOutWithLegacyTxOut address $ inject $ Release.collateralReturnCoins scenario
       allocation = Standalone.outputDeposit pp inputOutput
   fundingTx <-
     ImpTest.submitTx $

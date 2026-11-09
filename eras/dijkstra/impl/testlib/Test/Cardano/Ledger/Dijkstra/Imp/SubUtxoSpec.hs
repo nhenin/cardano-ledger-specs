@@ -194,7 +194,7 @@ spec = describe "SUBUTXO" $ do
       let subTx :: Tx SubTx era
           subTx =
             mkBasicTx $
-              mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit (AddrBootstrap bootAddr) mempty]
+              mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut (AddrBootstrap bootAddr) mempty]
       submitFailingTxM (mkTopTxWithSubTxs [subTx]) $ \fixedUpTx -> do
         txOuts <- subTxOutputs fixedUpTx
         pure [injectFailure $ SubOutputBootAddrAttrsTooBig @era txOuts]
@@ -202,8 +202,8 @@ spec = describe "SUBUTXO" $ do
     it "several such outputs, reported in their order in the body" $ do
       firstBootAddr <- freshBootstrapAddressOversizedPayload
       secondBootAddr <- freshBootstrapAddressOversizedPayload
-      let firstTxOut = mkBasicTxOutWithImplicitDeposit (AddrBootstrap firstBootAddr) mempty
-          secondTxOut = mkBasicTxOutWithImplicitDeposit (AddrBootstrap secondBootAddr) mempty
+      let firstTxOut = mkBasicTxOutWithLegacyTxOut (AddrBootstrap firstBootAddr) mempty
+          secondTxOut = mkBasicTxOutWithLegacyTxOut (AddrBootstrap secondBootAddr) mempty
           subTx :: Tx SubTx era
           subTx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [firstTxOut, secondTxOut]
       submitFailingTxM (mkTopTxWithSubTxs [subTx]) $ \fixedUpTx -> do
@@ -237,7 +237,7 @@ spec = describe "SUBUTXO" $ do
     it "an output to a mainnet address" $ do
       addr <- freshMainnetKeyAddr_
       submitFailingSubTx
-        (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr mempty])
+        (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr mempty])
         [injectFailure . SubWrongNetwork @era Testnet $ NES.singleton addr]
 
     it "several outputs to mainnet addresses" $ do
@@ -247,8 +247,8 @@ spec = describe "SUBUTXO" $ do
         ( mkBasicTx $
             mkBasicTxBody
               & outputsTxBodyL
-                .~ [ mkBasicTxOutWithImplicitDeposit firstAddr mempty
-                   , mkBasicTxOutWithImplicitDeposit secondAddr mempty
+                .~ [ mkBasicTxOutWithLegacyTxOut firstAddr mempty
+                   , mkBasicTxOutWithLegacyTxOut secondAddr mempty
                    ]
         )
         [ injectFailure . SubWrongNetwork @era Testnet $
@@ -302,7 +302,7 @@ spec = describe "SUBUTXO" $ do
             bootstrapAttrsTxOut =
               LegacyTxOut . setMinCoinTxOut pp $
                 mkBasicLegacyTxOut (AddrBootstrap bootAddr) mempty
-            tooSmallTxOut = mkBasicTxOutWithImplicitDeposit mainnetAddr . inject $ Coin 1
+            tooSmallTxOut = mkBasicTxOutWithLegacyTxOut mainnetAddr . inject $ Coin 1
         submitFailingSubTx
           ( mkBasicTx $
               mkBasicTxBody
@@ -354,7 +354,7 @@ spec = describe "SUBUTXO" $ do
     it "an output to a bootstrap address whose payload is the largest allowed size" $ do
       bootAddr <- freshBootstrapAddressWithPayloadSize $ Just largestBootstrapAddressAttrsSize
       submitTx_ . mkTopTxWithSubTxs . pure . mkBasicTx $
-        mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit (AddrBootstrap bootAddr) mempty]
+        mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut (AddrBootstrap bootAddr) mempty]
 
   describe "A phase-2 invalid top level transaction" $ do
     it "still rejects a sub-transaction with the wrong network id in its body" $ do
@@ -412,7 +412,7 @@ freshAssetOutput = do
   assetName <- arbitrary @AssetName
   addr <- freshKeyAddr_
   let multiAsset = multiAssetFromList [(policyId, assetName, 1)]
-  pure (multiAsset, mkBasicTxOutWithImplicitDeposit addr $ MaryValue mempty multiAsset)
+  pure (multiAsset, mkBasicTxOutWithLegacyTxOut addr $ MaryValue mempty multiAsset)
 
 subTxsSpendingOneInput :: DijkstraEraImp era => ImpTestM era (TxIn, [Tx SubTx era])
 subTxsSpendingOneInput = do

@@ -39,7 +39,7 @@ spec = describe "Valid" $ do
       -- Tx would fail if reference scripts require a witness
       script = nativeAlwaysFails
       txOutRef =
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
           & referenceScriptTxOutL .~ SJust script
     txInitial <-
       submitTx $
@@ -54,9 +54,9 @@ spec = describe "Valid" $ do
     let
       script = nativeAlwaysSucceeds
       txOut =
-        mkBasicTxOutWithImplicitDeposit (mkAddr (hashScript script) StakeRefNull) mempty
+        mkBasicTxOutWithLegacyTxOut (mkAddr (hashScript script) StakeRefNull) mempty
       txOutRef =
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
           & referenceScriptTxOutL .~ SJust script
     txInitial <-
       submitTx $
@@ -74,9 +74,9 @@ spec = describe "Valid" $ do
       datumValue = Data @era $ PV1.B "abcde"
       datumHash = hashData datumValue
       txOut =
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
       txOutDatum =
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
           & datumTxOutL .~ DatumHash datumHash
     txInitial <-
       submitTx $
@@ -96,9 +96,9 @@ spec = describe "Valid" $ do
       datumValue = Data @era $ PV1.B "abcde"
       datumHash = hashData datumValue
       txOut =
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
       txOutDatum =
-        mkBasicTxOutWithImplicitDeposit addr mempty
+        mkBasicTxOutWithLegacyTxOut addr mempty
           & datumTxOutL .~ DatumHash datumHash
     txInitial <-
       submitTx $
@@ -121,7 +121,7 @@ spec = describe "Valid" $ do
             let
               scriptHash = hashPlutusScript $ alwaysSucceedsWithDatum lang
               txOut =
-                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.I 0)
             txInitial <-
               submitTx $
@@ -140,9 +140,9 @@ spec = describe "Valid" $ do
             let
               script = fromPlutusScript plutus
               txOut =
-                mkBasicTxOutWithImplicitDeposit (mkAddr (hashScript script) StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr (hashScript script) StakeRefNull) mempty
               txOutRef =
-                mkBasicTxOutWithImplicitDeposit addr mempty
+                mkBasicTxOutWithLegacyTxOut addr mempty
                   & referenceScriptTxOutL .~ SJust script
             txInitial <-
               submitTx $
@@ -162,10 +162,10 @@ spec = describe "Valid" $ do
             let
               script = fromPlutusScript plutus
               txOut =
-                mkBasicTxOutWithImplicitDeposit (mkAddr (hashScript script) StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr (hashScript script) StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.I 0)
               txOutRef =
-                mkBasicTxOutWithImplicitDeposit addr mempty
+                mkBasicTxOutWithLegacyTxOut addr mempty
                   & referenceScriptTxOutL .~ SJust script
             txInitial <-
               submitTx $
@@ -185,9 +185,9 @@ spec = describe "Valid" $ do
           let
             script = fromPlutusScript plutus
             txOut =
-              mkBasicTxOutWithImplicitDeposit addr mempty
+              mkBasicTxOutWithLegacyTxOut addr mempty
             txOutRef =
-              mkBasicTxOutWithImplicitDeposit addr mempty
+              mkBasicTxOutWithLegacyTxOut addr mempty
                 & referenceScriptTxOutL .~ SJust script
           txInitial <-
             submitTx $

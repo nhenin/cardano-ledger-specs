@@ -46,7 +46,7 @@ spec = describe "Invalid" $ do
   it "Inline datum with Plutus V1" $ do
     let scriptHash = withSLanguage PlutusV1 $ hashPlutusScript . alwaysSucceedsWithDatum
         txOut =
-          mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+          mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
             & datumTxOutL .~ mkInlineDatum (PV1.I 0)
         tx = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
     txIn <- txInAt 0 <$> submitTx tx
@@ -85,7 +85,7 @@ spec = describe "Invalid" $ do
           let tx =
                 mkBasicTx mkBasicTxBody
                   & bodyTxL . outputsTxBodyL
-                    .~ [ mkBasicTxOutWithImplicitDeposit addr mempty & referenceScriptTxOutL .~ SJust script
+                    .~ [ mkBasicTxOutWithLegacyTxOut addr mempty & referenceScriptTxOutL .~ SJust script
                        ]
           submitFailingTx
             tx
@@ -114,7 +114,7 @@ spec = describe "Invalid" $ do
         it "Inline datum with a failing script" $ do
           let scriptHash = hashPlutusScript $ evenDatum lang
               txOut =
-                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.I 1)
               tx = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
           txIn <- txInAt 0 <$> submitTx tx
@@ -127,7 +127,7 @@ spec = describe "Invalid" $ do
               datum = Data @era $ PV1.B "abcde"
               datumHash = hashData datum
               txOut =
-                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ DatumHash datumHash
               tx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [txOut]
           ProtVer pv _ <- getProtVer
@@ -137,7 +137,7 @@ spec = describe "Invalid" $ do
               then freshKeyAddr_
               else freshKeyAddrNoPtr_
           coll <- sendCoinTo addr $ Coin 5_000_000
-          let collReturn = mkBasicTxOutWithImplicitDeposit addr . inject $ Coin 2_000_000
+          let collReturn = mkBasicTxOutWithLegacyTxOut addr . inject $ Coin 2_000_000
           submitPhase2Invalid_ $
             mkBasicTx mkBasicTxBody
               & bodyTxL . inputsTxBodyL .~ [txIn]
@@ -156,10 +156,10 @@ spec = describe "Invalid" $ do
           let script = fromPlutusScript plutus
               scriptHash = hashScript script
               txOutDatum =
-                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.B "abcde")
               txOutScript =
-                mkBasicTxOutWithImplicitDeposit addr mempty
+                mkBasicTxOutWithLegacyTxOut addr mempty
                   & referenceScriptTxOutL .~ SJust script
           tx <-
             submitTx $
@@ -181,7 +181,7 @@ spec = describe "Invalid" $ do
         it "Inline datum with redundant datum witness" $ do
           let scriptHash = hashPlutusScript $ alwaysSucceedsWithDatum lang
               txOut =
-                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ mkInlineDatum (PV1.B "abcde")
               tx = mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ [txOut]
           txIn <- txInAt 0 <$> submitTx tx
@@ -208,10 +208,10 @@ spec = describe "Invalid" $ do
               datum = PV1.B "abcde"
               datumHash = hashData $ Data @era datum
               txOutInline =
-                mkBasicTxOutWithImplicitDeposit addr mempty
+                mkBasicTxOutWithLegacyTxOut addr mempty
                   & datumTxOutL .~ mkInlineDatum datum
               txOutHash =
-                mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+                mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
                   & datumTxOutL .~ DatumHash datumHash
 
           tx <-

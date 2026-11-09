@@ -38,7 +38,7 @@ prop_translateTxOut_correctness compactTxOut =
 
 translateTxOutByronToShelley :: Byron.TxOut -> TxOut ShelleyEra
 translateTxOutByronToShelley (Byron.TxOut addr amount) =
-  mkBasicTxOutWithImplicitDeposit (translateAddr addr) (translateAmount amount)
+  mkBasicTxOutWithLegacyTxOut (translateAddr addr) (translateAmount amount)
   where
     translateAmount :: Byron.Lovelace -> Coin
     translateAmount = Coin . Byron.lovelaceToInteger

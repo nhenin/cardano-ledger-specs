@@ -33,7 +33,7 @@ mintBasicToken = do
       txValue = MaryValue mempty txAsset
       txBody =
         mkBasicTxBody
-          & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr txValue]
+          & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr txValue]
           & mintTxBodyL .~ txAsset
   submitTx $ mkBasicTx txBody
 

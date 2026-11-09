@@ -118,8 +118,8 @@ sourcesForBody address application operations =
 implicitSource :: Addr -> Coin -> Bool -> TxOut DijkstraEra
 implicitSource address amount translated =
   if translated
-    then upgradeTxOut @DijkstraEra $ mkBasicTxOutWithImplicitDeposit @ConwayEra address $ inject amount
-    else mkBasicTxOutWithImplicitDeposit address $ inject amount
+    then upgradeTxOut @DijkstraEra $ mkBasicTxOutWithLegacyTxOut @ConwayEra address $ inject amount
+    else mkBasicTxOutWithLegacyTxOut address $ inject amount
 
 -- | Undeclared body with an implicit settlement output at index zero and the
 -- requested Store-backed outputs. Signing later balances application ADA in output
@@ -130,7 +130,7 @@ proposalBody address inputs operations =
     & bodyTxL . inputsTxBodyL .~ Set.fromList inputs
     & bodyTxL . outputsTxBodyL
       .~ SSeq.fromList
-        ( mkBasicTxOutWithImplicitDeposit address (inject $ Coin 200_000_000)
+        ( mkBasicTxOutWithLegacyTxOut address (inject $ Coin 200_000_000)
             : replicate
               (Accounting.allocatedDepositUnits operations)
               ( unitDepositOutput address $

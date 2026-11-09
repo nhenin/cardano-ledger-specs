@@ -39,7 +39,7 @@ module Cardano.Ledger.Core (
   EraTxOut (..),
   EraLegacyTxOut (..),
   EraNewTxOut (..),
-  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithLegacyTxOut,
   mkBasicTxOutWithStoreBackedDeposit,
   bootAddrTxOutF,
   EraTxBody (..),

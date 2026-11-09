@@ -79,7 +79,7 @@ exampleMaryBasedTx =
   exampleAllegraBasedTx
     & bodyTxL . outputsTxBodyL
       <>~ StrictSeq.fromList
-        [ mkBasicTxOutWithImplicitDeposit (mkAddr examplePayKey exampleStakeKey) $ exampleMultiAssetValue 1
+        [ mkBasicTxOutWithLegacyTxOut (mkAddr examplePayKey exampleStakeKey) $ exampleMultiAssetValue 1
         ]
     & bodyTxL . mintTxBodyL .~ exampleMultiAsset 1
 

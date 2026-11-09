@@ -45,7 +45,7 @@ spec = describe "UTXO" $ do
     let
       amount = inject $ Coin 5_000_000
       largeDatum = PV1.B $ BS.replicate 1500 0
-      txOut = mkBasicTxOutWithImplicitDeposit addr amount & datumTxOutL .~ mkInlineDatum largeDatum
+      txOut = mkBasicTxOutWithLegacyTxOut addr amount & datumTxOutL .~ mkInlineDatum largeDatum
       minimumCoin = case txOut of
         LegacyTxOut output -> getMinCoinTxOut pp output
         NewTxOut _ -> error "Min-utxo value with output too large: unexpected NewTxOut"

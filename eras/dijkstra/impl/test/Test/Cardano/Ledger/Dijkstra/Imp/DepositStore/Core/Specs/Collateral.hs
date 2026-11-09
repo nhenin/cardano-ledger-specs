@@ -228,7 +228,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
           returnForm
       preparationReturn =
         fmap
-          (\returned -> mkBasicTxOutWithImplicitDeposit address $ inject $ returned ^. coinTxOutL)
+          (\returned -> mkBasicTxOutWithLegacyTxOut address $ inject $ returned ^. coinTxOutL)
           finalReturn
   scriptInput <- produceScript . hashPlutusScript $ case phase2 of
     Phase2Valid -> alwaysSucceedsWithDatum SPlutusV4
@@ -273,7 +273,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
 output :: OutputForm -> Addr -> Int -> MaryValue -> TxOut DijkstraEra
 output form address bytes value =
   ( case form of
-      Implicit -> mkBasicTxOutWithImplicitDeposit address value
+      Implicit -> mkBasicTxOutWithLegacyTxOut address value
       StoreBacked -> mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets value
   )
     & datumTxOutL .~ mkInlineDatum (Plutus.B $ BS.replicate bytes 0)

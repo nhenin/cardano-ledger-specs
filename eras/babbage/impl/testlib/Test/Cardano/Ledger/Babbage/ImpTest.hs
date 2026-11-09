@@ -161,7 +161,7 @@ produceRefScriptsTx scripts = do
   txOuts <- forM scripts $ \script -> do
     addr <- freshKeyAddr_
     let txOutZero =
-          mkBasicTxOutWithImplicitDeposit addr mempty & referenceScriptTxOutL .~ SJust script
+          mkBasicTxOutWithLegacyTxOut addr mempty & referenceScriptTxOutL .~ SJust script
     pure $ case txOutZero of
       LegacyTxOut output -> LegacyTxOut $ setMinCoinTxOut pp output
       NewTxOut _ -> error "produceRefScriptsTx: unexpected NewTxOut"

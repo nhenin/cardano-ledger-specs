@@ -105,7 +105,7 @@ fundNativeAssets quantity proposal = do
   address <- freshKeyAddrNoPtr_
   let assets = multiAssetFromList [(policy, AssetName "balance-a", quantity)]
       tokenValue = MaryValue mempty assets
-      output = mkBasicTxOutWithImplicitDeposit address $ MaryValue (Coin 10_000_000) assets
+      output = mkBasicTxOutWithLegacyTxOut address $ MaryValue (Coin 10_000_000) assets
   funding <-
     submitTx $
       mkBasicTx mkBasicTxBody
@@ -147,7 +147,7 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
   -- V1 charges 8,000 × 250 lovelace for this plain ADA-only source.
   let source = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject $ Coin 10_000_000
-      implicitFunding = mkBasicTxOutWithImplicitDeposit address $ inject topFunding
+      implicitFunding = mkBasicTxOutWithLegacyTxOut address $ inject topFunding
   Pricing.outputDeposit parameters source `shouldBe` Coin 2_000_000
   funding <-
     submitTx $
@@ -168,7 +168,7 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
             .~ Set.singleton (txInAt (1 :: Int) funding)
           & bodyTxL
             . outputsTxBodyL
-            .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 12_000_000)
+            .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 12_000_000)
       tx =
         mkTopTxWithSubTxs [child]
           & bodyTxL

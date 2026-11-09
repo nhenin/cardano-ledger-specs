@@ -565,7 +565,7 @@ fixupSubTransactions tx = impAnn "fixupSubTransactions" $ do
             withFixup fixupTx $
               sendCoinTo addr $
                 toCoin . Formula.computeDeposit pricing $
-                  mkBasicTxOutWithImplicitDeposit @era addr mempty
+                  mkBasicTxOutWithLegacyTxOut @era addr mempty
           pure $ subTx & bodyTxL . inputsTxBodyL .~ Set.singleton newTxIn
 
 balanceSubTransactions ::
@@ -608,10 +608,10 @@ mkBalancerSubTx consumed produced = do
           LT -> (mempty, produced <-> consumed)
         -- a buffer to make both the input UTxO and the change output satisfy minCoin. It's added on both sides, so it cancels out.
         minChangeCoin =
-          toCoin . Formula.computeDeposit pricing $ mkBasicTxOutWithImplicitDeposit @era addr mempty
+          toCoin . Formula.computeDeposit pricing $ mkBasicTxOutWithLegacyTxOut @era addr mempty
         inputCoin = minChangeCoin <> shortfall
         changeCoin = minChangeCoin <> surplus
-        changeOut = mkBasicTxOutWithImplicitDeposit addr (inject changeCoin)
+        changeOut = mkBasicTxOutWithLegacyTxOut addr (inject changeCoin)
       newTxIn <- withFixup fixupTx $ sendCoinTo addr inputCoin
       let subTx =
             mkBasicTx mkBasicTxBody

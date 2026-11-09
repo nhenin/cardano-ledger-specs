@@ -65,7 +65,7 @@ bodyOperations =
 
 -- | Preserve application ADA while assigning the requested deposit representation.
 outputWithForm :: Addr -> OutputVariant -> Coin -> TxOut DijkstraEra
-outputWithForm address ImplicitOutput amount = mkBasicTxOutWithImplicitDeposit address $ inject amount
+outputWithForm address ImplicitOutput amount = mkBasicTxOutWithLegacyTxOut address $ inject amount
 outputWithForm address StoreBackedOutput amount =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
 

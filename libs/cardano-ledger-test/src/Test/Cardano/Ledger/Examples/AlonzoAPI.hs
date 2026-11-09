@@ -29,7 +29,7 @@ import Cardano.Ledger.Conway.Core (
   PParams,
   emptyPParams,
   eraProtVerLow,
-  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithLegacyTxOut,
   ppCollateralPercentageL,
   ppCostModelsL,
   ppMaxBlockExUnitsL,
@@ -117,7 +117,7 @@ testEstimateMinFee =
       mkBasicTxBody
         & inputsTxBodyL .~ [mkGenesisTxIn 1]
         & collateralInputsTxBodyL .~ [mkGenesisTxIn 11]
-        & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit @era someAddr (inject $ Coin 4995)]
+        & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut @era someAddr (inject $ Coin 4995)]
         & feeTxBodyL .~ Coin 316
         & scriptIntegrityHashTxBodyL
           .~ newScriptIntegrityHash @era

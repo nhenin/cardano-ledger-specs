@@ -33,7 +33,7 @@ spec = describe "UTXO" $ do
           txBody =
             mkBasicTxBody
               & inputsTxBodyL .~ [txIn]
-              & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr2 mempty]
+              & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr2 mempty]
           adjustTxOut = \case
             Empty -> error "Unexpected empty sequence of outputs"
             txOut :<| outs -> (txOut & coinTxOutL %~ (<> extra)) :<| outs

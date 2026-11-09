@@ -337,7 +337,7 @@ deltaZero initialfee pp addr =
     mempty
     mempty
   where
-    txOut = setMinCoinTxOut pp (mkBasicTxOutWithImplicitDeposit addr mempty)
+    txOut = setMinCoinTxOut pp (mkBasicTxOutWithLegacyTxOut addr mempty)
 
 -- Same function as in cardano-ledger-api. We don't want to depend on the api though,
 -- because it will be problematic for dependencies (cardano-ledger-api test suite depends
@@ -703,7 +703,7 @@ calcOutputsFromBalance ::
   (Coin, StrictSeq (TxOut era))
 calcOutputsFromBalance balance_ addrs fee =
   ( fee <+> splitCoinRem
-  , StrictSeq.fromList $ zipWith mkBasicTxOutWithImplicitDeposit addrs amountPerOutput
+  , StrictSeq.fromList $ zipWith mkBasicTxOutWithLegacyTxOut addrs amountPerOutput
   )
   where
     -- split the available balance into equal portions (one for each address),

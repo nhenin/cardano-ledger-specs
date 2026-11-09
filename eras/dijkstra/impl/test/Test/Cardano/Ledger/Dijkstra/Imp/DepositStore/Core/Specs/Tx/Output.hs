@@ -128,7 +128,7 @@ createdOutputs (CreatedOutputs address variants) = map (outputAtAddress address)
 -- | Give implicit outputs ordinary ADA; store-backed outputs carry empty application assets.
 outputAtAddress :: Addr -> OutputVariant -> TxOut DijkstraEra
 outputAtAddress address ImplicitOutput =
-  mkBasicTxOutWithImplicitDeposit address $ inject (Coin 2_000_000)
+  mkBasicTxOutWithLegacyTxOut address $ inject (Coin 2_000_000)
 outputAtAddress address StoreBackedOutput =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets mempty
 

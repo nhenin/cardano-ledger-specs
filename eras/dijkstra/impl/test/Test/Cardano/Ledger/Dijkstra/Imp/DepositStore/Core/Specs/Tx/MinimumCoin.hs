@@ -148,7 +148,7 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
       policy <- PolicyID <$> (impAddNativeScript . mkRequireSignature =<< freshKeyHash)
       pure $ multiAssetFromList [(policy, AssetName "minimum-coin", tokenQuantity generated)]
     _ -> pure mempty
-  let source = mkBasicTxOutWithImplicitDeposit address $ MaryValue sourceCoins assets
+  let source = mkBasicTxOutWithLegacyTxOut address $ MaryValue sourceCoins assets
   funding <-
     submitTx $
       mkBasicTx mkBasicTxBody
@@ -156,7 +156,7 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
         & bodyTxL . outputsTxBodyL .~ SSeq.singleton source
   impGetUTxO (txInAt (0 :: Int) funding) >>= (`shouldBe` source)
   output <- outputForScenario generated address $ MaryValue (Coin 0) assets
-  let balanceOutput = mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 20_000_000
+  let balanceOutput = mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 20_000_000
       ownBody =
         mkBasicTx mkBasicTxBody
           & bodyTxL . inputsTxBodyL .~ Set.singleton (txInAt (0 :: Int) funding)
@@ -203,7 +203,7 @@ outputForScenario generated address assets =
       pure $
         atMinimum (depositFormula generated) $
           withDatum generated $
-            mkBasicTxOutWithImplicitDeposit address mempty
+            mkBasicTxOutWithLegacyTxOut address mempty
 
 -- | Vary a semantically irrelevant inline byte string, including CBOR length boundaries.
 withDatum :: Scenario -> TxOut DijkstraEra -> TxOut DijkstraEra

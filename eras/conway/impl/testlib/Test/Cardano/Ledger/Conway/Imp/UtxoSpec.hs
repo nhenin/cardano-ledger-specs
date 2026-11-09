@@ -131,7 +131,7 @@ spec = describe "UTXO" $ do
         txBody =
           mkBasicTxBody
             & inputsTxBodyL .~ [txIn]
-            & outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr2 mempty]
+            & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr2 mempty]
         addUnRegDRepTxCert :: Tx TopTx era -> Tx TopTx era
         addUnRegDRepTxCert tx =
           tx

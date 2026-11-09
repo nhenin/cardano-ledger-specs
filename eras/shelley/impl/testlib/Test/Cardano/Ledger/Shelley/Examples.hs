@@ -348,8 +348,8 @@ exampleShelleyBasedTx =
         & inputsTxBodyL .~ exampleTxIns
         & outputsTxBodyL
           .~ StrictSeq.fromList
-            [ mkBasicTxOutWithImplicitDeposit (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
-            , mkBasicTxOutWithImplicitDeposit
+            [ mkBasicTxOutWithLegacyTxOut (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
+            , mkBasicTxOutWithLegacyTxOut
                 ( Addr
                     Testnet
                     (keyToCredential examplePayKey)
@@ -357,10 +357,10 @@ exampleShelleyBasedTx =
                 )
                 $ inject
                 $ Coin 100000
-            , mkBasicTxOutWithImplicitDeposit (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $
+            , mkBasicTxOutWithLegacyTxOut (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $
                 inject $
                   Coin 100000
-            , mkBasicTxOutWithImplicitDeposit exampleByronAddress $ inject $ Coin 100000
+            , mkBasicTxOutWithLegacyTxOut exampleByronAddress $ inject $ Coin 100000
             ]
         & withdrawalsTxBodyL .~ exampleWithdrawals
         & auxDataHashTxBodyL .~ SJust exampleAuxDataHash

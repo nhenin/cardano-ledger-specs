@@ -269,8 +269,8 @@ aliceGivesBobLovelace
           & inputsTxBodyL .~ Set.singleton input
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceCoin
-              , mkBasicTxOutWithImplicitDeposit bobAddr toBob
+              [ mkBasicTxOutWithLegacyTxOut aliceAddr aliceCoin
+              , mkBasicTxOutWithLegacyTxOut bobAddr toBob
               ]
           & certsTxBodyL .~ StrictSeq.fromList certs
           & feeTxBodyL .~ fee
@@ -283,8 +283,8 @@ accountingState =
     ( mkUTxOStore def $
         genesisCoins
           genesisId
-          [ mkBasicTxOutWithImplicitDeposit aliceAddr aliceInitCoin
-          , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 1000)
+          [ mkBasicTxOutWithLegacyTxOut aliceAddr aliceInitCoin
+          , mkBasicTxOutWithLegacyTxOut bobAddr (Coin 1000)
           ]
     )
     (Coin 0)
@@ -343,8 +343,8 @@ testWitnessNotIncluded =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 6404)
-              , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 3000)
+              [ mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 6404)
+              , mkBasicTxOutWithLegacyTxOut bobAddr (Coin 3000)
               ]
           & feeTxBodyL .~ Coin 596
           & ttlTxBodyL .~ SlotNo 100
@@ -361,7 +361,7 @@ testSpendNotOwnedUTxO =
   let txbody =
         mkBasicTxBody
           & inputsTxBodyL .~ Set.fromList [mkGenesisTxIn 1]
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 232))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 232))
           & feeTxBodyL .~ Coin 768
           & ttlTxBodyL .~ SlotNo 100
       aliceWit = mkWitnessVKey (hashAnnotated txbody) alicePay
@@ -380,13 +380,13 @@ testWitnessWrongUTxO =
   let txbody =
         mkBasicTxBody @ShelleyEra
           & inputsTxBodyL .~ Set.fromList [mkGenesisTxIn 1]
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 230))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 230))
           & feeTxBodyL .~ Coin 770
           & ttlTxBodyL .~ SlotNo 100
       tx2body =
         mkBasicTxBody @ShelleyEra
           & inputsTxBodyL .~ Set.fromList [mkGenesisTxIn 1]
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 230))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 230))
           & feeTxBodyL .~ Coin 770
           & ttlTxBodyL .~ SlotNo 101
       aliceWit = mkWitnessVKey (hashAnnotated tx2body) alicePay
@@ -408,7 +408,7 @@ testEmptyInputSet =
   let aliceWithdrawal = Map.singleton (mkVKeyAccountAddress Testnet aliceStake) (Coin 2000)
       txb =
         mkBasicTxBody
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 1000))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 1000))
           & withdrawalsTxBodyL .~ Withdrawals aliceWithdrawal
           & feeTxBodyL .~ Coin 1000
           & ttlTxBodyL .~ SlotNo 0
@@ -469,8 +469,8 @@ testInvalidWintess =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 6000)
-              , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 3000)
+              [ mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 6000)
+              , mkBasicTxOutWithLegacyTxOut bobAddr (Coin 3000)
               ]
           & feeTxBodyL .~ Coin 1000
           & ttlTxBodyL .~ SlotNo 1
@@ -491,8 +491,8 @@ testWithdrawalNoWit =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 6000)
-              , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 3010)
+              [ mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 6000)
+              , mkBasicTxOutWithLegacyTxOut bobAddr (Coin 3010)
               ]
           & withdrawalsTxBodyL .~ Withdrawals (Map.singleton (mkVKeyAccountAddress Testnet bobStake) (Coin 10))
           & feeTxBodyL .~ Coin 1000
@@ -517,8 +517,8 @@ testWithdrawalWrongAmt =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOutWithImplicitDeposit aliceAddr (Coin 6000)
-              , mkBasicTxOutWithImplicitDeposit bobAddr (Coin 3011)
+              [ mkBasicTxOutWithLegacyTxOut aliceAddr (Coin 6000)
+              , mkBasicTxOutWithLegacyTxOut bobAddr (Coin 3011)
               ]
           & withdrawalsTxBodyL .~ Withdrawals (Map.singleton (mkVKeyAccountAddress Testnet bobStake) (Coin 11))
           & feeTxBodyL .~ Coin 1000
@@ -542,7 +542,7 @@ testWithdrawalWrongAmt =
 testOutputTooSmall :: Assertion
 testOutputTooSmall =
   testInvalidTx
-    [UtxowFailure (UtxoFailure $ OutputTooSmallUTxO [mkBasicTxOutWithImplicitDeposit bobAddr (Coin 1)])]
+    [UtxowFailure (UtxoFailure $ OutputTooSmallUTxO [mkBasicTxOutWithLegacyTxOut bobAddr (Coin 1)])]
     $ aliceGivesBobLovelace
     $ AliceToBob
       { input = TxIn genesisId minBound
@@ -614,7 +614,7 @@ testProducedOverMaxWord64 =
       txbody =
         mkBasicTxBody
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
-          & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithImplicitDeposit bobAddr (Coin biggestCoin)]
+          & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithLegacyTxOut bobAddr (Coin biggestCoin)]
           & feeTxBodyL .~ Coin 1 -- @produced@ will return biggestCoin + 1, which is > 2^64.
           & ttlTxBodyL .~ SlotNo 100
       txwits = mkBasicTxWits & addrTxWitsL .~ mkWitnessesVKey (hashAnnotated txbody) [alicePay]

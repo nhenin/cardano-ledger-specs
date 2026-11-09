@@ -249,7 +249,7 @@ spec = describe "SUBUTXOW" $ do
           subTx =
             mkBasicTx mkBasicTxBody
               & bodyTxL . outputsTxBodyL
-                .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
+                .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
               & witsTxL . hashDataTxWitsL .~ [datum]
       submitTx_ $ mkTopTxWithSubTxs [subTx]
 
@@ -259,7 +259,7 @@ spec = describe "SUBUTXOW" $ do
         submitTx $
           mkBasicTx mkBasicTxBody
             & bodyTxL . outputsTxBodyL
-              .~ [mkBasicTxOutWithImplicitDeposit addr mempty & dataHashTxOutL .~ SJust datumHash]
+              .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
       let subTx :: Tx SubTx era
           subTx =
             mkBasicTx mkBasicTxBody
@@ -279,7 +279,7 @@ spec = describe "SUBUTXOW" $ do
             let addr = mkAddr scriptHash StakeRefNull
                 tx =
                   mkBasicTx mkBasicTxBody
-                    & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithImplicitDeposit addr mempty]
+                    & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr mempty]
                 resetTxOutDataHash =
                   bodyTxL . outputsTxBodyL
                     %~ ( \case
@@ -423,7 +423,7 @@ spec = describe "SUBUTXOW" $ do
                 mkBasicTx $
                   mkBasicTxBody
                     & outputsTxBodyL
-                      .~ [mkBasicTxOutWithImplicitDeposit addr mempty & referenceScriptTxOutL .~ SJust script]
+                      .~ [mkBasicTxOutWithLegacyTxOut addr mempty & referenceScriptTxOutL .~ SJust script]
           submitFailingTx
             (mkTopTxWithSubTxs [subTx])
             [ injectFailure . SubMalformedReferenceScripts @era . NES.singleton $

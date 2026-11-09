@@ -43,7 +43,7 @@ import Cardano.Ledger.Core (
   inputsTxBodyL,
   mkBasicTx,
   mkBasicTxBody,
-  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithLegacyTxOut,
   mkCoinTxOut,
   outputsTxBodyL,
  )
@@ -134,7 +134,7 @@ spec = describe "UTXOS" $ do
       let
         scriptHash = withSLanguage PlutusV2 $ hashPlutusScript . inputsOverlapsWithRefInputs
         txOut =
-          mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+          mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
             & datumTxOutL .~ mkInlineDatum (PV1.I 0)
       tx <-
         submitTx $
@@ -154,7 +154,7 @@ spec = describe "UTXOS" $ do
     let
       scriptHash = withSLanguage PlutusV2 (hashPlutusScript . alwaysSucceedsWithDatum)
       txOut =
-        mkBasicTxOutWithImplicitDeposit (mkAddr scriptHash StakeRefNull) mempty
+        mkBasicTxOutWithLegacyTxOut (mkAddr scriptHash StakeRefNull) mempty
           & datumTxOutL .~ mkInlineDatum (PV1.I 1)
     tx <-
       submitTx $
@@ -164,7 +164,7 @@ spec = describe "UTXOS" $ do
     addr <- freshKeyAddrNoPtr_
     coll <- sendCoinTo addr $ Coin 5_000_000
     let
-      collReturn = mkBasicTxOutWithImplicitDeposit addr . inject $ Coin 2_000_000
+      collReturn = mkBasicTxOutWithLegacyTxOut addr . inject $ Coin 2_000_000
       tx2 =
         mkBasicTx $
           mkBasicTxBody

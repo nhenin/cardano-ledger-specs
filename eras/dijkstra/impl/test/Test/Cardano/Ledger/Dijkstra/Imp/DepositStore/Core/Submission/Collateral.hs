@@ -56,7 +56,7 @@ storeBackedInputWithImplicitReturn = do
   configureFundingPolicy
   source <- buildTxSpendingStoreBackedOutput TopTxReleasing
   address <- freshKeyAddrNoPtr_
-  let collateralReturn = mkBasicTxOutWithImplicitDeposit address $ inject $ Coin 5_000_000
+  let collateralReturn = mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 5_000_000
   prepareFundingFixture (spendingInput source) (sourceDeposit source) collateralReturn
 
 configureFundingPolicy :: ImpTestM DijkstraEra ()
@@ -77,7 +77,7 @@ prepareFundingFixture source released collateralReturn = do
   let preparationReturn = case collateralReturn of
         LegacyTxOut _ -> collateralReturn
         NewTxOut _ ->
-          mkBasicTxOutWithImplicitDeposit (collateralReturn ^. addrTxOutL) $
+          mkBasicTxOutWithLegacyTxOut (collateralReturn ^. addrTxOutL) $
             inject $
               collateralReturn ^. coinTxOutL
   fixed <-

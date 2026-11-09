@@ -77,7 +77,7 @@ createdOutputs address (AllocationScenario outputs) = map (createdOutput address
 
 createdOutput :: Addr -> (OutputVariant, Coin) -> TxOut DijkstraEra
 createdOutput address (ImplicitOutput, amount) =
-  mkBasicTxOutWithImplicitDeposit address $ inject amount
+  mkBasicTxOutWithLegacyTxOut address $ inject amount
 createdOutput address (StoreBackedOutput, amount) =
   mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
 

@@ -42,12 +42,12 @@ benchTxOut =
           MultiAsset (singleton (PolicyID policyId28) (singleton assName 217))
       txOutAddr :: Int -> TxOut AlonzoEra
       txOutAddr n =
-        mkBasicTxOutWithImplicitDeposit (addr n) value & dataHashTxOutL .~ SJust dataHash32
+        mkBasicTxOutWithLegacyTxOut (addr n) value & dataHashTxOutL .~ SJust dataHash32
       txOutAddrAdaOnly :: Int -> TxOut AlonzoEra
-      txOutAddrAdaOnly n = mkBasicTxOutWithImplicitDeposit (addr n) ada
+      txOutAddrAdaOnly n = mkBasicTxOutWithLegacyTxOut (addr n) ada
       txOutAddrAdaOnlyDataHash :: Int -> TxOut AlonzoEra
       txOutAddrAdaOnlyDataHash n =
-        mkBasicTxOutWithImplicitDeposit (addr n) ada & dataHashTxOutL .~ SJust dataHash32
+        mkBasicTxOutWithLegacyTxOut (addr n) ada & dataHashTxOutL .~ SJust dataHash32
       count :: Int
       count = 1000
    in bgroup

@@ -154,7 +154,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
         Pricing.declareNetDeposit (Coin 0 <-> creationDeposit) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithImplicitDeposit address $ inject coins)
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject coins)
       submitTx spendingTx >>= isAccepted
       consumedState <- readAccountingState
       currentFormula (liveOutputStore consumedState) `shouldBe` activeFormula

@@ -132,7 +132,7 @@ sourceOutputs address scenario =
 createdOutputs :: Addr -> ReleaseScenario -> Coin -> [TxOut DijkstraEra]
 createdOutputs address scenario released = case outputForms scenario of
   ImplicitOutputs ->
-    [ mkBasicTxOutWithImplicitDeposit address $
+    [ mkBasicTxOutWithLegacyTxOut address $
         inject $
           foldMap id (consumedApplicationAmounts scenario) <> released
     ]
@@ -140,7 +140,7 @@ createdOutputs address scenario released = case outputForms scenario of
     output : outputs -> (output & coinTxOutL .~ Coin 200_000_000) : outputs
     [] -> error "A store-backed scenario must create a settlement output"
   MixedOutputs ->
-    mkBasicTxOutWithImplicitDeposit address (inject $ Coin 200_000_000)
+    mkBasicTxOutWithLegacyTxOut address (inject $ Coin 200_000_000)
       : map (storeBackedOutput address) (createdApplicationAmounts scenario)
 
 storeBackedOutput :: Addr -> Coin -> TxOut DijkstraEra

@@ -81,8 +81,8 @@ initUTxO :: IndexedUTxOs ShelleyEra
 initUTxO =
   genesisCoins
     genesisId
-    [ mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceInitCoin)
-    , mkBasicTxOutWithImplicitDeposit Cast.bobAddr (Val.inject bobInitCoin)
+    [ mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceInitCoin)
+    , mkBasicTxOutWithLegacyTxOut Cast.bobAddr (Val.inject bobInitCoin)
     ]
 
 initStUpdates :: ChainState ShelleyEra
@@ -119,7 +119,7 @@ txbodyEx1 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
     & outputsTxBodyL
-      .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinEx1))
+      .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceCoinEx1))
     & feeTxBodyL .~ feeTx1
     & ttlTxBodyL .~ SlotNo 10
     & updateTxBodyL .~ SJust (Update ppVotes1 (EpochNo 0))
@@ -191,7 +191,7 @@ txbodyEx2 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx1) minBound]
     & outputsTxBodyL
-      .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinEx2))
+      .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceCoinEx2))
     & feeTxBodyL .~ Coin 1
     & ttlTxBodyL .~ SlotNo 31
     & updateTxBodyL .~ SJust updateEx3B
@@ -264,7 +264,7 @@ txbodyEx3 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx2) minBound]
     & outputsTxBodyL
-      .~ StrictSeq.singleton (mkBasicTxOutWithImplicitDeposit Cast.aliceAddr (Val.inject aliceCoinEx3))
+      .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceCoinEx3))
     & feeTxBodyL .~ feeTx3
     & ttlTxBodyL .~ SlotNo 81
     & updateTxBodyL .~ SJust (Update ppVotes3 (EpochNo 1))

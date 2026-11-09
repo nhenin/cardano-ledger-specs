@@ -26,7 +26,7 @@
 --
 -- >>> :{
 -- quickCheck $ \addr val ->
---     case mkBasicTxOutWithImplicitDeposit @BabbageEra addr val of
+--     case mkBasicTxOutWithLegacyTxOut @BabbageEra addr val of
 --         txOut@(LegacyTxOut output) ->
 --             txOut ^. addrTxOutL == addr && output ^. valueTxOutL == val
 -- :}
@@ -35,7 +35,7 @@ module Cardano.Ledger.Api.Tx.Out (
   module Cardano.Ledger.Api.Tx.Address,
   TxOut (..),
   EraTxOut,
-  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithLegacyTxOut,
   mkBasicTxOutWithStoreBackedDeposit,
   upgradeTxOut,
 
@@ -107,7 +107,7 @@ import Cardano.Ledger.Core (
   bootAddrTxOutF,
   coinTxOutL,
   isAdaOnlyTxOutF,
-  mkBasicTxOutWithImplicitDeposit,
+  mkBasicTxOutWithLegacyTxOut,
   mkBasicTxOutWithStoreBackedDeposit,
  )
 import Cardano.Ledger.Tools (ensureMinCoinTxOut, setMinCoinTxOut)
