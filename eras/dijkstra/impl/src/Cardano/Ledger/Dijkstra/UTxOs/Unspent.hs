@@ -17,17 +17,22 @@ import Cardano.Ledger.State.Accounting.UTxOs.Unspent (
 import Cardano.Ledger.Val (modifyCoin, (<->))
 import Lens.Micro ((&), (^.))
 
--- | Apply the allocation's historical formula. A migrated legacy reserve is
--- included in its output ADA and capped by that amount; a new deposit is external.
+-- | Apply the allocation's historical formula. For a legacy output, take the
+-- minimum of the calculated deposit and the ADA present in the output.
+-- A new output's deposit is held separately and is not capped by its ADA.
 computeDeposit ::
   DepositFormulaHistory ->
   Unspent (TxOut DijkstraEra) ->
   DepositAmount
 computeDeposit history (Unspent output origin) =
   Formula.computeDeposit (allocationFormula history origin) output
-    & \deposit -> case output of
-      LegacyTxOut _ -> DepositAmount . min (output ^. coinTxOutL) $ toCoin deposit
-      NewTxOut _ -> deposit
+    & capLegacyDeposit output
+
+-- | Only legacy deposits are capped by the ADA present in their output.
+capLegacyDeposit :: TxOut DijkstraEra -> DepositAmount -> DepositAmount
+capLegacyDeposit output deposit
+  | LegacyTxOut _ <- output = min deposit (DepositAmount $ output ^. coinTxOutL)
+  | otherwise = deposit
 
 -- | View application assets without modifying the stored output. Only the ADA
 -- reserve is removed from a legacy value; every native asset remains unchanged.
