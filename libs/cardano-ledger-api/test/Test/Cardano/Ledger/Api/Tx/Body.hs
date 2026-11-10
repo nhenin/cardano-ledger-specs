@@ -25,6 +25,7 @@ import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Api.Arbitrary ()
+import qualified Test.Cardano.Ledger.Api.Tx.Body.DepositBalance.Spec as DepositBalance
 import Test.Cardano.Ledger.Common
 
 totalTxDeposits ::
@@ -185,3 +186,4 @@ spec =
       prop "evalBalanceTxBody" $ propEvalBalanceTxBody @AlonzoEra
     describe "BabbageEra" $ do
       prop "evalBalanceTxBody" $ propEvalBalanceTxBody @BabbageEra
+    describe "DijkstraEra" DepositBalance.spec

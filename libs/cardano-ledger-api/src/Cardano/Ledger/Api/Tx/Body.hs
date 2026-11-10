@@ -76,8 +76,17 @@ module Cardano.Ledger.Api.Tx.Body (
   currentTreasuryValueTxBodyL,
   treasuryDonationTxBodyL,
 
-  -- * Dijstra Era
+  -- * Dijkstra Era
   DijkstraEraTxBody,
+  UTxODepositStrategy (..),
+  DepositTopUp (..),
+  TopTxDepositSettlement (..),
+  SubTxDepositSettlement (..),
+  NetBalanceError (..),
+  computeNetBalance,
+  updateTxBodyWithNetBalance,
+  computeSubTxNetBalance,
+  updateSubTxBodyWithNetBalance,
   guardsTxBodyL,
   directDepositsTxBodyL,
   DirectDeposits (..),
@@ -104,6 +113,17 @@ import Cardano.Ledger.Allegra.Scripts (invalidBeforeL, invalidHereAfterL)
 import Cardano.Ledger.Alonzo.TxBody (AlonzoEraTxBody (..), ScriptIntegrityHash)
 import Cardano.Ledger.Api.Era
 import Cardano.Ledger.Api.Scripts
+import Cardano.Ledger.Api.Tx.Body.DepositBalance (
+  DepositTopUp (..),
+  NetBalanceError (..),
+  SubTxDepositSettlement (..),
+  TopTxDepositSettlement (..),
+  UTxODepositStrategy (..),
+  computeNetBalance,
+  computeSubTxNetBalance,
+  updateSubTxBodyWithNetBalance,
+  updateTxBodyWithNetBalance,
+ )
 import Cardano.Ledger.Api.Tx.Cert
 import Cardano.Ledger.Api.Tx.Out
 import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))

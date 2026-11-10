@@ -2,6 +2,7 @@
 
 ## 1.16.0.0
 
+* Add `computeNetBalance`, `updateTxBodyWithNetBalance`, `computeSubTxNetBalance` and `updateSubTxBodyWithNetBalance` to `Api.Tx.Body` for preparing typed Dijkstra deposit declarations. `UTxODepositStrategy` groups a `DepositTopUp` funding choice with a `TopTxDepositSettlement` or `SubTxDepositSettlement` policy for a new refund output, an existing output index, or no local settlement. New refund outputs are appended only when needed, including their deposit in the final balance. TopTx uses already-balanced SubTx declarations. `NetBalanceError` reports resolution, funding and representation failures.
 * Add `queryStakePoolState` with the `QueryResultStakePoolState` result type
 * Add `queryLeiosCommittee` (`GetLeiosCommittee`) with the `QueryResultLeiosCommittee` result type
 * Distinguish `IndexedTxOs` (sized output proposals) from `IndexedUTxOs` (accepted outputs with allocation origins). `producedTxOuts` returns `IndexedTxOs` without pricing or allocation metadata. Remove the `Allocations` wrapper; preserve pre-Dijkstra encodings and output-index behavior.
