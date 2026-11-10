@@ -106,7 +106,7 @@ data DijkstraSubUtxoPredFailure era
   | -- | list of supplied transaction outputs that are too small,
     -- together with the minimum value for the given output.
     SubBabbageOutputTooSmallUTxO (NonEmpty (TxOut era, Coin))
-  | -- | This SubTx creates or spends a store-backed output without its own UTxO deposit declaration.
+  | -- | This SubTx creates or spends a deposit-backed output without its own UTxO deposit declaration.
     SubMissingUTxODepositDeclaration
   deriving (Generic)
 

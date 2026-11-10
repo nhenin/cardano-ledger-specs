@@ -43,7 +43,7 @@ ordinaryBodyOutputs tx =
       toList $
         tx ^. bodyTxL . outputsTxBodyL
 
--- | One store-backed source and unrelated sources that remain live.
+-- | One deposit-backed source and unrelated sources that remain live.
 -- Real funding determines their recorded deposits; the generator supplies only ADA.
 data SingleSourceScenario = SingleSourceScenario
   { inputApplicationCoins :: Coin
@@ -67,9 +67,9 @@ applicationAmount = Coin <$> chooseInteger (10_000_000, 20_000_000)
 -- | Which collateral fields carry Store deposits. Every variant excludes Store
 -- operations from ordinary inputs and outputs.
 data CollateralStoreOperations
-  = StoreBackedInputOnly
-  | StoreBackedReturnOnly
-  | StoreBackedInputAndReturn
+  = DepositBackedInputOnly
+  | DepositBackedReturnOnly
+  | DepositBackedInputAndReturn
   deriving (Eq, Show)
 
 -- | A collateral-only proposal. Application amounts are separate from any
@@ -91,6 +91,6 @@ collateralOnlyStoreOperations = do
   returnCoins <- Coin <$> chooseInteger (5_000_000, 8_000_000)
   pure
     [ CollateralScenario inputCoins returnCoins operations validity
-    | operations <- [StoreBackedInputOnly, StoreBackedReturnOnly, StoreBackedInputAndReturn]
+    | operations <- [DepositBackedInputOnly, DepositBackedReturnOnly, DepositBackedInputAndReturn]
     , validity <- [Phase2Valid, Phase2Invalid]
     ]

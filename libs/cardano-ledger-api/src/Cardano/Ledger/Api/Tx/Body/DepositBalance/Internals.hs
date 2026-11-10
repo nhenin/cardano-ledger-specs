@@ -211,7 +211,7 @@ batchNetDeposit history body =
   (<> subTxDepositTotal declaredSubTxNetUTxODeposit body) . netDeposit history body
 
 -- | New outputs use the active formula, spent outputs their allocation history.
--- Legacy reserves, reference inputs and collateral contribute no ordinary deposit.
+-- Min-ADA reserves, reference inputs and collateral contribute no ordinary deposit.
 netDeposit ::
   DepositFormulaHistory ->
   TxBody txLevel DijkstraEra ->

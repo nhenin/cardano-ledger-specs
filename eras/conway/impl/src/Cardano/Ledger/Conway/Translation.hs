@@ -199,6 +199,6 @@ instance TranslateEra ConwayEra AccountingState where
 instance TranslateEra ConwayEra IndexedUTxOs where
   translateEra _ = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
     where
-      translateOutput :: TxOut (PreviousEra ConwayEra) -> LegacyTxOut ConwayEra
+      translateOutput :: TxOut (PreviousEra ConwayEra) -> MinAdaTxOut ConwayEra
       translateOutput output = case upgradeTxOut output of
-        LegacyTxOut translated -> translated
+        MinAdaTxOut translated -> translated

@@ -52,7 +52,7 @@ spec :: Spec
 spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shortfall before the minimum fee" $ do
   -- The Store needs more funding, reuses the same amount, or releases a surplus.
   -- Check the rounded minimum and one lovelace above; an absent return allocates
-  -- nothing. A Store-backed return can contain zero application ADA.
+  -- nothing. A Deposit-backed return can contain zero application ADA.
   prop "DS-COLLATERAL-FUNDING-N01 - inputCoins - returnCoins - max(0, returnDeposit - releasedDeposits) ≥ minimumFee ⇒ accepted" $
     forAll Collateral.fundingScenarios $ \scenarios ->
       forM_ scenarios $ \scenario -> do
@@ -68,7 +68,7 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
                 inputCoins funded <-> returnCoins <-> additionalDeposit `shouldBe` coinFee
                 submitTx (Collateral.signedTx funded) >>= isAccepted
             case Collateral.returnForm scenario of
-              Just StoreBacked -> do
+              Just DepositBacked -> do
                 zeroAdaReturn <- Collateral.withReturnCoins (Coin 0) fixture
                 submitTx (Collateral.signedTx zeroAdaReturn) >>= isAccepted
               _ -> pure ()
@@ -83,7 +83,7 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
           SNothing -> do
             -- Without a return, releasing ample Store ADA still cannot fund the
             -- minimum fee when the collateral outputs carry no application coins.
-            if all (== StoreBacked) (Collateral.inputForms scenario)
+            if all (== DepositBacked) (Collateral.inputForms scenario)
               then simulateThenRestore $ do
                 underfunded <- Collateral.buildAndSign $
                   scenario
@@ -150,7 +150,7 @@ spec = describe "DS-COLLATERAL-FUNDING - Application coins fund the deposit shor
   -- payload plus one CBOR header byte below 24 bytes, otherwise two (up to 48).
   -- withReturnCoins adjusts total collateral and re-signs without repairing the return.
   prop "DS-COLLATERAL-FUNDING-P03 - legacy(return) ∧ activeFormula ∈ {V1, V2} ⇒ exact reserve accepted ∧ reserve − 1 rejected" $
-    forAll (Collateral.scenarios [StoreBacked] (Just Implicit) Phase2Invalid) $ \scenario ->
+    forAll (Collateral.scenarios [DepositBacked] (Just Implicit) Phase2Invalid) $ \scenario ->
       forM_ [(DepositFormulaV1, 250), (DepositFormulaV2, 260)] $ \(version, baseBytes) ->
         simulateThenRestore $ do
           fixture <- Collateral.buildAndSign scenario

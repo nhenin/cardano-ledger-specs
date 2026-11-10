@@ -139,8 +139,8 @@ transTxOutV2 ::
   Either (ContextError era) PV2.TxOut
 transTxOutV2 txOutSource txOut = do
   let val = case txOut of
-        LegacyTxOut output -> output ^. valueTxOutL
-        NewTxOut _ -> error "Babbage.transTxOutV2: unexpected NewTxOut"
+        MinAdaTxOut output -> output ^. valueTxOutL
+        DepositBackedTxOut _ -> error "Babbage.transTxOutV2: unexpected DepositBackedTxOut"
       referenceScript = transReferenceScript $ txOut ^. referenceScriptTxOutL
       datum =
         case txOut ^. datumTxOutF of

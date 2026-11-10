@@ -81,7 +81,7 @@ scenarios = do
   pure
     [Scenario selected application price | selected <- [StandaloneTopTx, LocalSubTx, DelegatedSubTx]]
 
--- | Alice alone funds Bob's new Store-backed output: the creating transaction has
+-- | Alice alone funds Bob's new Deposit-backed output: the creating transaction has
 -- exactly one Alice-controlled input and one valid Alice witness, returns her change,
 -- and pays its Store allocation plus a generous fixed fee. A separate accepted
 -- transaction refreshes the unrelated fee source, because ImpTest otherwise selects
@@ -99,7 +99,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
   aliceInput <- sendCoinTo aliceAddress aliceFundingCoins
   feeSource <- getImpRootTxOut
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-  let source = mkBasicTxOutWithStoreBackedDeposit bobAddress $ ApplicationAssets $ inject applicationCoins
+  let source = mkBasicTxOutWithDeposit bobAddress $ ApplicationAssets $ inject applicationCoins
       allocated = Pricing.outputDeposit parameters source
       fee = Coin 2_000_000
       aliceChange = ((aliceFundingCoins <-> applicationCoins) <-> allocated) <-> fee
@@ -113,7 +113,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
               . outputsTxBodyL
               .~ SSeq.fromList
                 [ source
-                , mkBasicTxOutWithLegacyTxOut aliceAddress $ inject aliceChange
+                , mkBasicTxOutWithMinAda aliceAddress $ inject aliceChange
                 ]
             & bodyTxL
               . feeTxBodyL
@@ -136,7 +136,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton
-                (mkBasicTxOutWithLegacyTxOut parentAddress $ inject $ Coin 10_000_000)
+                (mkBasicTxOutWithMinAda parentAddress $ inject $ Coin 10_000_000)
             & bodyTxL
               . subTransactionsTxBodyL
               .~ OMap.fromFoldable
@@ -177,7 +177,7 @@ spendingTx address input amount =
     & bodyTxL
       . outputsTxBodyL
       .~ SSeq.singleton
-        (mkBasicTxOutWithLegacyTxOut address $ inject amount)
+        (mkBasicTxOutWithMinAda address $ inject amount)
 
 -- | Prepare the explicitly declared proposal using normal fees and witnesses,
 -- retaining the source in its selected owner body. The real spender signs there;
@@ -190,7 +190,7 @@ buildAndSignTx fixture declared = do
   Set.member (sourceInput fixture) (spendingInputs fixture signed) `shouldBe` True
   pure signed
 
--- | Witnesses on the body that consumes Bob's Store-backed output. Parent fee
+-- | Witnesses on the body that consumes Bob's Deposit-backed output. Parent fee
 -- signatures cannot stand in for a missing signature on the child body.
 spendingWitnesses :: Fixture -> Tx TopTx DijkstraEra -> Set (KeyHash Witness)
 spendingWitnesses fixture tx = case mode fixture of

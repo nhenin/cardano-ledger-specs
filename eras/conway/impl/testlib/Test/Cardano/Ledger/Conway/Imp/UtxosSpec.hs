@@ -609,7 +609,7 @@ scriptLockedTxOut ::
   ScriptHash ->
   TxOut era
 scriptLockedTxOut shSpending =
-  mkBasicTxOutWithLegacyTxOut
+  mkBasicTxOutWithMinAda
     (mkAddr shSpending StakeRefNull)
     mempty
     & dataHashTxOutL .~ SJust (hashData @era $ Data spendDatum)
@@ -627,7 +627,7 @@ mkRefTxOut sh = do
       | plutusScriptLanguage plutusScript >= PlutusV4 -> freshKeyAddrNoPtr_
     _ -> freshKeyAddr_
   pure $
-    mkBasicTxOutWithLegacyTxOut addr mempty
+    mkBasicTxOutWithMinAda addr mempty
       & referenceScriptTxOutL .~ maybeToStrictMaybe (fromPlutusScript <$> mbyPlutusScript)
 
 setupRefTx ::

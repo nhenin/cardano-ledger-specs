@@ -129,7 +129,7 @@ instance
       <*> arbitrary
 
 instance Arbitrary (TxOut BabbageEra) where
-  arbitrary = LegacyTxOut <$> arbitrary
+  arbitrary = MinAdaTxOut <$> arbitrary
 
 instance Arbitrary (TxBody TopTx BabbageEra) where
   arbitrary =

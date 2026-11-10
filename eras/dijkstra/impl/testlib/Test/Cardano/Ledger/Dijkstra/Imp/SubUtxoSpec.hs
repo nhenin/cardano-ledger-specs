@@ -194,7 +194,7 @@ spec = describe "SUBUTXO" $ do
       let subTx :: Tx SubTx era
           subTx =
             mkBasicTx $
-              mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut (AddrBootstrap bootAddr) mempty]
+              mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithMinAda (AddrBootstrap bootAddr) mempty]
       submitFailingTxM (mkTopTxWithSubTxs [subTx]) $ \fixedUpTx -> do
         txOuts <- subTxOutputs fixedUpTx
         pure [injectFailure $ SubOutputBootAddrAttrsTooBig @era txOuts]
@@ -202,8 +202,8 @@ spec = describe "SUBUTXO" $ do
     it "several such outputs, reported in their order in the body" $ do
       firstBootAddr <- freshBootstrapAddressOversizedPayload
       secondBootAddr <- freshBootstrapAddressOversizedPayload
-      let firstTxOut = mkBasicTxOutWithLegacyTxOut (AddrBootstrap firstBootAddr) mempty
-          secondTxOut = mkBasicTxOutWithLegacyTxOut (AddrBootstrap secondBootAddr) mempty
+      let firstTxOut = mkBasicTxOutWithMinAda (AddrBootstrap firstBootAddr) mempty
+          secondTxOut = mkBasicTxOutWithMinAda (AddrBootstrap secondBootAddr) mempty
           subTx :: Tx SubTx era
           subTx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [firstTxOut, secondTxOut]
       submitFailingTxM (mkTopTxWithSubTxs [subTx]) $ \fixedUpTx -> do
@@ -237,7 +237,7 @@ spec = describe "SUBUTXO" $ do
     it "an output to a mainnet address" $ do
       addr <- freshMainnetKeyAddr_
       submitFailingSubTx
-        (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr mempty])
+        (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr mempty])
         [injectFailure . SubWrongNetwork @era Testnet $ NES.singleton addr]
 
     it "several outputs to mainnet addresses" $ do
@@ -247,8 +247,8 @@ spec = describe "SUBUTXO" $ do
         ( mkBasicTx $
             mkBasicTxBody
               & outputsTxBodyL
-                .~ [ mkBasicTxOutWithLegacyTxOut firstAddr mempty
-                   , mkBasicTxOutWithLegacyTxOut secondAddr mempty
+                .~ [ mkBasicTxOutWithMinAda firstAddr mempty
+                   , mkBasicTxOutWithMinAda secondAddr mempty
                    ]
         )
         [ injectFailure . SubWrongNetwork @era Testnet $
@@ -266,7 +266,7 @@ spec = describe "SUBUTXO" $ do
   it "a sub-transaction larger than maxTxSize is rejected only by the top level rule" $ do
     pp <- getsPParams id
     addr <- freshKeyAddr_
-    let txOut = LegacyTxOut . setMinCoinTxOut pp $ mkBasicLegacyTxOut addr mempty
+    let txOut = MinAdaTxOut . setMinCoinTxOut pp $ mkBasicMinAdaTxOut addr mempty
         subTx :: Tx SubTx era
         subTx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (replicate 20 txOut)
         maxTxSize = subTx ^. sizeTxF - 1
@@ -298,11 +298,11 @@ spec = describe "SUBUTXO" $ do
         mainnetAddr <- freshMainnetKeyAddr_
         let badReferenceInput = neverSubmittedTxIn @era 0
             validityInterval = ValidityInterval (SJust (currentSlot + 1)) SNothing
-            tooBigTxOut = LegacyTxOut . setMinCoinTxOut pp $ implicitDepositOutput assetTxOut
+            tooBigTxOut = MinAdaTxOut . setMinCoinTxOut pp $ implicitDepositOutput assetTxOut
             bootstrapAttrsTxOut =
-              LegacyTxOut . setMinCoinTxOut pp $
-                mkBasicLegacyTxOut (AddrBootstrap bootAddr) mempty
-            tooSmallTxOut = mkBasicTxOutWithLegacyTxOut mainnetAddr . inject $ Coin 1
+              MinAdaTxOut . setMinCoinTxOut pp $
+                mkBasicMinAdaTxOut (AddrBootstrap bootAddr) mempty
+            tooSmallTxOut = mkBasicTxOutWithMinAda mainnetAddr . inject $ Coin 1
         submitFailingSubTx
           ( mkBasicTx $
               mkBasicTxBody
@@ -349,12 +349,12 @@ spec = describe "SUBUTXO" $ do
       submitTx_ . mkTopTxWithSubTxs . pure . mkBasicTx $
         mkBasicTxBody
           & outputsTxBodyL
-            .~ [LegacyTxOut . setMinCoinTxOut pp $ mkBasicLegacyTxOut addr mempty]
+            .~ [MinAdaTxOut . setMinCoinTxOut pp $ mkBasicMinAdaTxOut addr mempty]
 
     it "an output to a bootstrap address whose payload is the largest allowed size" $ do
       bootAddr <- freshBootstrapAddressWithPayloadSize $ Just largestBootstrapAddressAttrsSize
       submitTx_ . mkTopTxWithSubTxs . pure . mkBasicTx $
-        mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut (AddrBootstrap bootAddr) mempty]
+        mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithMinAda (AddrBootstrap bootAddr) mempty]
 
   describe "A phase-2 invalid top level transaction" $ do
     it "still rejects a sub-transaction with the wrong network id in its body" $ do
@@ -398,7 +398,7 @@ freshSubTxProducingOutput = do
           mkBasicTxBody
             & inputsTxBodyL .~ [spentTxIn]
             & outputsTxBodyL
-              .~ [LegacyTxOut . setMinCoinTxOut pp $ mkBasicLegacyTxOut producedAddr mempty]
+              .~ [MinAdaTxOut . setMinCoinTxOut pp $ mkBasicMinAdaTxOut producedAddr mempty]
   pure (subTx, mkTxInPartial (txIdTx subTx) 0)
 
 subTxOutputs :: DijkstraEraImp era => Tx TopTx era -> ImpTestM era (NonEmpty (TxOut era))
@@ -412,7 +412,7 @@ freshAssetOutput = do
   assetName <- arbitrary @AssetName
   addr <- freshKeyAddr_
   let multiAsset = multiAssetFromList [(policyId, assetName, 1)]
-  pure (multiAsset, mkBasicTxOutWithLegacyTxOut addr $ MaryValue mempty multiAsset)
+  pure (multiAsset, mkBasicTxOutWithMinAda addr $ MaryValue mempty multiAsset)
 
 subTxsSpendingOneInput :: DijkstraEraImp era => ImpTestM era (TxIn, [Tx SubTx era])
 subTxsSpendingOneInput = do
@@ -447,7 +447,7 @@ outputTooBigEntry pp txOut =
   )
 
 -- | Private: these test fixtures exercise outputs with implicit deposits.
-implicitDepositOutput :: TxOut era -> LegacyTxOut era
-implicitDepositOutput (LegacyTxOut implicitOutput) = implicitOutput
-implicitDepositOutput (NewTxOut _) =
+implicitDepositOutput :: TxOut era -> MinAdaTxOut era
+implicitDepositOutput (MinAdaTxOut implicitOutput) = implicitOutput
+implicitDepositOutput (DepositBackedTxOut _) =
   error "SubUtxoSpec: expected an implicit-deposit output"

@@ -36,7 +36,7 @@ spec :: Spec
 spec = describe "DS-STATE-EPOCH - Epoch" $ do
   prop "DS-STATE-EPOCH-N01 - ordinaryEpochTransition ⇒ allocationsAfter = allocationsBefore" $
     forAll Lifecycle.populatedStore $ \fundingScenario -> do
-      -- Submit only the funding transaction: its Store-backed outputs remain unspent.
+      -- Submit only the funding transaction: its Deposit-backed outputs remain unspent.
       _ <- fundAccountingScenario fundingScenario
       forM_ [1 :: Int, 2] $ \_ -> do
         previousState <- getsNES id

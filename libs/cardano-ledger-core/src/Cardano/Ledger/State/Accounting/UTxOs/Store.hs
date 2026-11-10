@@ -25,7 +25,7 @@ module Cardano.Ledger.State.Accounting.UTxOs.Store (
 ) where
 
 import Cardano.Ledger.BaseTypes (SlotNo)
-import Cardano.Ledger.Core (EraNewTxOut, EraTx (..), IsPhase2Valid (..), TxLevel (TopTx))
+import Cardano.Ledger.Core (EraDepositBackedTxOut, EraTx (..), IsPhase2Valid (..), TxLevel (TopTx))
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
   DepositAmount (..),
   DepositFormula (..),
@@ -56,7 +56,8 @@ mkEmptyUTxOStore history =
 
 -- | Restore entries with their baseline and dated formulas. Derive the
 -- external total from the outputs and their allocation origins.
-mkUTxOStore :: EraNewTxOut era => DepositFormulaHistory -> IndexedUTxOs era -> UTxOStore era
+mkUTxOStore ::
+  EraDepositBackedTxOut era => DepositFormulaHistory -> IndexedUTxOs era -> UTxOStore era
 mkUTxOStore history entries =
   UTxOStore
     { depositFormulaHistory = history

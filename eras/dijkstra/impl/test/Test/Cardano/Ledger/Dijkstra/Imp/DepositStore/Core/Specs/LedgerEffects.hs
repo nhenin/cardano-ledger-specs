@@ -152,7 +152,7 @@ buildAndSignNoncanonicalAllocationAtRate ::
 buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) coins = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ rate
   address <- freshKeyAddrNoPtr_
-  let output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject coins
+  let output = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject coins
       version = eraProtVerLow @DijkstraEra
       canonical = BSL.toStrict $ Binary.serialize version output
       noncanonical = BS.cons 0xbf (BS.tail canonical) <> BS.singleton 0xff
@@ -193,7 +193,7 @@ buildAndSignNoncanonicalSubAllocation ::
 buildAndSignNoncanonicalSubAllocation coins = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 1000)
   address <- freshKeyAddrNoPtr_
-  let output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject coins
+  let output = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject coins
       acceptedBytes = fromIntegral (BSL.length $ Binary.serialize (eraProtVerLow @DijkstraEra) output) + 1
       deposit = 1000 * 250
       child =

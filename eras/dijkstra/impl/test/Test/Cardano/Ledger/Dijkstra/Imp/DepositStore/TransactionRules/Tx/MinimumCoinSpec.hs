@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Store-backed outputs pay for storage externally; implicit outputs must retain
+-- | Deposit-backed outputs pay for storage externally; implicit outputs must retain
 -- their minimum ADA. These cases isolate that distinction with fully funded,
 -- exactly declared deposits and otherwise valid transactions.
 --
@@ -41,11 +41,11 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "DS-TX-MINIMUM-COIN - Active formula ∈ {V1, V2}: legacy outputs retain the reserve; new outputs fund it externally" $ do
+  describe "DS-TX-MINIMUM-COIN - Active formula ∈ {V1, V2}: min-ADA outputs retain the reserve; new outputs fund it externally" $ do
     -- Native assets need no accompanying application ADA when their storage
     -- deposit is funded externally. Tokens come from an accepted funding transaction.
-    prop "DS-TX-MINIMUM-COIN-N01 - storeBacked(output) ∧ nativeAssets(output) ≠ ∅ ∧ applicationADA(output) = 0 ⇒ accepted" $
-      forAll MinimumCoin.storeBackedNativeAssets $ \scenarios ->
+    prop "DS-TX-MINIMUM-COIN-N01 - depositBacked(output) ∧ nativeAssets(output) ≠ ∅ ∧ applicationADA(output) = 0 ⇒ accepted" $
+      forAll MinimumCoin.depositBackedNativeAssets $ \scenarios ->
         forM_ scenarios $ \scenario -> do
           Fixture{proposal, allocatedDeposit = Coin deposit} <- MinimumCoin.fund scenario
           MinimumCoin.buildAndSignTx scenario (TopTx.addDeclaration
@@ -58,8 +58,8 @@ spec =
 
     -- Datum-only and reference-script-only are exercised separately in every
     -- sample. Neither needs application assets; both still require a full deposit.
-    prop "DS-TX-MINIMUM-COIN-N02 - storeBacked(output) ∧ applicationAssets(output) = ∅ ∧ payload(output) ∈ {datumOnly, referenceScriptOnly} ⇒ accepted" $
-      forAll MinimumCoin.storeBackedDatumOrReferenceScript $ \scenarios ->
+    prop "DS-TX-MINIMUM-COIN-N02 - depositBacked(output) ∧ applicationAssets(output) = ∅ ∧ payload(output) ∈ {datumOnly, referenceScriptOnly} ⇒ accepted" $
+      forAll MinimumCoin.depositBackedDatumOrReferenceScript $ \scenarios ->
         forM_ scenarios $ \scenario -> do
           Fixture{proposal, allocatedDeposit = Coin deposit} <- MinimumCoin.fund scenario
           MinimumCoin.buildAndSignTx scenario (TopTx.addDeclaration
@@ -72,8 +72,8 @@ spec =
 
     -- An address-only output also occupies storage. Empty application assets,
     -- absent datum and absent reference script do not impose an ADA minimum.
-    prop "DS-TX-MINIMUM-COIN-N03 - storeBacked(output) ∧ addressOnly(output) ⇒ accepted" $
-      forAll MinimumCoin.storeBackedAddressOnly $ \scenarios ->
+    prop "DS-TX-MINIMUM-COIN-N03 - depositBacked(output) ∧ addressOnly(output) ⇒ accepted" $
+      forAll MinimumCoin.depositBackedAddressOnly $ \scenarios ->
         forM_ scenarios $ \scenario -> do
           Fixture{proposal, allocatedDeposit = Coin deposit} <- MinimumCoin.fund scenario
           MinimumCoin.buildAndSignTx scenario (TopTx.addDeclaration

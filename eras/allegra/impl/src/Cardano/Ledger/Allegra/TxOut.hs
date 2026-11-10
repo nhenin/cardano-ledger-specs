@@ -27,32 +27,32 @@ import Lens.Micro (lens, (^.))
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 instance EraTxOut AllegraEra where
-  type LegacyTxOut AllegraEra = ShelleyTxOut AllegraEra
-  type NewTxOut AllegraEra = NoNewTxOut AllegraEra
+  type MinAdaTxOut AllegraEra = ShelleyTxOut AllegraEra
+  type DepositBackedTxOut AllegraEra = NoDepositBackedTxOut AllegraEra
 
-  upgradeTxOut (LegacyTxOut (TxOutCompact addr cfval)) =
-    LegacyTxOut $ TxOutCompact (coerce addr) cfval
+  upgradeTxOut (MinAdaTxOut (TxOutCompact addr cfval)) =
+    MinAdaTxOut $ TxOutCompact (coerce addr) cfval
 
   addrEitherTxOutL =
-    lens allegraTxOut (const LegacyTxOut) . addrEitherShelleyTxOutL
+    lens allegraTxOut (const MinAdaTxOut) . addrEitherShelleyTxOutL
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraLegacyTxOut AllegraEra where
-  mkBasicLegacyTxOut = ShelleyTxOut
+instance EraMinAdaTxOut AllegraEra where
+  mkBasicMinAdaTxOut = ShelleyTxOut
 
   valueEitherTxOutL = valueEitherShelleyTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinTxOut pp _txOut = pp ^. ppMinUTxOValueL
 
-instance EraNewTxOut AllegraEra where
-  mkBasicNewTxOut = notSupportedInThisEra
+instance EraDepositBackedTxOut AllegraEra where
+  mkBasicDepositBackedTxOut = notSupportedInThisEra
 
   applicationAssetsTxOutL _ unavailable = case unavailable of {}
 
 -- | Private: recover the historical representation from Allegra's only supported variant.
 allegraTxOut :: TxOut AllegraEra -> ShelleyTxOut AllegraEra
-allegraTxOut (LegacyTxOut output) = output
+allegraTxOut (MinAdaTxOut output) = output
 {-# INLINE allegraTxOut #-}
 
 -- The wrapper retains the historical instances and encodings without a variant tag.
@@ -74,20 +74,20 @@ instance EncCBOR (TxOut AllegraEra) where
   encCBOR = encCBOR . allegraTxOut
 
 instance DecCBOR (TxOut AllegraEra) where
-  decCBOR = LegacyTxOut <$> decCBOR
+  decCBOR = MinAdaTxOut <$> decCBOR
 
 instance DecShareCBOR (TxOut AllegraEra) where
   type Share (TxOut AllegraEra) = Interns (Credential Staking)
-  decShareCBOR = fmap LegacyTxOut . decShareCBOR
+  decShareCBOR = fmap MinAdaTxOut . decShareCBOR
 
 instance MemPack (TxOut AllegraEra) where
   packedByteCount = packedByteCount . allegraTxOut
   packM = packM . allegraTxOut
-  unpackM = LegacyTxOut <$> unpackM
+  unpackM = MinAdaTxOut <$> unpackM
 
 instance ToJSON (TxOut AllegraEra) where
   toJSON = toJSON . allegraTxOut
   toEncoding = toEncoding . allegraTxOut
 
 instance FromJSON (TxOut AllegraEra) where
-  parseJSON = fmap LegacyTxOut . parseJSON
+  parseJSON = fmap MinAdaTxOut . parseJSON

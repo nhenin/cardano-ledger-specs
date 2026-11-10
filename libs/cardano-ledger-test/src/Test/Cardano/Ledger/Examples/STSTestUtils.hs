@@ -171,14 +171,14 @@ initUTxO =
            ]
   where
     alwaysSucceedsOutput =
-      mkBasicTxOutWithLegacyTxOut (someScriptAddr @era $ always 3) (inject $ Coin 5000)
+      mkBasicTxOutWithMinAda (someScriptAddr @era $ always 3) (inject $ Coin 5000)
         & dataHashTxOutL .~ SJust (hashData $ datumExample1 @era)
     alwaysFailsOutput =
-      mkBasicTxOutWithLegacyTxOut (someScriptAddr @era $ never 0) (inject $ Coin 3000)
+      mkBasicTxOutWithMinAda (someScriptAddr @era $ never 0) (inject $ Coin 3000)
         & dataHashTxOutL .~ SJust (hashData $ datumExample2 @era)
-    someOutput = mkBasicTxOutWithLegacyTxOut someAddr (inject $ Coin 1000)
-    collateralOutput = mkBasicTxOutWithLegacyTxOut someAddr (inject $ Coin 5)
-    timelockOut = mkBasicTxOutWithLegacyTxOut timelockAddr (inject $ Coin 1)
+    someOutput = mkBasicTxOutWithMinAda someAddr (inject $ Coin 1000)
+    collateralOutput = mkBasicTxOutWithMinAda someAddr (inject $ Coin 5)
+    timelockOut = mkBasicTxOutWithMinAda timelockAddr (inject $ Coin 1)
     timelockAddr = mkAddr tlh $ mkKeyPair' @Staking (RawSeed 0 0 0 0 2)
       where
         tlh = hashScript @era $ tls 0
@@ -190,11 +190,11 @@ initUTxO =
               ]
     -- This output is unspendable since it is locked by a plutus script, but has no datum hash.
     unspendableOut =
-      mkBasicTxOutWithLegacyTxOut (someScriptAddr @era $ always 3) (inject $ Coin 5000)
+      mkBasicTxOutWithMinAda (someScriptAddr @era $ always 3) (inject $ Coin 5000)
     alwaysSucceedsOutputV1 =
       unspendableOut & dataHashTxOutL .~ SJust (hashData (datumExample1 @era))
     nonScriptOutWithDatum =
-      mkBasicTxOutWithLegacyTxOut someAddr (inject $ Coin 1221)
+      mkBasicTxOutWithMinAda someAddr (inject $ Coin 1221)
         & dataHashTxOutL .~ SJust (hashData (datumExample1 @era))
 
 datumExample1 :: Era era => Data era

@@ -641,12 +641,12 @@ genesisUTxO ::
   ShelleyGenesis ->
   IndexedUTxOs era
 genesisUTxO genesis =
-  IndexedUTxOs.fromLegacyTxOuts $
+  IndexedUTxOs.fromMinAdaTxOuts $
     Map.fromList
       [ (txIn, txOut)
       | (addr, amount) <- LM.unListMap (sgInitialFunds genesis)
       , let txIn = initialFundsPseudoTxIn addr
-            txOut = mkBasicLegacyTxOut addr (Val.inject amount)
+            txOut = mkBasicMinAdaTxOut addr (Val.inject amount)
       ]
 
 -- | Compute the 'TxIn' of the initial UTxO pseudo-transaction corresponding

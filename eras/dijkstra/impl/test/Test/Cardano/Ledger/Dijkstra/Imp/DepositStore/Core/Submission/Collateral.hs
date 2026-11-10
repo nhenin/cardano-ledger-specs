@@ -5,8 +5,8 @@
 -- signed ordinary transaction while changing only its collateral settlement.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Collateral (
   FundingFixture (..),
-  implicitInputWithStoreBackedReturn,
-  storeBackedInputWithImplicitReturn,
+  implicitInputWithDepositBackedReturn,
+  depositBackedInputWithImplicitReturn,
   withCoinFee,
 ) where
 
@@ -24,7 +24,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (preparePha
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   ReleaseBody (TopTxReleasing),
   ReleaseFixture (..),
-  buildTxSpendingStoreBackedOutput,
+  buildTxSpendingDepositBackedOutput,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
@@ -41,22 +41,22 @@ data FundingFixture = FundingFixture
 
 -- | Ten ADA of ordinary coins fund a new external return deposit. All source
 -- funds come from accepted transactions; the input has no Store record.
-implicitInputWithStoreBackedReturn :: ImpTestM DijkstraEra FundingFixture
-implicitInputWithStoreBackedReturn = do
+implicitInputWithDepositBackedReturn :: ImpTestM DijkstraEra FundingFixture
+implicitInputWithDepositBackedReturn = do
   configureFundingPolicy
   address <- freshKeyAddrNoPtr_
   source <- sendCoinTo address $ Coin 10_000_000
-  let collateralReturn = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject $ Coin 5_000_000
+  let collateralReturn = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject $ Coin 5_000_000
   prepareFundingFixture source mempty collateralReturn
 
 -- | The ten application ADA are separate from the input's recorded deposit.
 -- An implicit return needs no Store allocation, so that deposit is fee surplus.
-storeBackedInputWithImplicitReturn :: ImpTestM DijkstraEra FundingFixture
-storeBackedInputWithImplicitReturn = do
+depositBackedInputWithImplicitReturn :: ImpTestM DijkstraEra FundingFixture
+depositBackedInputWithImplicitReturn = do
   configureFundingPolicy
-  source <- buildTxSpendingStoreBackedOutput TopTxReleasing
+  source <- buildTxSpendingDepositBackedOutput TopTxReleasing
   address <- freshKeyAddrNoPtr_
-  let collateralReturn = mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 5_000_000
+  let collateralReturn = mkBasicTxOutWithMinAda address $ inject $ Coin 5_000_000
   prepareFundingFixture (spendingInput source) (sourceDeposit source) collateralReturn
 
 configureFundingPolicy :: ImpTestM DijkstraEra ()
@@ -75,9 +75,9 @@ prepareFundingFixture source released collateralReturn = do
   -- Prepare ordinary funding and the script with an implicit return, then
   -- install the tested output variant and sign the final body without fixup.
   let preparationReturn = case collateralReturn of
-        LegacyTxOut _ -> collateralReturn
-        NewTxOut _ ->
-          mkBasicTxOutWithLegacyTxOut (collateralReturn ^. addrTxOutL) $
+        MinAdaTxOut _ -> collateralReturn
+        DepositBackedTxOut _ ->
+          mkBasicTxOutWithMinAda (collateralReturn ^. addrTxOutL) $
             inject $
               collateralReturn ^. coinTxOutL
   fixed <-

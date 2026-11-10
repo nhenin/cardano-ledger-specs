@@ -78,7 +78,7 @@ translateUTxOByronToShelley ::
   Byron.UTxO ->
   IndexedUTxOs ShelleyEra
 translateUTxOByronToShelley (Byron.UTxO utxoByron) =
-  IndexedUTxOs.fromLegacyTxOuts $
+  IndexedUTxOs.fromMinAdaTxOuts $
     Map.fromList
       [ (txInShelley, txOutShelley)
       | (txInByron, txOutByron) <- Map.toList utxoByron
@@ -87,7 +87,7 @@ translateUTxOByronToShelley (Byron.UTxO utxoByron) =
       , -- In some testnets there are a few TxOuts with zero values injected at
       -- initialization of Byron. We do not allow zero values in TxOuts in Shelley
       -- onwards.
-      LegacyTxOut txOutShelley ^. coinTxOutL /= zero
+      MinAdaTxOut txOutShelley ^. coinTxOutL /= zero
       ]
 
 translateToShelleyLedgerState ::

@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | External deposits do not change the native assets a collateral return owes.
--- Every generated sample covers implicit and Store-backed returns, mixed inputs,
+-- Every generated sample covers implicit and Deposit-backed returns, mixed inputs,
 -- and real successful and failing scripts. The tokens come from accepted minting.
 -- Common premises: valid inputs, witnesses, output forms, total and coin funding.
 -- Each rejected variant changes only native-asset conservation.
@@ -16,7 +16,7 @@ import Control.Monad (when)
 import Test.Cardano.Ledger.Common (Spec, describe, forAll, forM_, prop)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral (
   Fixture (..),
-  OutputForm (StoreBacked),
+  OutputForm (DepositBacked),
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral as Collateral
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
@@ -31,12 +31,12 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (simulateThenRestore)
 spec :: Spec
 spec = describe "DS-COLLATERAL-ASSETS - Assets" $ do
   -- The return keeps every consumed token, while its Store deposit is funded separately.
-  -- A Store-backed return can retain those tokens with zero application ADA.
+  -- A Deposit-backed return can retain those tokens with zero application ADA.
   prop "DS-COLLATERAL-ASSETS-N01 - consumedAssets = returnAssets ⇒ accepted" $
     forAll Collateral.assetScenarios $ \scenarios ->
       forM_ scenarios $ \scenario -> do
         fixture <- Collateral.buildAndSign scenario
-        when (Collateral.returnForm scenario == Just StoreBacked) $
+        when (Collateral.returnForm scenario == Just DepositBacked) $
           simulateThenRestore $
             Collateral.withReturnCoins (Coin 0) fixture >>= submitTx . signedTx >>= isAccepted
         Collateral.withCoinFee (minimumFee fixture) fixture
@@ -54,7 +54,7 @@ spec = describe "DS-COLLATERAL-ASSETS - Assets" $ do
             >>= Collateral.withCoinFee minimumFee
             >>= submitTx . signedTx
             >>= isRejectedOnlyWith (CollateralContainsNonADA @DijkstraEra $ MaryValue inputCoins collateralAssets)
-        when (StoreBacked `elem` Collateral.inputForms scenario) $
+        when (DepositBacked `elem` Collateral.inputForms scenario) $
           Collateral.withoutReturn fixture
             >>= submitTx . signedTx
             >>= isRejectedOnlyWith (CollateralContainsNonADA @DijkstraEra $ MaryValue inputCoins collateralAssets)

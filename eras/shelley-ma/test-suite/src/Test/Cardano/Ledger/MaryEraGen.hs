@@ -265,12 +265,12 @@ addTokens ::
   MultiAsset ->
   StrictSeq (TxOut era) ->
   Maybe (StrictSeq (TxOut era))
-addTokens proxy tooLittleLovelace pparams ts (txOut@(LegacyTxOut output) :<| os) =
+addTokens proxy tooLittleLovelace pparams ts (txOut@(MinAdaTxOut output) :<| os) =
   if txOut ^. coinTxOutL < getMinCoinTxOut pparams output
     then addTokens proxy (txOut :<| tooLittleLovelace) pparams ts os
     else Just $ tooLittleLovelace >< addValToTxOut @era (MaryValue mempty ts) txOut <| os
-addTokens _ _ _ _ (NewTxOut _ :<| _) =
-  error "addTokens: unexpected NewTxOut in implicit-deposit test outputs"
+addTokens _ _ _ _ (DepositBackedTxOut _ :<| _) =
+  error "addTokens: unexpected DepositBackedTxOut in implicit-deposit test outputs"
 addTokens _proxy _ _ _ StrictSeq.Empty = Nothing
 
 -- | This function is only good in the Mary Era
@@ -322,8 +322,8 @@ instance Split MaryValue where
 
 instance MinGenTxout MaryEra where
   calcEraMinUTxO _txout pp = pp ^. ppMinUTxOValueL
-  addValToTxOut value (LegacyTxOut output) =
-    LegacyTxOut $ output & valueTxOutL %~ (value <+>)
+  addValToTxOut value (MinAdaTxOut output) =
+    MinAdaTxOut $ output & valueTxOutL %~ (value <+>)
   genEraTxOut _genenv genVal addrs = do
     values <- replicateM (length addrs) genVal
-    pure (zipWith mkBasicTxOutWithLegacyTxOut addrs values)
+    pure (zipWith mkBasicTxOutWithMinAda addrs values)

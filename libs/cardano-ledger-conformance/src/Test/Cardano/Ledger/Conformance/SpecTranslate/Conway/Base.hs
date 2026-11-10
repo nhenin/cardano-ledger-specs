@@ -179,7 +179,7 @@ instance SpecTranslate ConwayEra (AlonzoScript ConwayEra) where
 instance SpecTranslate ConwayEra (TxOut ConwayEra) where
   type SpecRep ConwayEra (TxOut ConwayEra) = Agda.TxOut
 
-  toSpecRep (LegacyTxOut output) = toSpecRep output
+  toSpecRep (MinAdaTxOut output) = toSpecRep output
 
 instance SpecTranslate ConwayEra (BabbageTxOut ConwayEra) where
   type SpecRep ConwayEra (BabbageTxOut ConwayEra) = Agda.TxOut

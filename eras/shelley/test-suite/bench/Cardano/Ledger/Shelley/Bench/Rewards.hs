@@ -98,7 +98,7 @@ genChainInEpoch epoch = do
           $ genesisChainState
       initUtxoAddrs =
         Maybe.mapMaybe
-          (\entry -> case Unspent.toTxOut entry of LegacyTxOut (ShelleyTxOut addr _) -> addrToKeyHash addr)
+          (\entry -> case Unspent.toTxOut entry of MinAdaTxOut (ShelleyTxOut addr _) -> addrToKeyHash addr)
           . Store.unspentOutputs
           $ initialAllocations
       stakeMap =

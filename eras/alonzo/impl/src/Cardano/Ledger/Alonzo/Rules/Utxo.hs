@@ -425,12 +425,12 @@ validateOutsideForecast ei slotNo sysSt tx =
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (utxoEntrySize txout ∗ coinsPerUTxOWord pp)
 validateImplicitDeposits ::
-  (EraLegacyTxOut era, Foldable f) =>
+  (EraMinAdaTxOut era, Foldable f) =>
   PParams era ->
-  f (LegacyTxOut era) ->
+  f (MinAdaTxOut era) ->
   Test (AlonzoUtxoPredFailure era)
 validateImplicitDeposits pp outputs =
-  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap LegacyTxOut)
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap MinAdaTxOut)
   where
     outputsTooSmall =
       filter
@@ -442,7 +442,7 @@ validateImplicitDeposits pp outputs =
         (toList outputs)
 
 -- | Ensure the serialized value of either output variant does not exceed
--- @MaxValSize@. For store-backed outputs, measure their application assets.
+-- @MaxValSize@. For deposit-backed outputs, measure their application assets.
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp
 validateOutputTooBigUTxO ::
@@ -461,8 +461,8 @@ validateOutputTooBigUTxO pp outputs =
     outputsTooBig = F.foldl' accum [] outputs
     accum ans txOut =
       let value = case txOut of
-            LegacyTxOut output -> output ^. valueTxOutL
-            NewTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+            MinAdaTxOut output -> output ^. valueTxOutL
+            DepositBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
           serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) value
        in if serSize > maxValSize
             then (fromIntegral serSize, fromIntegral maxValSize, txOut) : ans
@@ -581,7 +581,7 @@ utxoTransition = do
 
   let outputs = txBody ^. outputsTxBodyL
       -- This legacy transition has only implicit-deposit outputs.
-      implicitOutputs = [output | LegacyTxOut output <- toList outputs]
+      implicitOutputs = [output | MinAdaTxOut output <- toList outputs]
   {-   ∀ txout ∈ txouts txb, getValuetxout ≥ inject (uxoEntrySizetxout ∗ coinsPerUTxOWord p) -}
   runTest $ validateImplicitDeposits pp implicitOutputs
 

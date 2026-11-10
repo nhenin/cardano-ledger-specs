@@ -42,12 +42,12 @@ benchTxOut =
           MultiAsset (singleton (PolicyID policyId28) (singleton assName 217))
       txOutAddr :: Int -> TxOut AlonzoEra
       txOutAddr n =
-        mkBasicTxOutWithLegacyTxOut (addr n) value & dataHashTxOutL .~ SJust dataHash32
+        mkBasicTxOutWithMinAda (addr n) value & dataHashTxOutL .~ SJust dataHash32
       txOutAddrAdaOnly :: Int -> TxOut AlonzoEra
-      txOutAddrAdaOnly n = mkBasicTxOutWithLegacyTxOut (addr n) ada
+      txOutAddrAdaOnly n = mkBasicTxOutWithMinAda (addr n) ada
       txOutAddrAdaOnlyDataHash :: Int -> TxOut AlonzoEra
       txOutAddrAdaOnlyDataHash n =
-        mkBasicTxOutWithLegacyTxOut (addr n) ada & dataHashTxOutL .~ SJust dataHash32
+        mkBasicTxOutWithMinAda (addr n) ada & dataHashTxOutL .~ SJust dataHash32
       count :: Int
       count = 1000
    in bgroup
@@ -85,7 +85,7 @@ constructTxOutAlonzoBench count name mkAddr value !mdh =
       name
       [ env (pure (mkAddr <$> [1 .. count])) $
           bench "TxOut"
-            . nf (map (\addr -> LegacyTxOut (AlonzoTxOut addr value mdh) :: TxOut AlonzoEra))
+            . nf (map (\addr -> MinAdaTxOut (AlonzoTxOut addr value mdh) :: TxOut AlonzoEra))
       , env (pure (compactAddr . mkAddr <$> [1 .. count])) $
           bench "TxOutCompact" . nf (map (\caddr -> mkTxOutCompact caddr cvalue :: TxOut AlonzoEra))
       ]
@@ -95,8 +95,8 @@ constructTxOutAlonzoBench count name mkAddr value !mdh =
       CompactAddr -> CompactForm MaryValue -> TxOut AlonzoEra
     mkTxOutCompact =
       case mdh of
-        SNothing -> \a v -> LegacyTxOut (TxOutCompact a v)
-        SJust dh -> \a v -> LegacyTxOut (TxOutCompactDH a v dh)
+        SNothing -> \a v -> MinAdaTxOut (TxOutCompact a v)
+        SJust dh -> \a v -> MinAdaTxOut (TxOutCompactDH a v dh)
 
 accessTxOutAlonzoBench :: Int -> String -> (Int -> TxOut AlonzoEra) -> Benchmark
 accessTxOutAlonzoBench count name mkTxOuts =
@@ -106,7 +106,7 @@ accessTxOutAlonzoBench count name mkTxOuts =
         bench "TxOut" $
           nf
             ( map
-                (\(LegacyTxOut (AlonzoTxOut addr vl dh)) -> addr `deepseq` vl `deepseq` dh)
+                (\(MinAdaTxOut (AlonzoTxOut addr vl dh)) -> addr `deepseq` vl `deepseq` dh)
             )
             txOuts
     , env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
@@ -134,7 +134,7 @@ accessTxOutAlonzoBench count name mkTxOuts =
 
 -- | Private. Unwrap the only output variant supported by Alonzo.
 implicitAlonzoTxOut :: TxOut AlonzoEra -> AlonzoTxOut AlonzoEra
-implicitAlonzoTxOut (LegacyTxOut output) = output
+implicitAlonzoTxOut (MinAdaTxOut output) = output
 
 serializeTxOutAlonzoBench :: Int -> String -> (Int -> TxOut AlonzoEra) -> Benchmark
 serializeTxOutAlonzoBench count name mkTxOuts =

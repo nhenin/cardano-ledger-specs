@@ -69,8 +69,8 @@ initUTxO :: EraTxOut era => IndexedUTxOs era
 initUTxO =
   genesisCoins
     genesisId
-    [ mkBasicTxOutWithLegacyTxOut Cast.aliceAddr aliceInitCoin
-    , mkBasicTxOutWithLegacyTxOut Cast.bobAddr bobInitCoin
+    [ mkBasicTxOutWithMinAda Cast.aliceAddr aliceInitCoin
+    , mkBasicTxOutWithMinAda Cast.bobAddr bobInitCoin
     ]
   where
     aliceInitCoin = Val.inject $ Coin $ 10 * 1000 * 1000 * 1000 * 1000 * 1000
@@ -107,7 +107,7 @@ txbodyEx1 :: TxBody TopTx ShelleyEra
 txbodyEx1 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
-    & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut Cast.aliceAddr aliceCoinEx1)
+    & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithMinAda Cast.aliceAddr aliceCoinEx1)
     & certsTxBodyL
       .~ StrictSeq.fromList
         [ GenesisDelegTxCert

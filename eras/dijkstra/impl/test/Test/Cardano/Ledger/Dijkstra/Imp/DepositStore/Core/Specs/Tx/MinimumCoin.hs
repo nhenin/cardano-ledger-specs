@@ -5,17 +5,17 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | Real funding and generated output forms for minimum-coin specifications.
--- Store-backed application assets are distinct from their externally funded
--- deposit. Newly created legacy outputs retain the active formula amount in ADA.
+-- Deposit-backed application assets are distinct from their externally funded
+-- deposit. Newly created min-ADA outputs retain the active formula amount in ADA.
 -- Every supplied declaration remains the specification's explicit choice.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.MinimumCoin (
   Body (..),
   Content (..),
   Scenario (..),
   Fixture (..),
-  storeBackedNativeAssets,
-  storeBackedDatumOrReferenceScript,
-  storeBackedAddressOnly,
+  depositBackedNativeAssets,
+  depositBackedDatumOrReferenceScript,
+  depositBackedAddressOnly,
   implicitMinimum,
   fund,
   buildAndSignTx,
@@ -88,19 +88,19 @@ data Fixture = Fixture
 
 -- | A positive native-asset quantity with zero application ADA, in both bodies
 -- and on both phase-2 paths. Tokens are minted in an earlier accepted transaction.
-storeBackedNativeAssets :: Gen [Scenario]
-storeBackedNativeAssets = scenarios [NativeAssets]
+depositBackedNativeAssets :: Gen [Scenario]
+depositBackedNativeAssets = scenarios [NativeAssets]
 
 -- | Cover datum-only AND reference-script-only Store outputs in every sample,
 -- for each body and phase-2 path. Neither variant carries application assets.
-storeBackedDatumOrReferenceScript :: Gen [Scenario]
-storeBackedDatumOrReferenceScript = scenarios [InlineDatum, ReferenceScript]
+depositBackedDatumOrReferenceScript :: Gen [Scenario]
+depositBackedDatumOrReferenceScript = scenarios [InlineDatum, ReferenceScript]
 
 -- | A Store output containing only its address: no ADA, tokens, datum or script.
-storeBackedAddressOnly :: Gen [Scenario]
-storeBackedAddressOnly = scenarios [AddressOnly]
+depositBackedAddressOnly :: Gen [Scenario]
+depositBackedAddressOnly = scenarios [AddressOnly]
 
--- | A legacy output exactly at the active formula amount. Its inline datum
+-- | A min-ADA output exactly at the active formula amount. Its inline datum
 -- varies the priced payload; changing the output ADA does not change its deposit.
 implicitMinimum :: Gen [Scenario]
 implicitMinimum = scenarios [Implicit]
@@ -148,7 +148,7 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
       policy <- PolicyID <$> (impAddNativeScript . mkRequireSignature =<< freshKeyHash)
       pure $ multiAssetFromList [(policy, AssetName "minimum-coin", tokenQuantity generated)]
     _ -> pure mempty
-  let source = mkBasicTxOutWithLegacyTxOut address $ MaryValue sourceCoins assets
+  let source = mkBasicTxOutWithMinAda address $ MaryValue sourceCoins assets
   funding <-
     submitTx $
       mkBasicTx mkBasicTxBody
@@ -156,7 +156,7 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
         & bodyTxL . outputsTxBodyL .~ SSeq.singleton source
   impGetUTxO (txInAt (0 :: Int) funding) >>= (`shouldBe` source)
   output <- outputForScenario generated address $ MaryValue (Coin 0) assets
-  let balanceOutput = mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 20_000_000
+  let balanceOutput = mkBasicTxOutWithMinAda address $ inject $ Coin 20_000_000
       ownBody =
         mkBasicTx mkBasicTxBody
           & bodyTxL . inputsTxBodyL .~ Set.singleton (txInAt (0 :: Int) funding)
@@ -191,39 +191,39 @@ outputForScenario ::
   Scenario -> Addr -> MaryValue -> ImpTestM DijkstraEra (TxOut DijkstraEra)
 outputForScenario generated address assets =
   case content generated of
-    NativeAssets -> pure $ mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets assets
-    InlineDatum -> pure $ withDatum generated $ mkBasicTxOutWithStoreBackedDeposit address mempty
+    NativeAssets -> pure $ mkBasicTxOutWithDeposit address $ ApplicationAssets assets
+    InlineDatum -> pure $ withDatum generated $ mkBasicTxOutWithDeposit address mempty
     ReferenceScript -> do
       scriptKey <- freshKeyHash
       pure $
-        mkBasicTxOutWithStoreBackedDeposit address mempty
+        mkBasicTxOutWithDeposit address mempty
           & referenceScriptTxOutL .~ SJust (fromNativeScript $ mkRequireSignature scriptKey)
-    AddressOnly -> pure $ mkBasicTxOutWithStoreBackedDeposit address mempty
+    AddressOnly -> pure $ mkBasicTxOutWithDeposit address mempty
     Implicit ->
       pure $
         atMinimum (depositFormula generated) $
           withDatum generated $
-            mkBasicTxOutWithLegacyTxOut address mempty
+            mkBasicTxOutWithMinAda address mempty
 
 -- | Vary a semantically irrelevant inline byte string, including CBOR length boundaries.
 withDatum :: Scenario -> TxOut DijkstraEra -> TxOut DijkstraEra
 withDatum generated =
   datumTxOutL .~ mkInlineDatum (Plutus.B $ BS.replicate (payloadBytes generated) 0)
 
--- | New outputs hold no implicit reserve. A legacy output retains the same
+-- | New outputs hold no implicit reserve. A min-ADA output retains the same
 -- amount that the independent oracle prices for a new output with identical
 -- assets, datum and script. Its ADA does not participate in that calculation.
 minimumCoins :: DepositFormula -> TxOut DijkstraEra -> Coin
-minimumCoins _ (NewTxOut _) = Coin 0
-minimumCoins pricing output@(LegacyTxOut legacy) =
+minimumCoins _ (DepositBackedTxOut _) = Coin 0
+minimumCoins pricing output@(MinAdaTxOut legacy) =
   expectedOutputDeposit pricing $
-    mkBasicTxOutWithStoreBackedDeposit
+    mkBasicTxOutWithDeposit
       (output ^. addrTxOutL)
       (ApplicationAssets $ legacy ^. valueTxOutL)
       & datumTxOutL .~ (output ^. datumTxOutL)
       & referenceScriptTxOutL .~ (output ^. referenceScriptTxOutL)
 
--- | Place the required reserve directly in the legacy output. No serialization
+-- | Place the required reserve directly in the min-ADA output. No serialization
 -- fixed point is needed: the formula does not price its ADA amount or encoding.
 atMinimum :: DepositFormula -> TxOut DijkstraEra -> TxOut DijkstraEra
 atMinimum pricing output = output & coinTxOutL .~ minimumCoins pricing output

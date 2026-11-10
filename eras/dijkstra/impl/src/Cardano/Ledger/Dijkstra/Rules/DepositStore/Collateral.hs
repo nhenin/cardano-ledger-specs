@@ -68,7 +68,7 @@ validateCollateralFunding pp body store =
 
 -- | Both output forms carry application assets. Every non-ADA asset consumed as
 -- collateral must be returned with its exact quantity, including when the
--- collateral return itself is store-backed.
+-- collateral return itself is deposit-backed.
 validateCollateralAssets ::
   BabbageEraTxBody era =>
   TxBody TopTx era ->

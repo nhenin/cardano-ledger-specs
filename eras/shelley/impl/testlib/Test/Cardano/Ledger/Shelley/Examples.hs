@@ -236,10 +236,10 @@ exampleNewEpochState value ppp pp =
               { lsAccountingState =
                   AccountingState
                     { asUTxOStore =
-                        mkUTxOStore def . IndexedUTxOs.fromLegacyTxOuts $
+                        mkUTxOStore def . IndexedUTxOs.fromMinAdaTxOuts $
                           Map.singleton
                             (TxIn (TxId (mkDummySafeHash @EraIndependentTxBody 1)) minBound)
-                            (mkBasicLegacyTxOut addr value)
+                            (mkBasicMinAdaTxOut addr value)
                     , asDeposited = Coin 1000
                     , asFees = Coin 1
                     , asInstantStake = mempty
@@ -348,8 +348,8 @@ exampleShelleyBasedTx =
         & inputsTxBodyL .~ exampleTxIns
         & outputsTxBodyL
           .~ StrictSeq.fromList
-            [ mkBasicTxOutWithLegacyTxOut (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
-            , mkBasicTxOutWithLegacyTxOut
+            [ mkBasicTxOutWithMinAda (mkAddr examplePayKey exampleStakeKey) $ inject $ Coin 100000
+            , mkBasicTxOutWithMinAda
                 ( Addr
                     Testnet
                     (keyToCredential examplePayKey)
@@ -357,10 +357,10 @@ exampleShelleyBasedTx =
                 )
                 $ inject
                 $ Coin 100000
-            , mkBasicTxOutWithLegacyTxOut (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $
+            , mkBasicTxOutWithMinAda (Addr Testnet (keyToCredential examplePayKey) StakeRefNull) $
                 inject $
                   Coin 100000
-            , mkBasicTxOutWithLegacyTxOut exampleByronAddress $ inject $ Coin 100000
+            , mkBasicTxOutWithMinAda exampleByronAddress $ inject $ Coin 100000
             ]
         & withdrawalsTxBodyL .~ exampleWithdrawals
         & auxDataHashTxBodyL .~ SJust exampleAuxDataHash

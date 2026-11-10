@@ -4,14 +4,14 @@
 
 -- | A body proposing Store releases must declare its own deposit change.
 -- Ordinary success consumes the output and releases its recorded Store deposit;
--- newly created store-backed outputs require new allocations. Gross releases can thus
+-- newly created deposit-backed outputs require new allocations. Gross releases can thus
 -- result in a net allocation, a net release or zero, depending on those outputs.
 -- TopTx declares the transaction total; each SubTx declares its own contribution.
 --
--- ∀ body: storeBackedInputs(body) ≠ ∅ ⇒ hasDeclaration(body).
+-- ∀ body: depositBackedInputs(body) ≠ ∅ ⇒ hasDeclaration(body).
 -- Resolve ordinary inputs in the live UTxO; use their recorded Store deposits.
 -- releasedDeposits is the proposed release, applied only on ordinary success.
--- allocatedDeposits is the deposit required by created store-backed outputs.
+-- allocatedDeposits is the deposit required by created deposit-backed outputs.
 -- Acceptance assumes exact declarations and all other ledger requirements met.
 -- Implemented ledger scenarios fund each source output and its allocation
 -- through real ledger transactions. Reference and collateral inputs do not
@@ -39,18 +39,18 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release
 {- FOURMOLU_DISABLE -}
 spec :: Spec
 spec =
-  describe "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE - ∀ body: storeBackedInputs(body) ≠ ∅ ⇒ hasDeclaration(body)" $ do
+  describe "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE - ∀ body: depositBackedInputs(body) ≠ ∅ ⇒ hasDeclaration(body)" $ do
     -- Apply the presence rule independently to TopTx and every SubTx:
     --
-    -- Store-backed inputs | Own declaration | Presence result
+    -- Deposit-backed inputs | Own declaration | Presence result
     -- Present             | Absent          | Reject: missing declaration.
     -- Present             | Present         | Pass presence; check other rules.
     -- Absent              | Either          | No release-presence requirement.
     --
-    -- releasePresenceValid(body) ⇔ storeBackedInputs(body) = ∅ ∨ hasDeclaration(body)
+    -- releasePresenceValid(body) ⇔ depositBackedInputs(body) = ∅ ∨ hasDeclaration(body)
     -- Explicit zero counts as present. Presence alone never proves acceptance:
     -- exact amounts, settlement and all other ledger rules must also hold.
-    -- With no store-backed inputs, allocation or an explicit SubTx declaration may still require
+    -- With no deposit-backed inputs, allocation or an explicit SubTx declaration may still require
     -- a declaration. These obligations also hold on the phase-2 failure path.
     --
     -- N01-N08 exercise present declarations in otherwise valid release scenarios.
@@ -81,7 +81,7 @@ spec =
 
     -- Standalone TopTx, only implicit outputs.
     -- No new allocation is required; output zero receives application ADA plus the release.
-    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N02 - subTxs = ∅ ∧ releasedDeposits > 0 ∧ storeBackedOutputs = ∅ ∧ declaredNetDeposit = -releasedDeposits ⇒ accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N02 - subTxs = ∅ ∧ releasedDeposits > 0 ∧ depositBackedOutputs = ∅ ∧ declaredNetDeposit = -releasedDeposits ⇒ accepted" $
       forAllStandaloneReleaseTx TopTx.standaloneTopTxOnlyImplicitOutputs $ \topTxWithoutTopDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration
@@ -105,7 +105,7 @@ spec =
             topTxWithoutDeclarations)
           >>= submitTx >>= isAccepted
 
-    -- Standalone TopTx spends store-backed outputs without its own declaration.
+    -- Standalone TopTx spends deposit-backed outputs without its own declaration.
     -- With no SubTx, dependency passes; the proposed release requires the declaration.
     prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F01 - subTxs = ∅ ∧ releasedDeposits(topTx) > 0 ∧ ¬hasDeclaration(topTx) ⇒ rejected" $
       forAllStandaloneReleaseTx TopTx.standaloneTopTxOnlyImplicitOutputs $ \topTxWithoutTopDeclaration ->
@@ -121,7 +121,7 @@ spec =
           >>= submitTx
           >>= isRejectedWith (MissingUTxODepositDeclaration @DijkstraEra)
 
-    -- SubTx spends a store-backed output without its own declaration, despite TopTx declaring.
+    -- SubTx spends a deposit-backed output without its own declaration, despite TopTx declaring.
     -- Use N03's generated inputs and settlement, but leave the SubTx declaration absent.
     prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F02 - subTxs = {subTx} ∧ releasedDeposits(subTx) > 0 ∧ declaredNetDeposit(topTx) = -releasedDeposits(subTx) ∧ ¬hasDeclaration(subTx) ⇒ rejected" $
       forAllSingleSubTxReleaseTx SubTx.oneSubTxReleasingDepositIntoOwnOutput $ \recordedDeposit topTxWithoutDeclarations ->
@@ -171,7 +171,7 @@ spec =
             submitTx txWithoutDeclaration >>= isRejected
 
     -- Multiple-SubTx scope: 2-5 children, only implicit ordinary outputs, and
-    -- releasingSubTxs = {subTx ∈ subTxs | storeBackedInputs(subTx) ≠ ∅}.
+    -- releasingSubTxs = {subTx ∈ subTxs | depositBackedInputs(subTx) ≠ ∅}.
     -- TopTx has no own Store operations except in N07. Each child releasing a deposit settles
     -- locally; all Σ terms range over subTxs and include each contribution once.
 
@@ -298,15 +298,15 @@ spec =
         -- The original phase-2-invalid proposal with every declaration is accepted.
         submitTx signedTx >>= isAccepted
 
-    -- Store-backed reference inputs retain their allocations. Ordinary inputs and
+    -- Deposit-backed reference inputs retain their allocations. Ordinary inputs and
     -- outputs are implicit, so the absent declaration is accepted.
     prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N09 - Standalone TopTx, reference-only Store access" $
-      forAllReferenceOnlyStoreTx TopTx.standaloneTopTxWithStoreBackedReferenceInputs $ \topTxWithoutDeclaration ->
+      forAllReferenceOnlyStoreTx TopTx.standaloneTopTxWithDepositBackedReferenceInputs $ \topTxWithoutDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration (Declarations TopTx.NoUTxODepositDeclaration []) topTxWithoutDeclaration)
           >>= submitTx >>= isAccepted
 
-    -- Store-backed collateral input only, return only, or both. Every generated
+    -- Deposit-backed collateral input only, return only, or both. Every generated
     -- amount pair exercises all three placements with actual script success and
     -- failure. Ordinary Store operations remain absent on both execution paths.
     prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N10 - Standalone TopTx, collateral-only Store operations" $

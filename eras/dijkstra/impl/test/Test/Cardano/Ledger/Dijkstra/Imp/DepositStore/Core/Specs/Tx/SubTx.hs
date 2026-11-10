@@ -25,7 +25,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx (
   allocatedDeposits,
   releasedDeposits,
   spendingInputs,
-  storeBackedInputs,
+  depositBackedInputs,
 ) where
 
 import Cardano.Ledger.Coin (Coin (..))
@@ -53,7 +53,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Top
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release as Context
 
 -- | A source output's form determines whether consumption releases a Store deposit.
-data Source = StoreBackedSource Coin | ImplicitSource Coin
+data Source = DepositBackedSource Coin | ImplicitSource Coin
   deriving (Eq, Show)
 
 -- | Optional TopTx source, followed by the sources consumed by each SubTx in order.
@@ -71,32 +71,32 @@ oneSubTxReleasingDepositIntoOwnOutput :: Gen SingleSourceScenario
 oneSubTxReleasingDepositIntoOwnOutput = Release.oneBodyReleasingDepositIntoOwnOutput
 
 -- | Several SubTxs release their deposits. Two to five children each consume a
--- distinct store-backed source; TopTx has no Store operations of its own. The fixture
+-- distinct deposit-backed source; TopTx has no Store operations of its own. The fixture
 -- creates only implicit ordinary outputs and proposes each child's local release.
 -- Repeated application amounts exercise equal declarations at distinct inputs.
 severalSubTxsReleasingDeposits :: Gen ReleaseScenario
 severalSubTxsReleasingDeposits = do
   childCount <- chooseInt (2, 5)
   amounts <- sourceAmounts childCount
-  pure $ ReleaseScenario Nothing $ map StoreBackedSource amounts
+  pure $ ReleaseScenario Nothing $ map DepositBackedSource amounts
 
 -- | Only some SubTxs release Store deposits. Among two to five children, mix at
--- least one store-backed and one implicit source, varying their positions. TopTx
+-- least one deposit-backed and one implicit source, varying their positions. TopTx
 -- has no Store operations; the fixture creates only implicit ordinary outputs, so
--- only children consuming store-backed outputs need a deposit declaration.
+-- only children consuming deposit-backed outputs need a deposit declaration.
 onlySomeSubTxsReleasingDeposits :: Gen ReleaseScenario
 onlySomeSubTxsReleasingDeposits = do
   childCount <- chooseInt (2, 5)
-  storeBackedCount <- chooseInt (1, childCount - 1)
+  depositBackedCount <- chooseInt (1, childCount - 1)
   amounts <- sourceAmounts childCount
   sources <-
     shuffle $
-      map StoreBackedSource (take storeBackedCount amounts)
-        <> map ImplicitSource (drop storeBackedCount amounts)
+      map DepositBackedSource (take depositBackedCount amounts)
+        <> map ImplicitSource (drop depositBackedCount amounts)
   pure $ ReleaseScenario Nothing sources
 
 -- | TopTx and several SubTxs release deposits. TopTx and each of two to five children
--- consume separate store-backed sources. The fixture creates only implicit ordinary
+-- consume separate deposit-backed sources. The fixture creates only implicit ordinary
 -- outputs: each body proposes its own local release, and TopTx declares their total.
 topTxAndSeveralSubTxsReleasingDeposits :: Gen ReleaseScenario
 topTxAndSeveralSubTxsReleasingDeposits = do
@@ -104,35 +104,35 @@ topTxAndSeveralSubTxsReleasingDeposits = do
   amount <- applicationAmount
   pure $ scenario {topTxSource = Just amount}
 
--- | One SubTx consumes and recreates a store-backed source with equal positive
+-- | One SubTx consumes and recreates a deposit-backed source with equal positive
 -- allocation and release. The zero-net fixture preserves the exact funded output
 -- and verifies both amounts from output pricing and the source's Store record.
 -- TopTx has no Store operations of its own.
 oneSubTxWithEqualAllocationsAndReleases :: Gen ReleaseScenario
 oneSubTxWithEqualAllocationsAndReleases = do
   amount <- applicationAmount
-  pure $ ReleaseScenario Nothing [StoreBackedSource amount]
+  pure $ ReleaseScenario Nothing [DepositBackedSource amount]
 
--- | Two to five SubTxs each consume and recreate their own store-backed source.
+-- | Two to five SubTxs each consume and recreate their own deposit-backed source.
 -- The zero-net fixture checks equal positive allocation and release separately
 -- for every child, including children with repeated application amounts.
 severalSubTxsWithEqualAllocationsAndReleases :: Gen ReleaseScenario
 severalSubTxsWithEqualAllocationsAndReleases = severalSubTxsReleasingDeposits
 
 -- | Mix active zero-net and inactive implicit-only children in varying positions.
--- Each active child consumes and recreates a store-backed source; each inactive
+-- Each active child consumes and recreates a deposit-backed source; each inactive
 -- child consumes and recreates an implicit source, allocating and releasing zero.
 onlySomeSubTxsWithEqualAllocationsAndReleases :: Gen ReleaseScenario
 onlySomeSubTxsWithEqualAllocationsAndReleases = onlySomeSubTxsReleasingDeposits
 
--- | TopTx and two to five SubTxs each consume and recreate a distinct store-backed
+-- | TopTx and two to five SubTxs each consume and recreate a distinct deposit-backed
 -- source. The zero-net fixture verifies positive equal allocation and release for
 -- TopTx's own operations and for every child's operations independently.
 topTxAndSubTxsWithEqualAllocationsAndReleases :: Gen ReleaseScenario
 topTxAndSubTxsWithEqualAllocationsAndReleases = topTxAndSeveralSubTxsReleasingDeposits
 
 sourceApplicationCoins :: Source -> Coin
-sourceApplicationCoins (StoreBackedSource amount) = amount
+sourceApplicationCoins (DepositBackedSource amount) = amount
 sourceApplicationCoins (ImplicitSource amount) = amount
 
 sourceAmounts :: Int -> Gen [Coin]
@@ -205,7 +205,7 @@ spendingInputs context =
 -- | Child-owned ordinary inputs with actual Store allocation records, retaining
 -- child order. Implicit inputs are excluded; declarations do not determine which
 -- children are active, so an absent declaration cannot conceal a recorded release.
-storeBackedInputs :: Context.ReleaseTx -> [TxIn]
-storeBackedInputs context =
+depositBackedInputs :: Context.ReleaseTx -> [TxIn]
+depositBackedInputs context =
   let records = recordedAmounts $ liveOutputStore $ TopTx.accountingState $ Context.ledgerState context
    in filter (`Map.member` records) $ spendingInputs context

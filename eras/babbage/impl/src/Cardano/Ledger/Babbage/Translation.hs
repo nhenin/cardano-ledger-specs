@@ -157,9 +157,9 @@ instance TranslateEra BabbageEra ShelleyInstantStake where
 instance TranslateEra BabbageEra IndexedUTxOs where
   translateEra _ = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
     where
-      translateOutput :: TxOut (PreviousEra BabbageEra) -> LegacyTxOut BabbageEra
+      translateOutput :: TxOut (PreviousEra BabbageEra) -> MinAdaTxOut BabbageEra
       translateOutput output = case upgradeTxOut output of
-        LegacyTxOut translated -> translated
+        MinAdaTxOut translated -> translated
 
 instance TranslateEra BabbageEra ShelleyGovState where
   translateEra ctxt ps =

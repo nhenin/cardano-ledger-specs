@@ -328,23 +328,23 @@ instance HasSpec DataHash32
 -- deposit. Keep their existing field representation under the outer wrapper.
 instance
   ( AtMostEra "Conway" era
-  , HasSimpleRep (LegacyTxOut era)
-  , Typeable (SimpleRep (LegacyTxOut era))
+  , HasSimpleRep (MinAdaTxOut era)
+  , Typeable (SimpleRep (MinAdaTxOut era))
   ) =>
   HasSimpleRep (TxOut era)
   where
-  type TheSop (TxOut era) = TheSop (LegacyTxOut era)
-  type SimpleRep (TxOut era) = SimpleRep (LegacyTxOut era)
-  toSimpleRep (LegacyTxOut implicitOutput) = toSimpleRep implicitOutput
-  toSimpleRep (NewTxOut _) = error "toSimpleRep: unexpected store-backed output in legacy specifications"
-  fromSimpleRep = LegacyTxOut . fromSimpleRep
+  type TheSop (TxOut era) = TheSop (MinAdaTxOut era)
+  type SimpleRep (TxOut era) = SimpleRep (MinAdaTxOut era)
+  toSimpleRep (MinAdaTxOut implicitOutput) = toSimpleRep implicitOutput
+  toSimpleRep (DepositBackedTxOut _) = error "toSimpleRep: unexpected deposit-backed output in legacy specifications"
+  fromSimpleRep = MinAdaTxOut . fromSimpleRep
 
 instance
   ( EraTxOut era
   , AtMostEra "Conway" era
   , GenericallyInstantiated (TxOut era)
-  , HasSimpleRep (LegacyTxOut era)
-  , HasSpec (SimpleRep (LegacyTxOut era))
+  , HasSimpleRep (MinAdaTxOut era)
+  , HasSpec (SimpleRep (MinAdaTxOut era))
   ) =>
   HasSpec (TxOut era)
 
@@ -1594,7 +1594,7 @@ instance HasSimpleRep (ConwayInstantStake era)
 instance Typeable era => HasSpec (ConwayInstantStake era)
 
 -- Shelley keeps stashed AVVM outputs in the same legacy representation. Both
--- supported eras have only legacy outputs; this must not erase Dijkstra history.
+-- supported eras have only min-ADA outputs; this must not erase Dijkstra history.
 instance HasSimpleRep (IndexedUTxOs ShelleyEra) where
   type TheSop (IndexedUTxOs ShelleyEra) = '["IndexedUTxOs" ::: '[Map TxIn (TxOut ShelleyEra)]]
   type SimpleRep (IndexedUTxOs ShelleyEra) = Map TxIn (TxOut ShelleyEra)

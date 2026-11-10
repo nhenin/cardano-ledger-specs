@@ -46,7 +46,7 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
         Map.keysSet translatedOutputs `shouldBe` Map.keysSet previousOutputs
         forM_ (Map.toList previousOutputs) $ \(input, previousOutput) ->
           case (previousOutput, Map.lookup input translatedOutputs) of
-            (LegacyTxOut previousImplicit, Just output@(LegacyTxOut implicit)) -> do
+            (MinAdaTxOut previousImplicit, Just output@(MinAdaTxOut implicit)) -> do
               output ^. addrTxOutL `shouldBe` previousOutput ^. addrTxOutL
               implicit ^. valueTxOutL `shouldBe` previousImplicit ^. valueTxOutL
               -- Compare datum semantics and script identity across their era types.
@@ -56,7 +56,7 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
             _ -> expectationFailure "Every translated Conway output must remain present and implicit"
         recordedAmounts (liveOutputStore accountingState) `shouldBe` Map.empty
         -- Translation activates the effective Dijkstra rate for future outputs;
-        -- imported legacy outputs resolve the initial fork formula through AtStoreMigration.
+        -- imported min-ADA outputs resolve the initial fork formula through AtStoreMigration.
         currentFormula (liveOutputStore accountingState)
           `shouldBe` DepositFormulaV1 (translatedState ^. nesEsL . curPParamsEpochStateL . ppCoinsPerUTxOByteL)
         initialFormula (depositFormulaHistory $ liveOutputStore accountingState)
@@ -66,13 +66,13 @@ spec = describe "DS-STATE-TRANSLATION - Translation" $
         let entries = allocations $ liveOutputStore accountingState
         IndexedUTxOs.inputIds entries `shouldBe` Map.keysSet translatedOutputs
         forM_ (IndexedUTxOs.unspentOutputs entries) $ \entry -> case Unspent.toTxOut entry of
-          LegacyTxOut _ -> do
+          MinAdaTxOut _ -> do
             -- Migration marks the retained output without inventing its original
             -- creation date. The initial formula needs no dated activation.
             allocatedAt entry `shouldBe` AtStoreMigration
             Unspent.computeExternalDeposit (depositFormulaHistory $ liveOutputStore accountingState) entry
               `shouldBe` Coin 0
-          NewTxOut _ -> expectationFailure "Every translated Conway output must remain a LegacyTxOut"
+          DepositBackedTxOut _ -> expectationFailure "Every translated Conway output must remain a MinAdaTxOut"
         toCoin (totalDepositAmount $ liveOutputStore accountingState)
           `shouldBe` expectedDepositTotal (liveOutputStore accountingState)
         -- Check each actual monetary pot, so a swapped or reset pot is visible.

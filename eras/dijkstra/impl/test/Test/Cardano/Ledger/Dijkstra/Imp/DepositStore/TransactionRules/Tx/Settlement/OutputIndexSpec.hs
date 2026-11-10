@@ -60,7 +60,7 @@ spec =
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-P01 - outputCoins ≥ requiredRelease ⇒ (indexValid(body, index) ⇔ 0 ≤ index < |ownOutputs(body)|)" $
       forAll Index.indexBoundaries $ \(count, gap) -> do
         address <- freshKeyAddrNoPtr_ :: ImpTestM DijkstraEra Addr
-        let outputs = SSeq.fromList $ replicate count $ mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 10_000_000
+        let outputs = SSeq.fromList $ replicate count $ mkBasicTxOutWithMinAda address $ inject $ Coin 10_000_000
             topBody = mkBasicTxBody & outputsTxBodyL .~ outputs :: TxBody TopTx DijkstraEra
             childBody = mkBasicTxBody & outputsTxBodyL .~ outputs :: TxBody SubTx DijkstraEra
         forM_ [0, max 0 (count - 1), count, count + gap] $ \position -> do

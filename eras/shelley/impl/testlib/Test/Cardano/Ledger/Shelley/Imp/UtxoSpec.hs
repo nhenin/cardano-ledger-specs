@@ -27,13 +27,13 @@ spec = describe "UTXO" $ do
       (_, rootTxOut) <- getImpRootTxOut
       let extra = Coin 3
           rootTxOutValue = case rootTxOut of
-            LegacyTxOut o -> o ^. valueTxOutL
-            NewTxOut _ ->
-              error "ValueNotConservedUTxO: unexpected NewTxOut for the root output"
+            MinAdaTxOut o -> o ^. valueTxOutL
+            DepositBackedTxOut _ ->
+              error "ValueNotConservedUTxO: unexpected DepositBackedTxOut for the root output"
           txBody =
             mkBasicTxBody
               & inputsTxBodyL .~ [txIn]
-              & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr2 mempty]
+              & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr2 mempty]
           adjustTxOut = \case
             Empty -> error "Unexpected empty sequence of outputs"
             txOut :<| outs -> (txOut & coinTxOutL %~ (<> extra)) :<| outs

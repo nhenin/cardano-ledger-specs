@@ -87,7 +87,7 @@ import Cardano.Ledger.Core (
   EraTx,
   EraTxAuxData,
   EraTxOut,
-  LegacyTxOut,
+  MinAdaTxOut,
   PParamsHKD,
   Script,
   TxCert,
@@ -336,12 +336,12 @@ instance Shaped Proof any where
 
 data TxOutWit era where
   TxOutShelleyToMary ::
-    (LegacyTxOut era ~ ShelleyTxOut era, EraTxOut era, AtMostEra "Babbage" era) => TxOutWit era
+    (MinAdaTxOut era ~ ShelleyTxOut era, EraTxOut era, AtMostEra "Babbage" era) => TxOutWit era
   TxOutAlonzoToAlonzo ::
-    (LegacyTxOut era ~ AlonzoTxOut era, AlonzoEraTxOut era, AtMostEra "Babbage" era) =>
+    (MinAdaTxOut era ~ AlonzoTxOut era, AlonzoEraTxOut era, AtMostEra "Babbage" era) =>
     TxOutWit era
   TxOutBabbageToConway ::
-    (LegacyTxOut era ~ BabbageTxOut era, BabbageEraTxOut era) => TxOutWit era
+    (MinAdaTxOut era ~ BabbageTxOut era, BabbageEraTxOut era) => TxOutWit era
 
 whichTxOut :: Proof era -> TxOutWit era
 whichTxOut Shelley = TxOutShelleyToMary

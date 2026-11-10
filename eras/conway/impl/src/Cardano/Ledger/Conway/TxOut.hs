@@ -43,32 +43,32 @@ import Lens.Micro
 import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 instance EraTxOut ConwayEra where
-  type LegacyTxOut ConwayEra = BabbageTxOut ConwayEra
-  type NewTxOut ConwayEra = NoNewTxOut ConwayEra
+  type MinAdaTxOut ConwayEra = BabbageTxOut ConwayEra
+  type DepositBackedTxOut ConwayEra = NoDepositBackedTxOut ConwayEra
 
-  upgradeTxOut (LegacyTxOut output) =
-    LegacyTxOut $ upgradeBabbageTxOut output
+  upgradeTxOut (MinAdaTxOut output) =
+    MinAdaTxOut $ upgradeBabbageTxOut output
 
   addrEitherTxOutL =
-    lens conwayTxOut (const LegacyTxOut) . addrEitherBabbageTxOutL
+    lens conwayTxOut (const MinAdaTxOut) . addrEitherBabbageTxOutL
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraLegacyTxOut ConwayEra where
-  mkBasicLegacyTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
+instance EraMinAdaTxOut ConwayEra where
+  mkBasicMinAdaTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
 
   valueEitherTxOutL = valueEitherBabbageTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinSizedTxOut = babbageMinUTxOValue
 
-instance EraNewTxOut ConwayEra where
-  mkBasicNewTxOut = notSupportedInThisEra
+instance EraDepositBackedTxOut ConwayEra where
+  mkBasicDepositBackedTxOut = notSupportedInThisEra
 
   applicationAssetsTxOutL _ unavailable = case unavailable of {}
 
 -- | Private: recover the historical representation from Conway's only supported variant.
 conwayTxOut :: TxOut ConwayEra -> BabbageTxOut ConwayEra
-conwayTxOut (LegacyTxOut output) = output
+conwayTxOut (MinAdaTxOut output) = output
 {-# INLINE conwayTxOut #-}
 
 -- The wrapper retains the historical instances and encodings without a variant tag.
@@ -90,27 +90,27 @@ instance EncCBOR (TxOut ConwayEra) where
   encCBOR = encCBOR . conwayTxOut
 
 instance DecCBOR (TxOut ConwayEra) where
-  decCBOR = LegacyTxOut <$> decCBOR
+  decCBOR = MinAdaTxOut <$> decCBOR
 
 instance DecShareCBOR (TxOut ConwayEra) where
   type Share (TxOut ConwayEra) = Interns (Credential Staking)
-  decShareCBOR = fmap LegacyTxOut . decShareCBOR
+  decShareCBOR = fmap MinAdaTxOut . decShareCBOR
 
 instance MemPack (TxOut ConwayEra) where
   packedByteCount = packedByteCount . conwayTxOut
   packM = packM . conwayTxOut
-  unpackM = LegacyTxOut <$> unpackM
+  unpackM = MinAdaTxOut <$> unpackM
 
 instance ToJSON (TxOut ConwayEra) where
   toJSON = toJSON . conwayTxOut
   toEncoding = toEncoding . conwayTxOut
 
 instance FromJSON (TxOut ConwayEra) where
-  parseJSON = fmap LegacyTxOut . parseJSON
+  parseJSON = fmap MinAdaTxOut . parseJSON
 
 instance AlonzoEraTxOut ConwayEra where
   dataHashTxOutL =
-    lens conwayTxOut (const LegacyTxOut) . dataHashBabbageTxOutL
+    lens conwayTxOut (const MinAdaTxOut) . dataHashBabbageTxOutL
   {-# INLINE dataHashTxOutL #-}
 
   datumTxOutF = to $ getDatumBabbageTxOut . conwayTxOut
@@ -118,15 +118,15 @@ instance AlonzoEraTxOut ConwayEra where
 
 instance BabbageEraTxOut ConwayEra where
   dataTxOutL =
-    lens conwayTxOut (const LegacyTxOut) . dataBabbageTxOutL
+    lens conwayTxOut (const MinAdaTxOut) . dataBabbageTxOutL
   {-# INLINE dataTxOutL #-}
 
   datumTxOutL =
-    lens conwayTxOut (const LegacyTxOut) . datumBabbageTxOutL
+    lens conwayTxOut (const MinAdaTxOut) . datumBabbageTxOutL
   {-# INLINE datumTxOutL #-}
 
   referenceScriptTxOutL =
-    lens conwayTxOut (const LegacyTxOut) . referenceScriptBabbageTxOutL
+    lens conwayTxOut (const MinAdaTxOut) . referenceScriptBabbageTxOutL
   {-# INLINE referenceScriptTxOutL #-}
 
 upgradeBabbageTxOut ::

@@ -37,7 +37,7 @@ spec = describe "DS-STATE-CONSERVATION - ADA conservation" $ do
   -- are also positive, so leaving out that separate pot cannot satisfy the oracle.
   prop "DS-STATE-CONSERVATION-N01 - ΣrecordedDeposits > 0 ⇒ totalAdaES + donations = actualAda" $
     forAll ((,)
-      <$> Collateral.scenarios [Collateral.StoreBacked] (Just Collateral.StoreBacked) Phase2Valid
+      <$> Collateral.scenarios [Collateral.DepositBacked] (Just Collateral.DepositBacked) Phase2Valid
       <*> chooseInteger (1, 1000000)) $ \(scenario, donation) -> do
         Fixture{signedTx} <- Collateral.buildAndSign scenario
         reserves <- getsNES reservesL

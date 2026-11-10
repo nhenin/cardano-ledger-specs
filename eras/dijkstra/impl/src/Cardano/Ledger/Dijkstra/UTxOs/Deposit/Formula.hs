@@ -29,8 +29,8 @@ import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Deposit as Deposit
 import Cardano.Ledger.TxOut (
   ApplicationAssets (..),
-  EraLegacyTxOut (..),
-  EraNewTxOut (..),
+  EraDepositBackedTxOut (..),
+  EraMinAdaTxOut (..),
   EraTxOut,
   TxOut (..),
   Value,
@@ -40,7 +40,7 @@ import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro ((^.))
 
 -- | Read the asset count, datum bytes and reference-script bytes, then apply
--- the shared formula. This amount is not yet capped by a legacy output's ADA.
+-- the shared formula. This amount is not yet capped by a min-ADA output's ADA.
 computeDeposit ::
   (BabbageEraTxOut era, Value era ~ MaryValue) =>
   DepositFormula ->
@@ -50,14 +50,14 @@ computeDeposit pricing output =
   Deposit.computeDeposit pricing (assetCount output) (datumBytes output) (referenceScriptBytes output)
 
 -- | Count identities (policy, asset name), not quantities or ADA. Compact
--- legacy values already retain this count, so they need not be decompressed.
+-- min-ADA output values already retain this count, so they need not be decompressed.
 assetCount :: (EraTxOut era, Value era ~ MaryValue) => TxOut era -> NativeAssetCount
 assetCount output = case output of
-  LegacyTxOut legacy -> case legacy ^. valueEitherTxOutL of
+  MinAdaTxOut minAda -> case minAda ^. valueEitherTxOutL of
     Left value -> countAssetNames value
     Right (CompactValue (CompactValueAdaOnly _)) -> NativeAssetCount 0
     Right (CompactValue (CompactValueMultiAsset _ count _)) -> NativeAssetCount $ fromIntegral count
-  NewTxOut new -> countAssetNames . unApplicationAssets $ new ^. applicationAssetsTxOutL
+  DepositBackedTxOut depositBacked -> countAssetNames . unApplicationAssets $ depositBacked ^. applicationAssetsTxOutL
 
 countAssetNames :: MaryValue -> NativeAssetCount
 countAssetNames (MaryValue _ (MultiAsset assets)) =

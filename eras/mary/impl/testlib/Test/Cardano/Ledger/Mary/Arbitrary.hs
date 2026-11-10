@@ -231,7 +231,7 @@ instance Arbitrary MaryValue where
     genMaryValue $ genMultiAsset $ toInteger <$> genPositiveInt
 
 instance Arbitrary (TxOut MaryEra) where
-  arbitrary = LegacyTxOut <$> arbitrary
+  arbitrary = MinAdaTxOut <$> arbitrary
 
 instance Arbitrary (CompactForm MaryValue) where
   arbitrary = toCompactMaryValue <$> arbitrary

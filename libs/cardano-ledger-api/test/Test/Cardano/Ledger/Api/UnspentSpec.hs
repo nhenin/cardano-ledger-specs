@@ -54,7 +54,7 @@ spec = describe "Unspent deposit formula" $ do
       history = mkDepositFormulaHistory pricing
 
   it "no dated changes ⇒ the explicit baseline prices every allocation" $ do
-    let output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 2_000_000)
+    let output = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 2_000_000)
     initialFormula history `shouldBe` pricing
     latestFormula history `shouldBe` pricing
     formulaAt allocationSlot history `shouldBe` pricing
@@ -68,9 +68,9 @@ spec = describe "Unspent deposit formula" $ do
 
   it "zero-priced baseline ⇒ zero reserve and unchanged application assets" $ do
     let zeroPricedHistory = mkDepositFormulaHistory $ DepositFormulaV1 $ CoinPerByte $ CompactCoin 0
-        legacy = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 2_000_000)
+        legacy = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 2_000_000)
         new =
-          mkBasicTxOutWithStoreBackedDeposit @DijkstraEra
+          mkBasicTxOutWithDeposit @DijkstraEra
             address
             (ApplicationAssets $ Val.inject $ Coin 2_000_000)
     forM_ [legacy, new] $ \output -> do
@@ -96,8 +96,8 @@ spec = describe "Unspent deposit formula" $ do
             $ \tokens -> do
               let assets = MaryValue (Coin 10_000_000) $ multiAssetFromList tokens
               forM_
-                [ mkBasicTxOutWithLegacyTxOut address assets
-                , mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets assets)
+                [ mkBasicTxOutWithMinAda address assets
+                , mkBasicTxOutWithDeposit address (ApplicationAssets assets)
                 ]
                 $ \output ->
                   forM_ datumCases $ \(datum, d) ->
@@ -116,8 +116,8 @@ spec = describe "Unspent deposit formula" $ do
         -- The existing V3 fixture contains 173 bytes (its hex starts 58ab).
         -- This expected count is independent of the production size accessor.
         forM_
-          [ mkBasicTxOutWithLegacyTxOut address (Val.inject $ Coin 10_000_000)
-          , mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets $ Val.inject $ Coin 10_000_000)
+          [ mkBasicTxOutWithMinAda address (Val.inject $ Coin 10_000_000)
+          , mkBasicTxOutWithDeposit address (ApplicationAssets $ Val.inject $ Coin 10_000_000)
           ]
           $ \output -> do
             let entry = Unspent (output & referenceScriptTxOutL .~ SJust (fromPlutusScript plutus)) AtStoreMigration
@@ -129,7 +129,7 @@ spec = describe "Unspent deposit formula" $ do
       let assets =
             MaryValue (Coin 10_000_000) $
               multiAssetFromList [(policy, AssetName "A", 10), (policy, AssetName "B", 1)]
-          output = mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets assets)
+          output = mkBasicTxOutWithDeposit @DijkstraEra address (ApplicationAssets assets)
           first = TxIn txId (TxIx 0)
           second = TxIn txId (TxIx 1)
           entries =
@@ -149,7 +149,7 @@ spec = describe "Unspent deposit formula" $ do
       Store.totalDepositAmount afterBoth `shouldBe` DepositAmount (Coin 0)
 
   prop
-    "new legacy output: minimum = V1(N,D,R), without capping by output ADA or pricing its supplied size"
+    "new min-ADA output: minimum = V1(N,D,R), without capping by output ADA or pricing its supplied size"
     $ \policy ->
       forAll
         ((,,) <$> chooseInteger (1, 10_000) <*> chooseInteger (0, 100) <*> choose (0, maxBound :: Int64))
@@ -160,7 +160,7 @@ spec = describe "Unspent deposit formula" $ do
                 MaryValue (Coin lovelace) $
                   multiAssetFromList [(policy, AssetName "A", 1), (policy, AssetName "B", 2)]
               legacy =
-                mkBasicLegacyTxOut @DijkstraEra address assets
+                mkBasicMinAdaTxOut @DijkstraEra address assets
                   & datumBabbageTxOutL .~ Datum inline
                   & referenceScriptBabbageTxOutL .~ SJust (fromNativeScript $ mkTimeStart @DijkstraEra $ SlotNo 0)
               -- N = 2, D = 4, R = 3: the required reserve is 405p, even with only 0–100 lovelace present.
@@ -171,7 +171,7 @@ spec = describe "Unspent deposit formula" $ do
   describe "Legacy: reserve = min(output ADA, calculated deposit)" $ do
     -- An ADA-only output needs 250 × 4310 lovelace. Only 1 ADA is available here.
     it "requiredDeposit > outputADA ⇒ reserve = outputADA ∧ applicationADA = 0" $ do
-      let output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 1_000_000)
+      let output = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 1_000_000)
           entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
       DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 1_000_000)
       DijkstraUnspent.computeApplicationAssets history entry
@@ -180,7 +180,7 @@ spec = describe "Unspent deposit formula" $ do
       Unspent.toTxOut entry `shouldBe` output
 
     it "requiredDeposit < outputADA ⇒ reserve = requiredDeposit ∧ applicationADA = outputADA − reserve" $ do
-      let output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 2_000_000)
+      let output = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 2_000_000)
           entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
       DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 1_077_500)
       DijkstraUnspent.computeApplicationAssets history entry
@@ -191,7 +191,7 @@ spec = describe "Unspent deposit formula" $ do
       forAll (arbitrary @(Value DijkstraEra)) $ \value ->
         forAll (choose (0, 3_000_000)) $ \lovelace -> do
           let originalValue = Val.modifyCoin (const $ Coin lovelace) value
-              output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address originalValue
+              output = mkBasicTxOutWithMinAda @DijkstraEra address originalValue
               entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
               reserve = min lovelace $ (250 + 74 * nativeAssetsIn originalValue) * 4310
           DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin reserve)
@@ -201,7 +201,7 @@ spec = describe "Unspent deposit formula" $ do
           Unspent.toTxOut entry `shouldBe` output
 
     it "outputADA = 0 ⇒ reserve = 0 ∧ applicationADA = 0" $ do
-      let output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 0)
+      let output = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 0)
           entry =
             Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
       DijkstraUnspent.computeDeposit history entry `shouldBe` DepositAmount (Coin 0)
@@ -209,7 +209,7 @@ spec = describe "Unspent deposit formula" $ do
         `shouldBe` (ApplicationAssets $ Val.inject $ Coin 0)
 
     prop "an embedded legacy reserve adds no separately held ADA to the Store" $ \txId -> do
-      let output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 2_000_000)
+      let output = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 2_000_000)
           entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
           store = Store.mkUTxOStore history $ IndexedUTxOs.singleton (TxIn txId $ TxIx 0) entry
       DijkstraUnspent.computeDeposit (Store.depositFormulaHistory store) entry
@@ -220,7 +220,7 @@ spec = describe "Unspent deposit formula" $ do
     prop "allocatedAt < activation ⇒ baseline price; allocatedAt ≥ activation ⇒ new price" $
       forAll (arbitrary @(Value DijkstraEra)) $ \value -> do
         let originalValue = Val.modifyCoin (const $ Coin 2_000_000) value
-            output = mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets originalValue)
+            output = mkBasicTxOutWithDeposit @DijkstraEra address (ApplicationAssets originalValue)
             baseline = mkDepositFormulaHistory $ DepositFormulaV1 $ CoinPerByte $ CompactCoin 3
             evolved =
               fromJust $
@@ -241,9 +241,9 @@ spec = describe "Unspent deposit formula" $ do
             DijkstraUnspent.computeApplicationAssets evolved entry `shouldBe` ApplicationAssets originalValue
 
   it "a dated allocation before the first change retains baseline pricing for either output form" $ do
-    let legacy = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 2_000_000)
+    let legacy = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 2_000_000)
         new =
-          mkBasicTxOutWithStoreBackedDeposit @DijkstraEra
+          mkBasicTxOutWithDeposit @DijkstraEra
             address
             (ApplicationAssets $ Val.inject $ Coin 2_000_000)
         evolved =
@@ -273,7 +273,7 @@ spec = describe "Unspent deposit formula" $ do
       Unspent.computeExternalDeposit evolved entry `shouldBe` Unspent.computeExternalDeposit history entry
 
   it "AtStoreMigration ⇒ baseline pricing remains effective after later activations" $ do
-    let output = mkBasicTxOutWithLegacyTxOut @DijkstraEra address (Val.inject $ Coin 2_000_000)
+    let output = mkBasicTxOutWithMinAda @DijkstraEra address (Val.inject $ Coin 2_000_000)
         entry = Unspent {Unspent.output = output, allocatedAt = AtStoreMigration}
         evolved =
           fromJust $

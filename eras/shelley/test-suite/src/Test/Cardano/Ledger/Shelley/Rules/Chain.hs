@@ -185,7 +185,7 @@ initialShelleyState ::
   ( EraGov era
   , EraStake era
   , EraCertState era
-  , EraNewTxOut era
+  , EraDepositBackedTxOut era
   , Default (StashedAVVMAddresses era)
   ) =>
   WithOrigin LastAppliedBlock ->

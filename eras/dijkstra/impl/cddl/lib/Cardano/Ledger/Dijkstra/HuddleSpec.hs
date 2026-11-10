@@ -966,7 +966,7 @@ instance HuddleRule "transaction_output" DijkstraEra where
   huddleRuleNamed pname p =
     comment
       [str| Implicit-deposit outputs retain the Alonzo and Babbage formats.
-          | Store-backed outputs use key 4 for application assets instead of key 1.
+          | Deposit-backed outputs use key 4 for application assets instead of key 1.
           |]
       $ pname
         =.= huddleRule @"alonzo_transaction_output" p

@@ -185,7 +185,7 @@ data DijkstraUtxoPredFailure era
       (Mismatch RelEQ (Value era))
   | -- | A SubTx declares a net UTxO capacity deposit change but TopTx does not.
     MissingTopTxUTxODepositDeclaration
-  | -- | This body creates or spends a store-backed output without its own UTxO deposit declaration.
+  | -- | This body creates or spends a deposit-backed output without its own UTxO deposit declaration.
     MissingUTxODepositDeclaration
   | DepositStoreFailure !DepositStore.DepositStoreAccountingFailure
   deriving (Generic)
@@ -465,7 +465,7 @@ dijkstraUtxoTransition = do
             postSubsPState
             txBody
 
-  -- Proposed legacy outputs, including the collateral return, contain the
+  -- Proposed min-ADA outputs, including the collateral return, contain the
   -- deposit priced by the active Store formula. Existing allocations keep theirs.
   let allOutputs = fmap sizedValue $ txBody ^. allSizedOutputsTxBodyF
   runTest $ validateMinimumCoin (Store.currentFormula previousUTxOStore) allOutputs

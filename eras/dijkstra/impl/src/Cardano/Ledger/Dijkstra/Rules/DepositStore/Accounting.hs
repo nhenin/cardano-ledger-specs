@@ -106,12 +106,12 @@ instance DecCBOR DepositStoreAccountingFailure where
     -- Tag 9 belonged to the removed independent-balance solvency failure.
     tag -> Invalid tag
 
--- | A new output allocates a deposit under the active formula. A legacy
--- output carries its reserve in its own ADA.
+-- | A deposit-backed output allocates a deposit under the active formula.
+-- A min-ADA output carries its reserve in its own ADA.
 requiredUTxODeposit :: EraTxOut era => DepositFormula -> TxOut era -> Coin
 requiredUTxODeposit formula output = case output of
-  LegacyTxOut _ -> mempty
-  NewTxOut newOutput -> getDepositNewTxOut formula newOutput
+  MinAdaTxOut _ -> mempty
+  DepositBackedTxOut depositBacked -> getDepositTxOut formula depositBacked
 
 -- | The body's own regular outputs only; collateral and nested bodies are
 -- accounted separately.

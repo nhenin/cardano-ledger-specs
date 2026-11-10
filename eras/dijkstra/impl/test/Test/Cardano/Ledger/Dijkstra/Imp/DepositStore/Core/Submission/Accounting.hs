@@ -91,8 +91,8 @@ fundAccountingScenario plan = do
     impGetUTxO (txInAt index funded) >>= (`shouldBe` source)
     Map.lookup (txInAt index funded) records
       `shouldBe` case source of
-        LegacyTxOut _ -> Nothing
-        NewTxOut _ -> Just Accounting.depositUnit
+        MinAdaTxOut _ -> Nothing
+        DepositBackedTxOut _ -> Just Accounting.depositUnit
   Pricing.allocatedDeposits (ledgerState context) tx
     `shouldBe` units (Accounting.allocatedDepositUnits $ Accounting.topOperations plan)
   Pricing.releasedDeposits (ledgerState context) tx
@@ -107,7 +107,7 @@ fundAccountingScenario plan = do
 units :: Int -> Coin
 units count = Coin $ toInteger count * 1_000_000
 
--- | One implicit funding input followed by the body's Store-backed sources.
+-- | One implicit funding input followed by the body's Deposit-backed sources.
 -- The translated variant uses the actual Conway-to-Dijkstra output conversion.
 sourcesForBody :: Addr -> Coin -> Accounting.BodyOperations -> [TxOut DijkstraEra]
 sourcesForBody address application operations =
@@ -118,11 +118,11 @@ sourcesForBody address application operations =
 implicitSource :: Addr -> Coin -> Bool -> TxOut DijkstraEra
 implicitSource address amount translated =
   if translated
-    then upgradeTxOut @DijkstraEra $ mkBasicTxOutWithLegacyTxOut @ConwayEra address $ inject amount
-    else mkBasicTxOutWithLegacyTxOut address $ inject amount
+    then upgradeTxOut @DijkstraEra $ mkBasicTxOutWithMinAda @ConwayEra address $ inject amount
+    else mkBasicTxOutWithMinAda address $ inject amount
 
 -- | Undeclared body with an implicit settlement output at index zero and the
--- requested Store-backed outputs. Signing later balances application ADA in output
+-- requested Deposit-backed outputs. Signing later balances application ADA in output
 -- zero according to the explicitly supplied local/delegated declaration.
 proposalBody :: Typeable l => Addr -> [TxIn] -> Accounting.BodyOperations -> Tx l DijkstraEra
 proposalBody address inputs operations =
@@ -130,7 +130,7 @@ proposalBody address inputs operations =
     & bodyTxL . inputsTxBodyL .~ Set.fromList inputs
     & bodyTxL . outputsTxBodyL
       .~ SSeq.fromList
-        ( mkBasicTxOutWithLegacyTxOut address (inject $ Coin 200_000_000)
+        ( mkBasicTxOutWithMinAda address (inject $ Coin 200_000_000)
             : replicate
               (Accounting.allocatedDepositUnits operations)
               ( unitDepositOutput address $
@@ -140,10 +140,10 @@ proposalBody address inputs operations =
 
 -- | An ADA-only output with no datum or reference script pays V1's base charge.
 unitDepositOutput :: Addr -> Coin -> TxOut DijkstraEra
-unitDepositOutput address = mkBasicTxOutWithStoreBackedDeposit address . ApplicationAssets . inject
+unitDepositOutput address = mkBasicTxOutWithDeposit address . ApplicationAssets . inject
 
 -- | Balance only child application ADA, then preserve the supplied declarations
--- and Store-backed outputs while ordinary fee fixup adds parent funding/witnesses.
+-- and Deposit-backed outputs while ordinary fee fixup adds parent funding/witnesses.
 -- NetChange cases use this to prepare funded controls. Balance rejection cases
 -- must introduce their imbalance after this preparation or use another builder.
 buildAndSignTx :: ReleaseTx -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)

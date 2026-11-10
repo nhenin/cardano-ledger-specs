@@ -40,7 +40,7 @@ bodyInputsAndOutputsSpec = describe "body inputs and outputs" $ do
   it "combines the TopTx body's outputs with already balanced child declarations" $ do
     let body =
           mkBasicTxBody
-            & outputsTxBodyL .~ SSeq.singleton Fixture.storeBackedOutput
+            & outputsTxBodyL .~ SSeq.singleton Fixture.depositBackedOutput
             & Fixture.withChildren [Fixture.localRelease]
     topNetBalance body `shouldBe` Right (TopTx.AllocateUTxODeposit $ Fixture.depositAmount 1070)
 
@@ -64,8 +64,8 @@ subTxSpec = describe "computeSubTxNetBalance" $ do
   it "returns explicit zero when the delegation choice has no amount to delegate" $
     subNetBalance DelegateDepositToTopTx Fixture.replacement
       `shouldBe` Right SubTx.SubTxNoUTxODepositChange
-  it "returns zero for a transfer between legacy outputs" $
-    subNetBalance Fixture.localSettlement Fixture.legacyTransfer
+  it "returns zero for a transfer between min-ADA outputs" $
+    subNetBalance Fixture.localSettlement Fixture.minAdaTransfer
       `shouldBe` Right SubTx.SubTxNoUTxODepositChange
   it "preserves the deposit when the application ADA in an output changes" $
     subNetBalance Fixture.localSettlement Fixture.changedOutput
@@ -136,7 +136,7 @@ ordinaryInputsAndOutputsSpec = describe "ordinary deposit operations" $ do
     topDeclarationAfterUpdate body
       `shouldBe` Right (TopTx.DeclaresNetUTxODepositAllocation $ Fixture.depositAmount 1820)
   it "excludes the deposit of a collateral return" $ do
-    let body = Fixture.parentAllocation & collateralReturnTxBodyL .~ SJust Fixture.storeBackedOutput
+    let body = Fixture.parentAllocation & collateralReturnTxBodyL .~ SJust Fixture.depositBackedOutput
     topDeclarationAfterUpdate body
       `shouldBe` Right (TopTx.DeclaresNetUTxODepositAllocation $ Fixture.depositAmount 1820)
 
@@ -218,21 +218,23 @@ newRefundOutputSpec = describe "refund settlement policy" $ do
       `shouldBe` Left (RefundOutputIndexOutOfRange 65536)
   it "deducts the new refund output's deposit from the TopTx release" $
     updateTopSettling
-      (TopTxRefundToNewOutput Fixture.storeBackedRefundOutput)
+      (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput)
       Fixture.parentMultipleRelease
       `shouldBe` Right
         ( Fixture.parentMultipleRelease
-            & Fixture.appendOutput Fixture.storeBackedRefundOutput
+            & Fixture.appendOutput Fixture.depositBackedRefundOutput
             & netUTxODepositChangeTxBodyL
               .~ TopTx.DeclaresNetUTxODepositRelease
                 (Fixture.depositAmount 750)
                 (TopTx.TopTxSettlementOutput Fixture.appendedRefundIndex)
         )
   it "deducts the new refund output's deposit from the SubTx release" $
-    updateSubBalance (SubTxRefundToNewOutput Fixture.storeBackedRefundOutput) Fixture.subMultipleRelease
+    updateSubBalance
+      (SubTxRefundToNewOutput Fixture.depositBackedRefundOutput)
+      Fixture.subMultipleRelease
       `shouldBe` Right
         ( Fixture.subMultipleRelease
-            & Fixture.appendOutput Fixture.storeBackedRefundOutput
+            & Fixture.appendOutput Fixture.depositBackedRefundOutput
             & subTxNetUTxODepositChangeTxBodyL
               .~ SubTx.DeclaresNetUTxODepositRelease
                 (Fixture.depositAmount 750)
@@ -240,26 +242,28 @@ newRefundOutputSpec = describe "refund settlement policy" $ do
         )
   it "rejects a refund output whose deposit exceeds the TopTx release" $
     topNetBalanceSettling
-      (TopTxRefundToNewOutput Fixture.storeBackedRefundOutput)
+      (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput)
       Fixture.delegatedReleaseBatch
       `shouldBe` Left (RefundOutputConsumesRelease (Coin 750) (Coin 1820))
   it "rejects a refund output whose deposit exceeds the SubTx release" $
-    subNetBalance (SubTxRefundToNewOutput Fixture.storeBackedRefundOutput) Fixture.historicalRelease
+    subNetBalance (SubTxRefundToNewOutput Fixture.depositBackedRefundOutput) Fixture.historicalRelease
       `shouldBe` Left (RefundOutputConsumesRelease (Coin 750) (Coin 1820))
   it "rejects a refund output whose deposit exactly consumes the TopTx release" $
-    topNetBalanceSettling (TopTxRefundToNewOutput Fixture.storeBackedRefundOutput) Fixture.parentRelease
+    topNetBalanceSettling
+      (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput)
+      Fixture.parentRelease
       `shouldBe` Left (RefundOutputConsumesRelease (Coin 1820) (Coin 1820))
   it "rejects a refund output whose deposit exactly consumes the SubTx release" $
-    subNetBalance (SubTxRefundToNewOutput Fixture.storeBackedRefundOutput) Fixture.currentRelease
+    subNetBalance (SubTxRefundToNewOutput Fixture.depositBackedRefundOutput) Fixture.currentRelease
       `shouldBe` Left (RefundOutputConsumesRelease (Coin 1820) (Coin 1820))
   it "limits the new output's deposit by the batch release when it is smaller than the parent's share" $
     topNetBalanceSettling
-      (TopTxRefundToNewOutput Fixture.storeBackedRefundOutput)
+      (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput)
       Fixture.settlementLargerThanBatch
       `shouldBe` Left (RefundOutputConsumesRelease (Coin 750) (Coin 1820))
   it "limits the new output's deposit by the parent's share when it is smaller than the batch release" $ do
     let body = Fixture.parentRelease & Fixture.withChildren [Fixture.localRelease]
-    topNetBalanceSettling (TopTxRefundToNewOutput Fixture.storeBackedRefundOutput) body
+    topNetBalanceSettling (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput) body
       `shouldBe` Left (RefundOutputConsumesRelease (Coin 1820) (Coin 1820))
   it "keeps TopTx outputs unchanged when the computed result is an allocation" $
     updateTopSettling (TopTxRefundToNewOutput Fixture.refundOutput) Fixture.parentAllocation
@@ -361,11 +365,11 @@ topUpTopTxSpec = describe "optional TopTx top-up input" $ do
         )
   it "uses the attributed TopTx share even when the batch total is a release" $
     updateTopWithCandidate
-      (TopUpFromInput Fixture.legacyInput)
+      (TopUpFromInput Fixture.minAdaInput)
       Fixture.locallyReleasedBatchWithParentAllocation
       `shouldBe` Right
         ( Fixture.locallyReleasedBatchWithParentAllocation
-            & Fixture.withInput Fixture.legacyInput
+            & Fixture.withInput Fixture.minAdaInput
             & netUTxODepositChangeTxBodyL
               .~ TopTx.DeclaresNetUTxODepositRelease (Fixture.depositAmount 750) TopTx.NoTopTxSettlement
         )
@@ -387,11 +391,11 @@ topUpTopTxSpec = describe "optional TopTx top-up input" $ do
       `shouldBe` updateTopBalance Fixture.parentAllocation
   it "rejects a selected top-up input already consumed by a SubTx" $ do
     let body = mkBasicTxBody & Fixture.withChildren [Fixture.delegatedAllocation]
-    updateTopWithCandidate (TopUpFromInput Fixture.legacyInput) body
-      `shouldBe` Left (TopUpInputUsedBySubTx Fixture.legacyInput)
+    updateTopWithCandidate (TopUpFromInput Fixture.minAdaInput) body
+      `shouldBe` Left (TopUpInputUsedBySubTx Fixture.minAdaInput)
   it "ignores a child's input when TopTx has no allocation to fund" $ do
     let body = mkBasicTxBody & Fixture.withChildren [Fixture.localAllocation]
-    updateTopWithCandidate (TopUpFromInput Fixture.legacyInput) body
+    updateTopWithCandidate (TopUpFromInput Fixture.minAdaInput) body
       `shouldBe` Right
         ( body
             & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1820)
@@ -466,7 +470,7 @@ topUpSubTxSpec = describe "optional SubTx top-up input" $ do
       `shouldBe` Left (UnresolvedTopUpInput Fixture.missingInput)
   it "counts a candidate already in the SubTx inputs once" $
     updateSubWithCandidate
-      (TopUpFromInput Fixture.legacyInput)
+      (TopUpFromInput Fixture.minAdaInput)
       Fixture.localSettlement
       Fixture.allocation
       `shouldBe` Right Fixture.localAllocation
@@ -506,7 +510,7 @@ ledgerAccountingSpec = describe "ledger accounting integration" $ do
     body <-
       expectRight $
         updateTopSettling
-          (TopTxRefundToNewOutput Fixture.storeBackedRefundOutput)
+          (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput)
           Fixture.parentMultipleRelease
     validateOrdinaryDepositStore (mkUTxOStore Fixture.history Fixture.resolvedInputs) body
       `shouldBe` pure ()

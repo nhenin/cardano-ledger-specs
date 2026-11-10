@@ -85,7 +85,7 @@ storeOutput :: Gen (TxOut DijkstraEra)
 storeOutput = do
   address <- arbitrary
   amount <- Coin <$> chooseInteger (0, toInteger (maxBound :: Word64))
-  pure $ mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
+  pure $ mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject amount
 
 -- | Replace the output's definite map with an equivalent indefinite map in the
 -- actual encoded body. The closing break adds one accepted byte. Check that the

@@ -53,7 +53,7 @@ instance
   ToExpr (BabbageTxOut era)
 
 instance ToExpr (TxOut BabbageEra) where
-  toExpr (LegacyTxOut output) = App "LegacyTxOut" [toExpr output]
+  toExpr (MinAdaTxOut output) = App "MinAdaTxOut" [toExpr output]
 
 -- TxBody
 instance ToExpr (BabbageTxBodyRaw TopTx BabbageEra) where

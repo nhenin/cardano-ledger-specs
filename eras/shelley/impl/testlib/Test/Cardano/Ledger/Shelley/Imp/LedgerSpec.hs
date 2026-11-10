@@ -28,7 +28,7 @@ spec = describe "LEDGER" $ do
         mkBasicTxBody
           & outputsTxBodyL @era
             .~ SSeq.singleton
-              (mkBasicTxOutWithLegacyTxOut addr1 $ inject coin1)
+              (mkBasicTxOutWithMinAda addr1 $ inject coin1)
     out1 <- impGetUTxO $ txInAt 0 tx1
     out1 ^. coinTxOutL `shouldBe` coin1
     addr2 <- freshKeyAddr_
@@ -40,6 +40,6 @@ spec = describe "LEDGER" $ do
             .~ Set.singleton
               (txInAt 0 tx1)
           & outputsTxBodyL @era
-            .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut addr2 $ inject coin2)
+            .~ SSeq.singleton (mkBasicTxOutWithMinAda addr2 $ inject coin2)
     out2 <- impGetUTxO $ txInAt 0 tx2
     out2 ^. coinTxOutL `shouldBe` coin2

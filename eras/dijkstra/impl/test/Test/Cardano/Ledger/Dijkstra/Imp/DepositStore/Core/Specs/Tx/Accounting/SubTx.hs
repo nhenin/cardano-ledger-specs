@@ -106,7 +106,7 @@ releaseWithAnotherBodyAllocation = do
     then scenario (bodyOperations allocations 0) [bodyOperations 0 releases]
     else scenario (bodyOperations 0 0) [bodyOperations 0 releases, bodyOperations allocations 0]
 
--- | Exactly one created store-backed output has empty application assets.
+-- | Exactly one created deposit-backed output has empty application assets.
 -- Its address and encoded form still require a positive deposit.
 outputWithoutApplicationAssets :: Gen AccountingScenario
 outputWithoutApplicationAssets =

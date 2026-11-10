@@ -29,7 +29,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   removeTopTxReleaseDeclaration,
   ordinarySpendingInputs,
   createdOrdinaryOutputs,
-  buildTxSpendingStoreBackedOutput,
+  buildTxSpendingDepositBackedOutput,
   fundReleaseScenario,
   checkPreservedReleaseFixture,
   ordinaryOutputInput,
@@ -178,7 +178,7 @@ forAllSubTxReleaseTx scenarios check =
 -- | Fund one or several SubTx sources, then recreate each body's exact source
 -- outputs so its application ADA and output size stay unchanged. Verify equal
 -- positive priced allocations and recorded releases independently for every
--- store-backed body, and zero allocations/releases for every implicit-only body.
+-- deposit-backed body, and zero allocations/releases for every implicit-only body.
 -- TopTx and all children remain undeclared for the calling specification.
 forAllSubTxZeroNetChangeTx ::
   Gen Children.ReleaseScenario ->
@@ -213,7 +213,7 @@ forAllSubTxZeroNetChangeTx scenarios check =
     forM_ childOperations $ \(source, allocated, released) -> do
       allocated `shouldBe` released
       case source of
-        Children.StoreBackedSource _ -> do
+        Children.DepositBackedSource _ -> do
           _ <- expectJust $ mkStrictlyPositiveCoin released
           pure ()
         Children.ImplicitSource _ -> (allocated, released) `shouldBe` (Coin 0, Coin 0)
@@ -387,9 +387,9 @@ fundSubTxReleaseScenario scenario = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 4_310)
   address <- freshKeyAddrNoPtr_
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  let ownSources = map Children.StoreBackedSource $ maybeToList $ Children.topTxSource scenario
+  let ownSources = map Children.DepositBackedSource $ maybeToList $ Children.topTxSource scenario
       childSources = Children.subTxSources scenario
-      sources = ownSources <> childSources <> [Children.StoreBackedSource $ Coin 11_000_000]
+      sources = ownSources <> childSources <> [Children.DepositBackedSource $ Coin 11_000_000]
       outputs = map (sourceOutput address) sources
       allocation = foldMap (Standalone.outputDeposit pp) outputs
       fundingTx =
@@ -406,7 +406,7 @@ fundSubTxReleaseScenario scenario = do
       childDeposits = map (recordedInputDeposit allocationRecords) childInputs
       children = zipWith3 (subTxSettlingItsSource address) childSources childInputs childDeposits
       ownOutputs =
-        [ mkBasicTxOutWithLegacyTxOut address $ inject $ amount <> ownDeposit
+        [ mkBasicTxOutWithMinAda address $ inject $ amount <> ownDeposit
         | amount <- maybeToList $ Children.topTxSource scenario
         ]
       tx =
@@ -443,10 +443,10 @@ fundSubTxReleaseScenario scenario = do
   pure $ Context.ReleaseTx (Standalone.LedgerState after pp) tx
 
 sourceOutput :: Addr -> Children.Source -> TxOut DijkstraEra
-sourceOutput address (Children.StoreBackedSource amount) =
-  mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
+sourceOutput address (Children.DepositBackedSource amount) =
+  mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject amount
 sourceOutput address (Children.ImplicitSource amount) =
-  mkBasicTxOutWithLegacyTxOut address $ inject amount
+  mkBasicTxOutWithMinAda address $ inject amount
 
 recordedInputDeposit :: Map.Map TxIn Coin -> TxIn -> Coin
 recordedInputDeposit records input = Map.findWithDefault mempty input records
@@ -460,7 +460,7 @@ subTxSettlingItsSource address source input deposit =
   subTxWithDepositDeclaration input SubTx.NoUTxODepositDeclaration
     & bodyTxL . outputsTxBodyL
       .~ SSeq.singleton
-        (mkBasicTxOutWithLegacyTxOut address $ inject $ Children.sourceApplicationCoins source <> deposit)
+        (mkBasicTxOutWithMinAda address $ inject $ Children.sourceApplicationCoins source <> deposit)
 
 -- | Additional ordinary inputs across TopTx and every SubTx may fund fees, but
 -- cannot introduce a Store release absent from the original release scenario.
@@ -482,11 +482,11 @@ removeSubTxReleaseDeclarationByInput input tx = do
   changed <- traverseSubTxs (removeSubTxReleaseDeclaration input) tx
   rederiveAddrTxWits changed
 
--- | The body that owns the store-backed ordinary spending input.
+-- | The body that owns the deposit-backed ordinary spending input.
 data ReleaseBody = TopTxReleasing | SubTxReleasing
   deriving (Eq, Show)
 
--- | A live store-backed input and the unsubmitted transaction that spends it.
+-- | A live deposit-backed input and the unsubmitted transaction that spends it.
 -- Funding has already been submitted; no capacity allocation is invented or
 -- injected into the ledger state.
 data ReleaseFixture = ReleaseFixture
@@ -572,9 +572,9 @@ readAccountingState = getsNES $ nesEsL . esLStateL . lsAccountingStateL
 -- | Allocate the source deposit by a real funding transaction, then consume the
 -- output into an implicit settlement output containing application ADA plus the
 -- entire recorded deposit. TopTx and local SubTx settlement use their own index 0.
-buildTxSpendingStoreBackedOutput :: ReleaseBody -> ImpTestM DijkstraEra ReleaseFixture
-buildTxSpendingStoreBackedOutput owner = do
-  (ledgerState, topTx) <- fundSingleStoreBackedInput
+buildTxSpendingDepositBackedOutput :: ReleaseBody -> ImpTestM DijkstraEra ReleaseFixture
+buildTxSpendingDepositBackedOutput owner = do
+  (ledgerState, topTx) <- fundSingleDepositBackedInput
   input <- expectJust $ Set.lookupMin (topTx ^. bodyTxL . inputsTxBodyL)
   let deposit@(Coin amount) = Standalone.releasedDeposits ledgerState topTx
       positiveDeposit = positiveAmount amount
@@ -591,12 +591,12 @@ buildTxSpendingStoreBackedOutput owner = do
                   .~ TopTx.DeclaresNetUTxODepositRelease positiveDeposit TopTx.NoTopTxSettlement
   pure $ ReleaseFixture owner input deposit spending
 
--- | Establish a live 10 ADA store-backed source and an unrelated 11 ADA source.
+-- | Establish a live 10 ADA deposit-backed source and an unrelated 11 ADA source.
 -- Return the ledger snapshot and an unsigned, undeclared proposal with an implicit
 -- output containing the consumed source's application ADA plus its recorded deposit.
-fundSingleStoreBackedInput ::
+fundSingleDepositBackedInput ::
   ImpTestM DijkstraEra (Standalone.LedgerState, Tx TopTx DijkstraEra)
-fundSingleStoreBackedInput =
+fundSingleDepositBackedInput =
   fundReleaseScenario $
     Standalone.ReleaseScenario [Coin 10_000_000] [Coin 11_000_000] Standalone.ImplicitOutputs []
 
@@ -614,11 +614,11 @@ preparePhase2InvalidReleaseTx tx = do
       & bodyTxL . collateralInputsTxBodyL .~ Set.singleton collateralInput
       & bodyTxL . totalCollateralTxBodyL .~ SJust (Coin 5_000_000)
       & bodyTxL . collateralReturnTxBodyL
-        .~ SJust (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 5_000_000)
+        .~ SJust (mkBasicTxOutWithMinAda address $ inject $ Coin 5_000_000)
 
 -- | Check that preparation has preserved the release scenario: the input is
--- still live and store-backed, belongs only to the intended ordinary body, and
--- cannot be masked by store-backed created outputs. Fixup may add funding inputs,
+-- still live and deposit-backed, belongs only to the intended ordinary body, and
+-- cannot be masked by deposit-backed created outputs. Fixup may add funding inputs,
 -- implicit TopTx change and disjoint collateral, but may not move the source input
 -- or alter supplied declarations, outputs or recorded deposits. Added ordinary
 -- inputs must be implicit and have no Store allocation. Call before submission.
@@ -732,20 +732,20 @@ buildAndSignCollateralOnlyTx scenario declarations = do
       . (ppCollateralPercentageL .~ 150)
   address <- freshKeyAddrNoPtr_
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  let inputHasStoreDeposit = Release.collateralStoreOperations scenario /= Release.StoreBackedReturnOnly
-      returnHasStoreDeposit = Release.collateralStoreOperations scenario /= Release.StoreBackedInputOnly
+  let inputHasStoreDeposit = Release.collateralStoreOperations scenario /= Release.DepositBackedReturnOnly
+      returnHasStoreDeposit = Release.collateralStoreOperations scenario /= Release.DepositBackedInputOnly
       inputOutput =
         sourceOutput address $
           if inputHasStoreDeposit
-            then Children.StoreBackedSource $ Release.collateralInputCoins scenario
+            then Children.DepositBackedSource $ Release.collateralInputCoins scenario
             else Children.ImplicitSource $ Release.collateralInputCoins scenario
       returnOutput =
         sourceOutput address $
           if returnHasStoreDeposit
-            then Children.StoreBackedSource $ Release.collateralReturnCoins scenario
+            then Children.DepositBackedSource $ Release.collateralReturnCoins scenario
             else Children.ImplicitSource $ Release.collateralReturnCoins scenario
       preparationReturn =
-        mkBasicTxOutWithLegacyTxOut address $ inject $ Release.collateralReturnCoins scenario
+        mkBasicTxOutWithMinAda address $ inject $ Release.collateralReturnCoins scenario
       allocation = Standalone.outputDeposit pp inputOutput
   fundingTx <-
     ImpTest.submitTx $

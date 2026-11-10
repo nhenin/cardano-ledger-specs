@@ -9,7 +9,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement.Ou
   Form (..),
   Scenario (..),
   implicitRelease,
-  storeBackedRelease,
+  depositBackedRelease,
   anyRelease,
   smallerTopTxShare,
   largerTopTxShare,
@@ -60,9 +60,9 @@ import Validation (Validation)
 -- | Owner of the selected ordinary output; every scenario has at most one child.
 data Body = TopTxBody | SubTxBody deriving (Eq, Show)
 
--- | Application ADA is read identically from either output form. A Store-backed
+-- | Application ADA is read identically from either output form. A Deposit-backed
 -- output also creates an external deposit that cannot satisfy its application bound.
-data Form = Implicit | StoreBacked deriving (Eq, Show)
+data Form = Implicit | DepositBacked deriving (Eq, Show)
 
 -- | Operation counts determine exact required deposits independently of declarations.
 data Scenario = Scenario
@@ -77,21 +77,21 @@ data Scenario = Scenario
 implicitRelease :: Gen Scenario
 implicitRelease = release Implicit
 
--- | Either body creates one Store-backed output while consuming more recorded
+-- | Either body creates one Deposit-backed output while consuming more recorded
 -- deposits. Output one is selected; output zero remains implicit funding/change.
-storeBackedRelease :: Gen Scenario
-storeBackedRelease = release StoreBacked
+depositBackedRelease :: Gen Scenario
+depositBackedRelease = release DepositBacked
 
 -- | Both body levels and both destination variants participate in generated cases.
 anyRelease :: Gen Scenario
-anyRelease = elements [Implicit, StoreBacked] >>= release
+anyRelease = elements [Implicit, DepositBacked] >>= release
 
 -- | Two to four ADA are released net. Independent funding varies transaction ids.
 release :: Form -> Gen Scenario
 release outputForm = do
   owner <- elements [TopTxBody, SubTxBody]
   released <- chooseInt (3, 5)
-  let allocated = if outputForm == StoreBacked then 1 else 0
+  let allocated = if outputForm == DepositBacked then 1 else 0
       releasing = Accounting.bodyOperations allocated released
   plan <- case owner of
     TopTxBody -> Accounting.scenario releasing []

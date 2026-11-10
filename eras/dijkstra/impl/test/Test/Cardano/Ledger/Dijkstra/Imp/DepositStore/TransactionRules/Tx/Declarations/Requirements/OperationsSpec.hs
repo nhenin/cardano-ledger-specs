@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeApplications #-}
 
 -- | Declaration presence for Store operations proposed by each body.
--- Allocation creates deposit records for new store-backed outputs; release removes
--- records for consumed store-backed outputs. Both may occur in one transaction.
+-- Allocation creates deposit records for new deposit-backed outputs; release removes
+-- records for consumed deposit-backed outputs. Both may occur in one transaction.
 -- These are gross operations: netDepositChange = allocatedDeposits - releasedDeposits.
--- Presence depends on store-backed output form, including when its priced amount is zero.
+-- Presence depends on deposit-backed output form, including when its priced amount is zero.
 --
 -- Contract: for accepted transactions on either phase-2 outcome, inspect each
 -- body's hypothetical ordinary inputs and outputs. Presence requires its own
@@ -45,7 +45,7 @@ spec = describe
       $ forAll Operations.independentBodyOperations
       $ \scenario ->
         -- Zero price makes every exact amount zero, but never removes an output's
-        -- store-backed form. Each body independently allocates, releases, does both,
+        -- deposit-backed form. Each body independently allocates, releases, does both,
         -- or does neither. Ordinary success and actual phase-2 failure run for
         -- every scenario; the failure path includes a genuinely failing script.
         forM_ [Phase2Valid, Phase2Invalid] $ \phase2 -> do

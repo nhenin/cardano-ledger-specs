@@ -32,7 +32,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       shelleyTxIn <- sendCoinTo shelleyAddr mempty
       entries <- getIndexedUTxOs
       let
-        byronTxOut = mkBasicTxOutWithLegacyTxOut byronAddr . inject $ Coin 1
+        byronTxOut = mkBasicTxOutWithMinAda byronAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
         tx =
           mkBasicTx @AlonzoEra mkBasicTxBody
@@ -52,7 +52,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       byronTxIn <- sendCoinTo byronAddr mempty
       entries <- getIndexedUTxOs
       let
-        shelleyTxOut = mkBasicTxOutWithLegacyTxOut shelleyAddr . inject $ Coin 1
+        shelleyTxOut = mkBasicTxOutWithMinAda shelleyAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
         tx =
           mkBasicTx @AlonzoEra mkBasicTxBody

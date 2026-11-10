@@ -48,8 +48,8 @@ expectedAllocationDeposit history allocation =
 
 -- | Count distinct assets and measure the stored payloads for an external deposit.
 expectedOutputDeposit :: DepositFormula -> TxOut DijkstraEra -> Coin
-expectedOutputDeposit _ (LegacyTxOut _) = Coin 0
-expectedOutputDeposit pricing output@(NewTxOut newOutput) =
+expectedOutputDeposit _ (MinAdaTxOut _) = Coin 0
+expectedOutputDeposit pricing output@(DepositBackedTxOut newOutput) =
   Coin $ toInteger price * (base + perAsset * assetCount + datumBytes + scriptBytes)
   where
     (CoinPerByte (CompactCoin price), base, perAsset) = case pricing of
@@ -64,15 +64,15 @@ expectedOutputDeposit pricing output@(NewTxOut newOutput) =
     scriptBytes = strictMaybe 0 (toInteger . BS.length . originalBytes) (output ^. referenceScriptTxOutL)
 
 -- | Independent test observation of external deposits. Legacy entries contribute
--- no external record; a zero-priced Store-backed allocation remains present.
+-- no external record; a zero-priced Deposit-backed allocation remains present.
 -- This map is never installed as ledger state or passed to production accounting.
 recordedAmounts :: UTxOStore DijkstraEra -> Map.Map TxIn Coin
 recordedAmounts store =
   unIndexedUTxOs (allocations store)
     & Map.mapMaybe
       ( \allocation -> case Unspent.toTxOut allocation of
-          LegacyTxOut _ -> Nothing
-          NewTxOut _ -> Just $ expectedAllocationDeposit (depositFormulaHistory store) allocation
+          MinAdaTxOut _ -> Nothing
+          DepositBackedTxOut _ -> Just $ expectedAllocationDeposit (depositFormulaHistory store) allocation
       )
 
 storedDepositTotal :: UTxOStore DijkstraEra -> Coin
@@ -95,8 +95,8 @@ retainsCreationMetadata ::
 retainsCreationMetadata input rate state = do
   entry <- expectJust $ lookupUTxO input $ allocations $ liveOutputStore state
   case Unspent.toTxOut entry of
-    LegacyTxOut _ -> expectationFailure "Expected a Store-backed allocation with creation metadata"
-    NewTxOut _ -> case allocatedAt entry of
+    MinAdaTxOut _ -> expectationFailure "Expected a Deposit-backed allocation with creation metadata"
+    DepositBackedTxOut _ -> case allocatedAt entry of
       AtStoreMigration -> expectationFailure "A newly accepted output must record its actual allocation slot"
       AtSlot slot ->
         formulaAt slot (depositFormulaHistory $ liveOutputStore state)

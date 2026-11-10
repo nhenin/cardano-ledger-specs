@@ -176,7 +176,7 @@ addConwayBasedTxFeatures tx =
       )
     & bodyTxL . outputsTxBodyL
       <>~ StrictSeq.fromList
-        [ mkBasicTxOutWithLegacyTxOut
+        [ mkBasicTxOutWithMinAda
             (mkAddr examplePayKey exampleStakeKey)
             (exampleMultiAssetValue 2)
             & datumTxOutL .~ Datum (dataToBinaryData exampleDatum)

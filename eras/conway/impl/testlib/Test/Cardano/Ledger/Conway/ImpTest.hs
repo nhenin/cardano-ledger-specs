@@ -528,7 +528,7 @@ delegateToDRep cred stake dRep = do
   submitTxAnn_ "Delegate to DRep" $
     mkBasicTx mkBasicTxBody
       & bodyTxL . outputsTxBodyL
-        .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut (mkAddr spendingKP cred) (inject stake))
+        .~ SSeq.singleton (mkBasicTxOutWithMinAda (mkAddr spendingKP cred) (inject stake))
       & bodyTxL . certsTxBodyL
         .~ SSeq.fromList [DelegTxCert cred (DelegVote dRep)]
   pure spendingKP

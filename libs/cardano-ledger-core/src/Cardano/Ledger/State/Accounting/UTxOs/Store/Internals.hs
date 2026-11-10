@@ -51,7 +51,7 @@ import Cardano.Ledger.State.Accounting.UTxOs.Unspent (
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.TxOut (EraNewTxOut, EraTxOut (..), TxOut (..))
+import Cardano.Ledger.TxOut (EraDepositBackedTxOut, EraTxOut (..), TxOut (..))
 import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs)
 import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Cardano.Ledger.Val ((<->))
@@ -140,7 +140,7 @@ allocate slot proposedOutputs previousStore =
   IndexedUTxOs.fromList
     [ ( input
       , case (isBeforeDijkstra @era, sizedValue output) of
-          (True, LegacyTxOut legacy) -> Unspent.fromLegacyTxOut legacy
+          (True, MinAdaTxOut legacy) -> Unspent.fromMinAdaTxOut legacy
           (_, txOut) -> Unspent {Unspent.output = txOut, allocatedAt = AtSlot slot}
       )
     | (input, output) <- IndexedTxOs.toList proposedOutputs
@@ -159,7 +159,7 @@ allocate slot proposedOutputs previousStore =
 
 -- | Remove the selected allocations and subtract their historical deposits.
 -- Inputs absent from the Store have no effect; retained entries are unchanged.
-release :: EraNewTxOut era => Set TxIn -> UTxOStore era -> UTxOStore era
+release :: EraDepositBackedTxOut era => Set TxIn -> UTxOStore era -> UTxOStore era
 release inputs previousStore =
   allocations previousStore
     & IndexedUTxOs.extractInputs inputs

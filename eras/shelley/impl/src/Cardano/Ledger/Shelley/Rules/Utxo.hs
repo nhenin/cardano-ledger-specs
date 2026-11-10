@@ -441,7 +441,7 @@ utxoInductive = do
   runTest $
     validateImplicitDeposits
       pp
-      [implicitOutput | LegacyTxOut implicitOutput <- toList outputs]
+      [implicitOutput | MinAdaTxOut implicitOutput <- toList outputs]
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
   runTest $ validateOutputBootAddrAttrsTooBig outputs
@@ -575,9 +575,9 @@ validateValueNotConservedUTxO pp inputAllocations certState txBody =
 
 -- | Ensure an implicit-deposit output has at least @minUTxOValue@.
 validateImplicitDeposit ::
-  EraLegacyTxOut era =>
+  EraMinAdaTxOut era =>
   PParams era ->
-  LegacyTxOut era ->
+  MinAdaTxOut era ->
   Test (ShelleyUtxoPredFailure era)
 validateImplicitDeposit pp =
   validateImplicitDeposits pp . (: [])
@@ -586,12 +586,12 @@ validateImplicitDeposit pp =
 --
 -- > ∀(_ → (_, c)) ∈ txouts txb, c ≥ (minUTxOValue pp)
 validateImplicitDeposits ::
-  (EraLegacyTxOut era, Foldable f) =>
+  (EraMinAdaTxOut era, Foldable f) =>
   PParams era ->
-  f (LegacyTxOut era) ->
+  f (MinAdaTxOut era) ->
   Test (ShelleyUtxoPredFailure era)
 validateImplicitDeposits pp outputs =
-  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap LegacyTxOut)
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap MinAdaTxOut)
   where
     -- minUTxOValue deposit comparison done as Coin because this rule is correct
     -- strictly in the Shelley era (in ShelleyMA we additionally check that all

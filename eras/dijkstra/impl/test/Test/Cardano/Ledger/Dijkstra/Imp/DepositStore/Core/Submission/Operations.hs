@@ -37,7 +37,7 @@ import Test.Cardano.Ledger.Imp.Common (forM_, shouldBe)
 -- | Create every source through a real ledger transaction. Parent and children
 -- each own one distinct source and return its application ADA to their own output.
 -- All declarations remain absent for the spec. The zero price is deliberate:
--- store-backed forms still require a declaration despite zero recorded amounts.
+-- deposit-backed forms still require a declaration despite zero recorded amounts.
 fundOperations :: Operations.OperationsScenario -> ImpTestM DijkstraEra ReleaseTx
 fundOperations scenario = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 0)
@@ -68,8 +68,8 @@ fundOperations scenario = do
     impGetUTxO input >>= (`shouldBe` source)
     Map.lookup input (recordedAmounts $ liveOutputStore state)
       `shouldBe` case source of
-        NewTxOut _ -> Just (Coin 0)
-        LegacyTxOut _ -> Nothing
+        DepositBackedTxOut _ -> Just (Coin 0)
+        MinAdaTxOut _ -> Nothing
   pure $ ReleaseTx (LedgerState state parameters) proposal
 
 -- | Construct one undeclared body retaining its source's application ADA. Its

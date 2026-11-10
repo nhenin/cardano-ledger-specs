@@ -3,7 +3,7 @@
 -- | Rules for declaring UTxO capacity deposit changes across TopTx and SubTx.
 -- Allocation and release concern proposed ordinary-path Store operations before
 -- netting: a body may require both, including when their net change is zero.
--- Presence follows the 'NewTxOut' form, even when its deposit amount is
+-- Presence follows the 'DepositBackedTxOut' form, even when its deposit amount is
 -- zero. These checks establish neither amount exactness nor ledger acceptance.
 -- They apply on both phase-2 paths; ordinary Store effects require phase-2 success.
 -- Ledger predicate failures are assigned by the calling transition rule.
@@ -47,26 +47,26 @@ data DepositStoreOutputDeclarationFailure
   deriving (Eq, Show)
 
 -- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION: require TopTx's declaration for allocations
--- proposed by its own regular store-backed outputs. SubTx outputs and collateral
+-- proposed by its own regular deposit-backed outputs. SubTx outputs and collateral
 -- return are outside this check. Released deposits do not remove this requirement.
 validateTopTxAllocationDeclarationPresence ::
   DijkstraEraTxBody era =>
   TxBody TopTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateTopTxAllocationDeclarationPresence txBody =
-  validateStoreBackedOutputsDeclaration
+  validateDepositBackedOutputsDeclaration
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
 -- | DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION: require SubTx's own declaration for
--- allocations proposed by its regular store-backed outputs. A TopTx declaration
+-- allocations proposed by its regular deposit-backed outputs. A TopTx declaration
 -- cannot substitute for it, even if the SubTx's net change is zero.
 validateSubTxAllocationDeclarationPresence ::
   DijkstraEraTxBody era =>
   TxBody SubTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateSubTxAllocationDeclarationPresence txBody =
-  validateStoreBackedOutputsDeclaration
+  validateDepositBackedOutputsDeclaration
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
     (txBody ^. outputsTxBodyL)
 
@@ -80,7 +80,7 @@ validateTopTxReleaseDeclarationPresence ::
   TxBody TopTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateTopTxReleaseDeclarationPresence originalAllocations txBody =
-  validateStoreBackedOutputsDeclaration
+  validateDepositBackedOutputsDeclaration
     (TopTx.hasUTxODepositDeclaration $ txBody ^. netUTxODepositChangeTxBodyL)
     (IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
 
@@ -93,25 +93,25 @@ validateSubTxReleaseDeclarationPresence ::
   TxBody SubTx era ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
 validateSubTxReleaseDeclarationPresence originalAllocations txBody =
-  validateStoreBackedOutputsDeclaration
+  validateDepositBackedOutputsDeclaration
     (SubTx.hasUTxODepositDeclaration $ txBody ^. subTxNetUTxODepositChangeTxBodyL)
     (IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ originalAllocations)
 
 -- | Shared structural presence check over proposed outputs or resolved inputs.
--- Any store-backed output requires a declaration, regardless of deposit amount.
-validateStoreBackedOutputsDeclaration ::
+-- Any deposit-backed output requires a declaration, regardless of deposit amount.
+validateDepositBackedOutputsDeclaration ::
   Foldable f =>
   Bool ->
   f (TxOut era) ->
   Validation (NonEmpty DepositStoreOutputDeclarationFailure) ()
-validateStoreBackedOutputsDeclaration hasDeclaration outputs =
+validateDepositBackedOutputsDeclaration hasDeclaration outputs =
   failureUnless
-    (hasDeclaration || not (any isStoreBackedOutput outputs))
+    (hasDeclaration || not (any isDepositBackedOutput outputs))
     MissingBodyUTxODepositDeclaration
 
-isStoreBackedOutput :: TxOut era -> Bool
-isStoreBackedOutput (LegacyTxOut _) = False
-isStoreBackedOutput (NewTxOut _) = True
+isDepositBackedOutput :: TxOut era -> Bool
+isDepositBackedOutput (MinAdaTxOut _) = False
+isDepositBackedOutput (DepositBackedTxOut _) = True
 
 -- | Whether a SubTx explicitly declares a net UTxO capacity deposit change,
 -- including zero.

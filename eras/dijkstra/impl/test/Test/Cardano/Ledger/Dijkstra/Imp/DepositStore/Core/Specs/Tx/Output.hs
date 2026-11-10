@@ -2,12 +2,12 @@
 {-# LANGUAGE NumericUnderscores #-}
 
 -- | Output descriptions and transaction bodies for presence specifications.
--- Store-backed variants do not imply funded capacity deposits.
+-- Deposit-backed variants do not imply funded capacity deposits.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (
   OutputVariant (..),
   CreatedOutputs (..),
   TxOutputs (..),
-  storeBackedOutputCases,
+  depositBackedOutputCases,
   implicitOutputCases,
   topTxBody,
   subTxBody,
@@ -33,7 +33,7 @@ import Test.Cardano.Ledger.Common (Gen, arbitrary, chooseInt, elements, vectorOf
 import Test.Cardano.Ledger.Core.Arbitrary ()
 
 -- | The output constructor relevant to declaration presence.
-data OutputVariant = ImplicitOutput | StoreBackedOutput
+data OutputVariant = ImplicitOutput | DepositBackedOutput
   deriving (Eq, Show)
 
 -- | One address and an ordered sequence of own-output variants.
@@ -52,23 +52,23 @@ data TxOutputs
       [(SubTx.SubTxUTxODepositDeclaration, [OutputVariant])]
   deriving (Show)
 
--- | Every sample includes a single store-backed output at each position among
--- implicit outputs, an entirely store-backed sequence, and a random mixture
--- containing at least one store-backed output. Vary the address and length.
-storeBackedOutputCases :: Gen [CreatedOutputs]
-storeBackedOutputCases = do
+-- | Every sample includes a single deposit-backed output at each position among
+-- implicit outputs, an entirely deposit-backed sequence, and a random mixture
+-- containing at least one deposit-backed output. Vary the address and length.
+depositBackedOutputCases :: Gen [CreatedOutputs]
+depositBackedOutputCases = do
   address <- arbitrary
   count <- chooseInt (1, 5)
-  mixture <- vectorOf count $ elements [ImplicitOutput, StoreBackedOutput]
+  mixture <- vectorOf count $ elements [ImplicitOutput, DepositBackedOutput]
   pure $
     [ CreatedOutputs address $
         replicate position ImplicitOutput
-          <> [StoreBackedOutput]
+          <> [DepositBackedOutput]
           <> replicate (count - position - 1) ImplicitOutput
     | position <- [0 .. count - 1]
     ]
-      <> [ CreatedOutputs address (replicate count StoreBackedOutput)
-         , CreatedOutputs address (StoreBackedOutput : mixture)
+      <> [ CreatedOutputs address (replicate count DepositBackedOutput)
+         , CreatedOutputs address (DepositBackedOutput : mixture)
          ]
 
 -- | Cover empty output sequences as well as nonempty implicit-only sequences.
@@ -104,12 +104,12 @@ topTxBodyWithNestedOutputs ownOutputs nestedOutputs =
     & subTransactionsTxBodyL
       .~ OMap.fromFoldable [mkBasicTx $ subTxBody nestedOutputs SubTx.DeclaresZeroNetUTxODeposit]
 
--- | Place a store-backed output only in collateral return, outside ordinary created outputs.
+-- | Place a deposit-backed output only in collateral return, outside ordinary created outputs.
 topTxBodyWithCollateralReturn :: Addr -> TxBody TopTx DijkstraEra
 topTxBodyWithCollateralReturn address =
   mkBasicTxBody
     & collateralReturnTxBodyL
-      .~ SJust (outputAtAddress address StoreBackedOutput)
+      .~ SJust (outputAtAddress address DepositBackedOutput)
 
 -- | Input identifiers alone are not created outputs. Resolution and the rules
 -- governing spent, referenced, or collateral UTxOs remain separate work.
@@ -125,14 +125,14 @@ topTxBodyWithReferenceAndCollateralInputs input =
 createdOutputs :: CreatedOutputs -> [TxOut DijkstraEra]
 createdOutputs (CreatedOutputs address variants) = map (outputAtAddress address) variants
 
--- | Give implicit outputs ordinary ADA; store-backed outputs carry empty application assets.
+-- | Give implicit outputs ordinary ADA; deposit-backed outputs carry empty application assets.
 outputAtAddress :: Addr -> OutputVariant -> TxOut DijkstraEra
 outputAtAddress address ImplicitOutput =
-  mkBasicTxOutWithLegacyTxOut address $ inject (Coin 2_000_000)
-outputAtAddress address StoreBackedOutput =
-  mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets mempty
+  mkBasicTxOutWithMinAda address $ inject (Coin 2_000_000)
+outputAtAddress address DepositBackedOutput =
+  mkBasicTxOutWithDeposit address $ ApplicationAssets mempty
 
 -- | Recognize change outputs that do not introduce Store operations.
 isImplicitOutput :: TxOut DijkstraEra -> Bool
-isImplicitOutput (LegacyTxOut _) = True
-isImplicitOutput (NewTxOut _) = False
+isImplicitOutput (MinAdaTxOut _) = True
+isImplicitOutput (DepositBackedTxOut _) = False

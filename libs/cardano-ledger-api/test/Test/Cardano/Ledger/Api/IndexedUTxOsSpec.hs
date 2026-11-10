@@ -72,8 +72,8 @@ spec = describe "IndexedUTxOs metadata" $ do
   prop "wallet queries and selections preserve outputs and allocation slots" $ \txId -> do
     let address1 = mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1)
         address2 = mkAddr (mkKeyHash @Payment 2) (KeyHashObj $ mkKeyHash @Staking 2)
-        output1 = mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address1 (ApplicationAssets . inject $ Coin 4)
-        output2 = mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address2 (ApplicationAssets . inject $ Coin 9)
+        output1 = mkBasicTxOutWithDeposit @DijkstraEra address1 (ApplicationAssets . inject $ Coin 4)
+        output2 = mkBasicTxOutWithDeposit @DijkstraEra address2 (ApplicationAssets . inject $ Coin 9)
         entry1 = Unspent output1 (AtSlot $ SlotNo 10)
         entry2 = Unspent output2 (AtSlot $ SlotNo 20)
         input1 = TxIn txId (TxIx 0)
@@ -165,7 +165,7 @@ spec = describe "IndexedUTxOs metadata" $ do
       let stakingCredential = KeyHashObj $ mkKeyHash @Staking 1
           address = mkAddr (mkKeyHash @Payment 1) stakingCredential
           outputWithCoins coins =
-            mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
+            mkBasicTxOutWithDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
           historicalFormula = DepositFormulaV1 $ CoinPerByte $ CompactCoin 3
           activeFormula = DepositFormulaV2 $ CoinPerByte $ CompactCoin 13
           history =
@@ -218,7 +218,7 @@ spec = describe "IndexedUTxOs metadata" $ do
     $ \sourceId -> do
       let address = mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1)
           outputWithCoins coins =
-            mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
+            mkBasicTxOutWithDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
           historicalFormula = DepositFormulaV1 $ CoinPerByte $ CompactCoin 3
           activeFormula = DepositFormulaV2 $ CoinPerByte $ CompactCoin 13
           history =
@@ -360,7 +360,7 @@ legacyAllocationSpec = describe (eraName @era) $ do
         Store.allocations restoredWithDefault `shouldBe` Store.allocations store
         Store.totalDepositAmount restoredWithDefault `shouldBe` DepositAmount {toCoin = Coin 0}
 
-  prop "accounting projection reports the legacy output and migration origin regardless of wire size" $ \(output :: TxOut era) ->
+  prop "accounting projection reports the min-ADA output and migration origin regardless of wire size" $ \(output :: TxOut era) ->
     forAll (choose (1, 1000)) $ \extraBytes -> do
       let canonical = mkSized (eraProtVerLow @era) output
           supplied = canonical {sizedSize = sizedSize canonical + extraBytes}

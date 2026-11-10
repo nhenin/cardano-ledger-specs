@@ -63,13 +63,13 @@ import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 import Test.Cardano.Ledger.Plutus.Examples (alwaysFailsWithDatum, alwaysSucceedsWithDatum)
 
 -- | The existing output DSL, used independently for each input and the return.
-data OutputForm = Implicit | StoreBacked
+data OutputForm = Implicit | DepositBacked
   deriving (Eq, Show)
 
 -- | Shape and script outcome are selected explicitly by each specification.
 -- Prices, payload sizes, application coins and token quantities can vary without
 -- changing that shape. Equal asset counts and payload sizes at the same rate
--- give equal Store-backed deposits.
+-- give equal Deposit-backed deposits.
 data Scenario = Scenario
   { inputForms :: [OutputForm]
   , returnForm :: Maybe OutputForm
@@ -116,7 +116,7 @@ scenarios forms returned validity = do
 -- from the recorded deposit rather than repricing the input at the current price.
 fundingScenarios :: Gen [Scenario]
 fundingScenarios = do
-  generated <- scenarios [StoreBacked] (Just StoreBacked) Phase2Invalid
+  generated <- scenarios [DepositBacked] (Just DepositBacked) Phase2Invalid
   let bytes = sourceBytes generated
       price = bytePrice generated
   pure
@@ -129,15 +129,15 @@ fundingScenarios = do
         , sourceBytePrice = priceAtAllocation
         }
     | (forms, returned, sourceSize, returnedSize, priceAtAllocation) <-
-        [ ([Implicit], Just StoreBacked, bytes, bytes, price)
-        , ([StoreBacked], Just StoreBacked, bytes, bytes, price)
-        , ([StoreBacked], Just StoreBacked, bytes, bytes + 32, price)
-        , ([StoreBacked], Just StoreBacked, bytes + 32, bytes, price)
-        , ([StoreBacked], Just Implicit, bytes, bytes, price)
-        , ([Implicit, StoreBacked], Just StoreBacked, bytes, bytes, price)
-        , ([StoreBacked, StoreBacked], Nothing, bytes, bytes, price)
-        , ([Implicit, StoreBacked], Nothing, bytes, bytes, price)
-        , ([StoreBacked], Just StoreBacked, bytes, bytes, 2 * price)
+        [ ([Implicit], Just DepositBacked, bytes, bytes, price)
+        , ([DepositBacked], Just DepositBacked, bytes, bytes, price)
+        , ([DepositBacked], Just DepositBacked, bytes, bytes + 32, price)
+        , ([DepositBacked], Just DepositBacked, bytes + 32, bytes, price)
+        , ([DepositBacked], Just Implicit, bytes, bytes, price)
+        , ([Implicit, DepositBacked], Just DepositBacked, bytes, bytes, price)
+        , ([DepositBacked, DepositBacked], Nothing, bytes, bytes, price)
+        , ([Implicit, DepositBacked], Nothing, bytes, bytes, price)
+        , ([DepositBacked], Just DepositBacked, bytes, bytes, 2 * price)
         ]
     , validity <- [Phase2Valid, Phase2Invalid]
     ]
@@ -157,7 +157,7 @@ ordinaryDeclarationCases = do
 -- originate in accepted minting.
 assetScenarios :: Gen [Scenario]
 assetScenarios = do
-  generated <- scenarios [StoreBacked] (Just StoreBacked) Phase2Invalid
+  generated <- scenarios [DepositBacked] (Just DepositBacked) Phase2Invalid
   quantity <- chooseInteger (1, 1_000)
   pure
     [ generated
@@ -166,9 +166,9 @@ assetScenarios = do
         , phase2 = validity
         , tokenQuantity = quantity
         }
-    | forms <- [[Implicit], [StoreBacked], [Implicit, StoreBacked]]
-    , returned <- [Implicit, StoreBacked]
-    , StoreBacked `elem` forms || returned == StoreBacked
+    | forms <- [[Implicit], [DepositBacked], [Implicit, DepositBacked]]
+    , returned <- [Implicit, DepositBacked]
+    , DepositBacked `elem` forms || returned == DepositBacked
     , validity <- [Phase2Valid, Phase2Invalid]
     ]
 
@@ -185,7 +185,7 @@ additionalAsset (MultiAsset policies) =
 -- | Fund every selected input plus one unrelated Store output. Mint any generated
 -- tokens in that accepted transaction. An actual V4 script establishes the chosen
 -- phase-2 path; ordinary fixup uses a temporary implicit return because its legacy
--- helper does not understand Store-backed returns. Install the requested return
+-- helper does not understand Deposit-backed returns. Install the requested return
 -- afterwards and re-sign without repairing collateral funding. Source outputs
 -- retain their recorded deposits if the current byte price changes after funding.
 buildAndSign :: Scenario -> ImpTestM DijkstraEra Fixture
@@ -204,7 +204,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
         [ output form address (sourceBytes scenario) $ MaryValue inputCoinsPerOutput assets
         | form <- inputForms
         ]
-      unrelatedOutput = output StoreBacked address (sourceBytes scenario) $ inject inputCoinsPerOutput
+      unrelatedOutput = output DepositBacked address (sourceBytes scenario) $ inject inputCoinsPerOutput
       allOutputs = sourceOutputs <> [unrelatedOutput]
       totalAssets = foldMap (const assets) inputForms
       sourceAllocation = foldMap (Pricing.outputDeposit sourceParameters) allOutputs
@@ -228,7 +228,7 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
           returnForm
       preparationReturn =
         fmap
-          (\returned -> mkBasicTxOutWithLegacyTxOut address $ inject $ returned ^. coinTxOutL)
+          (\returned -> mkBasicTxOutWithMinAda address $ inject $ returned ^. coinTxOutL)
           finalReturn
   scriptInput <- produceScript . hashPlutusScript $ case phase2 of
     Phase2Valid -> alwaysSucceedsWithDatum SPlutusV4
@@ -273,8 +273,8 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
 output :: OutputForm -> Addr -> Int -> MaryValue -> TxOut DijkstraEra
 output form address bytes value =
   ( case form of
-      Implicit -> mkBasicTxOutWithLegacyTxOut address value
-      StoreBacked -> mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets value
+      Implicit -> mkBasicTxOutWithMinAda address value
+      DepositBacked -> mkBasicTxOutWithDeposit address $ ApplicationAssets value
   )
     & datumTxOutL .~ mkInlineDatum (Plutus.B $ BS.replicate bytes 0)
 
@@ -301,8 +301,8 @@ withReturnAssets assets fixture = do
   returned <- expectJust $ strictMaybeToMaybe $ signedTx fixture ^. bodyTxL . collateralReturnTxBodyL
   let value = MaryValue (returned ^. coinTxOutL) assets
       changed = case returned of
-        LegacyTxOut implicit -> LegacyTxOut $ implicit & valueTxOutL .~ value
-        NewTxOut stored -> NewTxOut $ stored & applicationAssetsTxOutL .~ ApplicationAssets value
+        MinAdaTxOut implicit -> MinAdaTxOut $ implicit & valueTxOutL .~ value
+        DepositBackedTxOut stored -> DepositBackedTxOut $ stored & applicationAssetsTxOutL .~ ApplicationAssets value
   installReturn (SJust changed) fixture
 
 -- | Remove the return entirely while keeping the collateral inputs and script.

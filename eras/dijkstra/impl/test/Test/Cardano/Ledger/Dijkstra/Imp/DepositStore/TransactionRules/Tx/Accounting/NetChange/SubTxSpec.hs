@@ -287,7 +287,7 @@ spec =
 
     -- Released deposits, only implicit outputs.
     -- Implicit outputs require no new Store allocation, so the declaration releases the complete recorded input deposit.
-    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N05 - releasedDeposits(subTx) > 0 ∧ storeBackedOutputs(subTx) = ∅ ∧ declaredNetDeposit(subTx) = -releasedDeposits(subTx) ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N05 - releasedDeposits(subTx) > 0 ∧ depositBackedOutputs(subTx) = ∅ ∧ declaredNetDeposit(subTx) = -releasedDeposits(subTx) ⇒ accepted" $
       forAll Cases.onlyImplicitOutputs $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin released = foldMap id $ SubTx.releasedDeposits proposal
@@ -339,7 +339,7 @@ spec =
 
     -- An output without application assets still requires a deposit.
     -- The output still has an address and encoding overhead. Use positive pricing and declare the exact allocation.
-    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N07 - storeBackedOutputs(subTx) = {output} ∧ applicationAssets(output) = ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N07 - depositBackedOutputs(subTx) = {output} ∧ applicationAssets(output) = ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
       forAll Cases.outputWithoutApplicationAssets $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -351,7 +351,7 @@ spec =
 
     -- A translated implicit input funds an exact allocation.
     -- The live input was translated from the previous era into an implicit output. Its coins fund new Store obligations, but it releases no Store deposit.
-    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ storeBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ depositBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
       forAll Cases.translatedImplicitInput $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal
@@ -363,7 +363,7 @@ spec =
 
     -- A translated implicit input does not excuse an inexact allocation.
     -- Use the N08 allocation scenario, changing only the positive SubTx declaration to a different representable amount.
-    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ storeBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ allocatedDeposits(subTx) > 0 ∧ declaredNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) ≠ allocatedDeposits(subTx) ⇒ rejectedWith(InexactSubTxDepositChange)" $
+    prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-F08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ depositBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ allocatedDeposits(subTx) > 0 ∧ declaredNetDeposit(subTx) > 0 ∧ declaredNetDeposit(subTx) ≠ allocatedDeposits(subTx) ⇒ rejectedWith(InexactSubTxDepositChange)" $
       forAll Cases.translatedImplicitInput $ \scenario -> do
         proposal <- fundAccountingScenario scenario
         let Coin required = TopTx.netDeposit proposal

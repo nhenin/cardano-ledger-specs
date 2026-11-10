@@ -81,7 +81,7 @@ data DepositFormula
 -- V1: @p * (250 + 74*N + D + R)@.
 -- V2: @p * (260 + 80*N + D + R)@, for the formula-evolution experiment.
 -- Natural and Integer arithmetic preserves the amount without machine overflow.
--- Legacy reserve capping belongs to the output query, not to the formula.
+-- Min-ADA reserve capping belongs to the output query, not to the formula.
 computeDeposit ::
   DepositFormula ->
   NativeAssetCount ->

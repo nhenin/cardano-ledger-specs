@@ -18,7 +18,7 @@ module Cardano.Ledger.State.Accounting.UTxOs.Unspent (
   allocationFormula,
   computeExternalDeposit,
   encodeWith,
-  fromLegacyTxOut,
+  fromMinAdaTxOut,
 ) where
 
 import Cardano.Ledger.BaseTypes (SlotNo)
@@ -40,8 +40,8 @@ import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
   formulaAt,
  )
 import Cardano.Ledger.TxOut (
-  EraNewTxOut (..),
-  EraTxOut (LegacyTxOut),
+  EraDepositBackedTxOut (..),
+  EraTxOut (MinAdaTxOut),
   TxOut (..),
  )
 import Control.DeepSeq (NFData)
@@ -67,19 +67,20 @@ data Unspent output = Unspent
 -- | Import an output whose legacy encoding contains neither a creation slot
 -- nor pricing metadata. The migration marker resolves the initial Store formula;
 -- earlier-era payload codecs continue to contain no new metadata.
-fromLegacyTxOut :: LegacyTxOut era -> Unspent (TxOut era)
-fromLegacyTxOut txOut = Unspent (LegacyTxOut txOut) AtStoreMigration
+fromMinAdaTxOut :: MinAdaTxOut era -> Unspent (TxOut era)
+fromMinAdaTxOut txOut = Unspent (MinAdaTxOut txOut) AtStoreMigration
 
 toTxOut :: Unspent (TxOut era) -> TxOut era
 toTxOut = output
 
--- | The contribution to the separately held Store total. A legacy reserve is
+-- | The contribution to the separately held Store total. A min-ADA reserve is
 -- already included in its output and must never be credited a second time.
--- Only eras supporting new outputs implement their deposit formula.
-computeExternalDeposit :: EraNewTxOut era => DepositFormulaHistory -> Unspent (TxOut era) -> Coin
+-- Only eras supporting deposit-backed outputs implement their deposit formula.
+computeExternalDeposit ::
+  EraDepositBackedTxOut era => DepositFormulaHistory -> Unspent (TxOut era) -> Coin
 computeExternalDeposit history (Unspent txOut origin) = case txOut of
-  LegacyTxOut _ -> mempty
-  NewTxOut newOutput -> getDepositNewTxOut (allocationFormula history origin) newOutput
+  MinAdaTxOut _ -> mempty
+  DepositBackedTxOut depositBacked -> getDepositTxOut (allocationFormula history origin) depositBacked
 
 -- | Resolve the migration baseline or the interval containing a dated allocation.
 allocationFormula :: DepositFormulaHistory -> AllocatedAt -> DepositFormula

@@ -163,9 +163,9 @@ instance TranslateEra MaryEra TxOut where
 instance TranslateEra MaryEra IndexedUTxOs where
   translateEra ctxt = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
     where
-      translateOutput :: TxOut (PreviousEra MaryEra) -> LegacyTxOut MaryEra
+      translateOutput :: TxOut (PreviousEra MaryEra) -> MinAdaTxOut MaryEra
       translateOutput output = case translateEra' ctxt output of
-        LegacyTxOut translated -> translated
+        MinAdaTxOut translated -> translated
 
 instance TranslateEra MaryEra ShelleyTxWits where
   type TranslationError MaryEra ShelleyTxWits = DecoderError

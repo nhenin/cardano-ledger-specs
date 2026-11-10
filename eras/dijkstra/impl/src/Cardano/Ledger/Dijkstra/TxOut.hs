@@ -11,10 +11,10 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
--- | Dijkstra's implicit-deposit and store-backed output representations and accessors.
+-- | Dijkstra's min-ADA and deposit-backed output representations and accessors.
 module Cardano.Ledger.Dijkstra.TxOut (
-  -- * Store-backed outputs
-  DijkstraNewTxOut,
+  -- * Deposit-backed outputs
+  DijkstraDepositBackedTxOut,
 ) where
 
 import Cardano.Base.Typeable (TypeName (TypeName))
@@ -60,8 +60,8 @@ import Cardano.Ledger.Compactible (Compactible (..), toCompactPartial)
 import Cardano.Ledger.Conway.TxBody (upgradeBabbageTxOut)
 import Cardano.Ledger.Core (
   ApplicationAssets (..),
-  EraLegacyTxOut (..),
-  EraNewTxOut (..),
+  EraDepositBackedTxOut (..),
+  EraMinAdaTxOut (..),
   EraTxOut (..),
   Script,
   TxOut (..),
@@ -89,23 +89,23 @@ import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 -- | Application assets and their spending conditions, without a capacity deposit.
 -- The constructor and fields are private; use the era's constructors and accessors.
-data DijkstraNewTxOut = DijkstraNewTxOut
-  { storeBackedAddress :: !Addr
-  , storeBackedApplicationAssets :: !(ApplicationAssets DijkstraEra)
-  , storeBackedDatum :: !(Datum DijkstraEra)
-  , storeBackedReferenceScript :: !(StrictMaybe (Script DijkstraEra))
+data DijkstraDepositBackedTxOut = DijkstraDepositBackedTxOut
+  { depositBackedAddress :: !Addr
+  , depositBackedApplicationAssets :: !(ApplicationAssets DijkstraEra)
+  , depositBackedDatum :: !(Datum DijkstraEra)
+  , depositBackedReferenceScript :: !(StrictMaybe (Script DijkstraEra))
   }
   deriving stock (Eq, Ord, Show)
 
-instance NFData DijkstraNewTxOut where
+instance NFData DijkstraDepositBackedTxOut where
   -- Datum contains only a strict hash or compact bytes, already in normal form.
-  rnf (DijkstraNewTxOut address assets datum script) =
+  rnf (DijkstraDepositBackedTxOut address assets datum script) =
     rnf address `seq` rnf assets `seq` rwhnf datum `seq` rnf script
 
 deriving via
-  InspectHeapNamed "DijkstraNewTxOut" DijkstraNewTxOut
+  InspectHeapNamed "DijkstraDepositBackedTxOut" DijkstraDepositBackedTxOut
   instance
-    NoThunks DijkstraNewTxOut
+    NoThunks DijkstraDepositBackedTxOut
 
 deriving stock instance Eq (TxOut DijkstraEra)
 
@@ -115,17 +115,17 @@ deriving stock instance Show (TxOut DijkstraEra)
 
 instance NFData (TxOut DijkstraEra) where
   rnf = \case
-    LegacyTxOut output -> rnf output
-    NewTxOut output -> rnf output
+    MinAdaTxOut output -> rnf output
+    DepositBackedTxOut output -> rnf output
 
 deriving via InspectHeapNamed "TxOut" (TxOut DijkstraEra) instance NoThunks (TxOut DijkstraEra)
 
--- Implicit outputs retain their historical encoding. Key 4 identifies application
--- assets backed by the store; it replaces the implicit value at key 1.
+-- Min-ADA outputs retain their historical encoding. Key 4 identifies application
+-- assets backed by the store; it replaces the min-ADA output's value at key 1.
 instance EncCBOR (TxOut DijkstraEra) where
   encCBOR = \case
-    LegacyTxOut output -> encCBOR output
-    NewTxOut (DijkstraNewTxOut address (ApplicationAssets assets) datum script) ->
+    MinAdaTxOut output -> encCBOR output
+    DepositBackedTxOut (DijkstraDepositBackedTxOut address (ApplicationAssets assets) datum script) ->
       encode $
         Keyed (,,,,)
           !> Key 0 (To address)
@@ -135,7 +135,7 @@ instance EncCBOR (TxOut DijkstraEra) where
 
 instance DecCBOR (TxOut DijkstraEra) where
   decCBOR =
-    decodeDijkstraTxOut fromCborBothAddr (LegacyTxOut <$> decCBOR)
+    decodeDijkstraTxOut fromCborBothAddr (MinAdaTxOut <$> decCBOR)
 
 instance DecShareCBOR (TxOut DijkstraEra) where
   type Share (TxOut DijkstraEra) = Interns (Credential Staking)
@@ -147,35 +147,35 @@ instance DecShareCBOR (TxOut DijkstraEra) where
         _ ->
           decodeDijkstraTxOut
             fromCborBackwardsBothAddr
-            (LegacyTxOut <$> decShareCBOR credentials)
+            (MinAdaTxOut <$> decShareCBOR credentials)
 
--- JSON keeps the historical implicit object shape and distinguishes store-backed
+-- JSON keeps the historical min-ADA object shape and distinguishes deposit-backed
 -- outputs by their applicationAssets field instead of value.
-instance ToKeyValuePairs DijkstraNewTxOut where
-  toKeyValuePairs (DijkstraNewTxOut address (ApplicationAssets assets) datum script) =
+instance ToKeyValuePairs DijkstraDepositBackedTxOut where
+  toKeyValuePairs (DijkstraDepositBackedTxOut address (ApplicationAssets assets) datum script) =
     [ "address" .= address
     , "applicationAssets" .= assets
     , "datum" .= datum
     , "referenceScript" .= script
     ]
 
-deriving via KeyValuePairs DijkstraNewTxOut instance ToJSON DijkstraNewTxOut
+deriving via KeyValuePairs DijkstraDepositBackedTxOut instance ToJSON DijkstraDepositBackedTxOut
 
 instance ToJSON (TxOut DijkstraEra) where
   toJSON = \case
-    LegacyTxOut output -> toJSON output
-    NewTxOut output -> toJSON output
+    MinAdaTxOut output -> toJSON output
+    DepositBackedTxOut output -> toJSON output
   toEncoding = \case
-    LegacyTxOut output -> toEncoding output
-    NewTxOut output -> toEncoding output
+    MinAdaTxOut output -> toEncoding output
+    DepositBackedTxOut output -> toEncoding output
 
 instance FromJSON (TxOut DijkstraEra) where
   parseJSON = Aeson.withObject "DijkstraTxOut" $ \fields ->
     case (KeyMap.member "value" fields, KeyMap.member "applicationAssets" fields) of
-      (True, False) -> LegacyTxOut <$> parseJSON (Aeson.Object fields)
+      (True, False) -> MinAdaTxOut <$> parseJSON (Aeson.Object fields)
       (False, True) ->
-        NewTxOut
-          <$> ( DijkstraNewTxOut
+        DepositBackedTxOut
+          <$> ( DijkstraDepositBackedTxOut
                   <$> fields .: "address"
                   <*> (ApplicationAssets <$> fields .: "applicationAssets")
                   <*> fields .: "datum"
@@ -183,55 +183,55 @@ instance FromJSON (TxOut DijkstraEra) where
               )
       _ -> fail "DijkstraTxOut: expected exactly one of value or applicationAssets"
 
-instance MemPack DijkstraNewTxOut where
-  packedByteCount = packedByteCount . storeBackedPackedFields
-  packM = packM . storeBackedPackedFields
+instance MemPack DijkstraDepositBackedTxOut where
+  packedByteCount = packedByteCount . depositBackedPackedFields
+  packM = packM . depositBackedPackedFields
   unpackM =
-    (DijkstraNewTxOut . decompactAddr <$> unpackM)
+    (DijkstraDepositBackedTxOut . decompactAddr <$> unpackM)
       <*> (ApplicationAssets . fromCompact <$> unpackM)
       <*> unpackM
       <*> (maybeToStrictMaybe <$> unpackM)
 
 instance MemPack (TxOut DijkstraEra) where
   packedByteCount = \case
-    LegacyTxOut output -> packedByteCount output
-    NewTxOut output -> packedTagByteCount + packedByteCount output
+    MinAdaTxOut output -> packedByteCount output
+    DepositBackedTxOut output -> packedTagByteCount + packedByteCount output
   packM = \case
-    LegacyTxOut output -> packM output
-    NewTxOut output -> packTagM 6 >> packM output
+    MinAdaTxOut output -> packM output
+    DepositBackedTxOut output -> packTagM 6 >> packM output
   unpackM =
     unpackTagM >>= \case
-      0 -> LegacyTxOut <$> (Babbage.TxOutCompact' <$> unpackM <*> unpackM)
-      1 -> LegacyTxOut <$> (Babbage.TxOutCompactDH' <$> unpackM <*> unpackM <*> unpackM)
-      2 -> LegacyTxOut <$> (Babbage.TxOut_AddrHash28_AdaOnly <$> unpackM <*> unpackM <*> unpackM)
+      0 -> MinAdaTxOut <$> (Babbage.TxOutCompact' <$> unpackM <*> unpackM)
+      1 -> MinAdaTxOut <$> (Babbage.TxOutCompactDH' <$> unpackM <*> unpackM <*> unpackM)
+      2 -> MinAdaTxOut <$> (Babbage.TxOut_AddrHash28_AdaOnly <$> unpackM <*> unpackM <*> unpackM)
       3 ->
-        LegacyTxOut
+        MinAdaTxOut
           <$> (Babbage.TxOut_AddrHash28_AdaOnly_DataHash32 <$> unpackM <*> unpackM <*> unpackM <*> unpackM)
-      4 -> LegacyTxOut <$> (Babbage.TxOutCompactDatum <$> unpackM <*> unpackM <*> unpackM)
+      4 -> MinAdaTxOut <$> (Babbage.TxOutCompactDatum <$> unpackM <*> unpackM <*> unpackM)
       5 ->
-        LegacyTxOut
+        MinAdaTxOut
           <$> (Babbage.TxOutCompactRefScript <$> unpackM <*> unpackM <*> unpackM <*> unpackM)
-      6 -> NewTxOut <$> unpackM
+      6 -> DepositBackedTxOut <$> unpackM
       tag -> unknownTagM @(TxOut DijkstraEra) tag
 
 instance EraTxOut DijkstraEra where
-  type LegacyTxOut DijkstraEra = BabbageTxOut DijkstraEra
-  type NewTxOut DijkstraEra = DijkstraNewTxOut
+  type MinAdaTxOut DijkstraEra = BabbageTxOut DijkstraEra
+  type DepositBackedTxOut DijkstraEra = DijkstraDepositBackedTxOut
 
-  upgradeTxOut (LegacyTxOut output) =
-    LegacyTxOut $ upgradeBabbageTxOut output
+  upgradeTxOut (MinAdaTxOut output) =
+    MinAdaTxOut $ upgradeBabbageTxOut output
 
   addrEitherTxOutL =
     variantTxOutL
       addrEitherBabbageTxOutL
       ( lens
-          (Left . storeBackedAddress)
-          (\output address -> output {storeBackedAddress = either id decompactAddr address})
+          (Left . depositBackedAddress)
+          (\output address -> output {depositBackedAddress = either id decompactAddr address})
       )
   {-# INLINE addrEitherTxOutL #-}
 
-instance EraLegacyTxOut DijkstraEra where
-  mkBasicLegacyTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
+instance EraMinAdaTxOut DijkstraEra where
+  mkBasicMinAdaTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
 
   valueEitherTxOutL = valueEitherBabbageTxOutL
   {-# INLINE valueEitherTxOutL #-}
@@ -240,17 +240,19 @@ instance EraLegacyTxOut DijkstraEra where
   -- uses the Store's active formula, which also supports later V2 activations.
   -- The default sized method discards the enclosing output size.
   getMinCoinTxOut pp =
-    toCoin . Deposit.computeDeposit (DepositFormulaV1 $ pp ^. ppCoinsPerUTxOByteL) . LegacyTxOut
+    toCoin . Deposit.computeDeposit (DepositFormulaV1 $ pp ^. ppCoinsPerUTxOByteL) . MinAdaTxOut
 
-instance EraNewTxOut DijkstraEra where
-  mkBasicNewTxOut address assets =
-    DijkstraNewTxOut address assets NoDatum SNothing
+instance EraDepositBackedTxOut DijkstraEra where
+  mkBasicDepositBackedTxOut address assets =
+    DijkstraDepositBackedTxOut address assets NoDatum SNothing
 
   applicationAssetsTxOutL =
-    lens storeBackedApplicationAssets (\output assets -> output {storeBackedApplicationAssets = assets})
+    lens
+      depositBackedApplicationAssets
+      (\output assets -> output {depositBackedApplicationAssets = assets})
   {-# INLINE applicationAssetsTxOutL #-}
 
-  getDepositNewTxOut pricing = toCoin . Deposit.computeDeposit pricing . NewTxOut
+  getDepositTxOut pricing = toCoin . Deposit.computeDeposit pricing . DepositBackedTxOut
 
 instance AlonzoEraTxOut DijkstraEra where
   dataHashTxOutL =
@@ -286,23 +288,23 @@ instance BabbageEraTxOut DijkstraEra where
   datumTxOutL =
     variantTxOutL
       datumBabbageTxOutL
-      (lens storeBackedDatum (\output datum -> output {storeBackedDatum = datum}))
+      (lens depositBackedDatum (\output datum -> output {depositBackedDatum = datum}))
   {-# INLINE datumTxOutL #-}
 
   referenceScriptTxOutL =
     variantTxOutL
       referenceScriptBabbageTxOutL
-      (lens storeBackedReferenceScript (\output script -> output {storeBackedReferenceScript = script}))
+      (lens depositBackedReferenceScript (\output script -> output {depositBackedReferenceScript = script}))
   {-# INLINE referenceScriptTxOutL #-}
 
 -- | Private: apply each variant's accessor without changing the output variant.
 variantTxOutL ::
-  Lens' (LegacyTxOut DijkstraEra) field ->
-  Lens' (NewTxOut DijkstraEra) field ->
+  Lens' (MinAdaTxOut DijkstraEra) field ->
+  Lens' (DepositBackedTxOut DijkstraEra) field ->
   Lens' (TxOut DijkstraEra) field
-variantTxOutL implicitLens storeBackedLens update = \case
-  LegacyTxOut output -> LegacyTxOut <$> implicitLens update output
-  NewTxOut output -> NewTxOut <$> storeBackedLens update output
+variantTxOutL minAdaLens depositBackedLens update = \case
+  MinAdaTxOut output -> MinAdaTxOut <$> minAdaLens update output
+  DepositBackedTxOut output -> DepositBackedTxOut <$> depositBackedLens update output
 {-# INLINE variantTxOutL #-}
 
 -- | Private: dispatch map outputs locally and retain the historical list decoder.
@@ -310,11 +312,11 @@ decodeDijkstraTxOut ::
   Decoder s (Addr, CompactAddr) ->
   Decoder s (TxOut DijkstraEra) ->
   Decoder s (TxOut DijkstraEra)
-decodeDijkstraTxOut decodeAddress decodeImplicit =
+decodeDijkstraTxOut decodeAddress decodeMinAda =
   peekTokenType >>= \case
     TypeMapLen -> decodeDijkstraOutputMap decodeAddress
     TypeMapLenIndef -> decodeDijkstraOutputMap decodeAddress
-    _ -> decodeImplicit
+    _ -> decodeMinAda
 
 -- | Private: accumulate map fields before selecting exactly one output variant.
 data DecodingDijkstraTxOut = DecodingDijkstraTxOut
@@ -332,13 +334,13 @@ decodeDijkstraOutputMap decodeAddress = do
   case (decodingAddress fields, decodingValue fields, decodingApplicationAssets fields) of
     (SJust (address, compactAddress), SJust value, SNothing) ->
       pure $
-        LegacyTxOut $
+        MinAdaTxOut $
           preserveDecodedCompactAddress compactAddress $
             BabbageTxOut address value (decodingDatum fields) (decodingReferenceScript fields)
     (SJust (address, _), SNothing, SJust assets) ->
       pure $
-        NewTxOut $
-          DijkstraNewTxOut address assets (decodingDatum fields) (decodingReferenceScript fields)
+        DepositBackedTxOut $
+          DijkstraDepositBackedTxOut address assets (decodingDatum fields) (decodingReferenceScript fields)
     (_, SJust _, SJust _) -> fail "Dijkstra.TxOut: value and applicationAssets are mutually exclusive"
     (_, SNothing, SNothing) -> fail "Dijkstra.TxOut: value or applicationAssets is required"
     (SNothing, _, _) -> fail "Dijkstra.TxOut: address is required"
@@ -384,23 +386,23 @@ decodeReferenceScript = do
 internDijkstraTxOut ::
   (Credential Staking -> Credential Staking) -> TxOut DijkstraEra -> TxOut DijkstraEra
 internDijkstraTxOut internCredential = \case
-  LegacyTxOut output -> LegacyTxOut $ internBabbageTxOut internCredential output
-  NewTxOut output ->
-    NewTxOut $
+  MinAdaTxOut output -> MinAdaTxOut $ internBabbageTxOut internCredential output
+  DepositBackedTxOut output ->
+    DepositBackedTxOut $
       output
-        { storeBackedAddress = case storeBackedAddress output of
+        { depositBackedAddress = case depositBackedAddress output of
             Addr network paymentCredential (StakeRefBase stakingCredential) ->
               Addr network paymentCredential (StakeRefBase $ internCredential stakingCredential)
             address -> address
         }
 
--- | Private: compact the store-backed fields for packing without changing their meaning.
-storeBackedPackedFields ::
-  DijkstraNewTxOut ->
+-- | Private: compact the deposit-backed fields for packing without changing their meaning.
+depositBackedPackedFields ::
+  DijkstraDepositBackedTxOut ->
   ( CompactAddr
   , CompactForm MaryValue
   , Datum DijkstraEra
   , Maybe (Script DijkstraEra)
   )
-storeBackedPackedFields (DijkstraNewTxOut address (ApplicationAssets assets) datum script) =
+depositBackedPackedFields (DijkstraDepositBackedTxOut address (ApplicationAssets assets) datum script) =
   (compactAddr address, toCompactPartial assets, datum, strictMaybeToMaybe script)

@@ -126,12 +126,12 @@ spec = describe "UTXO" $ do
       (_, rootTxOut) <- getImpRootTxOut
       let
         rootTxOutValue = case rootTxOut of
-          LegacyTxOut implicitOutput -> implicitOutput ^. valueTxOutL
-          NewTxOut _ -> error "DRepNotRegistered: unexpected NewTxOut for the root output"
+          MinAdaTxOut implicitOutput -> implicitOutput ^. valueTxOutL
+          DepositBackedTxOut _ -> error "DRepNotRegistered: unexpected DepositBackedTxOut for the root output"
         txBody =
           mkBasicTxBody
             & inputsTxBodyL .~ [txIn]
-            & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr2 mempty]
+            & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr2 mempty]
         addUnRegDRepTxCert :: Tx TopTx era -> Tx TopTx era
         addUnRegDRepTxCert tx =
           tx

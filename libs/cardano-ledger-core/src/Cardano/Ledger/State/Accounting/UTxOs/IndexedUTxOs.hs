@@ -44,7 +44,7 @@ module Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (
   sumDepositAmounts,
 
   -- * Legacy import and translation
-  fromLegacyTxOuts,
+  fromMinAdaTxOuts,
   translateLegacyOutputs,
 
   -- * Serialization
@@ -71,7 +71,7 @@ import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositAmount (..), Deposi
 import Cardano.Ledger.State.Accounting.UTxOs.Unspent (Unspent)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.TxOut (EraNewTxOut, EraTxOut (..), TxOut (..))
+import Cardano.Ledger.TxOut (EraDepositBackedTxOut, EraTxOut (..), TxOut (..))
 import Control.DeepSeq (NFData (..))
 import Control.Monad ((<$!>))
 import Data.Aeson (ToJSON (..), ToJSON1 (liftToJSON))
@@ -162,12 +162,13 @@ mapTxOuts transform = Map.map (transform . Unspent.toTxOut) . unIndexedUTxOs
 -- | Sum externally held deposits for selected inputs using their allocation origins
 -- and the Store's formula history.
 allocatedDepositTotalAmount ::
-  EraNewTxOut era => DepositFormulaHistory -> Set TxIn -> IndexedUTxOs era -> DepositAmount
+  EraDepositBackedTxOut era => DepositFormulaHistory -> Set TxIn -> IndexedUTxOs era -> DepositAmount
 allocatedDepositTotalAmount history inputs = sumDepositAmounts history . restrictToInputs inputs
 
 -- | Sum externally held deposits using the baseline and dated formulas.
--- Legacy reserves are already in output ADA and contribute zero here.
-sumDepositAmounts :: EraNewTxOut era => DepositFormulaHistory -> IndexedUTxOs era -> DepositAmount
+-- Min-ADA reserves are already in output ADA and contribute zero here.
+sumDepositAmounts ::
+  EraDepositBackedTxOut era => DepositFormulaHistory -> IndexedUTxOs era -> DepositAmount
 sumDepositAmounts history =
   DepositAmount
     . foldMap' (Unspent.computeExternalDeposit history)
@@ -175,18 +176,18 @@ sumDepositAmounts history =
 
 -- Legacy import and translation
 
--- | Import typed legacy payloads with canonical compatibility metadata.
-fromLegacyTxOuts :: Map TxIn (LegacyTxOut era) -> IndexedUTxOs era
-fromLegacyTxOuts = IndexedUTxOs . Map.map Unspent.fromLegacyTxOut
+-- | Import typed min-ADA payloads with canonical compatibility metadata.
+fromMinAdaTxOuts :: Map TxIn (MinAdaTxOut era) -> IndexedUTxOs era
+fromMinAdaTxOuts = IndexedUTxOs . Map.map Unspent.fromMinAdaTxOut
 
 -- | Translate legacy entries and reconstruct canonical target-era metadata.
--- This is not a migration for existing store-backed historical records.
+-- This is not a migration for existing deposit-backed historical records.
 translateLegacyOutputs ::
-  (TxOut source -> LegacyTxOut target) ->
+  (TxOut source -> MinAdaTxOut target) ->
   IndexedUTxOs source ->
   IndexedUTxOs target
 translateLegacyOutputs translateOutput =
-  IndexedUTxOs . mapTxOuts (Unspent.fromLegacyTxOut . translateOutput)
+  IndexedUTxOs . mapTxOuts (Unspent.fromMinAdaTxOut . translateOutput)
 
 -- Instances
 
@@ -220,13 +221,13 @@ instance EraTxOut era => DecShareCBOR (IndexedUTxOs era) where
   type Share (IndexedUTxOs era) = Interns (Credential Staking)
   decShareCBOR credentials
     | eraProtVerLow @era < natVersion @12 =
-        fromLegacyTxOuts <$!> decodeMap decNoShareCBOR decodeLegacyOutput
+        fromMinAdaTxOuts <$!> decodeMap decNoShareCBOR decodeLegacyOutput
     | otherwise = IndexedUTxOs <$!> decodeMap decNoShareCBOR (decShareCBOR credentials)
     where
       decodeLegacyOutput =
         decShareCBOR credentials >>= \case
-          LegacyTxOut output -> pure output
-          NewTxOut _ -> fail "IndexedUTxOs: legacy format cannot contain a store-backed output"
+          MinAdaTxOut output -> pure output
+          DepositBackedTxOut _ -> fail "IndexedUTxOs: legacy format cannot contain a deposit-backed output"
 
 instance (Era era, EncCBOR (TxOut era)) => ToCBOR (IndexedUTxOs era) where
   toCBOR = toEraCBOR @era

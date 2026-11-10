@@ -230,7 +230,7 @@ genTx
 
       -- Occasionally we have a transaction generated with insufficient inputs
       -- to cover the deposits. In this case we discard the test case.
-      let enough = sumVal (getMinCoinTxOut pparams . requireLegacyTxOut <$> draftOutputs)
+      let enough = sumVal (getMinCoinTxOut pparams . requireMinAdaTxOut <$> draftOutputs)
       !_ <-
         when (coin spendingBalance < enough) $
           tracedDiscard $
@@ -272,7 +272,7 @@ genTx
       !_ <-
         when
           ( any
-              (\txOut -> getMinCoinTxOut pparams (requireLegacyTxOut txOut) > txOut ^. coinTxOutL)
+              (\txOut -> getMinCoinTxOut pparams (requireMinAdaTxOut txOut) > txOut ^. coinTxOutL)
               txOuts
           )
           $ tracedDiscard
@@ -337,7 +337,7 @@ deltaZero initialfee pp addr =
     mempty
     mempty
   where
-    txOut = setMinCoinTxOut pp (mkBasicTxOutWithLegacyTxOut addr mempty)
+    txOut = setMinCoinTxOut pp (mkBasicTxOutWithMinAda addr mempty)
 
 -- Same function as in cardano-ledger-api. We don't want to depend on the api though,
 -- because it will be problematic for dependencies (cardano-ledger-api test suite depends
@@ -346,7 +346,7 @@ setMinCoinTxOut :: EraTxOut era => PParams era -> TxOut era -> TxOut era
 setMinCoinTxOut pp = go
   where
     go txOut =
-      let curMinCoin = getMinCoinTxOut pp (requireLegacyTxOut txOut)
+      let curMinCoin = getMinCoinTxOut pp (requireMinAdaTxOut txOut)
           curCoin = txOut ^. coinTxOutL
        in if curCoin == curMinCoin
             then txOut
@@ -401,7 +401,7 @@ genNextDelta
         totalFee = baseTxFee <+> deltaFee :: Coin
         remainingFee = totalFee <-> dfees :: Coin
         changeAmount = getChangeAmount change
-        minAda = getMinCoinTxOut pparams (requireLegacyTxOut change)
+        minAda = getMinCoinTxOut pparams (requireMinAdaTxOut change)
      in if remainingFee <= Coin 0 -- we've paid for all the fees
           then pure delta -- we're done
           else -- the change covers what we need, so shift Coin from change to dfees.
@@ -459,7 +459,7 @@ genNextDelta
         TxOut era ->
         TxOut era
       deltaChange f =
-        LegacyTxOut . (valueTxOutL %~ f) . requireLegacyTxOut
+        MinAdaTxOut . (valueTxOutL %~ f) . requireMinAdaTxOut
       getChangeAmount txOut = txOut ^. coinTxOutL
 
 -- calculates fixed point of getNextDelta such that
@@ -703,7 +703,7 @@ calcOutputsFromBalance ::
   (Coin, StrictSeq (TxOut era))
 calcOutputsFromBalance balance_ addrs fee =
   ( fee <+> splitCoinRem
-  , StrictSeq.fromList $ zipWith mkBasicTxOutWithLegacyTxOut addrs amountPerOutput
+  , StrictSeq.fromList $ zipWith mkBasicTxOutWithMinAda addrs amountPerOutput
   )
   where
     -- split the available balance into equal portions (one for each address),
@@ -740,7 +740,7 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (IndexedUTx
   let (inputs, witnesses) = unzip (fmap witnessedInput <$> selectedUtxo)
   return
     ( inputs
-    , sumAllValue @era (requireLegacyTxOut . snd <$> selectedUtxo)
+    , sumAllValue @era (requireMinAdaTxOut . snd <$> selectedUtxo)
     , Either.partitionEithers witnesses
     )
   where
@@ -753,10 +753,10 @@ genInputs (minNumGenInputs, maxNumGenInputs) keyHashMap payScriptMap (IndexedUTx
         _ -> error "unsupported address"
 
 -- | Private: these legacy generators only construct and consume implicit-deposit outputs.
-requireLegacyTxOut :: TxOut era -> LegacyTxOut era
-requireLegacyTxOut (LegacyTxOut output) = output
-requireLegacyTxOut (NewTxOut _) =
-  error "Shelley.Generator.Utxo: unexpected NewTxOut"
+requireMinAdaTxOut :: TxOut era -> MinAdaTxOut era
+requireMinAdaTxOut (MinAdaTxOut output) = output
+requireMinAdaTxOut (DepositBackedTxOut _) =
+  error "Shelley.Generator.Utxo: unexpected DepositBackedTxOut"
 
 -- | Select a subset of the account addresses to use for reward withdrawals.
 genWithdrawals ::

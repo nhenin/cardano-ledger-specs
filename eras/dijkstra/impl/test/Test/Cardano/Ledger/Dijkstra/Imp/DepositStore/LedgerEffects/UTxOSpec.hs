@@ -56,7 +56,7 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
               <> Map.withoutKeys (Store.outputs previousAccountingState) (ordinarySpendingInputs signedTx)
 
   describe "Phase-2 failure: consume only collateral and create only its return" $ do
-    -- Real failing scripts cover absent, implicit and Store-backed returns.
+    -- Real failing scripts cover absent, implicit and Deposit-backed returns.
     -- Ordinary inputs survive, ordinary outputs are not created, and every
     -- unrelated output is preserved by equality of the complete UTxO map.
     prop "DS-STATE-UTXO-N03 - accepted ∧ phase2Invalid ⇒ utxoAfter = (utxoBefore without collateralInputs) ∪ collateralReturn" $
@@ -89,11 +89,11 @@ spec = describe "DS-STATE-UTXO - UTxO" $ do
               <> Map.withoutKeys (Store.outputs previousAccountingState) collateralInputs
 
   describe "Shared input: the selected path consumes it exactly once" $
-    -- A real Store-backed source serves both roles. Its ordinary settlement is
+    -- A real Deposit-backed source serves both roles. Its ordinary settlement is
     -- balanced before signing; the script outcome decides which outputs exist.
     -- A separate reference-only Store output survives both outcomes.
     prop "DS-STATE-UTXO-N05 - accepted ∧ ordinaryInputs ∩ collateralInputs ≠ ∅ ⇒ utxoAfter = (utxoBefore without selectedInputs) ∪ selectedOutputs" $
-      forAll (Collateral.scenarios [Collateral.StoreBacked] (Just Collateral.StoreBacked) Phase2Invalid) $ \generated ->
+      forAll (Collateral.scenarios [Collateral.DepositBacked] (Just Collateral.DepositBacked) Phase2Invalid) $ \generated ->
         forM_ [Phase2Valid, Phase2Invalid] $ \phase2 -> do
           Fixture{signedTx, previousAccountingState, collateralInputs} <-
             Collateral.buildAndSign generated{Collateral.phase2 = phase2}

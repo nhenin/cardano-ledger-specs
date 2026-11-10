@@ -89,7 +89,7 @@ setMinFeeTxUtxo pp tx inputAllocations =
 -- > coin (ensureMinCoinTxOut pp txOut ^. valueTxOutL) >= coin (setMinCoinTxOut pp txOut ^. valueTxOutL)
 -- @
 ensureMinCoinTxOut ::
-  EraLegacyTxOut era => PParams era -> LegacyTxOut era -> LegacyTxOut era
+  EraMinAdaTxOut era => PParams era -> MinAdaTxOut era -> MinAdaTxOut era
 ensureMinCoinTxOut = setMinCoinTxOutWith (>=)
 
 setMinFeeTxInternal ::
@@ -294,15 +294,15 @@ addDummyWitsTx pp tx numKeyWits byronAttrs =
 -- | Same as `setMinCoinSizedTxOut`, except it doesn't require the size of the
 -- TxOut and will recompute it if needed. Initial amount is not important.
 setMinCoinTxOut ::
-  EraLegacyTxOut era => PParams era -> LegacyTxOut era -> LegacyTxOut era
+  EraMinAdaTxOut era => PParams era -> MinAdaTxOut era -> MinAdaTxOut era
 setMinCoinTxOut = setMinCoinTxOutWith (==)
 
 setMinCoinTxOutWith ::
-  EraLegacyTxOut era =>
+  EraMinAdaTxOut era =>
   (Coin -> Coin -> Bool) ->
   PParams era ->
-  LegacyTxOut era ->
-  LegacyTxOut era
+  MinAdaTxOut era ->
+  MinAdaTxOut era
 setMinCoinTxOutWith f pp = go
   where
     go !txOut =

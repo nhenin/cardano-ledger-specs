@@ -109,9 +109,9 @@ instance TranslateEra AllegraEra TxOut where
 instance TranslateEra AllegraEra IndexedUTxOs where
   translateEra ctxt = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
     where
-      translateOutput :: TxOut (PreviousEra AllegraEra) -> LegacyTxOut AllegraEra
+      translateOutput :: TxOut (PreviousEra AllegraEra) -> MinAdaTxOut AllegraEra
       translateOutput output = case translateEra' ctxt output of
-        LegacyTxOut translated -> translated
+        MinAdaTxOut translated -> translated
 
 instance TranslateEra AllegraEra Store.UTxOStore where
   translateEra ctxt store =

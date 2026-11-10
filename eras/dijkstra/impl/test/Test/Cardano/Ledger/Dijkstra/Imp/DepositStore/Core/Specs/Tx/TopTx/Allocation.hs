@@ -30,11 +30,11 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (crea
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as TopTx
 
 -- | Ordered output forms and their application ADA amounts. At least one output
--- is store-backed; the others may be implicit. There are no SubTxs.
+-- is deposit-backed; the others may be implicit. There are no SubTxs.
 newtype AllocationScenario = AllocationScenario [(OutputVariant, Coin)]
   deriving (Show)
 
--- | One TopTx and one SubTx each create at least one store-backed output.
+-- | One TopTx and one SubTx each create at least one deposit-backed output.
 -- Both output plans vary independently; all funding inputs remain implicit.
 data AllocationBatchScenario = AllocationBatchScenario
   { topTxAllocation :: AllocationScenario
@@ -50,22 +50,22 @@ data AllocationTx = AllocationTx
   }
   deriving (Show)
 
--- | Generate one to five outputs, including at least one store-backed output.
--- Vary application amounts, store-backed counts and positions among implicit
+-- | Generate one to five outputs, including at least one deposit-backed output.
+-- Vary application amounts, deposit-backed counts and positions among implicit
 -- outputs. The same scenarios support an exact declaration or its omission.
 standaloneTopTxAllocatingDeposits :: Gen AllocationScenario
 standaloneTopTxAllocatingDeposits = do
   outputCount <- chooseInt (1, 5)
-  storeBackedCount <- chooseInt (1, outputCount)
+  depositBackedCount <- chooseInt (1, outputCount)
   variants <-
     shuffle $
-      replicate storeBackedCount StoreBackedOutput
-        <> replicate (outputCount - storeBackedCount) ImplicitOutput
+      replicate depositBackedCount DepositBackedOutput
+        <> replicate (outputCount - depositBackedCount) ImplicitOutput
   amounts <- vectorOf outputCount $ Coin <$> chooseInteger (10_000_000, 20_000_000)
   pure $ AllocationScenario $ zip variants amounts
 
 -- | Independently generate the parent's and child's own allocations, varying
--- application amounts and the number and position of store-backed outputs.
+-- application amounts and the number and position of deposit-backed outputs.
 topTxAndSubTxAllocatingDeposits :: Gen AllocationBatchScenario
 topTxAndSubTxAllocatingDeposits =
   AllocationBatchScenario <$> standaloneTopTxAllocatingDeposits <*> standaloneTopTxAllocatingDeposits
@@ -77,9 +77,9 @@ createdOutputs address (AllocationScenario outputs) = map (createdOutput address
 
 createdOutput :: Addr -> (OutputVariant, Coin) -> TxOut DijkstraEra
 createdOutput address (ImplicitOutput, amount) =
-  mkBasicTxOutWithLegacyTxOut address $ inject amount
-createdOutput address (StoreBackedOutput, amount) =
-  mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
+  mkBasicTxOutWithMinAda address $ inject amount
+createdOutput address (DepositBackedOutput, amount) =
+  mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject amount
 
 -- | Sum the independently priced deposits across TopTx and all SubTx outputs.
 -- Implicit outputs contribute zero. This calculation does not inspect declarations.

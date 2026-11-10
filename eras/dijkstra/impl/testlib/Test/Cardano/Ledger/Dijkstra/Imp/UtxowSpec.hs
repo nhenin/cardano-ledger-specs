@@ -226,7 +226,7 @@ spec = describe "UTXOW" $ do
         mkTopTxWithSubTxs
           [ mkBasicTx $
               mkBasicTxBody
-                & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+                & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr mempty & dataHashTxOutL .~ SJust datumHash]
           ]
           & witsTxL . hashDataTxWitsL .~ [datum]
 
@@ -251,7 +251,7 @@ spec = describe "UTXOW" $ do
             mkBasicTx $
               mkBasicTxBody
                 & outputsTxBodyL
-                  .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust outputDatumHash]
+                  .~ [mkBasicTxOutWithMinAda addr mempty & dataHashTxOutL .~ SJust outputDatumHash]
       txIn <- produceDatumHashOutput referencedDatumHash
       let tx =
             mkTopTxWithSubTxs
@@ -280,11 +280,11 @@ spec = describe "UTXOW" $ do
           mkTopTxWithSubTxs
             [ mkBasicTx $
                 mkBasicTxBody
-                  & outputsTxBodyL .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+                  & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr mempty & dataHashTxOutL .~ SJust datumHash]
             , mkBasicTx $ mkBasicTxBody & referenceInputsTxBodyL .~ [txIn]
             ]
             & bodyTxL . outputsTxBodyL
-              .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust topLevelDatumHash]
+              .~ [mkBasicTxOutWithMinAda addr mempty & dataHashTxOutL .~ SJust topLevelDatumHash]
             & witsTxL . hashDataTxWitsL .~ [datum, topLevelDatum, referencedDatum]
       submitFailingTx
         tx
@@ -311,8 +311,8 @@ spec = describe "UTXOW" $ do
           . submitTx
           $ mkBasicTx mkBasicTxBody
             & bodyTxL . outputsTxBodyL
-              .~ [ mkBasicTxOutWithLegacyTxOut (mkAddr (hashPlutusScript plutus) StakeRefNull) mempty
-                 , mkBasicTxOutWithLegacyTxOut refAddr mempty & referenceScriptTxOutL .~ SJust script
+              .~ [ mkBasicTxOutWithMinAda (mkAddr (hashPlutusScript plutus) StakeRefNull) mempty
+                 , mkBasicTxOutWithMinAda refAddr mempty & referenceScriptTxOutL .~ SJust script
                  ]
       stakeCred <- KeyHashObj <$> freshKeyHash
       deposit <- getsNES $ nesEsL . curPParamsEpochStateL . ppKeyDepositL
@@ -408,7 +408,7 @@ mkPlutusSpendingTx plutus = do
     submitTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . outputsTxBodyL
-          .~ [mkBasicTxOutWithLegacyTxOut refAddr mempty & referenceScriptTxOutL .~ SJust script]
+          .~ [mkBasicTxOutWithMinAda refAddr mempty & referenceScriptTxOutL .~ SJust script]
   redeemer <- arbitrary @(Data era)
   fixupPPHash $
     mkBasicTx mkBasicTxBody
@@ -436,5 +436,5 @@ produceDatumHashOutput datumHash = do
     submitTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . outputsTxBodyL
-          .~ [mkBasicTxOutWithLegacyTxOut addr mempty & dataHashTxOutL .~ SJust datumHash]
+          .~ [mkBasicTxOutWithMinAda addr mempty & dataHashTxOutL .~ SJust datumHash]
   pure $ txInAt 0 referencedTx

@@ -32,7 +32,7 @@ Appendices contain the open design questions and supporting references.
           <a href="#ds-pricing-n03">1.4.4 N03 - Measure datum and reference script payloads</a><br>
           <a href="#ds-pricing-n04">1.4.5 N04 - Vary the declaration independently</a><br>
           <a href="#ds-pricing-n05">1.4.6 N05 - Preserve the price across ADA encoding boundaries</a><br>
-          <a href="#ds-pricing-n06">1.4.7 N06 - Keep a legacy reserve inside its output</a><br>
+          <a href="#ds-pricing-n06">1.4.7 N06 - Keep a min-ADA reserve inside its output</a><br>
         </dd>
       </dl>
     </details>
@@ -178,14 +178,14 @@ Appendices contain the open design questions and supporting references.
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-n01">2.1.1.2.1.2.1 N01 - Every explicit declaration satisfies allocation presence</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-n02">2.1.1.2.1.2.2 N02 - Absence satisfies allocation presence for empty or implicit-only own outputs</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-f01">2.1.1.2.1.2.3 F01 - Missing declaration fails allocation presence at every own-output position</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-allocation-n03">2.1.1.2.1.2.4 N03 - accepts a TopTx creating only implicit outputs without a declaration</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-allocation-n04">2.1.1.2.1.2.5 N04 - accepts a SubTx creating only implicit outputs without either body's declaration</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-allocation-n03">2.1.1.2.1.2.4 N03 - accepts a TopTx creating only min-ADA outputs without a declaration</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-allocation-n04">2.1.1.2.1.2.5 N04 - accepts a SubTx creating only min-ADA outputs without either body's declaration</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-n05">2.1.1.2.1.2.6 N05 - Standalone TopTx, exact allocation declaration</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-f02">2.1.1.2.1.2.7 F02 - Standalone TopTx, allocation without a declaration</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f03">2.1.1.2.1.2.8 F03 - rejects a SubTx creating a store-backed output without its own declaration</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f04">2.1.1.2.1.2.9 F04 - rejects a TopTx creating a store-backed output without its own declaration even when phase 2 fails</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f05">2.1.1.2.1.2.10 F05 - rejects a SubTx creating a store-backed output without its own declaration even when phase 2 fails</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f06">2.1.1.2.1.2.11 F06 - rejects a missing own declaration when spending a translated implicit output to create store-backed outputs</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f03">2.1.1.2.1.2.8 F03 - rejects a SubTx creating a deposit-backed output without its own declaration</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f04">2.1.1.2.1.2.9 F04 - rejects a TopTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f05">2.1.1.2.1.2.10 F05 - rejects a SubTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-allocation-f06">2.1.1.2.1.2.11 F06 - rejects a missing own declaration when spending a translated min-ADA output to create deposit-backed outputs</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-n06">2.1.1.2.1.2.12 N06 - SubTx outputs do not trigger TopTx allocation presence</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-n07">2.1.1.2.1.2.13 N07 - Collateral return does not trigger allocation presence</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-allocation-n08">2.1.1.2.1.2.14 N08 - Reference and collateral input identifiers do not trigger allocation presence</a><br>
@@ -200,7 +200,7 @@ Appendices contain the open design questions and supporting references.
                               <dl>
                                 <dd>
                                   <a href="#ds-tx-declarations-requirements-operations-release-n01">2.1.1.2.1.3.1 N01 - Standalone TopTx, any output form</a><br>
-                                  <a href="#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only implicit outputs</a><br>
+                                  <a href="#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only min-ADA outputs</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-release-n03">2.1.1.2.1.3.3 N03 - One SubTx releases its deposit into its own output</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-release-f01">2.1.1.2.1.3.4 F01 - Standalone TopTx, release without its own declaration</a><br>
                                   <a href="#ds-tx-declarations-requirements-operations-release-f02">2.1.1.2.1.3.5 F02 - SubTx release without its own declaration, despite TopTx declaring</a><br>
@@ -324,12 +324,12 @@ Appendices contain the open design questions and supporting references.
                             <a href="#ds-tx-accounting-net-change-subtx-f06">2.1.2.1.1.9 F06 - Explicit zero cannot replace a required allocation</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-n03">2.1.2.1.1.10 N03 - Exact allocation requested from TopTx</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-n04">2.1.2.1.1.11 N04 - Exact release delegated to TopTx</a><br>
-                            <a href="#ds-tx-accounting-net-change-subtx-n05">2.1.2.1.1.12 N05 - Released deposits, only implicit outputs</a><br>
+                            <a href="#ds-tx-accounting-net-change-subtx-n05">2.1.2.1.1.12 N05 - Released deposits, only min-ADA outputs</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-f07">2.1.2.1.1.13 F07 - Explicit zero cannot replace a required release</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-n06">2.1.2.1.1.14 N06 - Another body offsets the SubTx release</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-n07">2.1.2.1.1.15 N07 - An output without application assets still requires a deposit</a><br>
-                            <a href="#ds-tx-accounting-net-change-subtx-n08">2.1.2.1.1.16 N08 - A translated implicit input funds an exact allocation</a><br>
-                            <a href="#ds-tx-accounting-net-change-subtx-f08">2.1.2.1.1.17 F08 - A translated implicit input does not excuse an inexact allocation</a><br>
+                            <a href="#ds-tx-accounting-net-change-subtx-n08">2.1.2.1.1.16 N08 - A translated min-ADA input funds an exact allocation</a><br>
+                            <a href="#ds-tx-accounting-net-change-subtx-f08">2.1.2.1.1.17 F08 - A translated min-ADA input does not excuse an inexact allocation</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-f09">2.1.2.1.1.18 F09 - Unspent outputs cannot increase a SubTx release</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-f10">2.1.2.1.1.19 F10 - A release cannot replace a required allocation</a><br>
                             <a href="#ds-tx-accounting-net-change-subtx-f11">2.1.2.1.1.20 F11 - An allocation cannot replace a required release</a><br>
@@ -456,11 +456,11 @@ Appendices contain the open design questions and supporting references.
                   <dl>
                     <dd>
                       <a href="#ds-tx-settlement-output-coin-p01">2.1.4.3.1 P01 - Output ADA must cover the required share</a><br>
-                      <a href="#ds-tx-settlement-output-coin-f01">2.1.4.3.2 F01 - Implicit output, one lovelace short</a><br>
-                      <a href="#ds-tx-settlement-output-coin-n01">2.1.4.3.3 N01 - Implicit output, exact amount</a><br>
-                      <a href="#ds-tx-settlement-output-coin-n02">2.1.4.3.4 N02 - Implicit output, extra ADA</a><br>
+                      <a href="#ds-tx-settlement-output-coin-f01">2.1.4.3.2 F01 - Min-ADA output, one lovelace short</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n01">2.1.4.3.3 N01 - Min-ADA output, exact amount</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n02">2.1.4.3.4 N02 - Min-ADA output, extra ADA</a><br>
                       <a href="#ds-tx-settlement-output-coin-f02">2.1.4.3.5 F02 - An external deposit cannot fill the ADA shortfall</a><br>
-                      <a href="#ds-tx-settlement-output-coin-n03">2.1.4.3.6 N03 - Store-backed output, exact application ADA</a><br>
+                      <a href="#ds-tx-settlement-output-coin-n03">2.1.4.3.6 N03 - Deposit-backed output, exact application ADA</a><br>
                       <a href="#ds-tx-settlement-output-coin-n04">2.1.4.3.7 N04 - TopTx's share is smaller than the transaction release</a><br>
                       <a href="#ds-tx-settlement-output-coin-n05">2.1.4.3.8 N05 - Exact output ADA when phase 2 fails</a><br>
                       <a href="#ds-tx-settlement-output-coin-f03">2.1.4.3.9 F03 - One lovelace short when phase 2 fails</a><br>
@@ -478,8 +478,8 @@ Appendices contain the open design questions and supporting references.
                 <a href="#ds-tx-minimum-coin-n01">2.1.5.1 N01 - Native assets without ADA</a><br>
                 <a href="#ds-tx-minimum-coin-n02">2.1.5.2 N02 - Datum or reference script without assets</a><br>
                 <a href="#ds-tx-minimum-coin-n03">2.1.5.3 N03 - Address-only output</a><br>
-                <a href="#ds-tx-minimum-coin-n04">2.1.5.4 N04 - Exact minimum for an implicit output</a><br>
-                <a href="#ds-tx-minimum-coin-f01">2.1.5.5 F01 - Implicit output one lovelace short</a><br>
+                <a href="#ds-tx-minimum-coin-n04">2.1.5.4 N04 - Exact minimum for a min-ADA output</a><br>
+                <a href="#ds-tx-minimum-coin-f01">2.1.5.5 F01 - Min-ADA output one lovelace short</a><br>
               </dd>
             </dl>
           </details>
@@ -498,7 +498,7 @@ Appendices contain the open design questions and supporting references.
                 <a href="#ds-collateral-funding-n01">2.2.1.1 N01 - Funded collateral</a><br>
                 <a href="#ds-collateral-funding-f01">2.2.1.2 F01 - Underfunded collateral</a><br>
                 <a href="#ds-collateral-funding-p02">2.2.1.3 P02 - Independent ordinary declarations</a><br>
-                <a href="#ds-collateral-funding-p03">2.2.1.4 P03 - Legacy return at the active minimum</a><br>
+                <a href="#ds-collateral-funding-p03">2.2.1.4 P03 - Min-ADA return at the active minimum</a><br>
               </dd>
             </dl>
           </details>
@@ -628,8 +628,8 @@ Appendices contain the open design questions and supporting references.
       <summary><a href="#ds-stake">4.1 Stake</a></summary>
       <dl>
         <dd>
-          <a href="#ds-stake-n01">4.1.1 N01 - counts the full ADA in implicit outputs under the existing staking rules</a><br>
-          <a href="#ds-stake-n02">4.1.2 N02 - counts only application ADA in store-backed outputs under the existing staking rules</a><br>
+          <a href="#ds-stake-n01">4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules</a><br>
+          <a href="#ds-stake-n02">4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules</a><br>
           <a href="#ds-stake-n03">4.1.3 N03 - does not add the global Store balance to stake totals</a><br>
           <a href="#ds-stake-n04">4.1.4 N04 - Derive stake from applied allocations</a><br>
           <a href="#ds-stake-n05">4.1.5 N05 - Derive stake from applied releases</a><br>
@@ -695,16 +695,16 @@ The two output variants carry that obligation differently:
 
 | Output | Spendable value | UTxO capacity deposit |
 | --- | --- | --- |
-| Implicit-deposit | Full output value | The existing minimum ADA remains inside that value. |
-| Store-backed | Application assets: ADA and native assets | Recorded alongside the live UTxO entry and held externally in the DepositStore. |
+| Min-ADA (`MinAdaTxOut`) | Full output value | The existing minimum ADA remains inside that value. |
+| Deposit-backed (`DepositBackedTxOut`) | Application assets: ADA and native assets | Recorded alongside the live UTxO entry and held externally in the DepositStore. |
 
-For a store-backed output, distinguish its **required deposit**, calculated when it is
+For a deposit-backed output, distinguish its **required deposit**, calculated when it is
 created, from its **allocated deposit**, the exact recorded amount associated with the
 live output. [Deposit calculation](#ds-pricing) defines the required amount;
 [Allocations](#ds-state-allocations) defines how the ledger records and releases it.
 
 Outputs are indexed occurrences. Equal output values at different indices represent
-separate outputs and have separate allocated deposits when store-backed. The external
+separate outputs and have separate allocated deposits when deposit-backed. The external
 deposit metadata is outside the serialized output.
 
 <a id="section-1-1" name="section-1-1"></a>
@@ -742,7 +742,7 @@ data DepositFormulaHistory = DepositFormulaHistory
 ```
 
 An accepted output enters the Store as `Unspent output (AtSlot slot)`.
-The fork imports each translated legacy output as `Unspent output AtStoreMigration`.
+The fork imports each translated min-ADA output as `Unspent output AtStoreMigration`.
 The output provides the asset, datum and script measurements for [Deposit calculation](#ds-pricing).
 
 **History always has a baseline.** `mkDepositFormulaHistory baseline` starts with no dated
@@ -790,14 +790,14 @@ return a formula directly. `periods` includes the baseline interval with
 **The output variant determines where the reserve is held.** Let $C(u)$ be the
 output ADA and $P(u)=F_H(u)(\text{output}(u))$ its calculated deposit.
 
-| View | `LegacyTxOut` | `NewTxOut` |
+| View | `MinAdaTxOut` | `DepositBackedTxOut` |
 | --- | --- | --- |
 | `computeDeposit` | $\min(C(u),P(u))$ | $P(u)$ |
 | Application ADA | $C(u)-\min(C(u),P(u))$ | $C(u)$ |
 | `computeExternalDeposit` | $0$ | $P(u)$ |
 | Stored output payload | Unchanged; reserve remains included | Unchanged; deposit is external |
 
-Native assets are preserved in both application views. When a legacy output cannot
+Native assets are preserved in both application views. When a min-ADA output cannot
 cover the calculated reserve, its application ADA is zero. This is a **view**, not
 a transfer or payload rewrite. Spending that output still provides its complete
 value; its reserve must never be credited a second time.
@@ -808,7 +808,7 @@ $$
 \text{computeExternalDeposit}(\text{depositFormulaHistory}(S),u)
 $$
 
-The cached total contains only separately held deposits. Legacy reserves remain
+The cached total contains only separately held deposits. Min-ADA reserves remain
 inside output ADA; there is no unallocated Store surplus.
 
 **Builder queries use explicit history and return values directly.** Every
@@ -825,7 +825,7 @@ computeApplicationAssets ::
 
 -- The shared Store sums only separately held deposits.
 computeExternalDeposit ::
-  EraNewTxOut era => DepositFormulaHistory -> Unspent (TxOut era) -> Coin
+  EraDepositBackedTxOut era => DepositFormulaHistory -> Unspent (TxOut era) -> Coin
 
 -- Resolve many inputs against the same history.
 depositFor = computeDeposit (depositFormulaHistory store)
@@ -921,10 +921,10 @@ For each body:
 $$
 \begin{aligned}
 \text{releasedUTxODeposits(body)}
-&= \sum_{\text{input}\in\text{consumed store-backed inputs(body)}}
+&= \sum_{\text{input}\in\text{consumed deposit-backed inputs(body)}}
 \text{recordedDeposit(input)} \\
 \text{allocatedUTxODeposits(body)}
-&= \sum_{\text{output}\in\text{new store-backed outputs(body)}}
+&= \sum_{\text{output}\in\text{new deposit-backed outputs(body)}}
 \text{requiredDeposit(output)} \\
 \text{requiredNetUTxODepositChange(body)}
 &= \text{allocatedUTxODeposits(body)} - \text{releasedUTxODeposits(body)} \\
@@ -964,7 +964,7 @@ The [body-field reference](#transaction-body-fields) maps these concepts to the 
 ### 1.4 Deposit calculation
 
 **At the Dijkstra fork and at direct Dijkstra genesis, V1 is the initial formula.**
-Dijkstra evaluates both output forms, including migrated `LegacyTxOut`s. Earlier-era
+Dijkstra evaluates both output forms, including migrated `MinAdaTxOut`s. Earlier-era
 pricing rules stay unchanged; they do not implement this formula.
 The rate $p$ is the effective `coinsPerUTxOByte`, in lovelace per byte. For an output $o$:
 
@@ -996,8 +996,8 @@ computeDeposit ::
 
 Dijkstra's `Deposit.Formula.computeDeposit` extracts those measures from a `TxOut`
 and calls this core function. `Unspent.computeDeposit` additionally selects the
-historical formula and caps a legacy reserve. Both return `DepositAmount`;
-`getDepositNewTxOut` and `computeExternalDeposit` expose `Coin` through `toCoin`
+historical formula and caps a min-ADA reserve. Both return `DepositAmount`;
+`getDepositTxOut` and `computeExternalDeposit` expose `Coin` through `toCoin`
 at the shared Store boundary.
 
 The lengths count payload bytes. Address length, application ADA and the outer CBOR
@@ -1005,11 +1005,11 @@ envelopes of the datum, script and output contribute no term. Transaction bodies
 still retain their `Sized` outputs for serialization; neither Dijkstra deposit
 pricing nor its [minimum-coin check](#ds-tx-minimum-coin) uses that total size.
 
-The Store holds the full computed amount externally for each created `NewTxOut`.
-For a `LegacyTxOut`, its embedded reserve is capped at the output's ADA.
+The Store holds the full computed amount externally for each created `DepositBackedTxOut`.
+For a `MinAdaTxOut`, its embedded reserve is capped at the output's ADA.
 The [allocation origin](#section-1-1) selects the formula and rate on refund.
 
-**Experiment.** Two otherwise identical Store-backed outputs contain two distinct
+**Experiment.** Two otherwise identical Deposit-backed outputs contain two distinct
 native assets, no datum and no reference script. At $p=4310$, their deposits depend
 on which side of the V2 activation slot $s$ they were allocated.
 
@@ -1026,7 +1026,7 @@ The following cases describe the pricing contract across ordinary outputs and co
 
 #### 1.4.1 P01 - Price each created output
 
-For each newly created Store-backed reference, compute $N$, $D$ and $R$ from its
+For each newly created Deposit-backed reference, compute $N$, $D$ and $R$ from its
 output. Compare the independently calculated $F_{v,p}(o)$ with the allocation read
 from the ledger. Include TopTx, SubTx and an applied collateral return.
 
@@ -1042,7 +1042,7 @@ a different policy is also a distinct asset. Under V2 each additional asset cost
 
 #### 1.4.3 N02 - Price an applied collateral return
 
-An accepted phase-2 failure creating a Store-backed collateral return allocates
+An accepted phase-2 failure creating a Deposit-backed collateral return allocates
 $F_{v,p}(o)$ for its output. The same output under the same formula and rate costs
 the same on the ordinary path.
 
@@ -1066,17 +1066,17 @@ independently calculated requirement.
 
 #### 1.4.6 N05 - Preserve the price across ADA encoding boundaries
 
-For two Store-backed outputs with identical $N,D,R$, change application ADA from
+For two Deposit-backed outputs with identical $N,D,R$, change application ADA from
 23 to 24 lovelace. Their coin encodings differ in length, but both incur the same
 external deposit. The same reasoning applies to a change in address length.
 
 <a id="ds-pricing-n06" name="ds-pricing-n06"></a>
 
-#### 1.4.7 N06 - Keep a legacy reserve inside its output
+#### 1.4.7 N06 - Keep a min-ADA reserve inside its output
 
-An existing `LegacyTxOut` with $C$ lovelace contributes zero to the external total.
+An existing `MinAdaTxOut` with $C$ lovelace contributes zero to the external total.
 Its reserve is $\min(C,F_{v,p}(o))$, selected from its allocation history, and its
-application ADA is the remainder. A newly proposed `LegacyTxOut` is also allowed,
+application ADA is the remainder. A newly proposed `MinAdaTxOut` is also allowed,
 but must contain at least the full deposit under the Store's **current** formula.
 The historical reserve cap does not relax admission of a new output.
 
@@ -1521,8 +1521,8 @@ its own contribution.
 
 | Own regular operation | UTxO condition | Outside this body's operations |
 | --- | --- | --- |
-| **Allocation** | A newly created store-backed output needs a deposit recorded in the Store. | Collateral return and a child's outputs. |
-| **Release** | A consumed store-backed output releases its recorded deposit. | Reference inputs, collateral inputs and a child's inputs. |
+| **Allocation** | A newly created deposit-backed output needs a deposit recorded in the Store. | Collateral return and a child's outputs. |
+| **Release** | A consumed deposit-backed output releases its recorded deposit. | Reference inputs, collateral inputs and a child's inputs. |
 
 These are **gross operations**, before netting:
 
@@ -1550,9 +1550,9 @@ Define:
 - `hasDeclaration(body)`: whether that field explicitly declares an operation,
   including explicit zero.
 - `requiresAllocation(body)`: at least one element of `outputs(body)` has the
-  `NewTxOut` constructor.
+  `DepositBackedTxOut` constructor.
 - `releasesDeposits(body)`: at least one element of `spentOutputs(body)` has the
-  `NewTxOut` constructor.
+  `DepositBackedTxOut` constructor.
 
 These predicates identify the output form, independently of the deposit price
 or the signed net amount. Together they define the body's own Store operations:
@@ -1592,11 +1592,11 @@ $$
 $$
 
 Here $\text{isImplicitDeposit(output)}$ means that the output has the
-`LegacyTxOut` constructor.
+`MinAdaTxOut` constructor.
 
 If either condition is true and `hasDeclaration(body)` is false, reject the body.
 DS-TX-ACCOUNTING-NET-CHANGE-SUBTX additionally requires a release
-contribution when store-backed outputs are spent without creating any new store-backed
+contribution when deposit-backed outputs are spent without creating any new deposit-backed
 outputs.
 
 **Declaration requirement decision table**
@@ -1606,28 +1606,28 @@ transaction satisfies funding, release, or other ledger rules.
 
 | Own spent outputs | Own created outputs | Own operation field | Result for DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS |
 | --- | --- | --- | --- |
-| Only implicit-deposit outputs, or empty | Only implicit-deposit outputs, or empty | `NoUTxODepositDeclaration` | Pass |
-| At least one store-backed output | Only implicit-deposit outputs, or empty | `NoUTxODepositDeclaration` | Reject |
-| Any | At least one store-backed output | `NoUTxODepositDeclaration` | Reject |
+| Only min-ADA outputs, or empty | Only min-ADA outputs, or empty | `NoUTxODepositDeclaration` | Pass |
+| At least one deposit-backed output | Only min-ADA outputs, or empty | `NoUTxODepositDeclaration` | Reject |
+| Any | At least one deposit-backed output | `NoUTxODepositDeclaration` | Reject |
 | Any | Any | Explicit declaration, including zero | Pass |
 
 The same cases apply to TopTx and SubTx. In particular:
 
 - A TopTx declaration does not replace a missing SubTx declaration. If the SubTx
-  creates or spends a store-backed output with `SubTx.NoUTxODepositDeclaration`, reject that SubTx even
+  creates or spends a deposit-backed output with `SubTx.NoUTxODepositDeclaration`, reject that SubTx even
   when the TopTx declares an operation.
 - A SubTx declaration does not replace a missing TopTx declaration either. If
-  the TopTx creates or spends a store-backed output with `TopTx.NoUTxODepositDeclaration`, reject the
+  the TopTx creates or spends a deposit-backed output with `TopTx.NoUTxODepositDeclaration`, reject the
   TopTx even when its SubTx bodies declare operations.
 - A SubTx that requests funding through `SubTx.RequestsUTxODepositFromTopTx amount`
   has made an explicit declaration and passes this presence check.
   DS-TX-ACCOUNTING-NET-CHANGE-SUBTX checks the requested amount, DS-TX-ACCOUNTING-ATTRIBUTION assigns
   its accounting to TopTx, and DS-TX-ACCOUNTING-BALANCE requires the complete batch to fund it.
-- A TopTx whose own spent and created outputs are all implicit-deposit outputs
-  and whose field is `TopTx.NoUTxODepositDeclaration`, containing a SubTx with store-backed outputs
+- A TopTx whose own spent and created outputs are all min-ADA outputs
+  and whose field is `TopTx.NoUTxODepositDeclaration`, containing a SubTx with deposit-backed outputs
   and an explicit operation, passes this check for both bodies. This says nothing
   about overall validity: DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS rejects the missing TopTx declaration.
-- Creating store-backed outputs still requires a declaration when the net
+- Creating deposit-backed outputs still requires a declaration when the net
   funding requirement is zero. An active SubTx with a zero required own change uses `SubTx.DeclaresZeroNetUTxODeposit`. TopTx uses `TopTx.DeclaresZeroNetUTxODeposit` when the complete required batch change is zero, regardless of its own contribution.
 
 <a id="ds-tx-presence-activity-p01" name="ds-tx-presence-activity-p01"></a>
@@ -1640,7 +1640,7 @@ The same cases apply to TopTx and SubTx. In particular:
 > **An operation requires a declaration even when its priced amount is zero.**
 
 Generate TopTx and zero to four SubTxs. Each body's source and output forms vary
-independently between implicit and store-backed. Resolve sources from the actual
+independently between min-ADA and deposit-backed. Resolve sources from the actual
 funded UTxO; inspect each body's own proposed outputs.
 
 $$
@@ -1657,7 +1657,7 @@ $$
 \begin{aligned}
 \text{depositPrice}&=0 \\
 \text{allocatedDeposits(body)}&=\text{releasedDeposits(body)}=0 \\
-\text{storeBackedOutput}&\ne\text{implicitOutput}
+\text{depositBackedOutput}&\ne\text{implicitOutput}
 \end{aligned}
 $$
 
@@ -1685,13 +1685,13 @@ validator. The positive-priced scenarios below complement this zero-price case.
 
 $$
 \forall\,\text{body}:\quad
-\text{createdStoreBackedOutputs(body)}\ne\varnothing
+\text{createdDepositBackedOutputs(body)}\ne\varnothing
 \implies\text{hasDeclaration(body)}
 $$
 
 **Decision:** Agreed.
 
-Here $\text{createdStoreBackedOutputs(body)}$ means the store-backed outputs in
+Here $\text{createdDepositBackedOutputs(body)}$ means the deposit-backed outputs in
 that body's **own regular output sequence**. It excludes collateral return and,
 for TopTx, its children's outputs. Inspect every own-output position, including
 mixed sequences. Any explicit declaration satisfies allocation presence; amounts,
@@ -1700,10 +1700,10 @@ funding and settlement remain separate requirements.
 | Cases | What they establish |
 | --- | --- |
 | N01, N02, F01 | Isolated allocation presence for TopTx and SubTx. Passing does not prove exact amounts or funding. |
-| N03, N04 | Ledger acceptance with only implicit outputs and no declarations. |
+| N03, N04 | Ledger acceptance with only min-ADA outputs and no declarations. |
 | N05, F02 | A funded standalone allocation is accepted; removing only its declaration is rejected. |
 | F03, F04, F05 | The required body-specific missing-declaration failure in the SubTx and phase-2 rejection fixtures. These are not paired with otherwise valid allocation controls. |
-| F06 | A Conway output upgraded to an implicit Dijkstra output cannot waive the declaration required by new Store allocations; an exact control is accepted. |
+| F06 | A Conway output upgraded to a min-ADA Dijkstra output cannot waive the declaration required by new Store allocations; an exact control is accepted. |
 | N06, N07, N08, F07 | Isolated TopTx allocation presence: only its own regular outputs trigger the requirement, and a child's declaration cannot supply its field. |
 | F08 | A specific SubTx missing-declaration failure, even when TopTx declares zero. |
 | N09 | Parent and child allocate with independently priced amounts; TopTx declares their combined allocation and SubTx its own. |
@@ -1713,12 +1713,12 @@ funding and settlement remain separate requirements.
 $$
 \begin{aligned}
 &\text{subTxs}=\varnothing \\
-&\land\ \text{spentStoreBackedOutputs(topTx)}=\varnothing \\
-&\land\ \text{createdStoreBackedOutputs(topTx)}\ne\varnothing
+&\land\ \text{spentDepositBackedOutputs(topTx)}=\varnothing \\
+&\land\ \text{createdDepositBackedOutputs(topTx)}\ne\varnothing
 \end{aligned}
 $$
 
-Only implicit inputs are spent, so no existing deposit is released. **Allocation
+Only min-ADA inputs are spent, so no existing deposit is released. **Allocation
 alone** requires the declaration. A phase-2-invalid marker does not bypass
 allocation presence; F04 and F05 check that obligation separately.
 
@@ -1731,11 +1731,11 @@ allocation presence; F04 and F05 check that obligation separately.
 
 For both TopTx and SubTx, every explicit declaration counts as present: zero,
 allocation, release and SubTx delegation. The isolated allocation-presence validator succeeds
-for each form and each generated arrangement of store-backed own outputs.
+for each form and each generated arrangement of deposit-backed own outputs.
 
 $$
 \begin{aligned}
-&\text{createdStoreBackedOutputs(body)}\ne\varnothing \\
+&\text{createdDepositBackedOutputs(body)}\ne\varnothing \\
 &\land\ \text{hasDeclaration(body)} \\
 &\implies\text{AllocationPresenceSatisfied}
 \end{aligned}
@@ -1756,7 +1756,7 @@ requirement. Both isolated validators succeed with an absent declaration.
 
 $$
 \begin{aligned}
-&\text{createdStoreBackedOutputs(body)}=\varnothing \\
+&\text{createdDepositBackedOutputs(body)}=\varnothing \\
 &\land\ \neg\text{hasDeclaration(body)} \\
 &\implies\text{AllocationPresenceSatisfied}
 \end{aligned}
@@ -1772,13 +1772,13 @@ require a declaration before the ledger can accept the transaction.
 
 **2.1.1.2.1.2.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L85) - Missing declaration fails allocation presence at every own-output position**
 
-One store-backed own output is enough to require a declaration, wherever it
-appears among implicit outputs. The generated cases place it at every position
+One deposit-backed own output is enough to require a declaration, wherever it
+appears among min-ADA outputs. The generated cases place it at every position
 in each generated sequence and check both TopTx and SubTx.
 
 $$
 \begin{aligned}
-&\text{createdStoreBackedOutputs(body)}\ne\varnothing \\
+&\text{createdDepositBackedOutputs(body)}\ne\varnothing \\
 &\land\ \neg\text{hasDeclaration(body)} \\
 &\implies\text{AllocationPresenceFails}
 \end{aligned}
@@ -1792,18 +1792,18 @@ transaction is submitted in this check.
 <a id="ds-tx-required-declarations-operations-allocation-n03" name="ds-tx-required-declarations-operations-allocation-n03"></a>
 <a id="ds-tx-declarations-requirements-operations-allocation-n03" name="ds-tx-declarations-requirements-operations-allocation-n03"></a>
 
-**2.1.1.2.1.2.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L95) - accepts a TopTx creating only implicit outputs without a declaration**
+**2.1.1.2.1.2.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L95) - accepts a TopTx creating only min-ADA outputs without a declaration**
 
-A TopTx creating only implicit outputs is accepted by the ledger without a Store declaration when its ordinary inputs, fees, and witnesses are valid. Its outputs impose no allocation-presence requirement.
+A TopTx creating only min-ADA outputs is accepted by the ledger without a Store declaration when its ordinary inputs, fees, and witnesses are valid. Its outputs impose no allocation-presence requirement.
 
 <a id="ds-tx-presence-activity-creation-n04" name="ds-tx-presence-activity-creation-n04"></a>
 <a id="ds-tx-presence-operations-allocation-n04" name="ds-tx-presence-operations-allocation-n04"></a>
 <a id="ds-tx-required-declarations-operations-allocation-n04" name="ds-tx-required-declarations-operations-allocation-n04"></a>
 <a id="ds-tx-declarations-requirements-operations-allocation-n04" name="ds-tx-declarations-requirements-operations-allocation-n04"></a>
 
-**2.1.1.2.1.2.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L99) - accepts a SubTx creating only implicit outputs without either body's declaration**
+**2.1.1.2.1.2.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L99) - accepts a SubTx creating only min-ADA outputs without either body's declaration**
 
-A SubTx creating only implicit outputs is accepted within a ledger transaction when neither level declares a Store operation. Ordinary transaction preparation supplies valid funding and witnesses; no Store allocation is created.
+A SubTx creating only min-ADA outputs is accepted within a ledger transaction when neither level declares a Store operation. Ordinary transaction preparation supplies valid funding and witnesses; no Store allocation is created.
 
 <a id="ds-tx-presence-activity-creation-n05" name="ds-tx-presence-activity-creation-n05"></a>
 <a id="ds-tx-presence-operations-allocation-n05" name="ds-tx-presence-operations-allocation-n05"></a>
@@ -1813,9 +1813,9 @@ A SubTx creating only implicit outputs is accepted within a ledger transaction w
 **2.1.1.2.1.2.6 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L114) - Standalone TopTx, exact allocation declaration**
 
 **No existing deposit is released.** Generate one to five outputs with varying
-application ADA, including at least one store-backed output. The sequence may be
-entirely store-backed or mixed with implicit outputs. Every funding input is
-implicit and has no Store allocation.
+application ADA, including at least one deposit-backed output. The sequence may be
+entirely deposit-backed or mixed with min-ADA outputs. Every funding input is
+min-ADA and has no Store allocation.
 
 TopTx declares the full required allocation directly. The builder funds that
 allocation, application outputs and fees, then supplies the witnesses. Under the
@@ -1831,11 +1831,11 @@ declaration:
 
 $$
 \text{allocatedDeposits(topTx)}
-=\sum_{\text{output}\in\text{createdStoreBackedOutputs(topTx)}}
+=\sum_{\text{output}\in\text{createdDepositBackedOutputs(topTx)}}
 \text{requiredDeposit(protocolParameters, output)}
 $$
 
-It prices each output’s asset count, datum and reference script at a positive rate. Implicit outputs
+It prices each output’s asset count, datum and reference script at a positive rate. Min-ADA outputs
 contribute zero; no SubTx declaration is supplied.
 
 <a id="ds-tx-presence-activity-creation-f02" name="ds-tx-presence-activity-creation-f02"></a>
@@ -1865,41 +1865,41 @@ transaction and require acceptance.
 <a id="ds-tx-required-declarations-operations-allocation-f03" name="ds-tx-required-declarations-operations-allocation-f03"></a>
 <a id="ds-tx-declarations-requirements-operations-allocation-f03" name="ds-tx-declarations-requirements-operations-allocation-f03"></a>
 
-**2.1.1.2.1.2.8 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L145) - rejects a SubTx creating a store-backed output without its own declaration**
+**2.1.1.2.1.2.8 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L145) - rejects a SubTx creating a deposit-backed output without its own declaration**
 
-The ledger rejects a SubTx that creates a store-backed own output without a SubTx declaration. The expected failure is SubMissingUTxODepositDeclaration, and rejection leaves ledger state unchanged. Declaration presence is required independently for the creating body.
+The ledger rejects a SubTx that creates a deposit-backed own output without a SubTx declaration. The expected failure is SubMissingUTxODepositDeclaration, and rejection leaves ledger state unchanged. Declaration presence is required independently for the creating body.
 
 <a id="ds-tx-presence-activity-creation-f04" name="ds-tx-presence-activity-creation-f04"></a>
 <a id="ds-tx-presence-operations-allocation-f04" name="ds-tx-presence-operations-allocation-f04"></a>
 <a id="ds-tx-required-declarations-operations-allocation-f04" name="ds-tx-required-declarations-operations-allocation-f04"></a>
 <a id="ds-tx-declarations-requirements-operations-allocation-f04" name="ds-tx-declarations-requirements-operations-allocation-f04"></a>
 
-**2.1.1.2.1.2.9 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L149) - rejects a TopTx creating a store-backed output without its own declaration even when phase 2 fails**
+**2.1.1.2.1.2.9 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L149) - rejects a TopTx creating a deposit-backed output without its own declaration even when phase 2 fails**
 
-A real failing phase-2 script does not waive TopTx's structural declaration requirement. Even with the transaction marked phase-2 invalid, creating a store-backed own output without a declaration yields MissingUTxODepositDeclaration and leaves the ledger unchanged.
+A real failing phase-2 script does not waive TopTx's structural declaration requirement. Even with the transaction marked phase-2 invalid, creating a deposit-backed own output without a declaration yields MissingUTxODepositDeclaration and leaves the ledger unchanged.
 
 <a id="ds-tx-presence-activity-creation-f05" name="ds-tx-presence-activity-creation-f05"></a>
 <a id="ds-tx-presence-operations-allocation-f05" name="ds-tx-presence-operations-allocation-f05"></a>
 <a id="ds-tx-required-declarations-operations-allocation-f05" name="ds-tx-required-declarations-operations-allocation-f05"></a>
 <a id="ds-tx-declarations-requirements-operations-allocation-f05" name="ds-tx-declarations-requirements-operations-allocation-f05"></a>
 
-**2.1.1.2.1.2.10 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L153) - rejects a SubTx creating a store-backed output without its own declaration even when phase 2 fails**
+**2.1.1.2.1.2.10 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L153) - rejects a SubTx creating a deposit-backed output without its own declaration even when phase 2 fails**
 
-A real phase-2 failure does not waive a creating SubTx's declaration requirement. The ledger still returns SubMissingUTxODepositDeclaration for the undeclared store-backed own output; the rejected transaction applies no state changes.
+A real phase-2 failure does not waive a creating SubTx's declaration requirement. The ledger still returns SubMissingUTxODepositDeclaration for the undeclared deposit-backed own output; the rejected transaction applies no state changes.
 
 <a id="ds-tx-presence-activity-creation-f06" name="ds-tx-presence-activity-creation-f06"></a>
 <a id="ds-tx-presence-operations-allocation-f06" name="ds-tx-presence-operations-allocation-f06"></a>
 <a id="ds-tx-required-declarations-operations-allocation-f06" name="ds-tx-required-declarations-operations-allocation-f06"></a>
 <a id="ds-tx-declarations-requirements-operations-allocation-f06" name="ds-tx-declarations-requirements-operations-allocation-f06"></a>
 
-**2.1.1.2.1.2.11 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L161) - rejects a missing own declaration when spending a translated implicit output to create store-backed outputs**
+**2.1.1.2.1.2.11 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L161) - rejects a missing own declaration when spending a translated min-ADA output to create deposit-backed outputs**
 
-> **An implicit source does not remove the declaration required by a new Store allocation.**
+> **A min-ADA source does not remove the declaration required by a new Store allocation.**
 
 Build a Conway output and apply the production output upgrade to Dijkstra. Fund
 that translated output through an accepted transaction, then consume its real
-`TxIn` to create one to five generated outputs, including at least one store-backed
-output. Its address, value and implicit form are preserved; it has no Store record.
+`TxIn` to create one to five generated outputs, including at least one deposit-backed
+output. Its address, value and min-ADA form are preserved; it has no Store record.
 
 $$
 \begin{aligned}
@@ -1926,9 +1926,9 @@ of the ledger state.
 
 **2.1.1.2.1.2.12 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L178) - SubTx outputs do not trigger TopTx allocation presence**
 
-TopTx has no own outputs and no declaration. Its nested SubTx creates store-backed
+TopTx has no own outputs and no declaration. Its nested SubTx creates deposit-backed
 outputs and explicitly declares zero. The isolated TopTx allocation-presence validator succeeds:
-the child's outputs do not enter $\text{createdStoreBackedOutputs(topTx)}$.
+the child's outputs do not enter $\text{createdDepositBackedOutputs(topTx)}$.
 
 This transaction is not established as acceptable. The child's explicit zero
 triggers dependency, so the absent TopTx declaration fails that separate rule.
@@ -1942,9 +1942,9 @@ The child's amount is also outside this isolated check.
 
 **2.1.1.2.1.2.13 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L188) - Collateral return does not trigger allocation presence**
 
-TopTx has a store-backed collateral return, no regular outputs and no declaration.
+TopTx has a deposit-backed collateral return, no regular outputs and no declaration.
 The isolated allocation-presence validator succeeds because collateral return is outside
-$\text{createdStoreBackedOutputs(topTx)}$. Its independent collateral funding and
+$\text{createdDepositBackedOutputs(topTx)}$. Its independent collateral funding and
 validity requirements still apply.
 
 <a id="ds-tx-presence-activity-scope-n03" name="ds-tx-presence-activity-scope-n03"></a>
@@ -1958,7 +1958,7 @@ validity requirements still apply.
 Place the same arbitrary input identifier in both reference and collateral input
 sets, with no regular outputs or declaration. The isolated allocation-presence validator
 succeeds: neither field is a created output. The fixture does **not resolve the
-identifier** or prove that it names a store-backed output or valid collateral.
+identifier** or prove that it names a deposit-backed output or valid collateral.
 
 <a id="ds-tx-presence-activity-scope-f01" name="ds-tx-presence-activity-scope-f01"></a>
 <a id="ds-tx-presence-operations-scope-f01" name="ds-tx-presence-operations-scope-f01"></a>
@@ -1968,8 +1968,8 @@ identifier** or prove that it names a store-backed output or valid collateral.
 
 **2.1.1.2.1.2.15 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L200) - A SubTx declaration cannot satisfy TopTx allocation presence**
 
-TopTx creates store-backed own outputs but declares nothing. Its nested SubTx
-also creates store-backed outputs and explicitly declares zero. The child's
+TopTx creates deposit-backed own outputs but declares nothing. Its nested SubTx
+also creates deposit-backed outputs and explicitly declares zero. The child's
 declaration cannot supply TopTx's field: the isolated TopTx allocation-presence validator
 returns `MissingBodyUTxODepositDeclaration`.
 
@@ -1981,13 +1981,13 @@ returns `MissingBodyUTxODepositDeclaration`.
 
 **2.1.1.2.1.2.16 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L212) - TopTx zero cannot satisfy its allocating SubTx's declaration requirement**
 
-TopTx explicitly declares zero while its SubTx creates a store-backed output and
+TopTx explicitly declares zero while its SubTx creates a deposit-backed output and
 omits its own declaration. The ledger rejection must include
 `SubMissingUTxODepositDeclaration`.
 
 $$
 \begin{aligned}
-&\text{createdStoreBackedOutputs(subTx)}\ne\varnothing \\
+&\text{createdDepositBackedOutputs(subTx)}\ne\varnothing \\
 &\land\ \neg\text{hasDeclaration(subTx)} \\
 &\land\ \text{declaredNetDeposit(topTx)}=0 \\
 &\implies\text{RejectedWith(SubMissingUTxODepositDeclaration)}
@@ -2009,8 +2009,8 @@ it does not start from an otherwise valid allocation control.
 > **SubTx declares its own allocation; TopTx declares the complete transaction allocation.**
 
 TopTx and exactly one SubTx each create one to five generated outputs, with at
-least one store-backed output per body. Their output forms, positions and
-application amounts vary independently. Both spend only implicit inputs, so
+least one deposit-backed output per body. Their output forms, positions and
+application amounts vary independently. Both spend only min-ADA inputs, so
 neither releases a recorded deposit.
 
 $$
@@ -2025,7 +2025,7 @@ $$
 $$
 
 Price the two output sequences independently. Fund the child's application
-outputs and own allocation from its implicit input; TopTx supplies the remaining
+outputs and own allocation from its min-ADA input; TopTx supplies the remaining
 funding and fees. The transaction with these exact declarations must be accepted.
 
 <a id="ds-tx-presence-activity-spending" name="ds-tx-presence-activity-spending"></a>
@@ -2039,7 +2039,7 @@ funding and fees. The transaction with these exact declarations must be accepted
 
 $$
 \forall\,\text{body}:\quad
-\text{storeBackedInputs(body)}\ne\varnothing
+\text{depositBackedInputs(body)}\ne\varnothing
 \implies\text{hasDeclaration(body)}
 $$
 
@@ -2049,7 +2049,7 @@ Apply the rule **independently to TopTx and every SubTx**, using each body's own
 ordinary inputs resolved against the original UTxO. Reference inputs, collateral
 inputs and a child's inputs do not count as this body's consumed outputs.
 
-| Store-backed inputs | Own declaration | Declaration requirement result |
+| Deposit-backed inputs | Own declaration | Declaration requirement result |
 | --- | --- | --- |
 | Present | Absent | **Reject:** missing declaration. |
 | Present | Present | **Pass presence.** Acceptance still requires exact amounts, valid settlement and all other ledger rules. |
@@ -2059,7 +2059,7 @@ Equivalently:
 
 $$
 \text{releasePresenceValid(body)}
-\iff \text{storeBackedInputs(body)}=\varnothing\lor\text{hasDeclaration(body)}
+\iff \text{depositBackedInputs(body)}=\varnothing\lor\text{hasDeclaration(body)}
 $$
 
 **Explicit zero counts as a declaration.** Its amount must still be correct.
@@ -2067,9 +2067,9 @@ The presence rule applies on both phase-2 outcomes. Each scenario below states
 the proposed release, the declaration supplied or omitted, and the resulting
 acceptance or rejection.
 
-**Releasing a deposit** means consuming its store-backed UTxO in the proposed
+**Releasing a deposit** means consuming its deposit-backed UTxO in the proposed
 ordinary transition. The released amount is the deposit recorded for that source;
-newly created store-backed outputs require separate allocations.
+newly created deposit-backed outputs require separate allocations.
 
 A **gross release** does not imply a **net release**. New allocations minus
 recorded releases can be positive, zero or negative. The body declares its net
@@ -2085,13 +2085,13 @@ state transitions: [Execution](#ds-state-execution),
 | Notation | Meaning |
 | --- | --- |
 | $\text{body}$ | TopTx or one of its SubTxs, considered separately. |
-| $\text{storeBackedInputs(body)}$ | Its own ordinary inputs resolving to store-backed outputs in the original UTxO. |
+| $\text{depositBackedInputs(body)}$ | Its own ordinary inputs resolving to deposit-backed outputs in the original UTxO. |
 | $\text{hasDeclaration(body)}$ | That body explicitly declares a change, including explicit zero. |
-| $\text{releasedDeposits(body)}$ | Sum of recorded deposits of its consumed store-backed outputs, proposed for ordinary release. |
-| $\text{allocatedDeposits(body)}$ | Sum of required deposits of its newly created store-backed outputs. |
+| $\text{releasedDeposits(body)}$ | Sum of recorded deposits of its consumed deposit-backed outputs, proposed for ordinary release. |
+| $\text{allocatedDeposits(body)}$ | Sum of required deposits of its newly created deposit-backed outputs. |
 | $\text{declaredNetDeposit(body)}$ | The signed declaration: allocation positive, release negative, explicit zero equal to 0. TopTx declares the transaction total. |
 
-A declaration is required on **both phase-2 outcomes**, even when no new store-backed
+A declaration is required on **both phase-2 outcomes**, even when no new deposit-backed
 output is created.
 
 Acceptance cases satisfy all other ledger requirements, including exact amounts
@@ -2101,11 +2101,11 @@ omission is supplied during preparation or applied to a prepared valid control.
 Net change separately checks the declared amounts.
 
 N01 covers a standalone TopTx with any generated output form; N02 specializes it
-to **only implicit outputs**. Source outputs are created by accepted funding
+to **only min-ADA outputs**. Source outputs are created by accepted funding
 transactions. Their allocations are read from the resulting ledger state, so a
 release always has a funded, recorded deposit behind it.
 
-Scenarios may also include unrelated store-backed outputs; their deposits are
+Scenarios may also include unrelated deposit-backed outputs; their deposits are
 excluded from the proposed release. No test inserts an invented allocation into
 the live ledger.
 
@@ -2120,7 +2120,7 @@ the live ledger.
 
 | Body | Consumes | Creates |
 | --- | --- | --- |
-| TopTx only: $\text{subTxs}=\varnothing$ | Store-backed outputs: $\text{releasedDeposits}>0$ | Implicit outputs, store-backed outputs, or a mixture. |
+| TopTx only: $\text{subTxs}=\varnothing$ | Deposit-backed outputs: $\text{releasedDeposits}>0$ | Min-ADA outputs, deposit-backed outputs, or a mixture. |
 
 Each generated proposal starts with **funded inputs and no TopTx declaration**.
 Calculate its required net deposit, declare that amount, then build, sign and
@@ -2132,12 +2132,12 @@ All amounts below belong to this TopTx. The two sums have separate scopes:
 
 | Amount | Sum | Includes only |
 | --- | --- | --- |
-| $\text{allocatedDeposits}$ | $\displaystyle\sum_{\text{newOutput}}\text{requiredDeposit(newOutput)}$ | Newly created store-backed outputs. |
-| $\text{releasedDeposits}$ | $\displaystyle\sum_{\text{input}}\text{recordedDeposit(input)}$ | Consumed store-backed inputs. |
+| $\text{allocatedDeposits}$ | $\displaystyle\sum_{\text{newOutput}}\text{requiredDeposit(newOutput)}$ | Newly created deposit-backed outputs. |
+| $\text{releasedDeposits}$ | $\displaystyle\sum_{\text{input}}\text{recordedDeposit(input)}$ | Consumed deposit-backed inputs. |
 
 New allocations use the [deposit calculation](#ds-pricing) with fixed protocol
-parameters. Releases use the **recorded ledger amounts**. Implicit inputs release
-no Store deposit; implicit outputs require no Store allocation. Existing outputs
+parameters. Releases use the **recorded ledger amounts**. Min-ADA inputs release
+no Store deposit; min-ADA outputs require no Store allocation. Existing outputs
 left unspent are excluded.
 
 **Expected result**
@@ -2168,7 +2168,7 @@ for in its declared settlement output.
 <a id="ds-tx-required-declarations-operations-release-n02" name="ds-tx-required-declarations-operations-release-n02"></a>
 <a id="ds-tx-declarations-requirements-operations-release-n02" name="ds-tx-declarations-requirements-operations-release-n02"></a>
 
-**2.1.1.2.1.3.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L84) - Standalone TopTx, only implicit outputs**
+**2.1.1.2.1.3.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L84) - Standalone TopTx, only min-ADA outputs**
 
 No new Store allocation is required ($\text{allocatedDeposits}=0$),
 so TopTx directly declares a release of $\text{releasedDeposits}$ into its output 0.
@@ -2179,7 +2179,7 @@ Build and sign that proposal, then require acceptance.
 $$
 \begin{aligned}
 &\text{subTxs}=\varnothing \land \text{releasedDeposits}>0 \\
-&\land\ \text{storeBackedOutputs}=\varnothing \\
+&\land\ \text{depositBackedOutputs}=\varnothing \\
 &\land\ \text{declaredNetDeposit}=-\text{releasedDeposits} \\
 &\implies \text{Accepted}
 \end{aligned}
@@ -2188,15 +2188,15 @@ $$
 **Example:** fees are funded separately and no other charges or transfers apply.
 
 ```text
-Existing store-backed output
+Existing deposit-backed output
 ├── Application ADA:       10 ₳
 └── Deposit in the Store:   2 ₳ (recorded separately)
 
 Proposed TopTx without SubTxs
 ├── Spends that output
-├── Creates no store-backed outputs
+├── Creates no deposit-backed outputs
 ├── Declares a release of 2 ₳
-└── Creates an implicit settlement output containing 12 ₳
+└── Creates a min-ADA settlement output containing 12 ₳
 ```
 
 The proposed settlement output contains $10 + 2 = 12$ ₳, accounting for the
@@ -2211,7 +2211,7 @@ be accepted.
 **2.1.1.2.1.3.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L98) - One SubTx releases its deposit into its own output**
 
 TopTx has no Store operations of its own and declares the matching total. The SubTx
-proposes to consume a store-backed output and create only implicit outputs,
+proposes to consume a deposit-backed output and create only min-ADA outputs,
 so it declares the full recorded deposit as a release. The two declarations
 account for **one proposed release**, assigned to the SubTx.
 
@@ -2235,7 +2235,7 @@ $$
 
 **Example:** the consumed output contains **10 ₳ of application ADA** and has a
 recorded Store deposit of $\text{deposit}$. With fees funded separately, its proposed
-implicit settlement output contains:
+min-ADA settlement output contains:
 
 $$
 \text{SubTx output coins} = 10\text{ ₳} + \text{deposit}
@@ -2259,14 +2259,14 @@ TopTx still declares the exact total.
 
 **Scenario**
 
-Generate a standalone transaction consuming one to five store-backed outputs,
+Generate a standalone transaction consuming one to five deposit-backed outputs,
 as in [N02](#ds-tx-declarations-requirements-operations-release-n02). Declare its exact total release
 into TopTx's output 0, then build and sign it. Remove only TopTx's declaration and
 re-sign. The proposed inputs and outputs remain unchanged.
 
 | Body | Consumes | Creates | Declaration |
 | --- | --- | --- | --- |
-| TopTx, with no SubTxs | One or more store-backed outputs with recorded deposits. | Only implicit outputs; the settlement output includes the complete proposed release. | Absent. |
+| TopTx, with no SubTxs | One or more deposit-backed outputs with recorded deposits. | Only min-ADA outputs; the settlement output includes the complete proposed release. | Absent. |
 
 **Expected result**
 
@@ -2284,7 +2284,7 @@ Rejection must include `MissingUTxODepositDeclaration`.
 
 **Why:** TopTx's own release requires its declaration. There are no SubTxs,
 so [declaration dependency](#ds-tx-declarations-requirements-subtx-declarations) imposes no requirement.
-Creating only implicit outputs also excludes allocation presence as the reason for
+Creating only min-ADA outputs also excludes allocation presence as the reason for
 this missing-declaration failure.
 
 Removing the declared release can additionally break accounting or value conservation.
@@ -2311,7 +2311,7 @@ is part of the proposal from the outset; no declaration is removed after signing
 | Body | Own Store operations | Declaration |
 | --- | --- | --- |
 | TopTx | None. | Declares the full release with `NoTopTxSettlement`. |
-| Its single SubTx | Consumes a store-backed output and creates only implicit outputs, including its settlement output. | Absent. |
+| Its single SubTx | Consumes a deposit-backed output and creates only min-ADA outputs, including its settlement output. | Absent. |
 
 **Expected result**
 
@@ -2337,12 +2337,12 @@ to the SubTx releasing deposits itself.
 
 [SubTx declarations C02-N03](#ds-tx-declarations-requirements-subtx-declarations-c02-n03) accepts the same presence pattern
 (TopTx present, SubTx absent) when there are **no Store operations**. Here the SubTx
-spends a store-backed output, which introduces its own declaration requirement.
+spends a deposit-backed output, which introduces its own declaration requirement.
 
 | Case | TopTx declaration | SubTx declaration | Source of the obligation |
 | --- | --- | --- | --- |
-| Release F01 | Absent. | No SubTx exists. | TopTx's own store-backed input. |
-| Release F02 | Present. | Absent. | SubTx's own store-backed input. |
+| Release F01 | Absent. | No SubTx exists. | TopTx's own deposit-backed input. |
+| Release F02 | Present. | Absent. | SubTx's own deposit-backed input. |
 | [SubTx declarations C02-F01](#ds-tx-declarations-requirements-subtx-declarations-c02-f01) | Absent. | Explicit zero. | The SubTx declaration, even without Store operations. |
 
 <a id="ds-tx-presence-activity-spending-n04" name="ds-tx-presence-activity-spending-n04"></a>
@@ -2406,7 +2406,7 @@ not exempt it from that check; the test does not require phase 2 to execute.
 
 **Every SubTx releasing deposits declares its own release; TopTx declares their total.**
 Generate two to five SubTxs with varying application ADA amounts. Each consumes
-its own funded store-backed output and creates an implicit settlement output.
+its own funded deposit-backed output and creates a min-ADA settlement output.
 TopTx has no Store operations of its own and funds transaction fees separately.
 
 All ordinary outputs are implicit, so no new Store allocation is required. Each
@@ -2445,7 +2445,7 @@ all other SubTxs keep their exact local declarations.
 
 ```text
 declared, declared, absent, declared, …
-                  └── its store-backed input still requires a declaration
+                  └── its deposit-backed input still requires a declaration
 ```
 
 For each $\text{selectedSubTx}\in\text{subTxs}$, submit a separate proposal:
@@ -2478,13 +2478,13 @@ It must be accepted.
 **2.1.1.2.1.3.10 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L222) - Only some SubTxs release Store deposits**
 
 **A SubTx releasing deposits does not impose its declaration requirement on its siblings.**
-Mix SubTxs consuming store-backed outputs with SubTxs consuming only implicit
+Mix SubTxs consuming deposit-backed outputs with SubTxs consuming only min-ADA
 outputs, varying their positions. Both groups are nonempty; all created outputs
 are implicit. The latter group has no Store operations and omits its declarations.
 
 $$
 \begin{aligned}
-\text{releasingSubTxs} &= \{\text{subTx}\in\text{subTxs}\mid\text{storeBackedInputs(subTx)}\ne\varnothing\} \\
+\text{releasingSubTxs} &= \{\text{subTx}\in\text{subTxs}\mid\text{depositBackedInputs(subTx)}\ne\varnothing\} \\
 \text{implicitOnlySubTxs} &= \text{subTxs}\setminus\text{releasingSubTxs}
 \end{aligned}
 $$
@@ -2520,7 +2520,7 @@ another SubTx proposes a release.
 **2.1.1.2.1.3.11 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L243) - TopTx and several SubTxs release deposits**
 
 **TopTx can release its own deposit while its SubTxs release theirs locally.**
-TopTx and each of at least two SubTxs propose to consume their own store-backed
+TopTx and each of at least two SubTxs propose to consume their own deposit-backed
 outputs. All proposed outputs are implicit; each body assigns its own release
 to its own settlement output. Fees are funded separately.
 
@@ -2573,7 +2573,7 @@ $$
 \end{aligned}
 $$
 
-The transaction must be accepted. Separate implicit collateral and an implicit
+The transaction must be accepted. Separate min-ADA collateral and a min-ADA
 return provide a valid failure-path proposal. Its ledger effects belong to
 [Execution](#ds-state-execution).
 
@@ -2620,17 +2620,17 @@ fully declared control. It must be accepted on the phase-2 failure path.
 
 **2.1.1.2.1.3.14 [N09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L303) - Standalone TopTx, reference-only Store access**
 
-> **Referencing a Store-backed output does not release its deposit.**
+> **Referencing a Deposit-backed output does not release its deposit.**
 
-Fund one to five Store-backed outputs and their positive allocations through a
+Fund one to five Deposit-backed outputs and their positive allocations through a
 real ledger transaction. TopTx references those live outputs without consuming
 them. Its ordinary inputs and outputs are implicit, and it has no SubTxs.
 
 $$
 \begin{aligned}
-\text{storeBackedReferenceInputs(topTx)}&\ne\varnothing \\
-\text{ordinaryStoreBackedInputs(topTx)}&=\varnothing \\
-\text{createdStoreBackedOutputs(topTx)}&=\varnothing \\
+\text{depositBackedReferenceInputs(topTx)}&\ne\varnothing \\
+\text{ordinaryDepositBackedInputs(topTx)}&=\varnothing \\
+\text{createdDepositBackedOutputs(topTx)}&=\varnothing \\
 \neg\text{hasDeclaration(topTx)}&\implies\text{Accepted}
 \end{aligned}
 $$
@@ -2653,9 +2653,9 @@ Each generated pair of application amounts exercises all three placements:
 
 | Collateral input | Collateral return |
 | --- | --- |
-| Store-backed | Implicit |
-| Implicit | Store-backed |
-| Store-backed | Store-backed |
+| Deposit-backed | Implicit |
+| Implicit | Deposit-backed |
+| Deposit-backed | Deposit-backed |
 
 Fund the input on the real ledger and supply sufficient collateral coins for the
 return, any additional return deposit, and the minimum fee. Every placement runs
@@ -2665,8 +2665,8 @@ phase-2 validity flag.
 $$
 \begin{aligned}
 \text{subTxs}&=\varnothing \\
-\text{ordinaryStoreBackedInputs(topTx)}&=\varnothing \\
-\text{createdStoreBackedOutputs(topTx)}&=\varnothing \\
+\text{ordinaryDepositBackedInputs(topTx)}&=\varnothing \\
+\text{createdDepositBackedOutputs(topTx)}&=\varnothing \\
 \neg\text{hasDeclaration(topTx)}&\implies\text{Accepted}
 \end{aligned}
 $$
@@ -2685,8 +2685,8 @@ failure path; the ordinary declaration requirement remains unchanged.
 
 > **A child's declaration cannot supply its releasing parent's field.**
 
-TopTx and two to five SubTxs each consume a funded Store-backed output and create
-an implicit settlement output. Each child declares its own release; TopTx declares
+TopTx and two to five SubTxs each consume a funded Deposit-backed output and create
+a min-ADA settlement output. Each child declares its own release; TopTx declares
 the combined release. Begin with this signed, otherwise valid control, then remove
 only TopTx's declaration and re-sign.
 
@@ -2740,7 +2740,7 @@ $$
 Equality is checked independently for every active body. A zero batch total
 alone is insufficient: every active body releases a positive deposit and
 allocates the same amount itself. Inactive bodies consume and create only
-implicit outputs. The active and inactive bodies partition TopTx and its actual
+min-ADA outputs. The active and inactive bodies partition TopTx and its actual
 SubTx sequence. The active child set is determined from recorded deposits, not
 from which children already have declarations.
 
@@ -2755,7 +2755,7 @@ These amounts illustrate the rule. Sources are created by real funding
 transactions and looked up in the resulting UTxO. A replacement copies its
 source `TxOut`, preserving the amount that is independently priced under the
 unchanged deposit prices. Each child has one funded input and one replacement
-output, including the implicit input/output pair of an inactive child. An
+output, including the min-ADA input/output pair of an inactive child. An
 unrelated funded source remains outside the candidate transaction and does not
 contribute to any body's release. Application ADA and fees are funded separately.
 
@@ -2819,7 +2819,7 @@ SubTxs. The following cases extend the same per-body requirement to batches;
 
 **2.1.1.2.1.4.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs#L72) - One SubTx replaces its deposit with explicit zero**
 
-One SubTx consumes a funded store-backed output and proposes an identical
+One SubTx consumes a funded deposit-backed output and proposes an identical
 replacement. TopTx has no own Store operations. Both bodies explicitly declare
 zero: the child acknowledges its own operations, and TopTx acknowledges the
 child's declaration and the zero batch amount.
@@ -2886,7 +2886,7 @@ SubTx declaration. The original control with both zeros must be accepted.
 
 **2.1.1.2.1.4.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs#L112) - Several SubTxs each replace their deposits**
 
-Generate two to five SubTxs. Each consumes its own funded store-backed output
+Generate two to five SubTxs. Each consumes its own funded deposit-backed output
 and proposes its own copied replacement, so each child's positive allocation
 equals its own recorded release. TopTx has no own Store operations; all bodies
 explicitly declare zero.
@@ -2938,7 +2938,7 @@ control. It must be accepted.
 Generate two to five SubTxs with a nonempty proper subset of active children,
 varying their positions. Determine that subset from their inputs' recorded
 deposits. Each active child replaces a positive Store deposit and declares zero.
-Every remaining child consumes and replaces an implicit output, with zero
+Every remaining child consumes and replaces a min-ADA output, with zero
 allocation and release and no declaration. TopTx has no own Store operations
 and explicitly declares zero.
 
@@ -2997,7 +2997,7 @@ the original control must be accepted with its inactive declarations still absen
 
 **2.1.1.2.1.4.10 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs#L172) - TopTx and several SubTxs each replace their deposits**
 
-TopTx and each of two to five children consume their own funded store-backed
+TopTx and each of two to five children consume their own funded deposit-backed
 source and propose a copied replacement. Every body independently has equal
 positive allocations and releases. All declare explicit zero.
 
@@ -3217,7 +3217,7 @@ Random combinations also exercise several declaring SubTxs together.
 >
 > Absent $\ne$ Explicit zero. A SubTx's explicit zero requires TopTx to declare; absence alone does not.
 
-**Situation:** TopTx and its single SubTx consume and create only implicit-deposit
+**Situation:** TopTx and its single SubTx consume and create only min-ADA
 outputs. There is no Store allocation or release. Each case submits a funded,
 phase-2-valid transaction whose other ledger requirements are satisfied.
 
@@ -3590,8 +3590,8 @@ $$
 
 | Notation | Meaning |
 | --- | --- |
-| $\mathrm{allocatedDeposits}(\mathit{body})$ | [Price](#ds-pricing) the body's newly created store-backed outputs. |
-| $\mathrm{releasedDeposits}(\mathit{body})$ | Read the recorded deposits of its consumed store-backed inputs. |
+| $\mathrm{allocatedDeposits}(\mathit{body})$ | [Price](#ds-pricing) the body's newly created deposit-backed outputs. |
+| $\mathrm{releasedDeposits}(\mathit{body})$ | Read the recorded deposits of its consumed deposit-backed inputs. |
 | $\mathrm{declaredNetDeposit}(\mathit{body})$ | The **signed** declared value: allocation $>0$, release $<0$, explicit zero $=0$. Absence has no declared value. |
 | $1$ in amount comparisons | One lovelace. Example values labelled ADA are converted to lovelace. |
 
@@ -3676,8 +3676,8 @@ $$
 | --- | --- |
 | $\mathrm{delegatesAllocation}(\mathit{subTx})$ | The declaration is `RequestsUTxODepositFromTopTx`. |
 | $\mathrm{delegatesRelease}(\mathit{subTx})$ | The release target is `DelegateToTopTx`. |
-| $\mathit{translatedImplicitInput}$ | A live input referencing an implicit output translated from the preceding era. |
-| $\mathit{unspentInputs}$ | References to live Store-backed outputs that this transaction does not consume. |
+| $\mathit{translatedImplicitInput}$ | A live input referencing a min-ADA output translated from the preceding era. |
+| $\mathit{unspentInputs}$ | References to live Deposit-backed outputs that this transaction does not consume. |
 | $\mathrm{recordedDeposits}(\mathit{unspentInputs})$ | Sum of their recorded deposits. |
 
 For F01–F04, both the original and changed magnitudes remain representable. Positive
@@ -3877,18 +3877,18 @@ The release targets `DelegateToTopTx`; its magnitude remains exactly the origina
 <a id="ds-tx-accounting-subtx-n05" name="ds-tx-accounting-subtx-n05"></a>
 <a id="ds-tx-accounting-net-change-subtx-n05" name="ds-tx-accounting-net-change-subtx-n05"></a>
 
-**2.1.2.1.1.12 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L290) - Released deposits, only implicit outputs**
+**2.1.2.1.1.12 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L290) - Released deposits, only min-ADA outputs**
 
 $$
 \begin{aligned}
 &\mathrm{releasedDeposits}(\mathit{subTx}) > 0 \\
-&\land \mathrm{storeBackedOutputs}(\mathit{subTx}) = \varnothing \\
+&\land \mathrm{depositBackedOutputs}(\mathit{subTx}) = \varnothing \\
 &\land \mathrm{declaredNetDeposit}(\mathit{subTx}) = -\mathrm{releasedDeposits}(\mathit{subTx}) \\
 &\implies \mathrm{accepted}
 \end{aligned}
 $$
 
-Implicit outputs require no new Store allocation, so the declaration releases the complete recorded input deposit.
+Min-ADA outputs require no new Store allocation, so the declaration releases the complete recorded input deposit.
 
 <a id="ds-tx-exactness-contribution-f07" name="ds-tx-exactness-contribution-f07"></a>
 <a id="ds-tx-exactness-subtx-f07" name="ds-tx-exactness-subtx-f07"></a>
@@ -3934,7 +3934,7 @@ The other body is TopTx or another SubTx. Cover partial, equal and greater offse
 
 $$
 \begin{aligned}
-&\mathrm{storeBackedOutputs}(\mathit{subTx}) = \{\mathit{output}\} \\
+&\mathrm{depositBackedOutputs}(\mathit{subTx}) = \{\mathit{output}\} \\
 &\land \mathrm{applicationAssets}(\mathit{output}) = \varnothing \\
 &\land \mathrm{releasedDeposits}(\mathit{subTx}) = 0 \\
 &\land \mathrm{declaredNetDeposit}(\mathit{subTx}) = \mathrm{allocatedDeposits}(\mathit{subTx}) > 0 \\
@@ -3949,31 +3949,31 @@ The formula charges its base even when the application value is empty. Use a pos
 <a id="ds-tx-accounting-subtx-n08" name="ds-tx-accounting-subtx-n08"></a>
 <a id="ds-tx-accounting-net-change-subtx-n08" name="ds-tx-accounting-net-change-subtx-n08"></a>
 
-**2.1.2.1.1.16 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L354) - A translated implicit input funds an exact allocation**
+**2.1.2.1.1.16 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L354) - A translated min-ADA input funds an exact allocation**
 
 $$
 \begin{aligned}
 &\mathrm{ordinaryInputs}(\mathit{subTx}) = \{\mathit{translatedImplicitInput}\} \\
-&\land \mathrm{storeBackedOutputs}(\mathit{subTx}) \ne \varnothing \\
+&\land \mathrm{depositBackedOutputs}(\mathit{subTx}) \ne \varnothing \\
 &\land \mathrm{releasedDeposits}(\mathit{subTx}) = 0 \\
 &\land \mathrm{declaredNetDeposit}(\mathit{subTx}) = \mathrm{allocatedDeposits}(\mathit{subTx}) > 0 \\
 &\implies \mathrm{accepted}
 \end{aligned}
 $$
 
-The live input was translated from the previous era into an implicit output. Its coins fund new Store obligations, but it releases no Store deposit.
+The live input was translated from the previous era into a min-ADA output. Its coins fund new Store obligations, but it releases no Store deposit.
 
 <a id="ds-tx-exactness-contribution-f08" name="ds-tx-exactness-contribution-f08"></a>
 <a id="ds-tx-exactness-subtx-f08" name="ds-tx-exactness-subtx-f08"></a>
 <a id="ds-tx-accounting-subtx-f08" name="ds-tx-accounting-subtx-f08"></a>
 <a id="ds-tx-accounting-net-change-subtx-f08" name="ds-tx-accounting-net-change-subtx-f08"></a>
 
-**2.1.2.1.1.17 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L366) - A translated implicit input does not excuse an inexact allocation**
+**2.1.2.1.1.17 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L366) - A translated min-ADA input does not excuse an inexact allocation**
 
 $$
 \begin{aligned}
 &\mathrm{ordinaryInputs}(\mathit{subTx}) = \{\mathit{translatedImplicitInput}\} \\
-&\land \mathrm{storeBackedOutputs}(\mathit{subTx}) \ne \varnothing \\
+&\land \mathrm{depositBackedOutputs}(\mathit{subTx}) \ne \varnothing \\
 &\land \mathrm{releasedDeposits}(\mathit{subTx}) = 0 \\
 &\land \mathrm{allocatedDeposits}(\mathit{subTx}) > 0 \\
 &\land \mathrm{declaredNetDeposit}(\mathit{subTx}) > 0 \\
@@ -4001,7 +4001,7 @@ $$
 \end{aligned}
 $$
 
-Fund one to four separate Store-backed outputs and leave them unspent. Their
+Fund one to four separate Deposit-backed outputs and leave them unspent. Their
 recorded deposits are not available to this SubTx: increasing the declared release
 by part of that amount fails exactness. The unchanged declaration remains accepted.
 
@@ -4262,7 +4262,7 @@ $$
 \end{aligned}
 $$
 
-Create one more store-backed output than is consumed. Start from a valid control and alter only the signed declaration.
+Create one more deposit-backed output than is consumed. Start from a valid control and alter only the signed declaration.
 
 <a id="ds-tx-exactness-netting-f02" name="ds-tx-exactness-netting-f02"></a>
 <a id="ds-tx-exactness-toptx-f02" name="ds-tx-exactness-toptx-f02"></a>
@@ -4299,7 +4299,7 @@ $$
 \end{aligned}
 $$
 
-Only implicit outputs are created. Adding one to the negative declaration reduces the release magnitude.
+Only min-ADA outputs are created. Adding one to the negative declaration reduces the release magnitude.
 
 <a id="ds-tx-exactness-netting-f04" name="ds-tx-exactness-netting-f04"></a>
 <a id="ds-tx-exactness-toptx-f04" name="ds-tx-exactness-toptx-f04"></a>
@@ -4318,7 +4318,7 @@ $$
 \end{aligned}
 $$
 
-Only implicit outputs are created. Subtracting one from the negative declaration increases the release magnitude.
+Only min-ADA outputs are created. Subtracting one from the negative declaration increases the release magnitude.
 
 <a id="ds-tx-exactness-netting-f05" name="ds-tx-exactness-netting-f05"></a>
 <a id="ds-tx-exactness-toptx-f05" name="ds-tx-exactness-toptx-f05"></a>
@@ -4627,7 +4627,7 @@ remain fixed. Unqualified coin amounts are in lovelace.
 | $\text{declaredNetDeposit}$ | TopTx's explicit signed total: allocation $>0$, release $<0$, zero $=0$. |
 | $\text{inputCoins(body)}$, $\text{outputCoins(body)}$ | Application ADA in that body's own inputs or outputs. |
 | $\Delta$ | Change from the independently balanced control. |
-| $\text{outputAdjustment}$ | Change to TopTx's implicit output zero. |
+| $\text{outputAdjustment}$ | Change to TopTx's min-ADA output zero. |
 | $\text{feeContribution(subTx)}$ | Application ADA redirected from the child's output into an increased TopTx fee; not a declaration field. |
 
 **The Store transfer enters the equation once.** `inject` adds ADA without
@@ -4681,7 +4681,7 @@ changed output cannot alter the Store allocation. Rejection must include
 values, and each rejection scenario also submits its balanced acceptance control.
 
 **The concrete release example.** N06, N07 and F04 hold every other batch flow
-fixed. TopTx funds its base fee separately; the child has one input, one implicit
+fixed. TopTx funds its base fee separately; the child has one input, one min-ADA
 output, no new allocation and no other financial flow. For these cases, the
 transaction equation reduces to:
 
@@ -4699,7 +4699,7 @@ requirement that all SubTxs balance independently.
 | $10$ ADA | $2$ ADA | $10$ ADA | $2$ ADA | Accepted |
 | $10$ ADA | $2$ ADA | $10$ ADA | $0$ ADA | Rejected: $2$ ADA unaccounted for |
 
-The $2$ ADA release is the deposit recorded for the actual store-backed input.
+The $2$ ADA release is the deposit recorded for the actual deposit-backed input.
 Only the stated output and fee contribution vary between rows. The existing
 settlement bound remains mandatory; stronger local-settlement guarantees remain
 open under DS-TX-SETTLEMENT-REFINEMENT.
@@ -4735,9 +4735,9 @@ $$
 \end{aligned}
 $$
 
-First move a positive amount from one SubTx's implicit output to another's.
+First move a positive amount from one SubTx's min-ADA output to another's.
 The two child imbalances offset. For each generated transaction, also adjust one
-TopTx implicit output by $-1$, $0$ and $+1$ lovelace, leaving fees and declarations
+TopTx min-ADA output by $-1$, $0$ and $+1$ lovelace, leaving fees and declarations
 unchanged.
 
 The independent value equation determines the expected ledger decision. Both
@@ -4759,7 +4759,7 @@ $$
 
 TopTx and its SubTx each allocate a positive deposit. Keep their exact
 declarations, then compare the balanced transaction with two changes to TopTx's
-implicit output:
+min-ADA output:
 
 | Application output change | Financial interpretation | Expected result |
 | --- | --- | --- |
@@ -4767,7 +4767,7 @@ implicit output:
 | $+\text{declaredNetDeposit}$ | Spend the allocation again as application ADA. | Rejected |
 | $-\text{declaredNetDeposit}$ | Charge the allocation twice, leaving an unaccounted surplus. | Rejected |
 
-Neither mutation changes the declared amount or any store-backed output. The
+Neither mutation changes the declared amount or any deposit-backed output. The
 ledger must count the whole declared allocation once, including its child share.
 
 <a id="ds-tx-conservation-n02" name="ds-tx-conservation-n02"></a>
@@ -4792,7 +4792,7 @@ declarations and compare these uses of the complete net release:
 | $-\text{declaredNetDeposit}$ | Spend a second copy of the release. | Rejected |
 | $+\text{declaredNetDeposit}$ | Leave the release unaccounted for. | Rejected |
 
-The changes affect only TopTx's implicit output. Counting SubTx releases again
+The changes affect only TopTx's min-ADA output. Counting SubTx releases again
 would credit value already present in the declared transaction total.
 
 <a id="ds-tx-conservation-n03" name="ds-tx-conservation-n03"></a>
@@ -4810,7 +4810,7 @@ $$
 $$
 
 Begin with a balanced control containing two SubTxs that allocate deposits.
-Move a generated positive amount from the first child's implicit output to the
+Move a generated positive amount from the first child's min-ADA output to the
 second's, keeping the complete output value, declarations and fee unchanged.
 
 Accept the transaction. A surplus in one body may fund another; exact local deposit
@@ -4831,7 +4831,7 @@ $$
 $$
 
 TopTx and its SubTx allocate deposits with exact declarations. Redirect a
-generated positive amount from the child's implicit output into TopTx's fee.
+generated positive amount from the child's min-ADA output into TopTx's fee.
 
 Accept the transaction: total produced value is unchanged. The child may fund a
 parent fee without changing either body's deposit declaration.
@@ -4847,7 +4847,7 @@ $$
 $$
 
 Starting from an exactly declared, funded allocation transaction, change only
-TopTx's implicit output by one lovelace in each direction.
+TopTx's min-ADA output by one lovelace in each direction.
 
 The increase creates a deficit; the decrease leaves a surplus. Require
 `ValueNotConservedUTxO` for both, then accept the unchanged balanced control.
@@ -4865,7 +4865,7 @@ $$
 
 Spend a genuinely funded native asset without minting in the proposal. Keep
 ADA, the exact Store declarations and the fee unchanged, then mutate only the
-token-bearing implicit output:
+token-bearing min-ADA output:
 
 | Mutation | Why it fails |
 | --- | --- |
@@ -4892,7 +4892,7 @@ $$
 
 A single SubTx requests a positive allocation from TopTx; TopTx has no own
 Store operation and declares that same exact total. From its balanced control,
-increase TopTx's implicit output by the requested allocation.
+increase TopTx's min-ADA output by the requested allocation.
 
 The request remains exact, but its funds are also promised to an application
 output. Require the financial mismatch, then accept the original funded request.
@@ -4933,9 +4933,9 @@ $$
 \end{aligned}
 $$
 
-Fund one actual store-backed input containing $10$ ADA of application value
+Fund one actual deposit-backed input containing $10$ ADA of application value
 and a recorded $2$ ADA deposit. Its SubTx consumes that input and creates one
-implicit output. It declares the $2$ ADA release into its own output; TopTx declares
+min-ADA output. It declares the $2$ ADA release into its own output; TopTx declares
 the same total with `NoTopTxSettlement`.
 
 Accept the transaction. TopTx's separate generated funding pays its base fee, so
@@ -4958,7 +4958,7 @@ $$
 $$
 
 Use N06's same $10$ ADA input and $2$ ADA recorded release. Reduce the child's
-implicit output from $12$ ADA to $10$ ADA and increase TopTx's fee by exactly
+min-ADA output from $12$ ADA to $10$ ADA and increase TopTx's fee by exactly
 $2$ ADA, preserving every other flow.
 
 Accept the transaction. The release is fully accounted for through the smaller
@@ -4979,7 +4979,7 @@ $$
 \end{aligned}
 $$
 
-Start with N06's balanced transaction and reduce only the child's implicit
+Start with N06's balanced transaction and reduce only the child's min-ADA
 output from $12$ ADA to $10$ ADA. Keep TopTx's fee, every other output and all
 inputs and declarations fixed.
 
@@ -5018,11 +5018,11 @@ path. [Execution](#ds-state-execution) determines the applied effects.
 
 | Role | Example | Required in the later spending transaction? |
 | --- | --- | --- |
-| Original deposit funder | Alice pays for a store-backed output controlled by Bob | Alice's signature is not required |
+| Original deposit funder | Alice pays for a deposit-backed output controlled by Bob | Alice's signature is not required |
 | Current spending authority | Bob's key controls that output | Bob's spending signature is required |
 
 ```text
-Alice funds the store-backed output
+Alice funds the deposit-backed output
   ├── spending key: Bob
   └── deposit recorded in the Store
             ↓
@@ -5103,7 +5103,7 @@ changing the child witnesses so that the parent's signature remains valid.
 <a id="ds-tx-authorization-n03" name="ds-tx-authorization-n03"></a>
 
 **Related rule — reference-only access.** [Release N09](#ds-tx-declarations-requirements-operations-release-n09)
-already checks that referencing live store-backed outputs does not require a release
+already checks that referencing live deposit-backed outputs does not require a release
 declaration. A reference does not consume the output or release its deposit. Declaring
 an amount released from reference inputs would be an inexact [Accounting](#ds-tx-accounting-net-change)
 claim, not a missing spending-witness failure. It is not an additional Authorization
@@ -5542,7 +5542,7 @@ $$
 \end{aligned}
 $$
 
-The SubTx spends its final store-backed inputs and creates no replacement output. Its exact release declaration uses `DelegateToTopTx`; there is no local index to resolve. TopTx declares the exact total and designates a sufficiently funded output of its own. The signed transaction is accepted, and its SubTx output sequence is checked to remain empty.
+The SubTx spends its final deposit-backed inputs and creates no replacement output. Its exact release declaration uses `DelegateToTopTx`; there is no local index to resolve. TopTx declares the exact total and designates a sufficiently funded output of its own. The signed transaction is accepted, and its SubTx output sequence is checked to remain empty.
 
 <a id="ds-tx-settlement-coverage" name="ds-tx-settlement-coverage"></a>
 <a id="ds-tx-settlement-output-coin" name="ds-tx-settlement-output-coin"></a>
@@ -5564,7 +5564,7 @@ output. This rule then compares two amounts:
 | Required settlement | $\max(0,-\text{attributedTopTxChange})$ | The SubTx's declared release |
 | Available coin | Application ADA in the selected TopTx output | Application ADA in the selected SubTx output |
 
-For an implicit output, application ADA is its full coin value. For a store-backed
+For a min-ADA output, application ADA is its full coin value. For a deposit-backed
 output, the external deposit remains separate from application ADA.
 
 Example: TopTx's required share is 2 ADA.
@@ -5573,8 +5573,8 @@ Example: TopTx's required share is 2 ADA.
 | --- | ---: | ---: | --- |
 | Implicit | 2 ADA | — | Accepted |
 | Implicit | 4 ADA | — | Accepted |
-| Store-backed | 2 ADA | 1 ADA | Accepted |
-| Store-backed | 1 ADA | 1 ADA | Rejected |
+| Deposit-backed | 2 ADA | 1 ADA | Accepted |
+| Deposit-backed | 1 ADA | 1 ADA | Rejected |
 
 The last row still lacks one application ADA. The external deposit cannot fill the
 shortfall. TopTx's required share may be smaller or larger than the transaction's
@@ -5600,12 +5600,12 @@ $$
 \iff\text{applicationADA(selectedOutput)}\ge\text{requiredSettlement(body)}
 $$
 
-Compare the isolated output-coin validator with the independent lower-bound predicate. Generate exact amounts, surplus and shortfall for TopTx and SubTx, using both implicit and store-backed outputs. This equivalence concerns output coin only.
+Compare the isolated output-coin validator with the independent lower-bound predicate. Generate exact amounts, surplus and shortfall for TopTx and SubTx, using both min-ADA and deposit-backed outputs. This equivalence concerns output coin only.
 
 <a id="ds-tx-settlement-coverage-f01" name="ds-tx-settlement-coverage-f01"></a>
 <a id="ds-tx-settlement-output-coin-f01" name="ds-tx-settlement-output-coin-f01"></a>
 
-###### 2.1.4.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) - Implicit output, one lovelace short
+###### 2.1.4.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) - Min-ADA output, one lovelace short
 
 $$
 \begin{aligned}
@@ -5615,12 +5615,12 @@ $$
 \end{aligned}
 $$
 
-The index exists and all declarations are exact. Move one lovelace from the designated implicit output to another output, then require the output-coin failure.
+The index exists and all declarations are exact. Move one lovelace from the designated min-ADA output to another output, then require the output-coin failure.
 
 <a id="ds-tx-settlement-coverage-n01" name="ds-tx-settlement-coverage-n01"></a>
 <a id="ds-tx-settlement-output-coin-n01" name="ds-tx-settlement-output-coin-n01"></a>
 
-###### 2.1.4.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) - Implicit output, exact amount
+###### 2.1.4.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) - Min-ADA output, exact amount
 
 $$
 \text{implicit(selectedOutput)}
@@ -5633,7 +5633,7 @@ Exact equality is sufficient. Test the boundary for TopTx and for a SubTx settli
 <a id="ds-tx-settlement-coverage-n02" name="ds-tx-settlement-coverage-n02"></a>
 <a id="ds-tx-settlement-output-coin-n02" name="ds-tx-settlement-output-coin-n02"></a>
 
-###### 2.1.4.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) - Implicit output, extra ADA
+###### 2.1.4.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) - Min-ADA output, extra ADA
 
 $$
 \text{implicit(selectedOutput)}
@@ -5641,7 +5641,7 @@ $$
 \implies\text{Accepted}
 $$
 
-The selected implicit output may contain additional ADA. Its coin value need not equal the required share.
+The selected min-ADA output may contain additional ADA. Its coin value need not equal the required share.
 
 <a id="ds-tx-settlement-coverage-f02" name="ds-tx-settlement-coverage-f02"></a>
 <a id="ds-tx-settlement-output-coin-f02" name="ds-tx-settlement-output-coin-f02"></a>
@@ -5650,7 +5650,7 @@ The selected implicit output may contain additional ADA. Its coin value need not
 
 $$
 \begin{aligned}
-&\text{storeBacked(selectedOutput)} \\
+&\text{depositBacked(selectedOutput)} \\
 &\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
 &\land\text{applicationADA(selectedOutput)}+\text{externalDeposit(selectedOutput)}
   \ge\text{requiredSettlement(body)} \\
@@ -5658,15 +5658,15 @@ $$
 \end{aligned}
 $$
 
-Select a store-backed output whose application ADA is one lovelace short. Even though adding its external deposit would exceed the required amount, the ledger rejects the application-ADA shortfall.
+Select a deposit-backed output whose application ADA is one lovelace short. Even though adding its external deposit would exceed the required amount, the ledger rejects the application-ADA shortfall.
 
 <a id="ds-tx-settlement-coverage-n03" name="ds-tx-settlement-coverage-n03"></a>
 <a id="ds-tx-settlement-output-coin-n03" name="ds-tx-settlement-output-coin-n03"></a>
 
-###### 2.1.4.3.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) - Store-backed output, exact application ADA
+###### 2.1.4.3.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) - Deposit-backed output, exact application ADA
 
 $$
-\text{storeBacked(selectedOutput)}
+\text{depositBacked(selectedOutput)}
 \land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
 \implies\text{Accepted}
 $$
@@ -5739,25 +5739,25 @@ A SubTx allocation of 3 ADA and a TopTx release of 5 ADA produce a transaction r
 > **Both output forms use the active deposit formula; only the funding location differs.**
 
 Let $F_S$ be the Store's current [deposit formula](#ds-pricing). For each proposed
-output $o$, including a legacy collateral return:
+output $o$, including a min-ADA collateral return:
 
 $$
 \text{minimumCoin}_S(o)=
 \begin{cases}
-F_S(o) & \text{if }o\text{ is a LegacyTxOut} \\
-0 & \text{if }o\text{ is a NewTxOut}
+F_S(o) & \text{if }o\text{ is a MinAdaTxOut} \\
+0 & \text{if }o\text{ is a DepositBackedTxOut}
 \end{cases}
 $$
 
 | Output form | Deposit funding | Minimum output ADA |
 | --- | --- | --- |
-| `LegacyTxOut` | Inside the output | $F_S(o)$ |
-| `NewTxOut` | External Store deposit of $F_S(o)$ | $0$ |
+| `MinAdaTxOut` | Inside the output | $F_S(o)$ |
+| `DepositBackedTxOut` | External Store deposit of $F_S(o)$ | $0$ |
 
-A newly proposed legacy output must satisfy $\text{outputADA}(o)\geq F_S(o)$.
+A newly proposed min-ADA output must satisfy $\text{outputADA}(o)\geq F_S(o)$.
 This requirement is **uncapped**. The capped historical reserve of an existing or
 migrated entry is a consumption query, not the test for admitting a new output.
-`NewTxOut` still requires its
+`DepositBackedTxOut` still requires its
 [allocation declaration](#ds-tx-declarations-requirements-operations-allocation),
 [exact deposit accounting](#ds-tx-accounting-net-change-subtx), and other output constraints.
 
@@ -5767,7 +5767,7 @@ changes after a V2 activation. The parameter-only `getMinCoinTxOut` and
 cannot select V2 without Store history. Builders needing the active bound use:
 
 ```haskell
-toCoin $ Formula.computeDeposit (Store.currentFormula store) proposedLegacyOutput
+toCoin $ Formula.computeDeposit (Store.currentFormula store) proposedMinAdaOutput
 ```
 
 Here `Formula` is [`Dijkstra.UTxOs.Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs).
@@ -5786,7 +5786,7 @@ are checked but not created.
 
 $$
 \begin{aligned}
-&\text{storeBacked(output)} \\
+&\text{depositBacked(output)} \\
 &\land\text{nativeAssets(output)}\neq\varnothing
 \land\text{applicationADA(output)}=0 \\
 &\implies\text{Accepted}
@@ -5803,7 +5803,7 @@ so it needs no application ADA to pay for storage.
 
 $$
 \begin{aligned}
-&\text{storeBacked(output)}\land\text{applicationAssets(output)}=\varnothing \\
+&\text{depositBacked(output)}\land\text{applicationAssets(output)}=\varnothing \\
 &\land\text{payload(output)}\in\{\text{datumOnly},\text{referenceScriptOnly}\} \\
 &\implies\text{Accepted}
 \end{aligned}
@@ -5818,7 +5818,7 @@ the datum or script bytes still contribute to its fully funded external deposit.
 ##### 2.1.5.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) - Address-only output
 
 $$
-\text{storeBacked(output)}\land\text{addressOnly(output)}
+\text{depositBacked(output)}\land\text{addressOnly(output)}
 \implies\text{Accepted}
 $$
 
@@ -5837,7 +5837,7 @@ storage and requires its full deposit; mandatory fields are not removed.
 <a id="ds-tx-application-assets-n04" name="ds-tx-application-assets-n04"></a>
 <a id="ds-tx-minimum-coin-n04" name="ds-tx-minimum-coin-n04"></a>
 
-##### 2.1.5.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) - Exact minimum for an implicit output
+##### 2.1.5.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) - Exact minimum for a min-ADA output
 
 $$
 \begin{aligned}
@@ -5854,7 +5854,7 @@ control for F01.
 <a id="ds-tx-application-assets-f01" name="ds-tx-application-assets-f01"></a>
 <a id="ds-tx-minimum-coin-f01" name="ds-tx-minimum-coin-f01"></a>
 
-##### 2.1.5.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L99) - Implicit output one lovelace short
+##### 2.1.5.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L99) - Min-ADA output one lovelace short
 
 $$
 \begin{aligned}
@@ -5883,7 +5883,7 @@ confirming that the one-lovelace shortfall caused the rejection.
 
 > **Use the existing collateral fields; account for the deposits held outside outputs.**
 >
-> `TxOut era` already expresses implicit and store-backed inputs and returns. No separate collateral Store declaration is needed.
+> `TxOut era` already expresses min-ADA and deposit-backed inputs and returns. No separate collateral Store declaration is needed.
 
 TopTx supplies the shared set of collateral inputs, at most one collateral return,
 and an optional total. Inputs remain `TxIn` references: the ledger resolves each
@@ -5912,16 +5912,16 @@ inherits the [Conway](../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Imp
 [Babbage](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp.hs#L36)
 and [Alonzo](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp.hs#L31)
 suites. These are shared tests executed with Dijkstra, not tests to duplicate under
-DepositStore. Their collateral fixtures use implicit outputs; Store-backed
+DepositStore. Their collateral fixtures use min-ADA outputs; Deposit-backed
 integration remains a separate coverage obligation.
 
 | Contract | Existing executable reference | Scope of that evidence |
 | --- | --- | --- |
 | Every collateral input resolves to an unspent output | Alonzo UTXO: [unknown input](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L47), [already spent](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L57) | Rejects bad references in Dijkstra too. |
 | Collateral covers the fee percentage, even if scripts succeed | Alonzo UTXO: [insufficient collateral](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L92) | Existing percentage and ceiling rule; no external deposits. |
-| Each collateral payment key supplies its witness | Alonzo UTXOW: [missing collateral witness](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxowSpec/Invalid.hs#L205) | Missing witness for an implicit input. |
-| A supplied total equals input coins minus return coins | Babbage UTXOS: [incorrect collateral total](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155) | Mismatch rejected with successful scripts; implicit return. |
-| Phase-2 failure can return collateral without a supplied total | Babbage UTXOW: [use a collateral output](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxowSpec/Invalid.hs#L125) | Accepted failure-path implicit return; omission is incidental coverage. |
+| Each collateral payment key supplies its witness | Alonzo UTXOW: [missing collateral witness](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxowSpec/Invalid.hs#L205) | Missing witness for a min-ADA input. |
+| A supplied total equals input coins minus return coins | Babbage UTXOS: [incorrect collateral total](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155) | Mismatch rejected with successful scripts; min-ADA return. |
+| Phase-2 failure can return collateral without a supplied total | Babbage UTXOW: [use a collateral output](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxowSpec/Invalid.hs#L125) | Accepted failure-path min-ADA return; omission is incidental coverage. |
 | Return-output validity is checked without redeemers | Dijkstra UTXO: [pointer address in collateral return](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp/UtxoSpec.hs#L54) | Rejects an invalid address; does not cover the minimum-coin or input-count boundaries. |
 
 These links establish test ownership and registration, not a new passing run.
@@ -5954,20 +5954,20 @@ valid, and includes an accepted control.
 | <a id="ds-collateral-scope-f02" name="ds-collateral-scope-f02"></a><a id="2212-f02---rejects-subtx-redeemers-without-collateral-even-when-toptx-has-none" name="2212-f02---rejects-subtx-redeemers-without-collateral-even-when-toptx-has-none"></a>Only a SubTx has redeemers $\implies$ shared collateral is required. | Use a correctly indexed child redeemer with no parent redeemers; require `NoCollateralInputs`, with a funded control and both script outcomes. |
 | <a id="ds-collateral-scope-f03" name="ds-collateral-scope-f03"></a><a id="2213-f03---rejects-redeemers-in-both-toptx-and-subtxs-without-collateral" name="2213-f03---rejects-redeemers-in-both-toptx-and-subtxs-without-collateral"></a>Both levels have redeemers $\implies$ shared collateral is required. | The combined case must also produce `NoCollateralInputs`; having both locations cannot cancel the trigger. |
 | <a id="ds-collateral-scope-n02" name="ds-collateral-scope-n02"></a><a id="2215-n02---does-not-apply-redeemer-gated-funding-or-supplied-total-checks-when-no-body-has-redeemers" name="2215-n02---does-not-apply-redeemer-gated-funding-or-supplied-total-checks-when-no-body-has-redeemers"></a>No body has redeemers $\implies$ skip gated funding and supplied-total comparisons. | Supply resolved inputs and a valid return; independently underfund the potential fee, mismatch the total, then combine both. Other rules still hold; ordinary acceptance is expected. |
-| <a id="ds-collateral-scope-f04" name="ds-collateral-scope-f04"></a><a id="2216-f04---rejects-independently-invalid-collateral-inputs-or-returns-without-redeemers" name="2216-f04---rejects-independently-invalid-collateral-inputs-or-returns-without-redeemers"></a>No redeemers does not waive independent input, return or count checks. | Unknown-input coverage exists above. Add an implicit return one lovelace below minimum and too many collateral inputs, each with a valid control. |
+| <a id="ds-collateral-scope-f04" name="ds-collateral-scope-f04"></a><a id="2216-f04---rejects-independently-invalid-collateral-inputs-or-returns-without-redeemers" name="2216-f04---rejects-independently-invalid-collateral-inputs-or-returns-without-redeemers"></a>No redeemers does not waive independent input, return or count checks. | Unknown-input coverage exists above. Add a min-ADA return one lovelace below minimum and too many collateral inputs, each with a valid control. |
 | <a id="ds-collateral-authorization-f01" name="ds-collateral-authorization-f01"></a><a id="2221-f01---rejects-a-script-controlled-collateral-input-when-collateral-validation-applies" name="2221-f01---rejects-a-script-controlled-collateral-input-when-collateral-validation-applies"></a>Active collateral validation $\implies$ inputs are key-locked. | Reject script-controlled collateral with `ScriptsNotPaidUTxO` for both output forms and script outcomes, even with a valid script witness. Use that script for an ordinary purpose too, so its witness is not extraneous. The control uses a signed key-controlled input. |
-| <a id="ds-collateral-authorization-f02" name="ds-collateral-authorization-f02"></a><a id="2222-f02---rejects-a-key-controlled-collateral-input-whose-required-payment-key-witness-is-missing" name="2222-f02---rejects-a-key-controlled-collateral-input-whose-required-payment-key-witness-is-missing"></a>Every collateral payment key must witness the transaction. | Extend the existing witness case to Store-backed inputs, both script outcomes and the no-redeemer path. Remove only a collateral key witness that no ordinary input needs; restoring it must accept. |
+| <a id="ds-collateral-authorization-f02" name="ds-collateral-authorization-f02"></a><a id="2222-f02---rejects-a-key-controlled-collateral-input-whose-required-payment-key-witness-is-missing" name="2222-f02---rejects-a-key-controlled-collateral-input-whose-required-payment-key-witness-is-missing"></a>Every collateral payment key must witness the transaction. | Extend the existing witness case to Deposit-backed inputs, both script outcomes and the no-redeemer path. Remove only a collateral key witness that no ordinary input needs; restoring it must accept. |
 
 <a id="ds-collateral-scope-n01" name="ds-collateral-scope-n01"></a><a id="2214-n01---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore" name="2214-n01---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore"></a><a id="ds-collateral-funding-n09" name="ds-collateral-funding-n09"></a><a id="22116-n09---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore" name="22116-n09---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore"></a><a id="ds-collateral-store-activity-control" name="ds-collateral-store-activity-control"></a>
 
 The successful path of [Minimum coin N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75)
-already accepts an address-only Store-backed output with its allocation declared.
+already accepts an address-only Deposit-backed output with its allocation declared.
 It is the existing control for Store activity without redeemers. **Remaining
 extension:** explicitly assert empty redeemers and empty collateral inputs in that
 prepared transaction; acceptance alone does not prove both fields are absent.
-Store-backed fixture extensions should reuse the shared rule cases. The existing Babbage
+Deposit-backed fixture extensions should reuse the shared rule cases. The existing Babbage
 [return fixup](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/ImpTest.hs#L92)
-currently rejects `NewTxOut`, so inherited implicit fixtures do not supply
+currently rejects `DepositBackedTxOut`, so inherited implicit fixtures do not supply
 that extension automatically.
 
 <a id="ds-collateral-funding" name="ds-collateral-funding"></a>
@@ -5987,10 +5987,10 @@ collateral and ordinary rules valid. P02 isolates the collateral calculation.
 
 | Quantity | Meaning |
 | --- | --- |
-| $\mathit{inputCoins}$ | Full ADA of implicit collateral inputs plus application ADA of Store-backed inputs. |
+| $\mathit{inputCoins}$ | Full ADA of min-ADA collateral inputs plus application ADA of Deposit-backed inputs. |
 | $\mathit{returnCoins}$ | ADA in the specified collateral return; zero when absent. |
-| $\mathit{releasedDeposits}$ | Recorded deposits belonging to Store-backed collateral inputs; implicit inputs contribute zero. |
-| $\mathit{returnDeposit}$ | Deposit priced from the submitted Store-backed return; zero for an absent or implicit return. |
+| $\mathit{releasedDeposits}$ | Recorded deposits belonging to Deposit-backed collateral inputs; min-ADA inputs contribute zero. |
+| $\mathit{returnDeposit}$ | Deposit priced from the submitted Deposit-backed return; zero for an absent or min-ADA return. |
 
 $$
 \begin{aligned}
@@ -6028,12 +6028,12 @@ independently funded minimum. [Fees](#ds-state-fees) owns that surplus destinati
 | <a id="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold" name="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold"></a><a id="ds-collateral-funding-n01" name="ds-collateral-funding-n01"></a><a id="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed" name="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed"></a><a id="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="ds-collateral-funding-n02" name="ds-collateral-funding-n02"></a><a id="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="ds-collateral-funding-n03" name="ds-collateral-funding-n03"></a><a id="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="ds-collateral-funding-n04" name="ds-collateral-funding-n04"></a><a id="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="2237-p01---collateral-coins-cover-the-minimum" name="2237-p01---collateral-coins-cover-the-minimum"></a><a id="ds-collateral-funding-p01" name="ds-collateral-funding-p01"></a><a id="2217-p01---collateral-coins-cover-the-minimum" name="2217-p01---collateral-coins-cover-the-minimum"></a><a id="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="ds-collateral-funding-n05" name="ds-collateral-funding-n05"></a><a id="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="ds-collateral-funding-n06" name="ds-collateral-funding-n06"></a><a id="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="ds-collateral-funding-n07" name="ds-collateral-funding-n07"></a><a id="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee" name="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-n08" name="ds-collateral-funding-n08"></a><a id="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit" name="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit"></a><a id="ds-collateral-settlement-n01" name="ds-collateral-settlement-n01"></a><a id="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration" name="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-funding-n10" name="ds-collateral-funding-n10"></a><a id="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration" name="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-settlement-n02" name="ds-collateral-settlement-n02"></a><a id="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return" name="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return"></a><a id="ds-collateral-funding-n11" name="ds-collateral-funding-n11"></a><a id="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return" name="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L56)** | **Funded collateral.** Cover the return, any positive deposit shortfall and the rounded-up minimum; include exact equality. | Accept with successful scripts or an accepted phase-2 failure. |
 | <a id="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed" name="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-funding-f01" name="ds-collateral-funding-f01"></a><a id="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed" name="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed"></a><a id="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="ds-collateral-funding-f02" name="ds-collateral-funding-f02"></a><a id="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f03" name="ds-collateral-funding-f03"></a><a id="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f04" name="ds-collateral-funding-f04"></a><a id="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-f05" name="ds-collateral-funding-f05"></a><a id="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent" name="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent"></a><a id="ds-collateral-funding-f06" name="ds-collateral-funding-f06"></a><a id="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent" name="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L78)** | **Underfunded collateral.** Set the coin fee below the minimum, including one lovelace below the ceiling, an absent total, an oversized return and no-return Store inputs carrying zero application ADA. | Reject only with `InsufficientCollateral`; funded controls accept. |
 | <a id="ds-collateral-settlement-p01" name="ds-collateral-settlement-p01"></a><a id="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations" name="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations"></a><a id="ds-collateral-funding-p02" name="ds-collateral-funding-p02"></a><a id="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding" name="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding"></a>**3.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L128)** | **Independent ordinary declarations.** Keep collateral inputs, return, fee and prices fixed; vary ordinary declaration forms in the isolated calculation. | The released deposits, return deposit and additional funding stay unchanged. |
-| <a id="ds-collateral-funding-p03" name="ds-collateral-funding-p03"></a>**4.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L152)** | **Legacy return at the active minimum.** Activate V1 or V2 after funding the collateral input. Vary the return's inline datum size; preserve the input's historical release and re-sign each proposal. | Exact current-formula ADA accepts; one lovelace below rejects only with `BabbageOutputTooSmallUTxO`. |
+| <a id="ds-collateral-funding-p03" name="ds-collateral-funding-p03"></a>**4.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L152)** | **Min-ADA return at the active minimum.** Activate V1 or V2 after funding the collateral input. Vary the return's inline datum size; preserve the input's historical release and re-sign each proposal. | Exact current-formula ADA accepts; one lovelace below rejects only with `BabbageOutputTooSmallUTxO`. |
 
 P02 observes only the collateral calculation; its arbitrary ordinary declarations
 are not submitted as ledger transactions.
 
-For P03, let $r$ be the proposed legacy return and $F_S$ the active formula:
+For P03, let $r$ be the proposed min-ADA return and $F_S$ the active formula:
 
 $$
 \begin{aligned}
@@ -6050,12 +6050,12 @@ The generated coverage distinguishes:
 
 | Axis | Conditions exercised |
 | --- | --- |
-| Output representation | Implicit and Store-backed inputs and returns, mixed input sets, absent return. Count implicit ADA once and release only recorded Store deposits. |
-| Deposit relationship | Return deposit greater than, equal to or less than released deposits; no extra funding for equality, no Store deposit for an implicit return. |
-| Recorded amount | Fund a Store-backed source at twice the current byte price, then lower the parameter before constructing the collateral proposal. Release the recorded amount; price the return at the current parameter. |
+| Output representation | Min-ADA and deposit-backed inputs and returns, mixed input sets, absent return. Count implicit ADA once and release only recorded Store deposits. |
+| Deposit relationship | Return deposit greater than, equal to or less than released deposits; no extra funding for equality, no Store deposit for a min-ADA return. |
+| Recorded amount | Fund a Deposit-backed source at twice the current byte price, then lower the parameter before constructing the collateral proposal. Release the recorded amount; price the return at the current parameter. |
 | Fee boundary | Exact rounded-up minimum, a funded margin and one lovelace below; a fractional-lovelace product distinguishes ceiling from floor. |
 | Released excess | Cannot fund the minimum or a larger signed return; deposits of unspent outputs remain unavailable. |
-| Zero application ADA | A Store-backed return may contain zero ADA when its external deposit and fee are funded. |
+| Zero application ADA | A Deposit-backed return may contain zero ADA when its external deposit and fee are funded. |
 | Absent fields | An absent total does not waive funding. With no return, accept funded ADA-only mixed inputs; reject all-Store inputs with zero application ADA even when their recorded deposits exceed the minimum fee. Test both an absent total and an exact zero total. |
 | Script outcome | Successful scripts and genuine phase-2 failure use the same funding requirement. |
 
@@ -6117,7 +6117,7 @@ $$
 
 An absent return contributes the empty asset map. These cases exercise
 [`validateCollateralAssets`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Collateral.hs)
-with a Store-backed input or return, including mixed inputs and both return forms.
+with a Deposit-backed input or return, including mixed inputs and both return forms.
 Funding, output validity, witnesses and optional totals remain correct. Exercise
 successful scripts and genuine phase-2 failure. The current generator mints one
 policy and one token name, with a variable quantity repeated across the selected
@@ -6125,7 +6125,7 @@ inputs. Mixed-policy or distinct-token input maps remain an extension.
 
 | Case | Scenario | Expected result |
 | --- | --- | --- |
-| <a id="ds-collateral-conservation-n02" name="ds-collateral-conservation-n02"></a><a id="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity" name="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity"></a><a id="ds-collateral-assets-n01" name="ds-collateral-assets-n01"></a><a id="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L35)** | **Exact asset map.** Return every input policy, asset name and quantity; include a funded Store-backed return with zero application ADA. | Accept for both output forms and script outcomes. |
+| <a id="ds-collateral-conservation-n02" name="ds-collateral-conservation-n02"></a><a id="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity" name="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity"></a><a id="ds-collateral-assets-n01" name="ds-collateral-assets-n01"></a><a id="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L35)** | **Exact asset map.** Return every input policy, asset name and quantity; include a funded Deposit-backed return with zero application ADA. | Accept for both output forms and script outcomes. |
 | <a id="ds-collateral-conservation-f01" name="ds-collateral-conservation-f01"></a><a id="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return" name="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return"></a><a id="ds-collateral-assets-f01" name="ds-collateral-assets-f01"></a><a id="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed"></a><a id="ds-collateral-conservation-f02" name="ds-collateral-conservation-f02"></a><a id="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified" name="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified"></a><a id="ds-collateral-assets-f02" name="ds-collateral-assets-f02"></a><a id="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified" name="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L48)** | **Missing or altered assets.** Remove an asset, add an absent asset, alter a quantity, or omit the return for token-bearing collateral. | Reject only with `CollateralContainsNonADA`; the unchanged asset-map control accepts. |
 
 [Funding N01](#ds-collateral-funding-n01) supplies the ADA-only no-return acceptance
@@ -6145,7 +6145,7 @@ control. Ordinary outputs and unapplied minting cannot supply missing collateral
 | Responsibility | Observation |
 | --- | --- |
 | [UTxO](#ds-state-utxo) | Exact consumed and created output references. |
-| [Store / Allocations](#ds-state-allocations) | Exact allocation map for live Store-backed outputs. |
+| [Store / Allocations](#ds-state-allocations) | Exact allocation map for live Deposit-backed outputs. |
 | [Store / Balance](#ds-state-balance) | Change in the sum of recorded deposits. |
 | [Fees](#ds-state-fees) | Fee credit and unchanged treasury. |
 | [Conservation](#ds-state-conservation) | Correct ADA total and its preservation. |
@@ -6181,10 +6181,10 @@ selected outputs without changing their payloads.
 | Case | Scenario and observation |
 | --- | --- |
 | <a id="ds-state-utxo-n01" name="ds-state-utxo-n01"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L34)** | **Ordinary execution.** Standalone and multi-SubTx transactions allocate, release or replace deposits. Compare the entire resulting UTxO with the ordinary-input/output equation. |
-| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L48)** | **Successful scripts leave collateral inactive.** Generate collateral proposals with absent, implicit or Store-backed returns. Only ordinary outputs are created; collateral-only and reference-only inputs survive. |
+| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L48)** | **Successful scripts leave collateral inactive.** Generate collateral proposals with absent, implicit or Deposit-backed returns. Only ordinary outputs are created; collateral-only and reference-only inputs survive. |
 | <a id="ds-state-utxo-n03" name="ds-state-utxo-n03"></a>**3.&nbsp;[N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L62)** | **Failed scripts select collateral.** Submit a genuine phase-2 failure. Only collateral inputs disappear and only the collateral return is created; ordinary and reference-only inputs survive. |
 | <a id="ds-state-utxo-n04" name="ds-state-utxo-n04"></a>**4.&nbsp;[N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L77)** | **Failed TopTx, inactive SubTxs.** A real failing TopTx script selects collateral even when several children propose allocations and releases. Compare the complete UTxO: none of those ordinary effects is applied. |
-| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L95)** | **One input, two consuming roles.** A Store-backed input belongs to both ordinary and collateral sets. Exercise both actual script outcomes and compare the complete UTxO against the selected path; consume the shared input once. |
+| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L95)** | **One input, two consuming roles.** A Deposit-backed input belongs to both ordinary and collateral sets. Exercise both actual script outcomes and compare the complete UTxO against the selected path; consume the shared input once. |
 
 <a id="ds-state-execution-f01" name="ds-state-execution-f01"></a>
 
@@ -6212,12 +6212,12 @@ allocations share one map; the cached total counts only separately held ADA.
 
 #### 3.2.1 Allocations
 
-> **Retain one allocation for each live Store-backed output.**
+> **Retain one allocation for each live Deposit-backed output.**
 
-Here, $\mathit{recordsBefore}$ is mathematical notation for the deposits calculated from retained creation-time metadata, not a separate ledger type or stored map. The owning allocation map also contains legacy outputs, whose external deposit is zero.
-Construct $\mathit{newAllocations}$ only for Store-backed outputs in
+Here, $\mathit{recordsBefore}$ is mathematical notation for the deposits calculated from retained creation-time metadata, not a separate ledger type or stored map. The owning allocation map also contains min-ADA outputs, whose external deposit is zero.
+Construct $\mathit{newAllocations}$ only for Deposit-backed outputs in
 $\mathit{createdOutputs}$, priced from their contents and allocation-time formulas under
-[Deposit calculation](#ds-pricing). Implicit outputs have no external-deposit record in this view; their legacy allocations remain in the owning map. A Store-backed output priced at zero still has a deposit record. For either accepted outcome:
+[Deposit calculation](#ds-pricing). Min-ADA outputs have no external-deposit record in this view; their legacy allocations remain in the owning map. A Deposit-backed output priced at zero still has a deposit record. For either accepted outcome:
 
 $$
 \begin{aligned}
@@ -6225,7 +6225,7 @@ $$
 &=(\mathit{recordsBefore}\setminus\mathit{consumedInputs})
   \cup\mathit{newAllocations} \\
 \mathit{keys}(\mathit{recordsAfter})
-&=\{\,\mathit{outputRef}\mid\mathit{utxoAfter}[\mathit{outputRef}]\text{ is Store-backed}\,\} \\
+&=\{\,\mathit{outputRef}\mid\mathit{utxoAfter}[\mathit{outputRef}]\text{ is Deposit-backed}\,\} \\
 \mathit{recordsAfter}[\mathit{outputRef}]&\geq0
 \quad\text{for every recorded }\mathit{outputRef}
 \end{aligned}
@@ -6240,10 +6240,10 @@ calculated allocations and retained releases.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L75)** | **Ordinary records.** Derive records from signed Store-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
-| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L96)** | **Collateral records.** Generate mixed input forms and absent, implicit or Store-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Store-backed return; reference-only records survive. |
+| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L75)** | **Ordinary records.** Derive records from signed Deposit-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
+| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L96)** | **Collateral records.** Generate mixed input forms and absent, implicit or Deposit-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Deposit-backed return; reference-only records survive. |
 | <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L121)** | **Restore the historical deposit.** Submit a noncanonical CBOR output whose accepted encoding is one byte longer than its canonical encoding. Restore the serialized state, activate V2 and double the byte price, then reference the output: its payload, allocation origin and V1 deposit are unchanged. Spending it removes precisely that record. |
-| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L166)** | **Zero-priced allocations still have records.** Spend translated implicit sources and create Store-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; implicit sources never acquire allocation records. |
+| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L166)** | **Zero-priced allocations still have records.** Spend translated min-ADA sources and create Deposit-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; min-ADA sources never acquire allocation records. |
 | <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L190)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
 
 Historical release **amounts** are checked separately by [Balance P03](#ds-state-balance-p03).
@@ -6294,7 +6294,7 @@ asset count, datum and script, using the version and rate selected by its origin
 | <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L127)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
 | <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L141)** | **Mixed historical prices.** Accept two noncanonical outputs at different prices, restore their state and consume both while creating a replacement at a third price. The balance changes by the current new deposit minus both historical deposits. Retained metadata and cache totals are checked independently. |
 | <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L175)** | **Child output history.** Accept a noncanonical SubTx output, restore its allocation and change the price. A later spend of the child's own reference releases exactly its original contribution. |
-| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** Accept a real script failure with a noncanonical Store-backed return. Restore that applied allocation, change the price and spend the return; its contents and allocation-time formula determine the refund. |
+| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** Accept a real script failure with a noncanonical Deposit-backed return. Restore that applied allocation, change the price and spend the return; its contents and allocation-time formula determine the refund. |
 | <a id="ds-state-balance-p08" name="ds-state-balance-p08"></a>**8.&nbsp;[P08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L227)** | **Across formula versions.** Accept identical two-asset outputs before and after V2 activation, restore the state and spend both together. Each refunds its allocation-time formula: $\text{refund}=F_{1,p}(o)+F_{2,p}(o)$. |
 
 <a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
@@ -6350,8 +6350,8 @@ corresponding Store effects; these fee tests observe only fees and treasury.
 > **Count every actual ADA pot, including the whole Store balance, exactly once.**
 
 Start from a valid ledger state and submit an accepted transaction. Read each
-actual pot independently from the observed state. Implicit outputs
-contribute their full coin; Store-backed outputs contribute application coin.
+actual pot independently from the observed state. Min-ADA outputs
+contribute their full coin; Deposit-backed outputs contribute application coin.
 The deposited pot is `utxosDeposited`, backing certificate/governance deposits.
 Sum allocation records once as `storeBalance`; do not add their total a second time.
 
@@ -6417,7 +6417,7 @@ $$
 \end{aligned}
 $$
 
-Every translated output is implicit and has a legacy allocation in the owning map.
+Every translated output is min-ADA and has a legacy allocation in the owning map.
 Here `recordsAfter` denotes the empty external-deposit view; the cached total is zero.
 Migration initializes V1 from the effective translated protocol parameters with
 `mkDepositFormulaHistory formula`, leaving dated changes empty. Each imported entry
@@ -6499,7 +6499,7 @@ coverage; the former Recovery N02 remains this explicit integration requirement.
 
 > **Determine which output ADA contributes under the existing staking rules.**
 >
-> Implicit output: full ADA · Store-backed output: application ADA · External deposit: no additional stake.
+> Min-ADA output: full ADA · Deposit-backed output: application ADA · External deposit: no additional stake.
 
 **Decision:** Exclude DepositStore UTxO capacity deposits from stake for the current prototype.
 
@@ -6509,11 +6509,11 @@ $$
 \text{stakeContribution}(\text{output}) =
 \begin{cases}
 \text{full ADA in output} & \text{if output is implicit} \\
-\text{application ADA in output} & \text{if output is store-backed}
+\text{application ADA in output} & \text{if output is deposit-backed}
 \end{cases}
 $$
 
-An eligible implicit output containing 10 ADA therefore contributes 10 ADA. A store-backed output containing 8 application ADA with a 2 ADA allocated deposit contributes only 8 ADA where otherwise eligible. Do not attribute its external allocated deposit to its staking credential or add the global Store balance separately to stake totals.
+An eligible min-ADA output containing 10 ADA therefore contributes 10 ADA. A deposit-backed output containing 8 application ADA with a 2 ADA allocated deposit contributes only 8 ADA where otherwise eligible. Do not attribute its external allocated deposit to its staking credential or add the global Store balance separately to stake totals.
 
 An allocation or release affects stake through the outputs and other existing stake updates actually applied. It creates no independent Store attribution. Ordinary success leaves collateral settlement and collateral return unapplied; accepted phase-2 failure derives stake effects from collateral consumption and return, without applying ordinary outputs or ordinary Store operations.
 
@@ -6521,15 +6521,15 @@ Existing registration, eligibility, delegation and snapshot timing remain in for
 
 <a id="ds-stake-n01" name="ds-stake-n01"></a>
 
-#### 4.1.1 N01 - counts the full ADA in implicit outputs under the existing staking rules
+#### 4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules
 
-Given an implicit output eligible under the existing staking rules, use its full output ADA as its stake contribution. Keeping the legacy minimum inside that value does not create an external amount to subtract.
+Given a min-ADA output eligible under the existing staking rules, use its full output ADA as its stake contribution. Keeping the legacy minimum inside that value does not create an external amount to subtract.
 
 <a id="ds-stake-n02" name="ds-stake-n02"></a>
 
-#### 4.1.2 N02 - counts only application ADA in store-backed outputs under the existing staking rules
+#### 4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules
 
-Given an eligible store-backed output, count its application ADA and exclude its externally allocated deposit. For 8 application ADA and a 2 ADA deposit, the contribution base is 8 ADA.
+Given an eligible deposit-backed output, count its application ADA and exclude its externally allocated deposit. For 8 application ADA and a 2 ADA deposit, the contribution base is 8 ADA.
 
 <a id="ds-stake-n03" name="ds-stake-n03"></a>
 
@@ -6591,7 +6591,7 @@ $$
 \end{aligned}
 $$
 
-Given an accepted phase-2 failure, compare the resulting stake distribution with the independently selected collateral consumption and return effects under existing rules. Cover absent, implicit and store-backed returns and an input shared with ordinary spending. Unapplied ordinary outputs, allocations and releases add no stake effects.
+Given an accepted phase-2 failure, compare the resulting stake distribution with the independently selected collateral consumption and return effects under existing rules. Cover absent, min-ADA and deposit-backed returns and an input shared with ordinary spending. Unapplied ordinary outputs, allocations and releases add no stake effects.
 
 <a id="ds-stake-n08" name="ds-stake-n08"></a>
 
@@ -6609,7 +6609,7 @@ Given allocation, release or collateral effects, observe positive eligible stake
 
 **Decision:** Exclude DepositStore UTxO capacity deposits from voting power for the current prototype.
 
-ADA held in the Store creates no additional voting weight. Do not attribute a store-backed output's allocated deposit to its credential or count the global Store balance separately in voting distributions. The application ADA remaining in outputs continues through existing eligibility, delegation and snapshot rules.
+ADA held in the Store creates no additional voting weight. Do not attribute a deposit-backed output's allocated deposit to its credential or count the global Store balance separately in voting distributions. The application ADA remaining in outputs continues through existing eligibility, delegation and snapshot rules.
 
 This concerns the resulting voting distribution, separately from the stake observations in `DS-STAKE`. The excluded Store ADA still exists in the monetary total checked by `DS-STATE-CONSERVATION`.
 
@@ -6617,7 +6617,7 @@ This concerns the resulting voting distribution, separately from the stake obser
 
 #### 4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance
 
-Compare the complete resulting voting distribution with an independent expectation under existing eligibility, delegation and snapshot rules. Include positive eligible implicit-output ADA and store-backed application ADA, other existing eligible funds, ineligible and differently delegated controls, nonzero recorded deposits across multiple live outputs. Observe ordinary success and accepted phase-2 failure before and after the existing snapshot boundary. Neither records nor the global Store balance add weight, while eligible funds retain their expected weight; an all-zero distribution must fail the positive controls.
+Compare the complete resulting voting distribution with an independent expectation under existing eligibility, delegation and snapshot rules. Include positive eligible min-ADA output ADA and deposit-backed application ADA, other existing eligible funds, ineligible and differently delegated controls, nonzero recorded deposits across multiple live outputs. Observe ordinary success and accepted phase-2 failure before and after the existing snapshot boundary. Neither records nor the global Store balance add weight, while eligible funds retain their expected weight; an all-zero distribution must fail the positive controls.
 
 <a id="spec-appendices" name="spec-appendices"></a>
 
@@ -6645,9 +6645,9 @@ entries and persists even when the Store is empty.
 
 | Allocation | Formula on refund | Reserve |
 | --- | --- | --- |
-| Imported legacy output | `initialFormula` | Capped by its ADA and held inside the output. |
-| Dated legacy output | Formula active at its allocation slot | Capped by its ADA and held inside the output. |
-| Dated new output | Formula active at its allocation slot | Full calculated amount held in the Store. |
+| Imported min-ADA output | `initialFormula` | Capped by its ADA and held inside the output. |
+| Dated min-ADA output | Formula active at its allocation slot | Capped by its ADA and held inside the output. |
+| Dated deposit-backed output | Formula active at its allocation slot | Full calculated amount held in the Store. |
 
 A parameter change records the current version with its new rate at the effective
 epoch boundary. Activating experimental V2 records a new version and effective
@@ -6661,20 +6661,20 @@ to fund or release the difference for each live output.
 
 #### A.2 Plutus compatibility
 
-> **Define how store-backed outputs appear to each supported Plutus version.**
+> **Define how deposit-backed outputs appear to each supported Plutus version.**
 >
 > Compatibility is the target; context projection and translation still require design and tests.
 
 **Decision:** Target compatibility with all supported Plutus versions; context projection
 and translation remain deferred.
 
-The intended design supports store-backed outputs with Plutus V1, V2, V3 and V4, subject
+The intended design supports deposit-backed outputs with Plutus V1, V2, V3 and V4, subject
 to each version's existing feature restrictions. Store UTxO capacity deposits alone should
 not impose a V4-only restriction.
 
 The context translation and any exposure of DepositStore information remain to be
 designed and tested. The current legacy translation paths contain `unexpected
-NewTxOut` errors that must be addressed in that work. No context-value
+DepositBackedTxOut` errors that must be addressed in that work. No context-value
 projection or translation change is selected here.
 
 <a id="ds-tx-settlement-refinement" name="ds-tx-settlement-refinement"></a>
@@ -6689,7 +6689,7 @@ projection or translation change is selected here.
 imbalance. The stronger settlement guarantee remains open.
 
 The agreed example is a SubTx consuming 10 ADA of application assets and releasing 2 ADA
-of UTxO capacity deposits, with a local release targeting its only output, an implicit
+of UTxO capacity deposits, with a local release targeting its only output, a min-ADA
 output. With no other ADA sources, charges or transfers, that output must contain 12
 ADA. An output containing 10 ADA must fail. The existing destination bound alone accepts
 10 ADA, and exact UTxO capacity deposit accounting plus batch conservation does not prevent
@@ -6827,10 +6827,10 @@ Dijkstra owns output measurement and the migrated-output reserve view:
 | Module under `Cardano.Ledger.Dijkstra.UTxOs` | Responsibility |
 | --- | --- |
 | [`Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Extract the three typed measures from a `TxOut` and call the core `computeDeposit`; return `DepositAmount`. |
-| [`Unspent`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated legacy reserve at its output ADA. |
+| [`Unspent`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated min-ADA reserve at its output ADA. |
 
-The shared Store calls `getDepositNewTxOut` only for `NewTxOut`. Legacy entries
-contribute zero to its external total. Earlier eras have no `NewTxOut` values and
+The shared Store calls `getDepositTxOut` only for `DepositBackedTxOut`. Min-ADA entries
+contribute zero to its external total. Earlier eras have no `DepositBackedTxOut` values and
 need no implementation of Dijkstra's pricing rule.
 
 [`Cardano.Ledger.TxOut.IndexedTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
@@ -6935,7 +6935,7 @@ map-union behavior. References released by the projection may be allocated again
 
 - Before Dijkstra, `IndexedUTxOs` retains the ordinary payload-map CBOR used by queries.
   `UTxOStore` uses MemPack inputs and output payloads, preserving ledger snapshot bytes
-  and credential sharing. Decoding reconstructs canonical legacy entries marked
+  and credential sharing. Decoding reconstructs canonical min-ADA entries marked
   `AtStoreMigration` with zero external deposits. These bytes contain no Store
   history: ordinary decoding supplies the default V1/4310 baseline; the optional
   `decodeUTxOStoreWithFormula` decoder accepts a different caller-supplied one.
@@ -6952,14 +6952,14 @@ map-union behavior. References released by the projection may be allocated again
   especially when the Store is empty. The former formula-bearing entry format
   is also distinct from the new `AllocatedAt` encoding.
 - Before Dijkstra, legacy import builds `AtStoreMigration` entries with
-  `IndexedUTxOs.fromLegacyTxOuts`; Store construction receives either default or
+  `IndexedUTxOs.fromMinAdaTxOuts`; Store construction receives either default or
   caller-supplied history. Earlier-era Store translations preserve source history; Conway
   canonical import retains the destination state's supplied history because its
   namespace contains outputs only. The Dijkstra fork initializes its baseline from
   the effective translated protocol parameters, with no dated changes. Future changes
   retain their actual activation slots. `mkUTxOStore history entries` restores complete entries
   with their payloads and allocation origins. No migration
-  operation extracts reserve ADA from a legacy payload or creates an external credit.
+  operation extracts reserve ADA from a min-ADA payload or creates an external credit.
 
 Stake updates still fold output payloads directly. Address inspection and witness verification
 remain in `Address` and `Keys.WitVKey`; neither belongs to the indexed collection.
@@ -7199,7 +7199,7 @@ and [`ReleaseSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/
 cover each gross operation and identify which operations belong to each body.
 [`OperationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs)
 checks the shared declaration requirement independently of deposit price: generated
-Store-backed input and output forms still require declarations when their priced
+Deposit-backed input and output forms still require declarations when their priced
 amounts are zero. Accepted controls and one-field omissions exercise both body
 levels, ordinary success and real phase-2 failure.
 [`ZeroNetChangeSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs)
@@ -7248,7 +7248,7 @@ compares independent actual-pot sums with the production total including donatio
 [`TranslationSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs)
 corresponds to [full-state translation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L103),
 [UTxO/Store translation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L217)
-and [implicit output upgrade](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs#L216).
+and [min-ADA output upgrade](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs#L216).
 [`EpochSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs)
 observes the Store preserved by [ordinary epoch processing](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Epoch.hs#L218).
 Existing codec coverage and the rollback integration gap are linked under
@@ -7305,9 +7305,9 @@ Core/
 | `Specs.Tx.Output` | Describe and construct own-output arrangements for the specifications. |
 | `Specs.Tx.Release` | Generate release sources and collateral-only scenarios; identify proposed ordinary inputs and outputs while excluding references and collateral. |
 | `Specs.Tx.TopTx` | Generate standalone output arrangements, read recorded releases, calculate proposed allocations and express TopTx declarations. |
-| `Specs.Tx.TopTx.Allocation` | Generate standalone allocations with at least one store-backed output; calculate their allocation and attach the supplied declaration. |
+| `Specs.Tx.TopTx.Allocation` | Generate standalone allocations with at least one deposit-backed output; calculate their allocation and attach the supplied declaration. |
 | `Specs.Tx.TopTx.Release` | Keep TopTx and its optional SubTxs with their funded ledger context; calculate the complete transaction's net deposit and apply the supplied declarations. |
-| `Specs.Tx.SubTx` | Generate release and equal-allocation-and-release scenarios; expose each child's `allocatedDeposits`, recorded release and `storeBackedInputs` in transaction order, and identify declarations by source input. |
+| `Specs.Tx.SubTx` | Generate release and equal-allocation-and-release scenarios; expose each child's `allocatedDeposits`, recorded release and `depositBackedInputs` in transaction order, and identify declarations by source input. |
 | `Specs.OutputIndex` / `StrictlyPositiveCoin` | Provide shared index generators and checked amount fixtures. |
 | `Specs.LedgerEffects` | Fund and sign valid ordinary, delegated or phase-2-invalid scenarios; preserve real noncanonical body bytes and restore UTxO-state snapshots. Expected state changes remain in the specs. |
 | `Specs.LedgerEffects.ADA` | Sum actual monetary pots independently of the production ADA-total projection. |
@@ -7316,7 +7316,7 @@ Core/
 | `Specs.Assertions` | Apply a supplied expectation to one or more observations. |
 | `Encoding` | Observe CBOR and JSON behavior together, with a separate implementation for each format. |
 | `Submission` | Fund and prepare ledger transactions, preserve fixtures through fixup, submit and check ledger outcomes. Its declaration and output modules register the scenario rows. |
-| `Submission.Allocation` | Fund application outputs, declarations and fees from implicit inputs; preserve the allocation proposal while signing it or removing its declaration. |
+| `Submission.Allocation` | Fund application outputs, declarations and fees from min-ADA inputs; preserve the allocation proposal while signing it or removing its declaration. |
 | `Submission.Operations` | Fund distinct sources at zero deposit price, verify their real output forms and Store records, and return an undeclared proposal preserving each body's ownership and application ADA. |
 | `Submission.Release` | Fund generated release or reference sources, preserve proposals while signing, and prepare collateral-only scenarios with actual script success or failure. |
 | `Submission.Collateral` | Prepare transactions with collateral whose deposits and failure-path transfers can be observed by the specifications. |
@@ -7326,7 +7326,7 @@ with **no declarations** to the case:
 
 | Fixture entry point | What the case receives |
 | --- | --- |
-| `fundOperations` | A parent and zero to four children with independent source/output forms, each owning a distinct funded input. Store-backed sources have a recorded zero deposit; implicit sources have no record. |
+| `fundOperations` | A parent and zero to four children with independent source/output forms, each owning a distinct funded input. Deposit-backed sources have a recorded zero deposit; min-ADA sources have no record. |
 | `forAllReferenceOnlyStoreTx` | A standalone TopTx referencing real positive Store allocations, with no ordinary Store operations. |
 | `forAllStandaloneReleaseTx` | A standalone TopTx with its funded ledger context. |
 | `forAllSingleSubTxReleaseTx` | A TopTx with one SubTx, its funded context and the source's recorded positive deposit. |
@@ -7337,7 +7337,7 @@ with **no declarations** to the case:
 `TopTx.netDeposit` computes allocations minus recorded releases across **TopTx and
 all its SubTxs**. `TopTx.releasedDeposits` returns their total recorded release;
 `SubTx.releasedDeposits` returns one amount per child in transaction order, including
-zero for children consuming only implicit sources.
+zero for children consuming only min-ADA sources.
 
 `ReleaseSpec` constructs `Declarations` directly: N01 chooses allocation, explicit zero
 or release from the signed net amount; N02 names its release and output 0 directly.
@@ -7463,7 +7463,7 @@ The JSON body field remains `netUTxODepositChange`; operation kinds remain `allo
 `release`, `noChange` and, for SubTx funding requests, `requestUTxODepositFromTopTx`.
 Settlement kinds remain `noTopTxSettlement`, `topTxSettlementOutput`,
 `subTxSettlementOutput` and `delegateToTopTx`. Optional body CBOR key `28`, payload
-tags and encoded bytes are unchanged. `NewTxOut` remains the output variant
+tags and encoded bytes are unchanged. `DepositBackedTxOut` remains the output variant
 name.
 
 Checked construction and CBOR/JSON decoding reject zero, negative and out-of-range

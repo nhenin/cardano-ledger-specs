@@ -31,7 +31,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (ordi
 import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM, fixupPPHash, rederiveAddrTxWits)
 import Test.Cardano.Ledger.Imp.Common (expectJust)
 
--- | Reference a funded Store-backed output outside both consuming input sets.
+-- | Reference a funded Deposit-backed output outside both consuming input sets.
 -- Its full output and allocation must survive either script outcome.
 withReferenceOnlyInput :: Fixture -> ImpTestM DijkstraEra Fixture
 withReferenceOnlyInput fixture@Fixture {signedTx, previousAccountingState, collateralInputs} = do
@@ -45,7 +45,7 @@ withReferenceOnlyInput fixture@Fixture {signedTx, previousAccountingState, colla
       signedTx & bodyTxL . referenceInputsTxBodyL %~ Set.insert reference
   pure fixture {signedTx = signed}
 
--- | Give one funded Store-backed collateral input an ordinary role as well.
+-- | Give one funded Deposit-backed collateral input an ordinary role as well.
 -- Its application ADA and recorded deposit are returned through ordinary output
 -- zero, with an exact ordinary release declaration. Existing redeemer purposes
 -- are reindexed by their original input identity before recomputing signatures.

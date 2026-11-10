@@ -126,14 +126,14 @@ injectFee :: EraTxOut era => Coin -> TxOut era -> TxOut era
 injectFee fee txOut = txOut & coinTxOutL %~ (<+> fee)
 
 -- | The legacy generators only produce outputs with implicit deposits.
-requireImplicitTxOut :: TxOut era -> LegacyTxOut era
-requireImplicitTxOut (LegacyTxOut output) = output
-requireImplicitTxOut (NewTxOut _) = error "requireImplicitTxOut: unexpected store-backed output"
+requireImplicitTxOut :: TxOut era -> MinAdaTxOut era
+requireImplicitTxOut (MinAdaTxOut output) = output
+requireImplicitTxOut (DepositBackedTxOut _) = error "requireImplicitTxOut: unexpected deposit-backed output"
 
 getTxOutRefScript :: Proof era -> TxOut era -> StrictMaybe (Script era)
-getTxOutRefScript _ (NewTxOut _) = error "getTxOutRefScript: unexpected store-backed output"
-getTxOutRefScript Conway (LegacyTxOut (BabbageTxOut _ _ _ ms)) = ms
-getTxOutRefScript Babbage (LegacyTxOut (BabbageTxOut _ _ _ ms)) = ms
+getTxOutRefScript _ (DepositBackedTxOut _) = error "getTxOutRefScript: unexpected deposit-backed output"
+getTxOutRefScript Conway (MinAdaTxOut (BabbageTxOut _ _ _ ms)) = ms
+getTxOutRefScript Babbage (MinAdaTxOut (BabbageTxOut _ _ _ ms)) = ms
 getTxOutRefScript _ _ = SNothing
 {-# NOINLINE getTxOutRefScript #-}
 
@@ -165,28 +165,28 @@ txoutEvidence ::
   Proof era ->
   TxOut era ->
   ([Credential Payment], Maybe DataHash)
-txoutEvidence _ (NewTxOut _) = error "txoutEvidence: unexpected store-backed output"
-txoutEvidence Alonzo (LegacyTxOut (AlonzoTxOut addr _ (SJust dh))) =
+txoutEvidence _ (DepositBackedTxOut _) = error "txoutEvidence: unexpected deposit-backed output"
+txoutEvidence Alonzo (MinAdaTxOut (AlonzoTxOut addr _ (SJust dh))) =
   (addrCredentials addr, Just dh)
-txoutEvidence Alonzo (LegacyTxOut (AlonzoTxOut addr _ SNothing)) =
+txoutEvidence Alonzo (MinAdaTxOut (AlonzoTxOut addr _ SNothing)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ NoDatum _)) =
+txoutEvidence Conway (MinAdaTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
+txoutEvidence Conway (MinAdaTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Conway (LegacyTxOut (BabbageTxOut addr _ (Datum _d) _)) =
+txoutEvidence Conway (MinAdaTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ NoDatum _)) =
+txoutEvidence Babbage (MinAdaTxOut (BabbageTxOut addr _ NoDatum _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
+txoutEvidence Babbage (MinAdaTxOut (BabbageTxOut addr _ (DatumHash dh) _)) =
   (addrCredentials addr, Just dh)
-txoutEvidence Babbage (LegacyTxOut (BabbageTxOut addr _ (Datum _d) _)) =
+txoutEvidence Babbage (MinAdaTxOut (BabbageTxOut addr _ (Datum _d) _)) =
   (addrCredentials addr, Just (hashData @era (binaryDataToData _d)))
-txoutEvidence Mary (LegacyTxOut (ShelleyTxOut addr _)) =
+txoutEvidence Mary (MinAdaTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Allegra (LegacyTxOut (ShelleyTxOut addr _)) =
+txoutEvidence Allegra (MinAdaTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
-txoutEvidence Shelley (LegacyTxOut (ShelleyTxOut addr _)) =
+txoutEvidence Shelley (MinAdaTxOut (ShelleyTxOut addr _)) =
   (addrCredentials addr, Nothing)
 {-# NOINLINE txoutEvidence #-}
 

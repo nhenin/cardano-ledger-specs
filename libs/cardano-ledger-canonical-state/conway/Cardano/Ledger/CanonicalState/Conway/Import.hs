@@ -152,13 +152,13 @@ instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
     S.fold_
       ( \utxos (ChunkEntry (UtxoKeyIn k) (UtxoOut v)) ->
           case getValue v of
-            LegacyTxOut output -> Map.insert k output utxos
+            MinAdaTxOut output -> Map.insert k output utxos
       )
       mempty
       ( \utxos ->
           nes
             & utxoStoreL %~ \store ->
-              Store.mkUTxOStore (Store.depositFormulaHistory store) . IndexedUTxOs.fromLegacyTxOuts $ utxos
+              Store.mkUTxOStore (Store.depositFormulaHistory store) . IndexedUTxOs.fromMinAdaTxOuts $ utxos
       )
 
 instance ImportCanonicalNamespace ConwayEra "blocks/v0" where

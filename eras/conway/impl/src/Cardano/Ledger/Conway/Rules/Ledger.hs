@@ -545,7 +545,7 @@ instance
   , State (EraRule "UTXO" era) ~ LedgerState era
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
   , Script era ~ AlonzoScript era
-  , LegacyTxOut era ~ BabbageTxOut era
+  , MinAdaTxOut era ~ BabbageTxOut era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , PredicateFailure (EraRule "UTXOW" era) ~ ConwayUtxowPredFailure era

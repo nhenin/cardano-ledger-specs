@@ -53,7 +53,7 @@ txIns = [minBound ..] <&> TxIn txId
 -- | Unstaked address
 txOutUnstaked :: TxOut TestEra
 txOutUnstaked =
-  LegacyTxOut $
+  MinAdaTxOut $
     TxOutCompact @TestEra
       (compactAddr $ mkAddr payCred StakeRefNull)
       (fromJust . toCompact . Val.inject $ Coin 1000)
@@ -61,7 +61,7 @@ txOutUnstaked =
 -- | Generate TxOuts for each stake credential.
 txOutsFromCreds :: [Credential Staking] -> [TxOut TestEra]
 txOutsFromCreds creds =
-  [ LegacyTxOut $ TxOutCompact (compactAddr $ mkAddr payCred cred) coinVal
+  [ MinAdaTxOut $ TxOutCompact (compactAddr $ mkAddr payCred cred) coinVal
   | cred <- creds
   ]
   where
@@ -69,7 +69,7 @@ txOutsFromCreds creds =
 
 txOutsFromPtrs :: [Ptr] -> [TxOut TestEra]
 txOutsFromPtrs ptrs =
-  [ LegacyTxOut $ TxOutCompact (compactAddr $ mkAddr payCred ptr) coinVal
+  [ MinAdaTxOut $ TxOutCompact (compactAddr $ mkAddr payCred ptr) coinVal
   | ptr <- ptrs
   ]
   where

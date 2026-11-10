@@ -121,11 +121,11 @@ genTxBody slot ins outs cert wdrl fee upd ad = do
 
 instance MinGenTxout AllegraEra where
   calcEraMinUTxO _txout pp = pp ^. ppMinUTxOValueL
-  addValToTxOut value (LegacyTxOut output) =
-    LegacyTxOut $ output & valueTxOutL %~ (value <+>)
+  addValToTxOut value (MinAdaTxOut output) =
+    MinAdaTxOut $ output & valueTxOutL %~ (value <+>)
   genEraTxOut _genenv genVal addrs = do
     values <- replicateM (length addrs) genVal
-    pure (zipWith mkBasicTxOutWithLegacyTxOut addrs values)
+    pure (zipWith mkBasicTxOutWithMinAda addrs values)
 
 {------------------------------------------------------------------------------
   ShelleyMA helpers, shared by Allegra and Mary

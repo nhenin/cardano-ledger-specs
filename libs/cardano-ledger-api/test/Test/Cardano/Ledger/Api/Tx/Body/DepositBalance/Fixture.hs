@@ -11,17 +11,17 @@ module Test.Cardano.Ledger.Api.Tx.Body.DepositBalance.Fixture (
   topSettlement,
   appendedRefundIndex,
   refundOutput,
-  storeBackedRefundOutput,
-  legacyOutput,
-  storeBackedOutput,
+  depositBackedRefundOutput,
+  minAdaOutput,
+  depositBackedOutput,
   currentInput,
   historicalInput,
-  legacyInput,
+  minAdaInput,
   missingInput,
   allocation,
   historicalRelease,
   replacement,
-  legacyTransfer,
+  minAdaTransfer,
   changedOutput,
   localAllocation,
   delegatedAllocation,
@@ -100,22 +100,22 @@ appendedRefundIndex :: TxIx
 appendedRefundIndex = TxIx 2
 
 refundOutput :: TxOut DijkstraEra
-refundOutput = legacyOutput & coinTxOutL .~ Coin 6000
+refundOutput = minAdaOutput & coinTxOutL .~ Coin 6000
 
-storeBackedRefundOutput :: TxOut DijkstraEra
-storeBackedRefundOutput = storeBackedOutput & coinTxOutL .~ Coin 6000
+depositBackedRefundOutput :: TxOut DijkstraEra
+depositBackedRefundOutput = depositBackedOutput & coinTxOutL .~ Coin 6000
 
 address :: Addr
 address = mkAddr (mkKeyHash @Payment 1) (mkKeyHash @Staking 1)
 
-legacyOutput, storeBackedOutput :: TxOut DijkstraEra
-legacyOutput = mkBasicTxOutWithLegacyTxOut address (inject $ Coin 5000)
-storeBackedOutput = mkBasicTxOutWithStoreBackedDeposit address (ApplicationAssets mempty)
+minAdaOutput, depositBackedOutput :: TxOut DijkstraEra
+minAdaOutput = mkBasicTxOutWithMinAda address (inject $ Coin 5000)
+depositBackedOutput = mkBasicTxOutWithDeposit address (ApplicationAssets mempty)
 
-historicalInput, currentInput, legacyInput, missingInput :: TxIn
+historicalInput, currentInput, minAdaInput, missingInput :: TxIn
 historicalInput = outputAt (TxIx 0)
 currentInput = outputAt (TxIx 1)
-legacyInput = outputAt (TxIx 2)
+minAdaInput = outputAt (TxIx 2)
 missingInput = outputAt (TxIx 3)
 
 outputAt :: TxIx -> TxIn
@@ -124,31 +124,31 @@ outputAt = TxIn (txIdTxBody $ mkBasicTxBody @DijkstraEra @TopTx)
 resolvedInputs :: IndexedUTxOs DijkstraEra
 resolvedInputs =
   IndexedUTxOs.fromList
-    [ (historicalInput, Unspent storeBackedOutput (AtSlot $ SlotNo 19))
-    , (currentInput, Unspent storeBackedOutput (AtSlot $ SlotNo 20))
-    , (legacyInput, Unspent legacyOutput AtStoreMigration)
+    [ (historicalInput, Unspent depositBackedOutput (AtSlot $ SlotNo 19))
+    , (currentInput, Unspent depositBackedOutput (AtSlot $ SlotNo 20))
+    , (minAdaInput, Unspent minAdaOutput AtStoreMigration)
     ]
 
 allocation :: TxBody SubTx DijkstraEra
 allocation =
   mkBasicTxBody
-    & inputsTxBodyL .~ Set.singleton legacyInput
-    & outputsTxBodyL .~ SSeq.singleton storeBackedOutput
+    & inputsTxBodyL .~ Set.singleton minAdaInput
+    & outputsTxBodyL .~ SSeq.singleton depositBackedOutput
 
 historicalRelease :: TxBody SubTx DijkstraEra
 historicalRelease =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.singleton historicalInput
-    & outputsTxBodyL .~ SSeq.fromList [legacyOutput, legacyOutput]
+    & outputsTxBodyL .~ SSeq.fromList [minAdaOutput, minAdaOutput]
 
 replacement :: TxBody SubTx DijkstraEra
 replacement = allocation & inputsTxBodyL .~ Set.singleton currentInput
 
-legacyTransfer :: TxBody SubTx DijkstraEra
-legacyTransfer = allocation & outputsTxBodyL .~ SSeq.singleton legacyOutput
+minAdaTransfer :: TxBody SubTx DijkstraEra
+minAdaTransfer = allocation & outputsTxBodyL .~ SSeq.singleton minAdaOutput
 
 changedOutput :: TxBody SubTx DijkstraEra
-changedOutput = allocation & outputsTxBodyL .~ SSeq.singleton (storeBackedOutput & coinTxOutL .~ Coin 5000)
+changedOutput = allocation & outputsTxBodyL .~ SSeq.singleton (depositBackedOutput & coinTxOutL .~ Coin 5000)
 
 localAllocation :: TxBody SubTx DijkstraEra
 localAllocation =
@@ -187,17 +187,17 @@ parentAllocation :: TxBody TopTx DijkstraEra
 parentAllocation =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.singleton currentInput
-    & outputsTxBodyL .~ SSeq.fromList [storeBackedOutput, storeBackedOutput]
+    & outputsTxBodyL .~ SSeq.fromList [depositBackedOutput, depositBackedOutput]
 
 parentRelease :: TxBody TopTx DijkstraEra
-parentRelease = parentAllocation & outputsTxBodyL .~ SSeq.fromList [legacyOutput, legacyOutput]
+parentRelease = parentAllocation & outputsTxBodyL .~ SSeq.fromList [minAdaOutput, minAdaOutput]
 
 parentMultipleRelease :: TxBody TopTx DijkstraEra
 parentMultipleRelease = parentRelease & withInput historicalInput
 
 parentAtOutputIndexLimit :: TxBody TopTx DijkstraEra
 parentAtOutputIndexLimit =
-  parentRelease & outputsTxBodyL .~ SSeq.fromList (replicate 65536 legacyOutput)
+  parentRelease & outputsTxBodyL .~ SSeq.fromList (replicate 65536 minAdaOutput)
 
 subMultipleRelease :: TxBody SubTx DijkstraEra
 subMultipleRelease = historicalRelease & withInput currentInput
@@ -207,11 +207,11 @@ parentAllocationBeforeRefund :: TxBody TopTx DijkstraEra
 parentAllocationBeforeRefund =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.singleton historicalInput
-    & outputsTxBodyL .~ SSeq.fromList [storeBackedOutput, legacyOutput]
+    & outputsTxBodyL .~ SSeq.fromList [depositBackedOutput, minAdaOutput]
 
 subAllocationBeforeRefund :: TxBody SubTx DijkstraEra
 subAllocationBeforeRefund =
-  historicalRelease & outputsTxBodyL .~ SSeq.fromList [storeBackedOutput, legacyOutput]
+  historicalRelease & outputsTxBodyL .~ SSeq.fromList [depositBackedOutput, minAdaOutput]
 
 missingTopInput :: TxBody TopTx DijkstraEra
 missingTopInput = parentAllocation & inputsTxBodyL .~ Set.singleton missingInput
@@ -225,14 +225,14 @@ localReleaseBatch = mkBasicTxBody & withChildren [localRelease]
 delegatedReleaseBatch :: TxBody TopTx DijkstraEra
 delegatedReleaseBatch =
   mkBasicTxBody
-    & outputsTxBodyL .~ SSeq.fromList [legacyOutput, legacyOutput]
+    & outputsTxBodyL .~ SSeq.fromList [minAdaOutput, minAdaOutput]
     & withChildren [delegatedRelease]
 
 locallyReleasedBatchWithParentAllocation :: TxBody TopTx DijkstraEra
 locallyReleasedBatchWithParentAllocation =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.singleton historicalInput
-    & outputsTxBodyL .~ SSeq.singleton storeBackedOutput
+    & outputsTxBodyL .~ SSeq.singleton depositBackedOutput
     & withChildren [currentRelease]
 
 -- The batch releases 750, while TopTx settles its own release of 1820.

@@ -143,7 +143,7 @@ fundedImplicitSubTx declaration = do
   input <-
     sendCoinTo address $
       toCoin . Formula.computeDeposit pricing $
-        mkBasicTxOutWithLegacyTxOut @DijkstraEra address mempty
+        mkBasicTxOutWithMinAda @DijkstraEra address mempty
   pure $ subTxWithDepositDeclaration input declaration
 
 -- | Exercise the phase-2 failure path with a real failing TopTx script.

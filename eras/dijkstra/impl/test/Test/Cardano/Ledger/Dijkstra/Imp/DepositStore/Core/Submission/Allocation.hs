@@ -55,7 +55,7 @@ import Test.Cardano.Ledger.Imp.Common (forM_, shouldBe)
 
 -- | Generate an undeclared standalone proposal at a fresh key address. Snapshot
 -- the actual pricing parameters; the callback supplies the declaration to test.
--- No Store-backed sources are created or consumed during preparation.
+-- No Deposit-backed sources are created or consumed during preparation.
 forAllStandaloneAllocationTx ::
   Gen TopTx.AllocationScenario ->
   (TopTx.AllocationTx -> ImpTestM DijkstraEra ()) ->
@@ -73,7 +73,7 @@ forAllStandaloneAllocationTx scenarios check =
 
 -- | Translate a Conway output through the production Dijkstra conversion, fund
 -- that translated output through an accepted ledger transaction, then propose
--- consuming it to create generated store-backed outputs. This exercises output
+-- consuming it to create generated deposit-backed outputs. This exercises output
 -- translation, not a complete hard-fork state transition. The source retains its
 -- ADA and remains implicit, with no Store deposit to release.
 forAllPostConwayAllocationTx ::
@@ -87,7 +87,7 @@ forAllPostConwayAllocationTx scenarios check =
     parameters <- getsNES $ nesEsL . curPParamsEpochStateL
     let outputs = TopTx.createdOutputs address scenario
         sourceCoins = foldMap (^. coinTxOutL) outputs <> Coin 10_000_000
-        conwayOutput = mkBasicTxOutWithLegacyTxOut @ConwayEra address $ inject sourceCoins
+        conwayOutput = mkBasicTxOutWithMinAda @ConwayEra address $ inject sourceCoins
         translatedOutput = upgradeTxOut @DijkstraEra conwayOutput
     translatedOutput ^. coinTxOutL `shouldBe` sourceCoins
     translatedOutput ^. addrTxOutL `shouldBe` address

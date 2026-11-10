@@ -672,7 +672,7 @@ registerInitialFunds hasFS tc newEpochState = do
         let input = initialFundsPseudoTxIn address
             entry =
               Unspent
-                { Unspent.output = mkBasicTxOutWithLegacyTxOut address (inject amount)
+                { Unspent.output = mkBasicTxOutWithMinAda address (inject amount)
                 , allocatedAt = AtStoreMigration
                 }
          in (Map.insert input entry entries, totalFunds <> amount)

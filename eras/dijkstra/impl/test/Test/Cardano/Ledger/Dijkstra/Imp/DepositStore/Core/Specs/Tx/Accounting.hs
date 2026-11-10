@@ -14,7 +14,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting (
 import Cardano.Ledger.Coin (Coin (..))
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, vectorOf)
 
--- | Counts of new and consumed Store-backed outputs for one body. Each count
+-- | Counts of new and consumed Deposit-backed outputs for one body. Each count
 -- refers to distinct outputs, even when their deposit amounts are equal.
 -- Translation applies to the body's separate implicit funding input.
 data BodyOperations = BodyOperations
@@ -35,7 +35,7 @@ data AccountingScenario = AccountingScenario
   deriving (Show)
 
 -- | Request allocations and releases with ordinary Dijkstra implicit funding
--- and nonempty application ADA in newly created Store-backed outputs.
+-- and nonempty application ADA in newly created Deposit-backed outputs.
 bodyOperations :: Int -> Int -> BodyOperations
 bodyOperations allocated released = BodyOperations allocated released False False
 
@@ -57,6 +57,6 @@ arbitraryScenario = do
 arbitraryBodyOperations :: Gen BodyOperations
 arbitraryBodyOperations = bodyOperations <$> chooseInt (0, 3) <*> chooseInt (0, 3)
 
--- | Every Store-backed output in these fixtures has a deposit of exactly one ADA.
+-- | Every Deposit-backed output in these fixtures has a deposit of exactly one ADA.
 depositUnit :: Coin
 depositUnit = Coin 1_000_000

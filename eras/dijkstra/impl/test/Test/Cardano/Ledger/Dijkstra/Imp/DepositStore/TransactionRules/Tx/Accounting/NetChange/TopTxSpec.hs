@@ -176,7 +176,7 @@ spec =
           >>= submitTx >>= isAccepted
 
     -- Standalone TopTx understates its net allocation by one lovelace.
-    -- Create one more store-backed output than is consumed. Start from a valid control and alter
+    -- Create one more deposit-backed output than is consumed. Start from a valid control and alter
     -- only the signed declaration.
     prop "DS-TX-ACCOUNTING-NET-CHANGE-TOPTX-F01 - subTxs = ∅ ∧ transactionNetDeposit(topTx) > 1 lovelace ∧ declaredNetDeposit(topTx) = transactionNetDeposit(topTx) - 1 lovelace ⇒ rejectedWith(InexactTopTxDepositChange)" $
       forAll TopTx.standaloneTopTxRequiringNetAllocation $ \scenario -> do

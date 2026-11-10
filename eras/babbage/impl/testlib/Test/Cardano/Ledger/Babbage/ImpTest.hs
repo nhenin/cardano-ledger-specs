@@ -103,8 +103,8 @@ fixupCollateralReturn tx = do
       & bodyTxL . collateralReturnTxBodyL
         %~ fmap
           ( \case
-              LegacyTxOut output -> LegacyTxOut $ ensureMinCoinTxOut pp output
-              NewTxOut _ -> error "fixupCollateralReturn: unexpected NewTxOut"
+              MinAdaTxOut output -> MinAdaTxOut $ ensureMinCoinTxOut pp output
+              DepositBackedTxOut _ -> error "fixupCollateralReturn: unexpected DepositBackedTxOut"
           )
 
 impBabbageExpectTxSuccess ::
@@ -161,10 +161,10 @@ produceRefScriptsTx scripts = do
   txOuts <- forM scripts $ \script -> do
     addr <- freshKeyAddr_
     let txOutZero =
-          mkBasicTxOutWithLegacyTxOut addr mempty & referenceScriptTxOutL .~ SJust script
+          mkBasicTxOutWithMinAda addr mempty & referenceScriptTxOutL .~ SJust script
     pure $ case txOutZero of
-      LegacyTxOut output -> LegacyTxOut $ setMinCoinTxOut pp output
-      NewTxOut _ -> error "produceRefScriptsTx: unexpected NewTxOut"
+      MinAdaTxOut output -> MinAdaTxOut $ setMinCoinTxOut pp output
+      DepositBackedTxOut _ -> error "produceRefScriptsTx: unexpected DepositBackedTxOut"
   let txBody = mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (NE.toList txOuts)
   submitTx (mkBasicTx txBody)
 

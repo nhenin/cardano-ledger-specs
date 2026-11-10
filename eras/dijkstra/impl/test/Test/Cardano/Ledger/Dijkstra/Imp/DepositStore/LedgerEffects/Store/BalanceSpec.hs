@@ -82,7 +82,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
   prop "DS-STATE-BALANCE-P02 - accepted ⇒ ΔstoreBalance = (if phase2Valid then -ordinaryReleases else returnDeposit - collateralReleases)" $
     forAll Collateral.fundingScenarios $ \scenarios ->
       forM_ scenarios $ \scenario ->
-        forM_ ([False] <> [True | Collateral.StoreBacked `elem` Collateral.inputForms scenario]) $ \shared -> do
+        forM_ ([False] <> [True | Collateral.DepositBacked `elem` Collateral.inputForms scenario]) $ \shared -> do
           fixture <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           Fixture{signedTx, releasedDeposits, returnDeposit} <-
             if shared then InputRoles.withSharedOrdinaryInput fixture else pure fixture
@@ -113,7 +113,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> recordedDeposit) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin coins)
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin coins)
       previousStore <- liveOutputStore <$> readAccountingState
       Map.lookup source (recordedAmounts previousStore) `shouldBe` Just recordedDeposit
       submitTx spendingTx >>= isAccepted
@@ -154,7 +154,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 3000)
       address <- freshKeyAddrNoPtr_
       parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-      let output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject $ Coin coins
+      let output = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject $ Coin coins
           newDeposit = Pricing.outputDeposit parameters output
       signedTx <- fixupTx $
         Pricing.declareNetDeposit (newDeposit <-> releases) $
@@ -186,7 +186,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> release) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin coins)
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin coins)
       submitTx spendingTx >>= isAccepted
       after <- readAccountingState
       assertDepositTotal after
@@ -196,7 +196,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
   -- Changing the return's CBOR map framing preserves its original deposit.
   -- Only the applied collateral return enters the Store on this path.
   prop "DS-STATE-BALANCE-P07 - noncanonicalCollateralReturn ∧ snapshotRestore ∧ priceChanged ⇒ refund = returnCreationDeposit" $
-    forAll (Collateral.scenarios [Collateral.StoreBacked] (Just Collateral.StoreBacked) Phase2Invalid) $ \scenario -> do
+    forAll (Collateral.scenarios [Collateral.DepositBacked] (Just Collateral.DepositBacked) Phase2Invalid) $ \scenario -> do
       let currentPrice = Collateral.bytePrice scenario
       Fixture{signedTx = prepared, returnDeposit = release} <- Collateral.buildAndSign scenario
         { Collateral.sourceBytePrice = 2 * currentPrice }
@@ -215,7 +215,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> release) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ unAssets $ sumAllAssets [returned])
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ unAssets $ sumAllAssets [returned])
       submitTx spendingTx >>= isAccepted
       after <- readAccountingState
       assertDepositTotal after
@@ -232,7 +232,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       policy <- PolicyID <$> (impAddNativeScript . mkRequireSignature =<< freshKeyHash)
       let assets = multiAssetFromList [(policy, AssetName "A", quantity), (policy, AssetName "B", 1)]
           value = MaryValue (Coin 50000000) assets
-          output = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets value
+          output = mkBasicTxOutWithDeposit address $ ApplicationAssets value
           allocateAt amount = Imp.submitTx $
             Pricing.declareNetDeposit amount $
               mkBasicTx mkBasicTxBody
@@ -255,7 +255,7 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
         Pricing.declareNetDeposit (Coin 0 <-> (v1 <> v2)) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ inputs
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address (value <> value))
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address (value <> value))
       submitTx signed >>= isAccepted
       after <- readAccountingState
       storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal before <-> (v1 <> v2)

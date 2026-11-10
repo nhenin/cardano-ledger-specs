@@ -56,7 +56,7 @@ spec = describe "Initial funds" $ do
           existingInput = initialFundsPseudoTxIn existingAddress
           fundedInput = initialFundsPseudoTxIn fundedAddress
           existingOutput =
-            mkBasicTxOutWithStoreBackedDeposit @DijkstraEra
+            mkBasicTxOutWithDeposit @DijkstraEra
               existingAddress
               (ApplicationAssets . inject $ Coin 4)
           existingAllocation =
@@ -121,7 +121,7 @@ initialFundsSpec = describe (eraName @era) $ do
     forAll (resize 0 $ arbitrary @(TransitionConfig era)) $ \transitionConfig -> do
       let existingOutput = mkCoinTxOut @era existingAddress (Coin 4)
           previousStore =
-            Store.mkUTxOStore history . IndexedUTxOs.fromLegacyTxOuts $
+            Store.mkUTxOStore history . IndexedUTxOs.fromMinAdaTxOuts $
               Map.singleton existingInput existingOutput
           previousState =
             def @(NewEpochState era)
@@ -139,8 +139,8 @@ initialFundsSpec = describe (eraName @era) $ do
       let fundedStore = fundedState ^. utxoStoreG
       IndexedUTxOs.mapTxOuts id (Store.allocations fundedStore)
         `shouldBe` ( Map.fromList
-                       [ (existingInput, LegacyTxOut existingOutput)
-                       , (fundedInput, LegacyTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
+                       [ (existingInput, MinAdaTxOut existingOutput)
+                       , (fundedInput, MinAdaTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
                        ]
                    )
       Store.totalDepositAmount fundedStore `shouldBe` Store.totalDepositAmount previousStore
@@ -167,7 +167,7 @@ initialFundsSpec = describe (eraName @era) $ do
       fs <- simHasFS' MockFS.empty
       fundedState <- registerInitialFunds fs fundingConfig previousState
       IndexedUTxOs.mapTxOuts id (Store.allocations $ fundedState ^. utxoStoreG)
-        `shouldBe` Map.singleton fundedInput (LegacyTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
+        `shouldBe` Map.singleton fundedInput (MinAdaTxOut $ mkCoinTxOut @era fundedAddress (Coin 7))
       fundedState ^. reservesL `shouldBe` Coin 90
       fundedState
         ^. instantStakeG
@@ -183,7 +183,7 @@ initialFundsSpec = describe (eraName @era) $ do
                 genesis {sgNetworkId = Testnet, sgInitialFunds = initialFunds, sgExtraConfig = SNothing}
           previousStore =
             Store.mkUTxOStore history
-              . IndexedUTxOs.fromLegacyTxOuts
+              . IndexedUTxOs.fromMinAdaTxOuts
               . Map.singleton existingInput
               $ mkCoinTxOut @era existingAddress (Coin 4)
           previousState = def @(NewEpochState era) & utxoStoreL .~ previousStore

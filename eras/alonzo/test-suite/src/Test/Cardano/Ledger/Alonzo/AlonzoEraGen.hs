@@ -574,18 +574,18 @@ getDataMap (scriptInfo3, _) = Map.foldlWithKey' accum Map.empty
           Map.insert (hashData dat) (Data dat) ans
 
 instance MinGenTxout AlonzoEra where
-  calcEraMinUTxO (LegacyTxOut implicitOutput) pp =
+  calcEraMinUTxO (MinAdaTxOut implicitOutput) pp =
     utxoEntrySize implicitOutput <×> unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)
-  addValToTxOut value txOut@(LegacyTxOut implicitOutput) =
-    LegacyTxOut (implicitOutput & valueTxOutL %~ (value <+>))
+  addValToTxOut value txOut@(MinAdaTxOut implicitOutput) =
+    MinAdaTxOut (implicitOutput & valueTxOutL %~ (value <+>))
       & dataHashTxOutL .~ dataFromAddr (txOut ^. addrTxOutL)
   genEraTxOut genv genVal addrs = do
     values <- replicateM (length addrs) genVal
     let makeTxOut addr val =
           case addr of
             Addr _network (ScriptHashObj shash) _stakeref ->
-              mkBasicTxOutWithLegacyTxOut addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
-            _ -> mkBasicTxOutWithLegacyTxOut addr val
+              mkBasicTxOutWithMinAda addr val & dataHashTxOutL .~ snd (findPlutus genv shash)
+            _ -> mkBasicTxOutWithMinAda addr val
     pure (zipWith makeTxOut addrs values)
 
 -- | If an Address is script address, we can find a potential data hash for it from

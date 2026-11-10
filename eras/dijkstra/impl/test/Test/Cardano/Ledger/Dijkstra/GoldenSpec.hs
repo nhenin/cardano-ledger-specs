@@ -46,7 +46,7 @@ spec =
           version
           (Binary.toLazyByteString $ Binary.toCBOR encoding)
           `shouldBe` Right failure
-      it "Encodes and decodes a missing declaration for TopTx's own store-backed outputs" $ do
+      it "Encodes and decodes a missing declaration for TopTx's own deposit-backed outputs" $ do
         let failure = MissingUTxODepositDeclaration @DijkstraEra
             encoding = Em [E $ TkListLen 1, E @Int 25]
         expectGoldenToCBOR DiffCBOR (Ev version failure) encoding
@@ -69,7 +69,7 @@ spec =
           (Binary.toLazyByteString $ Binary.toCBOR $ Em [E $ TkListLen 3, E @Int 9, E @Int 0, E @Int 1])
           `shouldSatisfy` isLeft
     describe "SUBUTXO predicate failures" . forEachEraVersion @DijkstraEra $ \version ->
-      it "Encodes and decodes a missing declaration for SubTx's own store-backed outputs" $ do
+      it "Encodes and decodes a missing declaration for SubTx's own deposit-backed outputs" $ do
         let failure = SubMissingUTxODepositDeclaration @DijkstraEra
             encoding = Em [E $ TkListLen 1, E @Int 11]
         expectGoldenToCBOR DiffCBOR (Ev version failure) encoding

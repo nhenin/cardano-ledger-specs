@@ -57,7 +57,7 @@ testScriptPostTranslation =
             legacyIndexedUTxOs $
               Map.singleton
                 (S.TxIn bootstrapTxId minBound)
-                (LegacyTxOut $ mkCoinTxOut addr (S.Coin 1))
+                (MinAdaTxOut $ mkCoinTxOut addr (S.Coin 1))
           env =
             S.LedgerEnv
               (SlotNo 0)

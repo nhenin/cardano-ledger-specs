@@ -446,13 +446,13 @@ dijkstraFixupTx tx = do
     >>= fixupPPHash
     >>= updateAddrTxWits
 
--- | Fund unspecified legacy output amounts with the active formula. Explicit
+-- | Fund unspecified min-ADA output amounts with the active formula. Explicit
 -- nonzero amounts remain untouched so tests can propose insufficient reserves.
 fixupDijkstraTxOuts :: DijkstraEraImp era => Tx l era -> ImpTestM era (Tx l era)
 fixupDijkstraTxOuts tx = do
   pricing <- currentFormula <$> getUTxOStore
   outputs <- forM (tx ^. bodyTxL . outputsTxBodyL) $ \case
-    output@(LegacyTxOut _)
+    output@(MinAdaTxOut _)
       | output ^. coinTxOutL == zero -> do
           amount <- arbitrary
           pure $ output & coinTxOutL .~ max amount (toCoin $ Formula.computeDeposit pricing output)
@@ -469,9 +469,9 @@ fixupDijkstraCollateralReturn tx = do
       & bodyTxL . collateralReturnTxBodyL
         %~ fmap
           ( \case
-              output@(LegacyTxOut _) ->
+              output@(MinAdaTxOut _) ->
                 output & coinTxOutL %~ max (toCoin $ Formula.computeDeposit pricing output)
-              output@(NewTxOut _) -> output
+              output@(DepositBackedTxOut _) -> output
           )
 
 -- | The inherited fee builder can append change using its parameter-only V1
@@ -482,7 +482,7 @@ fixupDijkstraFees tx = do
   pricing <- currentFormula <$> getUTxOStore
   withFees <- alonzoFixupFees tx
   pure $ case withFees ^. bodyTxL . outputsTxBodyL of
-    outputs :|> change@(LegacyTxOut _)
+    outputs :|> change@(MinAdaTxOut _)
       | length outputs == length (tx ^. bodyTxL . outputsTxBodyL)
       , change ^. coinTxOutL < toCoin (Formula.computeDeposit pricing change) ->
           withFees
@@ -565,7 +565,7 @@ fixupSubTransactions tx = impAnn "fixupSubTransactions" $ do
             withFixup fixupTx $
               sendCoinTo addr $
                 toCoin . Formula.computeDeposit pricing $
-                  mkBasicTxOutWithLegacyTxOut @era addr mempty
+                  mkBasicTxOutWithMinAda @era addr mempty
           pure $ subTx & bodyTxL . inputsTxBodyL .~ Set.singleton newTxIn
 
 balanceSubTransactions ::
@@ -608,10 +608,10 @@ mkBalancerSubTx consumed produced = do
           LT -> (mempty, produced <-> consumed)
         -- a buffer to make both the input UTxO and the change output satisfy minCoin. It's added on both sides, so it cancels out.
         minChangeCoin =
-          toCoin . Formula.computeDeposit pricing $ mkBasicTxOutWithLegacyTxOut @era addr mempty
+          toCoin . Formula.computeDeposit pricing $ mkBasicTxOutWithMinAda @era addr mempty
         inputCoin = minChangeCoin <> shortfall
         changeCoin = minChangeCoin <> surplus
-        changeOut = mkBasicTxOutWithLegacyTxOut addr (inject changeCoin)
+        changeOut = mkBasicTxOutWithMinAda addr (inject changeCoin)
       newTxIn <- withFixup fixupTx $ sendCoinTo addr inputCoin
       let subTx =
             mkBasicTx mkBasicTxBody

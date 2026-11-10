@@ -19,15 +19,15 @@
 -- | Transaction outputs, their era-specific interfaces and collection queries.
 module Cardano.Ledger.TxOut (
   TxOut (..),
-  NoNewTxOut,
+  NoDepositBackedTxOut,
   EraTxOut (..),
-  EraLegacyTxOut (..),
-  EraNewTxOut (..),
+  EraMinAdaTxOut (..),
+  EraDepositBackedTxOut (..),
   Value,
   Assets (..),
   ApplicationAssets (..),
-  mkBasicTxOutWithLegacyTxOut,
-  mkBasicTxOutWithStoreBackedDeposit,
+  mkBasicTxOutWithMinAda,
+  mkBasicTxOutWithDeposit,
   mkCoinTxOut,
   bootAddrTxOutF,
   sumAllAssets,
@@ -77,16 +77,16 @@ import NoThunks.Class (NoThunks)
 -- | An output whose capacity deposit is included in its value or held in a
 -- separate deposit store. Each era defines the representation of both variants.
 data TxOut era
-  = LegacyTxOut !(LegacyTxOut era)
-  | NewTxOut !(NewTxOut era)
+  = MinAdaTxOut !(MinAdaTxOut era)
+  | DepositBackedTxOut !(DepositBackedTxOut era)
 
--- | Uninhabited representation for eras that do not support store-backed outputs.
-data NoNewTxOut era
+-- | Uninhabited representation for eras that do not support deposit-backed outputs.
+data NoDepositBackedTxOut era
 
 -- | Both output interfaces and the operations shared by their variants.
 class
-  ( EraLegacyTxOut era
-  , EraNewTxOut era
+  ( EraMinAdaTxOut era
+  , EraDepositBackedTxOut era
   , FromJSON (TxOut era)
   , ToJSON (TxOut era)
   , DecCBOR (Value era)
@@ -107,10 +107,10 @@ class
   EraTxOut era
   where
   -- | An output whose value includes its implicit capacity deposit.
-  type LegacyTxOut era = (r :: Type) | r -> era
+  type MinAdaTxOut era = (r :: Type) | r -> era
 
   -- | An output whose capacity deposit is held in a separate deposit store.
-  type NewTxOut era = (r :: Type) | r -> era
+  type DepositBackedTxOut era = (r :: Type) | r -> era
 
   {-# MINIMAL upgradeTxOut, addrEitherTxOutL #-}
 
@@ -154,23 +154,23 @@ class
   coinTxOutL =
     lens
       ( \case
-          LegacyTxOut txOut ->
+          MinAdaTxOut txOut ->
             case txOut ^. valueEitherTxOutL of
               Left value -> coin value
               Right compactValue -> fromCompact (coinCompact compactValue)
-          NewTxOut txOut ->
+          DepositBackedTxOut txOut ->
             case txOut ^. applicationAssetsTxOutL of
               ApplicationAssets assets -> coin assets
       )
       ( \output amount -> case output of
-          LegacyTxOut txOut ->
-            LegacyTxOut $
+          MinAdaTxOut txOut ->
+            MinAdaTxOut $
               case txOut ^. valueEitherTxOutL of
                 Left value -> txOut & valueTxOutL .~ modifyCoin (const amount) value
                 Right compactValue ->
                   txOut & compactValueTxOutL .~ modifyCompactCoin (const (toCompactPartial amount)) compactValue
-          NewTxOut txOut ->
-            NewTxOut $
+          DepositBackedTxOut txOut ->
+            DepositBackedTxOut $
               case txOut ^. applicationAssetsTxOutL of
                 ApplicationAssets assets ->
                   txOut & applicationAssetsTxOutL .~ ApplicationAssets (modifyCoin (const amount) assets)
@@ -188,11 +188,11 @@ class
   -- | Check whether either output variant contains ADA only.
   isAdaOnlyTxOutF :: SimpleGetter (TxOut era) Bool
   isAdaOnlyTxOutF = to $ \case
-    LegacyTxOut txOut ->
+    MinAdaTxOut txOut ->
       case txOut ^. valueEitherTxOutL of
         Left value -> isAdaOnly value
         Right compactValue -> isAdaOnlyCompact compactValue
-    NewTxOut txOut ->
+    DepositBackedTxOut txOut ->
       isAdaOnly (coerce (txOut ^. applicationAssetsTxOutL) :: Value era)
   {-# INLINE isAdaOnlyTxOutF #-}
 
@@ -200,19 +200,19 @@ class
 class
   ( EraPParams era
   , Val (Value era)
-  , EncCBOR (LegacyTxOut era)
+  , EncCBOR (MinAdaTxOut era)
   ) =>
-  EraLegacyTxOut era
+  EraMinAdaTxOut era
   where
   {-# MINIMAL
-    mkBasicLegacyTxOut
+    mkBasicMinAdaTxOut
     , valueEitherTxOutL
     , (getMinCoinSizedTxOut | getMinCoinTxOut)
     #-}
 
-  mkBasicLegacyTxOut :: HasCallStack => Addr -> Value era -> LegacyTxOut era
+  mkBasicMinAdaTxOut :: HasCallStack => Addr -> Value era -> MinAdaTxOut era
 
-  valueTxOutL :: Lens' (LegacyTxOut era) (Value era)
+  valueTxOutL :: Lens' (MinAdaTxOut era) (Value era)
   valueTxOutL =
     lens
       ( \txOut -> case txOut ^. valueEitherTxOutL of
@@ -222,7 +222,7 @@ class
       (\txOut value -> txOut & valueEitherTxOutL .~ Left value)
   {-# INLINE valueTxOutL #-}
 
-  compactValueTxOutL :: HasCallStack => Lens' (LegacyTxOut era) (CompactForm (Value era))
+  compactValueTxOutL :: HasCallStack => Lens' (MinAdaTxOut era) (CompactForm (Value era))
   compactValueTxOutL =
     lens
       ( \txOut -> case txOut ^. valueEitherTxOutL of
@@ -234,62 +234,63 @@ class
 
   -- | Read or replace the value, including its implicit deposit, in either
   -- its unpacked or compact representation.
-  valueEitherTxOutL :: Lens' (LegacyTxOut era) (Either (Value era) (CompactForm (Value era)))
+  valueEitherTxOutL :: Lens' (MinAdaTxOut era) (Either (Value era) (CompactForm (Value era)))
 
   -- | Produce the minimum lovelace that a given transaction output must
   -- contain. Information about the size of the TxOut is required in some eras.
   -- Use `getMinCoinTxOut` if you don't have the size readily available to you.
-  getMinCoinSizedTxOut :: PParams era -> Sized (LegacyTxOut era) -> Coin
+  getMinCoinSizedTxOut :: PParams era -> Sized (MinAdaTxOut era) -> Coin
   getMinCoinSizedTxOut pp = getMinCoinTxOut pp . sizedValue
 
   -- | Same as `getMinCoinSizedTxOut`, except information about the size of
   -- TxOut will be computed by serializing the TxOut. If the size turns out to
   -- be not needed, then serialization will have no overhead, since it is
   -- computed lazily.
-  getMinCoinTxOut :: PParams era -> LegacyTxOut era -> Coin
+  getMinCoinTxOut :: PParams era -> MinAdaTxOut era -> Coin
   getMinCoinTxOut pp txOut =
     let ProtVer version _ = pp ^. ppProtocolVersionL
      in getMinCoinSizedTxOut pp (mkSized version txOut)
 
 -- | Construct and inspect outputs whose capacity deposit is held in a separate
 -- store. Their value contains application assets only.
-class EraNewTxOut era where
-  {-# MINIMAL mkBasicNewTxOut, applicationAssetsTxOutL #-}
+class EraDepositBackedTxOut era where
+  {-# MINIMAL mkBasicDepositBackedTxOut, applicationAssetsTxOutL #-}
 
   -- | Construct an output from an address and its application assets, from Dijkstra onwards.
-  mkBasicNewTxOut ::
+  mkBasicDepositBackedTxOut ::
     (HasCallStack, AtLeastEra "Dijkstra" era) =>
     Addr ->
     ApplicationAssets era ->
-    NewTxOut era
+    DepositBackedTxOut era
 
   -- | Read or replace application assets without accessing the deposit store.
-  applicationAssetsTxOutL :: Lens' (NewTxOut era) (ApplicationAssets era)
+  applicationAssetsTxOutL :: Lens' (DepositBackedTxOut era) (ApplicationAssets era)
 
-  -- | Price a new output using its recorded formula. Earlier eras have no
-  -- values of 'NewTxOut'; their default is an empty match, not a zero price.
-  getDepositNewTxOut :: DepositFormula -> NewTxOut era -> Coin
-  default getDepositNewTxOut ::
-    NewTxOut era ~ NoNewTxOut era => DepositFormula -> NewTxOut era -> Coin
-  getDepositNewTxOut _ unavailable = case (unavailable :: NoNewTxOut era) of {}
+  -- | Price a deposit-backed output using the supplied formula. Earlier eras have no
+  -- values of 'DepositBackedTxOut'; their default is an empty match, not a zero price.
+  getDepositTxOut :: DepositFormula -> DepositBackedTxOut era -> Coin
+  default getDepositTxOut ::
+    DepositBackedTxOut era ~ NoDepositBackedTxOut era =>
+    DepositFormula -> DepositBackedTxOut era -> Coin
+  getDepositTxOut _ unavailable = case (unavailable :: NoDepositBackedTxOut era) of {}
 
 -- | Construct a transaction output whose value includes its implicit deposit.
-mkBasicTxOutWithLegacyTxOut ::
-  (EraLegacyTxOut era, HasCallStack) =>
+mkBasicTxOutWithMinAda ::
+  (EraMinAdaTxOut era, HasCallStack) =>
   Addr ->
   Value era ->
   TxOut era
-mkBasicTxOutWithLegacyTxOut address =
-  LegacyTxOut . mkBasicLegacyTxOut address
+mkBasicTxOutWithMinAda address =
+  MinAdaTxOut . mkBasicMinAdaTxOut address
 
 -- | Construct a transaction output whose capacity deposit is held in a separate store.
-mkBasicTxOutWithStoreBackedDeposit ::
-  (EraNewTxOut era, AtLeastEra "Dijkstra" era, HasCallStack) =>
+mkBasicTxOutWithDeposit ::
+  (EraDepositBackedTxOut era, AtLeastEra "Dijkstra" era, HasCallStack) =>
   Addr ->
   ApplicationAssets era ->
   TxOut era
-mkBasicTxOutWithStoreBackedDeposit address =
-  NewTxOut . mkBasicNewTxOut address
+mkBasicTxOutWithDeposit address =
+  DepositBackedTxOut . mkBasicDepositBackedTxOut address
 
 bootAddrTxOutF ::
   EraTxOut era => SimpleGetter (TxOut era) (Maybe BootstrapAddress)
@@ -308,8 +309,8 @@ toCompactPartial v =
   fromMaybe (error $ "Illegal value in TxOut: " <> show v) $ toCompact v
 
 -- | Construct an ADA-only output whose coin includes its implicit deposit.
-mkCoinTxOut :: EraLegacyTxOut era => Addr -> Coin -> LegacyTxOut era
-mkCoinTxOut addr = mkBasicLegacyTxOut addr . inject
+mkCoinTxOut :: EraMinAdaTxOut era => Addr -> Coin -> MinAdaTxOut era
+mkCoinTxOut addr = mkBasicMinAdaTxOut addr . inject
 
 -- | A value is something which quantifies a transaction output.
 type family Value era :: Type
@@ -343,20 +344,20 @@ deriving newtype instance Monoid (Value era) => Monoid (ApplicationAssets era)
 sumAllAssets ::
   (EraTxOut era, Foldable f) => f (TxOut era) -> Assets era
 sumAllAssets = foldMap' $ \case
-  LegacyTxOut txOut -> Assets (txOut ^. valueTxOutL)
-  NewTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
+  MinAdaTxOut txOut -> Assets (txOut ^. valueTxOutL)
+  DepositBackedTxOut txOut -> coerce (txOut ^. applicationAssetsTxOutL)
 {-# INLINE sumAllAssets #-}
 
--- | Sum the value held in legacy outputs.
+-- | Sum the value held in min-ADA outputs.
 sumAllValue ::
-  (EraLegacyTxOut era, Foldable f) => f (LegacyTxOut era) -> Value era
+  (EraMinAdaTxOut era, Foldable f) => f (MinAdaTxOut era) -> Value era
 sumAllValue = foldMap' (^. valueTxOutL)
 {-# INLINE sumAllValue #-}
 
--- | Sum the application assets of store-backed outputs.
+-- | Sum the application assets of deposit-backed outputs.
 sumAllApplicationAssets ::
-  (EraNewTxOut era, Monoid (ApplicationAssets era), Foldable f) =>
-  f (NewTxOut era) -> ApplicationAssets era
+  (EraDepositBackedTxOut era, Monoid (ApplicationAssets era), Foldable f) =>
+  f (DepositBackedTxOut era) -> ApplicationAssets era
 sumAllApplicationAssets = foldMap' (^. applicationAssetsTxOutL)
 {-# INLINE sumAllApplicationAssets #-}
 

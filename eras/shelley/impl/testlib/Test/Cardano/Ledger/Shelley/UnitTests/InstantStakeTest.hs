@@ -89,7 +89,7 @@ instantStakeIncludesRewards = do
     -- Since tom uses a StakeRefNull those entries will not be distributed
     utxo1 =
       legacyIndexedUTxOs @era $
-        LegacyTxOut
+        MinAdaTxOut
           <$> Map.fromList
             [ (tomTxIn1, mkCoinTxOut tomAddr $ fromCompact tomCoin1) -- Not distrubuted, see tomAddr
             , (tomTxIn2, mkCoinTxOut tomAddr $ fromCompact tomCoin2) -- Not distributed, see tomAddr
@@ -128,10 +128,10 @@ instantStakeFoldable = do
   seed <- arbitrary @(TxOut era)
   let address = mkAddr payment staking
       generatedOutput = seed & addrTxOutL .~ address & coinTxOutL .~ Coin 7
-      legacyOutput = LegacyTxOut $ mkCoinTxOut address (Coin 7)
+      legacyOutput = MinAdaTxOut $ mkCoinTxOut address (Coin 7)
       outputVariant = case seed of
-        LegacyTxOut _ -> "LegacyTxOut"
-        NewTxOut _ -> "NewTxOut"
+        MinAdaTxOut _ -> "MinAdaTxOut"
+        DepositBackedTxOut _ -> "DepositBackedTxOut"
       expected amount =
         (mempty :: InstantStake era)
           & instantStakeCredentialsL .~ Map.singleton staking (CompactCoin amount)
@@ -158,7 +158,7 @@ instantStakeFoldable = do
     tabulate "Output variant" [outputVariant] $
       conjoin
         [ counterexample "generated output" $ checkContainers generatedOutput
-        , counterexample "matching legacy output" $ checkContainers legacyOutput
+        , counterexample "matching min-ADA output" $ checkContainers legacyOutput
         ]
 
 spec :: forall era. ShelleyEraImp era => Spec

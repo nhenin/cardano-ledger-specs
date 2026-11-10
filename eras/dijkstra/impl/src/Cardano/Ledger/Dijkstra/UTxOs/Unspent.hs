@@ -17,25 +17,25 @@ import Cardano.Ledger.State.Accounting.UTxOs.Unspent (
 import Cardano.Ledger.Val (modifyCoin, (<->))
 import Lens.Micro ((&), (^.))
 
--- | Apply the allocation's historical formula. For a legacy output, take the
+-- | Apply the allocation's historical formula. For a min-ADA output, take the
 -- minimum of the calculated deposit and the ADA present in the output.
--- A new output's deposit is held separately and is not capped by its ADA.
+-- A deposit-backed output's deposit is held separately and is not capped by its ADA.
 computeDeposit ::
   DepositFormulaHistory ->
   Unspent (TxOut DijkstraEra) ->
   DepositAmount
 computeDeposit history (Unspent output origin) =
   Formula.computeDeposit (allocationFormula history origin) output
-    & capLegacyDeposit output
+    & capMinAdaDeposit output
 
--- | Only legacy deposits are capped by the ADA present in their output.
-capLegacyDeposit :: TxOut DijkstraEra -> DepositAmount -> DepositAmount
-capLegacyDeposit output deposit
-  | LegacyTxOut _ <- output = min deposit (DepositAmount $ output ^. coinTxOutL)
+-- | Only min-ADA reserves are capped by the ADA present in their output.
+capMinAdaDeposit :: TxOut DijkstraEra -> DepositAmount -> DepositAmount
+capMinAdaDeposit output deposit
+  | MinAdaTxOut _ <- output = min deposit (DepositAmount $ output ^. coinTxOutL)
   | otherwise = deposit
 
 -- | View application assets without modifying the stored output.
--- For a valid legacy output, application ADA is @max 0 (outputADA - formulaDeposit)@:
+-- For a valid min-ADA output, application ADA is @max 0 (outputADA - formulaDeposit)@:
 -- it is zero when the formula deposit meets or exceeds the output ADA, never negative.
 -- Only the ADA reserve is deducted; every native asset remains unchanged.
 computeApplicationAssets ::
@@ -43,6 +43,6 @@ computeApplicationAssets ::
   Unspent (TxOut DijkstraEra) ->
   ApplicationAssets DijkstraEra
 computeApplicationAssets history entry = case toTxOut entry of
-  LegacyTxOut output ->
+  MinAdaTxOut output ->
     ApplicationAssets . modifyCoin (<-> toCoin (computeDeposit history entry)) $ output ^. valueTxOutL
-  NewTxOut output -> output ^. applicationAssetsTxOutL
+  DepositBackedTxOut output -> output ^. applicationAssetsTxOutL

@@ -135,8 +135,8 @@ initUTxO :: IndexedUTxOs ShelleyEra
 initUTxO =
   genesisCoins
     genesisId
-    [ mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceInitCoin)
-    , mkBasicTxOutWithLegacyTxOut Cast.bobAddr (Val.inject bobInitCoin)
+    [ mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceInitCoin)
+    , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
     ]
 
 initStPoolLifetime :: ChainState ShelleyEra
@@ -167,7 +167,7 @@ txbodyEx1 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
     & outputsTxBodyL
-      .~ StrictSeq.fromList [mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceCoinEx1)]
+      .~ StrictSeq.fromList [mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceCoinEx1)]
     & certsTxBodyL
       .~ StrictSeq.fromList
         ( [ RegTxCert Cast.aliceSHK
@@ -271,8 +271,8 @@ txbodyEx2 =
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx1) minBound]
     & outputsTxBodyL
       .~ StrictSeq.fromList
-        [ mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceCoinEx2Base)
-        , mkBasicTxOutWithLegacyTxOut Cast.alicePtrAddr (Val.inject aliceCoinEx2Ptr)
+        [ mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceCoinEx2Base)
+        , mkBasicTxOutWithMinAda Cast.alicePtrAddr (Val.inject aliceCoinEx2Ptr)
         ]
     & certsTxBodyL
       .~ StrictSeq.fromList
@@ -414,7 +414,7 @@ txbodyEx4 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx2) minBound]
     & outputsTxBodyL
-      .~ StrictSeq.fromList [mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceCoinEx4Base)]
+      .~ StrictSeq.fromList [mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceCoinEx4Base)]
     & certsTxBodyL
       .~ StrictSeq.fromList
         [DelegStakeTxCert Cast.carlSHK (aikColdKeyHash Cast.alicePoolKeys)]
@@ -795,7 +795,7 @@ txbodyEx10 =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [mkTxInPartial genesisId 1]
     & outputsTxBodyL
-      .~ StrictSeq.singleton (mkBasicTxOutWithLegacyTxOut Cast.bobAddr (Val.inject bobAda10))
+      .~ StrictSeq.singleton (mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobAda10))
     & certsTxBodyL .~ StrictSeq.fromList [UnRegTxCert Cast.bobSHK]
     & withdrawalsTxBodyL
       .~ Withdrawals (Map.singleton (AccountAddress Testnet (AccountId Cast.bobSHK)) bobRAcnt8)
@@ -862,7 +862,7 @@ txbodyEx11 =
     & inputsTxBodyL .~ Set.fromList [TxIn (txIdTxBody txbodyEx4) minBound]
     & outputsTxBodyL
       .~ StrictSeq.singleton
-        (mkBasicTxOutWithLegacyTxOut Cast.alicePtrAddr (Val.inject aliceCoinEx11Ptr))
+        (mkBasicTxOutWithMinAda Cast.alicePtrAddr (Val.inject aliceCoinEx11Ptr))
     & certsTxBodyL
       .~ StrictSeq.fromList [RetirePoolTxCert (aikColdKeyHash Cast.alicePoolKeys) aliceRetireEpoch]
     & feeTxBodyL .~ feeTx11

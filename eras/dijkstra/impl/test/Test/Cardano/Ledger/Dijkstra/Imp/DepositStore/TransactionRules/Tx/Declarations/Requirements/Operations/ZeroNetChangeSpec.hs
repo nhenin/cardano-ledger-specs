@@ -88,7 +88,7 @@ spec =
               (Declarations TopTx.DeclaresZeroNetUTxODeposit
                 [SubTx.DeclaresZeroNetUTxODeposit])
               topTxWithoutDeclarations)
-        forM_ (SubTx.storeBackedInputs topTxWithoutDeclarations) $ \input ->
+        forM_ (SubTx.depositBackedInputs topTxWithoutDeclarations) $ \input ->
           removeSubTxReleaseDeclarationByInput input signedTx
             >>= submitTx >>= isRejectedWith (SubMissingUTxODepositDeclaration @DijkstraEra)
         submitTx signedTx >>= isAccepted
@@ -128,7 +128,7 @@ spec =
               (Declarations TopTx.DeclaresZeroNetUTxODeposit
                 (replicate (SubTx.count $ TopTx.unsignedTx topTxWithoutDeclarations) SubTx.DeclaresZeroNetUTxODeposit))
               topTxWithoutDeclarations)
-        forM_ (SubTx.storeBackedInputs topTxWithoutDeclarations) $ \input ->
+        forM_ (SubTx.depositBackedInputs topTxWithoutDeclarations) $ \input ->
           removeSubTxReleaseDeclarationByInput input signedTx
             >>= submitTx >>= isRejectedWith (SubMissingUTxODepositDeclaration @DijkstraEra)
         submitTx signedTx >>= isAccepted
@@ -162,7 +162,7 @@ spec =
                 | releasedDeposit <- SubTx.releasedDeposits topTxWithoutDeclarations
                 ])
               topTxWithoutDeclarations)
-        forM_ (SubTx.storeBackedInputs topTxWithoutDeclarations) $ \input ->
+        forM_ (SubTx.depositBackedInputs topTxWithoutDeclarations) $ \input ->
           removeSubTxReleaseDeclarationByInput input signedTx
             >>= submitTx >>= isRejectedWith (SubMissingUTxODepositDeclaration @DijkstraEra)
         submitTx signedTx >>= isAccepted
@@ -215,7 +215,7 @@ spec =
               (Declarations TopTx.DeclaresZeroNetUTxODeposit
                 (replicate (SubTx.count $ TopTx.unsignedTx topTxWithoutDeclarations) SubTx.DeclaresZeroNetUTxODeposit))
               topTxWithoutDeclarations)
-        forM_ (SubTx.storeBackedInputs topTxWithoutDeclarations) $ \input ->
+        forM_ (SubTx.depositBackedInputs topTxWithoutDeclarations) $ \input ->
           removeSubTxReleaseDeclarationByInput input signedTx
             >>= submitTx >>= isRejectedWith (SubMissingUTxODepositDeclaration @DijkstraEra)
         submitTx signedTx >>= isAccepted

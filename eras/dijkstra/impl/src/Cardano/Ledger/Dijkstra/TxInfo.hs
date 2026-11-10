@@ -661,8 +661,8 @@ transTxOutV4 ::
 transTxOutV4 txOutSource txOut = do
   let
     val = Alonzo.transValue $ case txOut of
-      LegacyTxOut output -> output ^. valueTxOutL
-      NewTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+      MinAdaTxOut output -> output ^. valueTxOutL
+      DepositBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
 
     referenceScript = Babbage.transReferenceScript $ txOut ^. referenceScriptTxOutL
     datum =

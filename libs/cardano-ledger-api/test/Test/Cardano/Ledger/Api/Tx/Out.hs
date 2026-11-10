@@ -30,7 +30,7 @@ import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Dijkstra.Arbitrary ()
 
 genCompactCoin ::
-  (Testable prop, EraTxOut era) => LegacyTxOut era -> (CompactForm Coin -> prop) -> Property
+  (Testable prop, EraTxOut era) => MinAdaTxOut era -> (CompactForm Coin -> prop) -> Property
 genCompactCoin txOut =
   let
     val = txOut ^. valueTxOutL
@@ -50,7 +50,7 @@ genCompactCoin txOut =
       )
 
 genCoinPerByte ::
-  (Testable prop, EraTxOut era) => LegacyTxOut era -> (CoinPerByte -> prop) -> Property
+  (Testable prop, EraTxOut era) => MinAdaTxOut era -> (CoinPerByte -> prop) -> Property
 genCoinPerByte txOut =
   let
     val = txOut ^. valueTxOutL
@@ -72,13 +72,13 @@ genCoinPerByte txOut =
 propSetShelleyMinTxOut ::
   forall era.
   ( EraTxOut era
-  , Arbitrary (LegacyTxOut era)
-  , Show (LegacyTxOut era)
+  , Arbitrary (MinAdaTxOut era)
+  , Show (MinAdaTxOut era)
   , AtMostEra "Mary" era
   ) =>
   Spec
 propSetShelleyMinTxOut =
-  prop "setShelleyMinTxOut" $ \(txOut0 :: LegacyTxOut era) ->
+  prop "setShelleyMinTxOut" $ \(txOut0 :: MinAdaTxOut era) ->
     genCompactCoin txOut0 $ \cc ->
       within 1000000 $ -- just in case if there is a problem with termination
         let pp = def & ppMinUTxOValueCompactL .~ cc
@@ -94,11 +94,11 @@ propSetShelleyMinTxOut =
 
 propSetAlonzoMinTxOut :: Spec
 propSetAlonzoMinTxOut =
-  prop "setAlonzoMinTxOut" $ \(pp :: PParams AlonzoEra) (txOut :: LegacyTxOut AlonzoEra) ->
+  prop "setAlonzoMinTxOut" $ \(pp :: PParams AlonzoEra) (txOut :: MinAdaTxOut AlonzoEra) ->
     within 1000000 $ -- just in case if there is a problem with termination
       let txOut' = setMinCoinTxOut pp txOut
           valSize = Val.size (txOut' ^. valueTxOutL)
-          dataHashSize = maybe 0 (const 10) $ strictMaybeToMaybe (LegacyTxOut txOut' ^. dataHashTxOutL)
+          dataHashSize = maybe 0 (const 10) $ strictMaybeToMaybe (MinAdaTxOut txOut' ^. dataHashTxOutL)
           sz = 27 + valSize + dataHashSize
        in Val.coin (txOut' ^. valueTxOutL)
             `shouldBe` Coin (sz * unCoin (unCoinPerWord (pp ^. ppCoinsPerUTxOWordL)))
@@ -108,12 +108,12 @@ propSetBabbageMinTxOut ::
   ( EraTxOut era
   , BabbageEraPParams era
   , Arbitrary (PParamsHKD Identity era)
-  , Arbitrary (LegacyTxOut era)
-  , Show (LegacyTxOut era)
+  , Arbitrary (MinAdaTxOut era)
+  , Show (MinAdaTxOut era)
   ) =>
   Spec
 propSetBabbageMinTxOut =
-  prop "setBabbageMinTxOut" $ \(pp' :: PParams era) (txOut :: LegacyTxOut era) ->
+  prop "setBabbageMinTxOut" $ \(pp' :: PParams era) (txOut :: MinAdaTxOut era) ->
     genCoinPerByte txOut $ \cc ->
       within 1000000 $ -- just in case if there is a problem with termination
         let pp = pp' & ppCoinsPerUTxOByteL .~ cc
@@ -124,7 +124,7 @@ propSetBabbageMinTxOut =
 
 propSetDijkstraMinTxOut :: Spec
 propSetDijkstraMinTxOut =
-  prop "setDijkstraMinTxOut: ADA = p × (250 + 74N + D + R)" $ \(original :: LegacyTxOut DijkstraEra) policy ->
+  prop "setDijkstraMinTxOut: ADA = p × (250 + 74N + D + R)" $ \(original :: MinAdaTxOut DijkstraEra) policy ->
     forAll (oneof [pure 0, choose (1, 1_000_000)]) $ \rate -> do
       inline <- expectRight $ makeBinaryData @DijkstraEra $ SBS.pack [0x43, 1, 2, 3]
       let pp = def & ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin rate)
@@ -160,9 +160,9 @@ propSetDijkstraEnsureMinTxOut =
 
 propSetEnsureMinTxOutWith ::
   forall era.
-  (EraTxOut era, Eq (LegacyTxOut era), Show (LegacyTxOut era)) =>
+  (EraTxOut era, Eq (MinAdaTxOut era), Show (MinAdaTxOut era)) =>
   PParams era ->
-  LegacyTxOut era ->
+  MinAdaTxOut era ->
   IO ()
 propSetEnsureMinTxOutWith pp txOut = do
   ensureMinCoinTxOut pp (txOut & valueTxOutL %~ Val.modifyCoin (const mempty))
@@ -180,9 +180,9 @@ propSetEnsureMinTxOut ::
   forall era.
   ( EraTxOut era
   , Arbitrary (PParamsHKD Identity era)
-  , Arbitrary (LegacyTxOut era)
-  , Show (LegacyTxOut era)
-  , Eq (LegacyTxOut era)
+  , Arbitrary (MinAdaTxOut era)
+  , Show (MinAdaTxOut era)
+  , Eq (MinAdaTxOut era)
   ) =>
   Spec
 propSetEnsureMinTxOut =
@@ -192,21 +192,21 @@ propSetBabbageEnsureMinTxOut ::
   forall era.
   ( EraTxOut era
   , Arbitrary (PParamsHKD Identity era)
-  , Arbitrary (LegacyTxOut era)
-  , Show (LegacyTxOut era)
-  , Eq (LegacyTxOut era)
+  , Arbitrary (MinAdaTxOut era)
+  , Show (MinAdaTxOut era)
+  , Eq (MinAdaTxOut era)
   , BabbageEraPParams era
   ) =>
   Spec
 propSetBabbageEnsureMinTxOut =
-  prop "setBabbageEnsureMinTxOut" $ \(pp :: PParams era) (txOut :: LegacyTxOut era) ->
+  prop "setBabbageEnsureMinTxOut" $ \(pp :: PParams era) (txOut :: MinAdaTxOut era) ->
     genCoinPerByte txOut $ \cc -> do
       let pp' = pp & ppCoinsPerUTxOByteL .~ cc
       propSetEnsureMinTxOutWith @era pp' txOut
 
 propSetMaryEnsureMinTxOut :: Spec
 propSetMaryEnsureMinTxOut =
-  prop "setMaryEnsureMinTxOut" $ \(txOut :: LegacyTxOut MaryEra) ->
+  prop "setMaryEnsureMinTxOut" $ \(txOut :: MinAdaTxOut MaryEra) ->
     genCompactCoin txOut $ \cc -> do
       let pp = def & ppMinUTxOValueCompactL .~ cc
       propSetEnsureMinTxOutWith pp txOut

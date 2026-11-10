@@ -42,13 +42,13 @@ import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.Rational (unsafeBoundRational)
 
 -- | Adapt an output-only legacy fixture to canonical allocation metadata.
--- Store-backed outputs require their actual historical metadata and are rejected.
+-- Deposit-backed outputs require their actual historical metadata and are rejected.
 legacyIndexedUTxOs :: Map TxIn (TxOut era) -> IndexedUTxOs era
-legacyIndexedUTxOs = IndexedUTxOs.fromLegacyTxOuts . Map.map requireLegacyFixture
+legacyIndexedUTxOs = IndexedUTxOs.fromMinAdaTxOuts . Map.map requireLegacyFixture
   where
     requireLegacyFixture = \case
-      LegacyTxOut legacyOutput -> legacyOutput
-      NewTxOut _ -> error "legacyIndexedUTxOs: expected a legacy output fixture"
+      MinAdaTxOut legacyOutput -> legacyOutput
+      DepositBackedTxOut _ -> error "legacyIndexedUTxOs: expected a min-ADA output fixture"
 
 testGlobals :: Globals
 testGlobals =

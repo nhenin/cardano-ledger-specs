@@ -71,7 +71,7 @@ insertUTxO entries stateKey = do
   forM_ (IndexedUTxOs.toList entries) $ \(input, entry) ->
     insertTxOut (input, UTxO.toTxOut entry)
   where
-    insertTxOut (TxIn.TxIn txId txIx, LegacyTxOut output) = do
+    insertTxOut (TxIn.TxIn txId txIx, MinAdaTxOut output) = do
       txKey <-
         insert $ Tx {txInIx = txIx, txInId = txId, txOut = output}
       txsKey <-
@@ -537,7 +537,7 @@ sourceUTxO ::
   ConduitM () (TxIn.TxIn, TxOut CurrentEra) (ReaderT SqlBackend m) ()
 sourceUTxO =
   selectSource [] []
-    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, LegacyTxOut txOut))
+    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, MinAdaTxOut txOut))
 
 sourceWithSharingUTxO ::
   MonadResource m =>
@@ -546,8 +546,8 @@ sourceWithSharingUTxO ::
 sourceWithSharingUTxO stakeCredentials =
   sourceUTxO
     .| mapC
-      ( fmap $ \(LegacyTxOut output) ->
-          LegacyTxOut $ internBabbageTxOut (`intern` stakeCredentials) output
+      ( fmap $ \(MinAdaTxOut output) ->
+          MinAdaTxOut $ internBabbageTxOut (`intern` stakeCredentials) output
       )
 
 foldDbUTxO ::
@@ -588,7 +588,7 @@ getLedgerState ::
   Shelley.DState CurrentEra ->
   ReaderT SqlBackend m (Shelley.LedgerState CurrentEra)
 getLedgerState outputs LedgerState {..} dstate = do
-  let entries = IndexedUTxOs.fromLegacyTxOuts . Map.map (\(LegacyTxOut output) -> output) $ outputs
+  let entries = IndexedUTxOs.fromMinAdaTxOuts . Map.map (\(MinAdaTxOut output) -> output) $ outputs
   UtxoState {..} <- getJust ledgerStateUtxoId
   pure
     Shelley.LedgerState
@@ -708,7 +708,7 @@ loadIndexedUTxOsNoSharing ::
   MonadUnliftIO m => T.Text -> m (IndexedUTxOs CurrentEra)
 loadIndexedUTxOsNoSharing fp =
   runSqlite fp $
-    IndexedUTxOs.fromLegacyTxOuts . Map.map (\(LegacyTxOut output) -> output)
+    IndexedUTxOs.fromMinAdaTxOuts . Map.map (\(MinAdaTxOut output) -> output)
       <$> runConduitFold sourceUTxO noSharingMap
 
 loadLedgerStateNoSharing ::

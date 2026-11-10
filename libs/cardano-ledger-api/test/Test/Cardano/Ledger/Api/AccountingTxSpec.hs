@@ -78,7 +78,7 @@ spec = describe "Accounting transaction projection" $ do
     $ \sourceId -> do
       let address = mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1)
           outputWithCoins coins =
-            mkBasicTxOutWithStoreBackedDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
+            mkBasicTxOutWithDeposit @DijkstraEra address (ApplicationAssets . inject $ Coin coins)
           collateralEntry = Unspent (outputWithCoins 1_000_000) (AtSlot $ SlotNo 10)
           untouchedEntry = Unspent (outputWithCoins 1_000) (AtSlot $ SlotNo 20)
           returned = outputWithCoins 50_000
@@ -264,6 +264,6 @@ accountingPolicySpec parameters template collateralReturn donation = describe (e
 
 testOutput :: EraTxOut era => Coin -> TxOut era
 testOutput =
-  mkBasicTxOutWithLegacyTxOut
+  mkBasicTxOutWithMinAda
     (mkAddr (mkKeyHash @Payment 1) (KeyHashObj $ mkKeyHash @Staking 1))
     . inject

@@ -51,7 +51,7 @@ import Lens.Micro
 -- | Initialize output storage from complete unspent entries and compute its
 -- cached instant stake. Use each output's allocation origin to price its deposit.
 smartAccountingState ::
-  (EraStake era, EraNewTxOut era) =>
+  (EraStake era, EraDepositBackedTxOut era) =>
   PParams era ->
   IndexedUTxOs era ->
   Coin ->

@@ -173,7 +173,7 @@ ledgerExamples =
     exampleDijkstraTx
     exampleDijkstraGenesis
 
--- | The inherited legacy outputs enter Dijkstra with a real initial history.
+-- | The inherited min-ADA outputs enter Dijkstra with a real initial history.
 -- Their allocation marker keeps this baseline after later parameter changes.
 exampleDijkstraNewEpochState :: NewEpochState DijkstraEra
 exampleDijkstraNewEpochState =
@@ -318,7 +318,7 @@ addDijkstraBasedTxFeatures tx =
       )
     & bodyTxL . outputsTxBodyL
       <>~ StrictSeq.fromList
-        [ mkBasicTxOutWithLegacyTxOut
+        [ mkBasicTxOutWithMinAda
             (mkAddr examplePayKey exampleStakeKey)
             (exampleMultiAssetValue 2)
             & datumTxOutL .~ Datum (dataToBinaryData exampleDatum)

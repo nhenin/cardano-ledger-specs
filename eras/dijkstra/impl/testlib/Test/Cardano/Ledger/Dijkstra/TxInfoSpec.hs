@@ -98,14 +98,14 @@ spec = describe "TxInfo" $ do
       ptr <- arbitrary
       val <- arbitrary
       let
-        txOut = mkBasicTxOutWithLegacyTxOut (Addr Testnet paymentCred (StakeRefPtr ptr)) val
+        txOut = mkBasicTxOutWithMinAda (Addr Testnet paymentCred (StakeRefPtr ptr)) val
       txIn <- arbitrary
       paymentCred2 <- arbitrary
       stakeRef <- oneof [StakeRefBase <$> arbitrary, pure StakeRefNull]
       let
         utxo =
           legacyIndexedUTxOs
-            [ (txIn, mkBasicTxOutWithLegacyTxOut (Addr Testnet paymentCred2 stakeRef) val)
+            [ (txIn, mkBasicTxOutWithMinAda (Addr Testnet paymentCred2 stakeRef) val)
             ]
         tx =
           mkBasicTx @era @TopTx $
@@ -125,9 +125,9 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOutWithLegacyTxOut (AddrBootstrap ba0) val0
-          , mkBasicTxOutWithLegacyTxOut (Addr Testnet paymentCred StakeRefNull) val1
-          , mkBasicTxOutWithLegacyTxOut (AddrBootstrap ba2) val2
+          [ mkBasicTxOutWithMinAda (AddrBootstrap ba0) val0
+          , mkBasicTxOutWithMinAda (Addr Testnet paymentCred StakeRefNull) val1
+          , mkBasicTxOutWithMinAda (AddrBootstrap ba2) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
         ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
@@ -145,9 +145,9 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOutWithLegacyTxOut (Addr Testnet pc0 (StakeRefPtr ptr0)) val0
-          , mkBasicTxOutWithLegacyTxOut (AddrBootstrap bootstrapAddr) val1
-          , mkBasicTxOutWithLegacyTxOut (Addr Testnet pc2 (StakeRefPtr ptr2)) val2
+          [ mkBasicTxOutWithMinAda (Addr Testnet pc0 (StakeRefPtr ptr0)) val0
+          , mkBasicTxOutWithMinAda (AddrBootstrap bootstrapAddr) val1
+          , mkBasicTxOutWithMinAda (Addr Testnet pc2 (StakeRefPtr ptr2)) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
         ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
@@ -163,9 +163,9 @@ spec = describe "TxInfo" $ do
       val2 <- arbitrary
       let
         txOuts =
-          [ mkBasicTxOutWithLegacyTxOut (Addr Testnet pc0 StakeRefNull) val0
-          , mkBasicTxOutWithLegacyTxOut (Addr Testnet pc1 StakeRefNull) val1
-          , mkBasicTxOutWithLegacyTxOut (Addr Testnet pc2 StakeRefNull) val2
+          [ mkBasicTxOutWithMinAda (Addr Testnet pc0 StakeRefNull) val0
+          , mkBasicTxOutWithMinAda (Addr Testnet pc1 StakeRefNull) val1
+          , mkBasicTxOutWithMinAda (Addr Testnet pc2 StakeRefNull) val2
           ]
         tx = mkBasicTx @era @TopTx $ mkBasicTxBody & outputsTxBodyL .~ txOuts
         ledgerTxInfo = mkLocalLedgerTxInfo mempty tx $ LedgerTopTxInfo mempty
@@ -191,12 +191,12 @@ spec = describe "TxInfo" $ do
           proxy = Proxy @PlutusV4
           scriptHash = hashPlutusScript plutusScript
           paymentCred2 = ScriptHashObj scriptHash
-          txOut = mkBasicTxOutWithLegacyTxOut (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
+          txOut = mkBasicTxOutWithMinAda (Addr Testnet paymentCred1 stakeRef1) (Val.inject coin1)
           utxo =
             legacyIndexedUTxOs
               [
                 ( txIn
-                , mkBasicTxOutWithLegacyTxOut (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)
+                , mkBasicTxOutWithMinAda (Addr Testnet paymentCred2 stakeRef2) (Val.inject coin2)
                 )
               ]
           tx =

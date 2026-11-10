@@ -59,18 +59,18 @@ independentBodyOperations = do
 bodyOperations :: Gen BodyOperations
 bodyOperations =
   BodyOperations
-    <$> elements [ImplicitOutput, StoreBackedOutput]
-    <*> elements [ImplicitOutput, StoreBackedOutput]
+    <$> elements [ImplicitOutput, DepositBackedOutput]
+    <*> elements [ImplicitOutput, DepositBackedOutput]
     <*> (Coin <$> chooseInteger (10_000_000, 20_000_000))
 
 -- | Preserve application ADA while assigning the requested deposit representation.
 outputWithForm :: Addr -> OutputVariant -> Coin -> TxOut DijkstraEra
-outputWithForm address ImplicitOutput amount = mkBasicTxOutWithLegacyTxOut address $ inject amount
-outputWithForm address StoreBackedOutput amount =
-  mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject amount
+outputWithForm address ImplicitOutput amount = mkBasicTxOutWithMinAda address $ inject amount
+outputWithForm address DepositBackedOutput amount =
+  mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject amount
 
 -- | Inspect every body's own ordinary inputs and outputs against the captured
--- allocations. A NewTxOut requires presence regardless of its recorded amount.
+-- allocations. A DepositBackedTxOut requires presence regardless of its recorded amount.
 -- This oracle does not call production presence predicates or read declarations.
 requiredDeclarationOwners :: IndexedUTxOs DijkstraEra -> Tx TopTx DijkstraEra -> [DeclarationOwner]
 requiredDeclarationOwners allocations tx =
@@ -88,17 +88,17 @@ sourceInput child = case Set.toList (child ^. bodyTxL . inputsTxBodyL) of
   [input] -> input
   _ -> error "An operations fixture SubTx must retain exactly one funded input"
 
--- | Store-backed ordinary input or output form triggers the body's obligation.
+-- | Deposit-backed ordinary input or output form triggers the body's obligation.
 -- Reference inputs, collateral and nested children's outputs are excluded.
 requiresDeclaration :: IndexedUTxOs DijkstraEra -> Tx l DijkstraEra -> Bool
 requiresDeclaration allocations tx =
-  any isStoreBacked (tx ^. bodyTxL . outputsTxBodyL)
-    || ( any isStoreBacked
+  any isDepositBacked (tx ^. bodyTxL . outputsTxBodyL)
+    || ( any isDepositBacked
            . IndexedUTxOs.txOuts
            . IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . inputsTxBodyL)
            $ allocations
        )
 
-isStoreBacked :: TxOut DijkstraEra -> Bool
-isStoreBacked (NewTxOut _) = True
-isStoreBacked (LegacyTxOut _) = False
+isDepositBacked :: TxOut DijkstraEra -> Bool
+isDepositBacked (DepositBackedTxOut _) = True
+isDepositBacked (MinAdaTxOut _) = False

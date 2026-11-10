@@ -94,11 +94,11 @@ spec = describe "Regression" $ do
             mkBasicTx mkBasicTxBody
               & bodyTxL . outputsTxBodyL
                 .~ SSeq.fromList
-                  [ mkBasicTxOutWithLegacyTxOut lockScriptAddress mempty
-                  , mkBasicTxOutWithLegacyTxOut collateralAddress mempty
+                  [ mkBasicTxOutWithMinAda lockScriptAddress mempty
+                  , mkBasicTxOutWithMinAda collateralAddress mempty
                   ]
               & bodyTxL . collateralReturnTxBodyL
-                .~ SJust (mkBasicTxOutWithLegacyTxOut collateralReturnAddr . inject $ Coin 862000)
+                .~ SJust (mkBasicTxOutWithMinAda collateralReturnAddr . inject $ Coin 862000)
         let
           modifyRootCoin = coinTxOutL .~ Coin 989482376
           modifyRootTxOut (x SSeq.:<| SSeq.Empty) =
@@ -110,7 +110,7 @@ spec = describe "Regression" $ do
             pure $
               tx
                 & bodyTxL . collateralReturnTxBodyL
-                  .~ SJust (mkBasicTxOutWithLegacyTxOut collateralReturnAddr . inject $ Coin 1_000_000_000)
+                  .~ SJust (mkBasicTxOutWithMinAda collateralReturnAddr . inject $ Coin 1_000_000_000)
                 & bodyTxL . feeTxBodyL .~ Coin 178349
                 & bodyTxL . outputsTxBodyL %~ modifyRootTxOut
                 & witsTxL . addrTxWitsL .~ mempty

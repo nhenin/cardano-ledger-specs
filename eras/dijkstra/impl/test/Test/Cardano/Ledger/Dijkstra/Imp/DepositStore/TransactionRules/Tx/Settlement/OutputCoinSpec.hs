@@ -1,7 +1,7 @@
 {-# LANGUAGE NumericUnderscores #-}
 
 -- | Application ADA in a designated output covers its own settlement obligation.
--- A Store-backed output's external deposit is excluded. This is a lower bound,
+-- A Deposit-backed output's external deposit is excluded. This is a lower bound,
 -- not a stronger guarantee about refund recipients or independent SubTx balance.
 -- Ledger cases keep declarations exact and every non-coverage rule satisfied.
 -- Boundary mutations redistribute ADA to another implicit output, preserving the
@@ -36,9 +36,9 @@ spec = describe "DS-TX-SETTLEMENT-OUTPUT-COIN - Each designated output contains 
   -- Common premises: a real selected output and correct settlement designation.
   -- requiredSettlement is the positive own release of a locally accounting body.
   -- For TopTx it is its attributed share, which may differ from the batch release.
-  -- applicationADA excludes the external deposit attached to a Store-backed output.
+  -- applicationADA excludes the external deposit attached to a Deposit-backed output.
 
-  -- Generated boundary oracle, for TopTx/SubTx and implicit/Store-backed outputs.
+  -- Generated boundary oracle, for TopTx/SubTx and implicit/Deposit-backed outputs.
   -- This isolated check tests the lower bound directly, without claiming ledger validity.
   prop "DS-TX-SETTLEMENT-OUTPUT-COIN-P01 - validOutputIndex ⇒ (passesOutputCoinValidation ⇔ applicationADA(selectedOutput) ≥ requiredSettlement)" $
     forAll OutputCoin.anyRelease $ \scenario -> do
@@ -114,8 +114,8 @@ spec = describe "DS-TX-SETTLEMENT-OUTPUT-COIN - Each designated output contains 
       submitTx signedTx >>= isAccepted
 
   -- The external deposit covers the numerical deficit but does not count as application ADA.
-  prop "DS-TX-SETTLEMENT-OUTPUT-COIN-F02 - storeBackedOutput ∧ applicationADA < requiredSettlement ≤ applicationADA + externalDeposit ⇒ rejectedWith(InsufficientSettlementOutput)" $
-    forAll OutputCoin.storeBackedRelease $ \scenario -> do
+  prop "DS-TX-SETTLEMENT-OUTPUT-COIN-F02 - depositBackedOutput ∧ applicationADA < requiredSettlement ≤ applicationADA + externalDeposit ⇒ rejectedWith(InsufficientSettlementOutput)" $
+    forAll OutputCoin.depositBackedRelease $ \scenario -> do
       proposal <- OutputCoin.fund scenario
       let Coin required = OutputCoin.requiredSettlement scenario proposal
           Coin totalRelease = Coin 0 <-> TopTx.netDeposit proposal
@@ -136,9 +136,9 @@ spec = describe "DS-TX-SETTLEMENT-OUTPUT-COIN - Each designated output contains 
       submitTx signedTx >>= isRejectedOnlyWith
         (DepositStoreFailure $ OutputCoin.insufficientOutputFailure scenario supplied (Coin required) signedTx)
 
-  -- A Store-backed output satisfies the bound using only its application ADA.
-  prop "DS-TX-SETTLEMENT-OUTPUT-COIN-N03 - storeBackedOutput ∧ applicationADA = requiredSettlement ⇒ accepted" $
-    forAll OutputCoin.storeBackedRelease $ \scenario -> do
+  -- A Deposit-backed output satisfies the bound using only its application ADA.
+  prop "DS-TX-SETTLEMENT-OUTPUT-COIN-N03 - depositBackedOutput ∧ applicationADA = requiredSettlement ⇒ accepted" $
+    forAll OutputCoin.depositBackedRelease $ \scenario -> do
       proposal <- OutputCoin.fund scenario
       let Coin required = OutputCoin.requiredSettlement scenario proposal
           Coin totalRelease = Coin 0 <-> TopTx.netDeposit proposal

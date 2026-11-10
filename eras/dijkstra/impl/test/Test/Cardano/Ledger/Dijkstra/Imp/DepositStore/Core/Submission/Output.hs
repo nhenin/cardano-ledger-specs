@@ -31,7 +31,7 @@ data ExpectedSubmission
   | RejectedSubTx (DijkstraSubUtxoPredFailure DijkstraEra)
   | RejectedIncludingSubTx (DijkstraSubUtxoPredFailure DijkstraEra)
 
--- | Register one fresh ledger test per row. Store-backed fixtures are submitted
+-- | Register one fresh ledger test per row. Deposit-backed fixtures are submitted
 -- only for rejection; fee and application-asset balancing does not fund a capacity
 -- deposit. Accepted controls contain only implicit-deposit outputs.
 -- A rejection fixture may deliberately violate several independent rules. Use

@@ -59,7 +59,7 @@ data LedgerState = LedgerState
   }
   deriving (Show)
 
--- | Application amounts for consumed and unrelated store-backed outputs, followed
+-- | Application amounts for consumed and unrelated deposit-backed outputs, followed
 -- by the output forms of the proposed transaction. Input references and witnesses
 -- are supplied only after funding succeeds on the actual ledger.
 data ReleaseScenario = ReleaseScenario
@@ -70,39 +70,39 @@ data ReleaseScenario = ReleaseScenario
   }
   deriving (Show)
 
-data OutputForms = ImplicitOutputs | StoreBackedOutputs | MixedOutputs
+data OutputForms = ImplicitOutputs | DepositBackedOutputs | MixedOutputs
   deriving (Eq, Show)
 
--- | Standalone TopTx, any output form. Consumes at least one store-backed output
--- and creates implicit-only, store-backed-only or mixed outputs. Relative input
+-- | Standalone TopTx, any output form. Consumes at least one deposit-backed output
+-- and creates implicit-only, deposit-backed-only or mixed outputs. Relative input
 -- and output counts exercise net releases, zero and allocations under fixed pricing.
 standaloneTopTxAnyOutputForm :: Gen ReleaseScenario
 standaloneTopTxAnyOutputForm =
-  elements [ImplicitOutputs, StoreBackedOutputs, MixedOutputs] >>= standaloneTopTx
+  elements [ImplicitOutputs, DepositBackedOutputs, MixedOutputs] >>= standaloneTopTx
 
--- | Standalone TopTx, only implicit outputs. Consume at least one store-backed
+-- | Standalone TopTx, only implicit outputs. Consume at least one deposit-backed
 -- output and propose one implicit output receiving application ADA plus the full
 -- recorded release. Ordinary fixup funds fees separately.
 standaloneTopTxOnlyImplicitOutputs :: Gen ReleaseScenario
 standaloneTopTxOnlyImplicitOutputs = standaloneTopTx ImplicitOutputs
 
 -- | Standalone TopTx, equal nonzero allocations and releases. Consume one to five
--- store-backed outputs and create the same number, optionally alongside an implicit
--- output. Every Store-backed output pays the same V1 base charge, so equal
+-- deposit-backed outputs and create the same number, optionally alongside an implicit
+-- output. Every Deposit-backed output pays the same V1 base charge, so equal
 -- counts give equal deposits. Submission support checks the actual totals
 -- against recorded source deposits before the spec supplies its declaration.
 standaloneTopTxWithEqualAllocationsAndReleases :: Gen ReleaseScenario
 standaloneTopTxWithEqualAllocationsAndReleases = do
-  scenario <- elements [StoreBackedOutputs, MixedOutputs] >>= standaloneTopTx
+  scenario <- elements [DepositBackedOutputs, MixedOutputs] >>= standaloneTopTx
   amounts <- vectorOf (length $ consumedApplicationAmounts scenario) applicationAmount
   pure $ scenario {createdApplicationAmounts = amounts}
 
--- | Standalone TopTx requiring a net allocation. Consume at least one store-backed
--- output and create one more store-backed output than is consumed. The fixed policy
+-- | Standalone TopTx requiring a net allocation. Consume at least one deposit-backed
+-- output and create one more deposit-backed output than is consumed. The fixed policy
 -- charges the same base amount for each plain output, so allocation exceeds release.
 standaloneTopTxRequiringNetAllocation :: Gen ReleaseScenario
 standaloneTopTxRequiringNetAllocation = do
-  scenario <- standaloneTopTx StoreBackedOutputs
+  scenario <- standaloneTopTx DepositBackedOutputs
   amounts <- vectorOf (length (consumedApplicationAmounts scenario) + 1) applicationAmount
   pure $ scenario {createdApplicationAmounts = amounts}
 
@@ -123,7 +123,7 @@ applicationAmount = Coin <$> chooseInteger (10_000_000, 20_000_000)
 -- adapter retain unrelated inputs as a check against releasing the entire Store.
 sourceOutputs :: Addr -> ReleaseScenario -> [TxOut DijkstraEra]
 sourceOutputs address scenario =
-  map (storeBackedOutput address) $
+  map (depositBackedOutput address) $
     consumedApplicationAmounts scenario <> unrelatedApplicationAmounts scenario
 
 -- | Output zero can receive the complete release. Other shapes retain a generous
@@ -132,19 +132,19 @@ sourceOutputs address scenario =
 createdOutputs :: Addr -> ReleaseScenario -> Coin -> [TxOut DijkstraEra]
 createdOutputs address scenario released = case outputForms scenario of
   ImplicitOutputs ->
-    [ mkBasicTxOutWithLegacyTxOut address $
+    [ mkBasicTxOutWithMinAda address $
         inject $
           foldMap id (consumedApplicationAmounts scenario) <> released
     ]
-  StoreBackedOutputs -> case map (storeBackedOutput address) (createdApplicationAmounts scenario) of
+  DepositBackedOutputs -> case map (depositBackedOutput address) (createdApplicationAmounts scenario) of
     output : outputs -> (output & coinTxOutL .~ Coin 200_000_000) : outputs
-    [] -> error "A store-backed scenario must create a settlement output"
+    [] -> error "A deposit-backed scenario must create a settlement output"
   MixedOutputs ->
-    mkBasicTxOutWithLegacyTxOut address (inject $ Coin 200_000_000)
-      : map (storeBackedOutput address) (createdApplicationAmounts scenario)
+    mkBasicTxOutWithMinAda address (inject $ Coin 200_000_000)
+      : map (depositBackedOutput address) (createdApplicationAmounts scenario)
 
-storeBackedOutput :: Addr -> Coin -> TxOut DijkstraEra
-storeBackedOutput address = mkBasicTxOutWithStoreBackedDeposit address . ApplicationAssets . inject
+depositBackedOutput :: Addr -> Coin -> TxOut DijkstraEra
+depositBackedOutput address = mkBasicTxOutWithDeposit address . ApplicationAssets . inject
 
 -- | External deposit expected by these V1 transaction scenarios at the active rate.
 outputDeposit :: PParams DijkstraEra -> TxOut DijkstraEra -> Coin
@@ -163,7 +163,7 @@ releasedDeposits ledgerState topTx =
       (recordedAmounts $ liveOutputStore $ accountingState ledgerState)
       (topTx ^. bodyTxL . inputsTxBodyL)
 
--- | Price every created store-backed ordinary output independently of the Store
+-- | Price every created deposit-backed ordinary output independently of the Store
 -- transition. Each output is keyed by its own body's final transaction identifier;
 -- implicit outputs and collateral returns allocate nothing on the ordinary path.
 createdAllocations :: LedgerState -> Tx TopTx DijkstraEra -> Map.Map TxIn Coin
@@ -177,7 +177,7 @@ createdBodyAllocations :: PParams DijkstraEra -> Tx l DijkstraEra -> Map.Map TxI
 createdBodyAllocations parameters tx =
   Map.fromList
     [ (txInAt index tx, outputDeposit parameters output)
-    | (index, output@(NewTxOut _)) <-
+    | (index, output@(DepositBackedTxOut _)) <-
         zip [0 ..] $ toList $ tx ^. bodyTxL . outputsTxBodyL
     ]
 

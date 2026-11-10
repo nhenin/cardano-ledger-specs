@@ -122,7 +122,7 @@ initTxBody ::
 initTxBody addrs =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound, TxIn genesisId (mkTxIxPartial 1)]
-    & outputsTxBodyL .~ StrictSeq.fromList (map (uncurry mkBasicTxOutWithLegacyTxOut) addrs)
+    & outputsTxBodyL .~ StrictSeq.fromList (map (uncurry mkBasicTxOutWithMinAda) addrs)
     & feeTxBodyL .~ Coin 0
     & ttlTxBodyL .~ SlotNo 0
 
@@ -135,7 +135,7 @@ makeTxBody inp addrCs wdrl =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.fromList inp
     & outputsTxBodyL
-      .~ StrictSeq.fromList [uncurry mkBasicTxOutWithLegacyTxOut addrC | addrC <- addrCs]
+      .~ StrictSeq.fromList [uncurry mkBasicTxOutWithMinAda addrC | addrC <- addrCs]
     & withdrawalsTxBodyL .~ wdrl
     & feeTxBodyL .~ Coin 0
     & ttlTxBodyL .~ SlotNo 10
@@ -177,8 +177,8 @@ genesis = genesisState genDelegs0 utxo0
     utxo0 =
       genesisCoins @era
         genesisId
-        [ mkBasicTxOutWithLegacyTxOut Cast.aliceAddr (Val.inject aliceInitCoin)
-        , mkBasicTxOutWithLegacyTxOut Cast.bobAddr (Val.inject bobInitCoin)
+        [ mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceInitCoin)
+        , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
         ]
 
 initPParams :: EraPParams era => PParams era

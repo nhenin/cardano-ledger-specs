@@ -618,7 +618,7 @@ countTxOutStats :: [TxOut CurrentEra] -> TxOutStats
 countTxOutStats = foldMap countTxOutStat
   where
     countTxOutStat :: TxOut CurrentEra -> TxOutStats
-    countTxOutStat txOut@(LegacyTxOut output) =
+    countTxOutStat txOut@(MinAdaTxOut output) =
       let addr = txOut ^. addrTxOutL
           MaryValue (Coin v) (MultiAsset m) = output ^. valueTxOutL
           !dataStat =

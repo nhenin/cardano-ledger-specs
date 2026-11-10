@@ -8,7 +8,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release
   ReleaseTx (..),
   standaloneTopTxAnyOutputForm,
   standaloneTopTxOnlyImplicitOutputs,
-  standaloneTopTxWithStoreBackedReferenceInputs,
+  standaloneTopTxWithDepositBackedReferenceInputs,
   standaloneTopTxWithEqualAllocationsAndReleases,
   allocatedDeposits,
   releasedDeposits,
@@ -50,7 +50,7 @@ data ReleaseTx = ReleaseTx
   }
   deriving (Show)
 
--- | Required deposits for all new store-backed outputs, including SubTx outputs.
+-- | Required deposits for all new deposit-backed outputs, including SubTx outputs.
 allocatedDeposits :: ReleaseTx -> Coin
 allocatedDeposits proposal =
   foldMap (TopTx.outputDeposit $ TopTx.protocolParameters $ ledgerState proposal) $
@@ -91,8 +91,8 @@ addDeclaration (Declarations topDeclaration childDeclarations) proposal =
                   & bodyTxL . subTransactionsTxBodyL .~ OMap.fromFoldable declaredChildren
             }
 
--- | One to five Store-backed sources and unrelated allocations. Submission support
+-- | One to five Deposit-backed sources and unrelated allocations. Submission support
 -- places the selected sources exclusively in reference inputs and creates no Store
 -- outputs, so their recorded deposits do not become ordinary releases.
-standaloneTopTxWithStoreBackedReferenceInputs :: Gen TopTx.ReleaseScenario
-standaloneTopTxWithStoreBackedReferenceInputs = TopTx.standaloneTopTxOnlyImplicitOutputs
+standaloneTopTxWithDepositBackedReferenceInputs :: Gen TopTx.ReleaseScenario
+standaloneTopTxWithDepositBackedReferenceInputs = TopTx.standaloneTopTxOnlyImplicitOutputs

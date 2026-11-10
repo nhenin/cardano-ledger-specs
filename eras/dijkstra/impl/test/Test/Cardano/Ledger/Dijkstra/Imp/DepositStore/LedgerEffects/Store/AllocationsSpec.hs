@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE TypeApplications #-}
 
--- | Allocation records belong to live Store-backed output references. New records
+-- | Allocation records belong to live Deposit-backed output references. New records
 -- price the output contents; unconsumed records retain their creation-time amounts.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.AllocationsSpec (spec) where
 
@@ -96,14 +96,14 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
   prop "DS-STATE-ALLOCATIONS-P02 - accepted ⇒ allocationsAfter = (allocationsBefore without appliedInputs) ∪ appliedAllocations" $
     forAll Collateral.fundingScenarios $ \scenarios ->
       forM_ scenarios $ \scenario ->
-        forM_ ([False] <> [True | Collateral.StoreBacked `elem` Collateral.inputForms scenario]) $ \shared -> do
+        forM_ ([False] <> [True | Collateral.DepositBacked `elem` Collateral.inputForms scenario]) $ \shared -> do
           fixture <- Collateral.buildAndSign scenario >>= InputRoles.withReferenceOnlyInput
           Fixture{signedTx, previousAccountingState, collateralInputs, returnDeposit} <-
             if shared then InputRoles.withSharedOrdinaryInput fixture else pure fixture
           let recordsBefore = recordedAmounts $ liveOutputStore previousAccountingState
               returnInput = txInAt (length $ signedTx ^. bodyTxL . outputsTxBodyL) signedTx
               returnAllocation = case signedTx ^. bodyTxL . collateralReturnTxBodyL of
-                SJust (NewTxOut _) -> Map.singleton returnInput returnDeposit
+                SJust (DepositBackedTxOut _) -> Map.singleton returnInput returnDeposit
                 _ -> Map.empty
           submitTx signedTx >>= isAccepted
           accountingState <- readAccountingState
@@ -154,7 +154,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
         Pricing.declareNetDeposit (Coin 0 <-> creationDeposit) $
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject coins)
+            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject coins)
       submitTx spendingTx >>= isAccepted
       consumedState <- readAccountingState
       currentFormula (liveOutputStore consumedState) `shouldBe` activeFormula
@@ -163,7 +163,7 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
 
   -- A zero byte price creates zero-valued records, not missing records. Parent
   -- and child outputs remain distinct; their translated funding inputs are implicit.
-  prop "DS-STATE-ALLOCATIONS-N01 - bytePrice = 0 ∧ createdStoreBackedOutputs ≠ ∅ ⇒ newAllocations = {(outputRef, 0) | outputRef ∈ createdStoreBackedOutputs}" $
+  prop "DS-STATE-ALLOCATIONS-N01 - bytePrice = 0 ∧ createdDepositBackedOutputs ≠ ∅ ⇒ newAllocations = {(outputRef, 0) | outputRef ∈ createdDepositBackedOutputs}" $
     forAll (do
       count <- chooseInt (1, 3)
       let operations = (Accounting.bodyOperations count 0) {Accounting.sourceTranslation = True}

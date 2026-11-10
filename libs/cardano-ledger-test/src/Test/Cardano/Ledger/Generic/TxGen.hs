@@ -168,7 +168,7 @@ genTxOut val = do
       ScriptHashObj scriptHash -> do
         maybeCoreScript <- lookupScript scriptHash (Just Spending)
         genDataHashField maybeCoreScript
-  pure . dataHashFields $ mkBasicTxOutWithLegacyTxOut addr val
+  pure . dataHashFields $ mkBasicTxOutWithMinAda addr val
 
 -- ====================================================================
 
@@ -304,14 +304,14 @@ makeDatumWitness :: forall era. Reflect era => TxOut era -> GenRS era (TxWits er
 makeDatumWitness txout =
   let proof = reify @era
    in case (proof, txout) of
-        (Babbage, LegacyTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
-        (Babbage, LegacyTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
-        (Babbage, LegacyTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
-        (Conway, LegacyTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
-        (Conway, LegacyTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
-        (Conway, LegacyTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
-        (Alonzo, LegacyTxOut (AlonzoTxOut _ _ mDatum)) -> mkDatumWit mDatum
-        (_, NewTxOut _) -> error "makeDatumWitness: unexpected store-backed output"
+        (Babbage, MinAdaTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
+        (Babbage, MinAdaTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
+        (Babbage, MinAdaTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
+        (Conway, MinAdaTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
+        (Conway, MinAdaTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
+        (Conway, MinAdaTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
+        (Alonzo, MinAdaTxOut (AlonzoTxOut _ _ mDatum)) -> mkDatumWit mDatum
+        (_, DepositBackedTxOut _) -> error "makeDatumWitness: unexpected deposit-backed output"
         _ -> pure id -- No other era has data witnesses
   where
     mkDatumWit ::
@@ -681,7 +681,7 @@ genCollateralUTxO collateralAddresses (Coin fee) utxo = do
         txIn <- lift (resize 30 (arbitrary :: Gen TxIn))
         if Map.member txIn utxo || Map.member txIn coll || txIn `Map.member` entriesInUse
           then genNewCollateral addr coll um c
-          else pure (um, Map.insert txIn (mkBasicTxOutWithLegacyTxOut addr (inject c)) coll, c)
+          else pure (um, Map.insert txIn (mkBasicTxOutWithMinAda addr (inject c)) coll, c)
       -- Either pick a collateral from a map or generate a completely new one
       genCollateral addr coll um
         | Map.null um = genNewCollateral addr coll um =<< lift genPositiveVal
@@ -921,7 +921,7 @@ genAlonzoTxAndInfo slot = do
   collateralAddresses <- replicateM maxCollateralCount genNoScriptRecipient
   bogusCollateralKeyWitsMakers <- fmap concat . forM collateralAddresses $ \a ->
     fmap List.singleton . genTxOutKeyWitness Nothing $
-      mkBasicTxOutWithLegacyTxOut a (inject maxCoin)
+      mkBasicTxOutWithMinAda a (inject maxCoin)
   networkId <- lift $ elements [SNothing, SJust Testnet]
 
   -- 6. Generate bogus collateral fields, and functions for updating them when we know their real values

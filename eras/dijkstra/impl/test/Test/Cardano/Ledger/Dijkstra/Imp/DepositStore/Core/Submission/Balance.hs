@@ -105,7 +105,7 @@ fundNativeAssets quantity proposal = do
   address <- freshKeyAddrNoPtr_
   let assets = multiAssetFromList [(policy, AssetName "balance-a", quantity)]
       tokenValue = MaryValue mempty assets
-      output = mkBasicTxOutWithLegacyTxOut address $ MaryValue (Coin 10_000_000) assets
+      output = mkBasicTxOutWithMinAda address $ MaryValue (Coin 10_000_000) assets
   funding <-
     submitTx $
       mkBasicTx mkBasicTxBody
@@ -134,7 +134,7 @@ fundNativeAssets quantity proposal = do
   pure (tokenValue, withTokens)
 
 -- | Establish the concrete ten-ADA application / two-ADA deposit example with
--- one actual Store-backed source. Its only spending SubTx proposes an implicit
+-- one actual Deposit-backed source. Its only spending SubTx proposes an implicit
 -- twelve-ADA output and has no additional funding input. TopTx has a separate
 -- generated implicit funding source, so fees need not reduce that child output.
 -- Both bodies remain undeclared for the specification to supply its own DSL.
@@ -146,8 +146,8 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
   address <- freshKeyAddrNoPtr_
   parameters <- getsNES $ nesEsL . curPParamsEpochStateL
   -- V1 charges 8,000 × 250 lovelace for this plain ADA-only source.
-  let source = mkBasicTxOutWithStoreBackedDeposit address $ ApplicationAssets $ inject $ Coin 10_000_000
-      implicitFunding = mkBasicTxOutWithLegacyTxOut address $ inject topFunding
+  let source = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject $ Coin 10_000_000
+      implicitFunding = mkBasicTxOutWithMinAda address $ inject topFunding
   Pricing.outputDeposit parameters source `shouldBe` Coin 2_000_000
   funding <-
     submitTx $
@@ -168,7 +168,7 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
             .~ Set.singleton (txInAt (1 :: Int) funding)
           & bodyTxL
             . outputsTxBodyL
-            .~ SSeq.singleton (mkBasicTxOutWithLegacyTxOut address $ inject $ Coin 12_000_000)
+            .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin 12_000_000)
       tx =
         mkTopTxWithSubTxs [child]
           & bodyTxL
