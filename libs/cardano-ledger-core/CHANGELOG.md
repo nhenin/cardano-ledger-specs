@@ -1,5 +1,33 @@
 # Version history for `cardano-ledger-core`
 
+## 1.23.0.1
+
+* Rename `LegacyTxOut` to `MinAdaTxOut` and `NewTxOut` to `DepositBackedTxOut`, including their era classes, payload builders, lenses and `NoDepositBackedTxOut`. Use `mkBasicTxOutWithMinAda`, `mkBasicTxOutWithDeposit`, `getDepositTxOut` and `IndexedUTxOs.fromMinAdaTxOuts`. This API naming change preserves output encodings and deposit accounting.
+* Reject V2-to-V1 downgrades in `Store.activateNewFormula`; allow rate increases and decreases within the active version while retaining historical formulas.
+* Return `TxProjected {updatedStore, consumedOutputs, producedOutputs}` from `Store.projectTx` and both internal body projections. Report only actually inserted outputs, excluding retained collisions. Add `State.Accounting.InstantStake.updateInstantStake` to apply these consumed/produced entries independently of Store projection. Existing ledger events retain their entry-only payload.
+* Limit the public `State.Accounting.UTxOs.Store` interface to transaction projection (`projectTx`), construction, record queries and formula activation. Move `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release` to `Store.Internals`; `Cardano.Ledger.State` no longer reexports these operations.
+* Move Store snapshot encoding into `EncCBOR (UTxOStore era)` and remove `encodeUTxOStore`. Standalone Store CBOR uses MemPack inputs and output payloads. Pre-Dijkstra snapshot and query formats remain unchanged; Dijkstra persists complete allocation metadata and history.
+* Remove `Store.fromLegacyAllocations`. Legacy import and fixtures compose `IndexedUTxOs.fromMinAdaTxOuts` with `mkUTxOStore history`.
+* Remove `Store.translateLegacyStore`. Era-specific `TranslateEra` instances reuse the `IndexedUTxOs` translation and reconstruct the Store with `mkUTxOStore`, preserving the source history. Conway canonical import preserves the incoming state's history.
+* Replace the payload-only `UTxO` / `TxOutMap` and separate `Allocations` collection with `IndexedTxOs` for sized output proposals and `IndexedUTxOs` for complete accepted entries. The modules are `TxOut.IndexedTxOs` and `State.Accounting.UTxOs.IndexedUTxOs`; both types are reexported by `Core`.
+* Replace `txouts` with `Core.outputsTxBody`, returning `IndexedTxOs` without selecting a deposit formula. Add `sizedOutputsTxBodyG`, implemented by each era to retain its output sizes; preserve bounded regular-output indices.
+* Use `IndexedUTxOs.mapTxOuts` to inspect accepted outputs. `Unspent` stores the output and its allocation origin.
+* Preserve legacy payload-map CBOR/JSON formats and credential sharing. Dijkstra's standalone `IndexedUTxOs` codec retains full entry metadata. Legacy imports accept typed `MinAdaTxOut` payloads; deposit-backed outputs require complete historical entries.
+* Remove `txins`, `txinLookup`, `txInsFilter`, `sumUTxO` and `sumCoinUTxO`. Read transaction inputs through `inputsTxBodyL`, query accepted entries through `IndexedUTxOs`, and sum payload values with `Cardano.Ledger.TxOut`.
+* Add `UTxOStore.depositFormulaHistory` and a derived `currentFormula :: UTxOStore era -> DepositFormula` query. History contains an explicit `initialFormula` baseline and a map of dated changes. `mkEmptyUTxOStore` and `mkUTxOStore` take this history; restoration preserves output contents and allocation origins. `activateNewFormula slot formula` appends without repricing existing entries; reapplying the latest formula is a no-op. `release` subtracts historical external deposits.
+* Add `Store.projectTx slot tx`, selecting `projectValidTxBody slot` or `projectInvalidTxBody slot` from the transaction's phase-2 validity tag. Thread the actual ledger slot through accounting and Store projections; `allocate slot` records `AtSlot slot` for new Dijkstra entries. The ledger handles SubTxs separately. Allocation preserves occupied references and their deposits in every era; reallocation requires release first.
+* Expose read-only validity and collateral getters through `EraTx` and `EraTxBody`, backed by existing era lenses. Move `IsPhase2Valid` and its unchanged Boolean codecs to `Core.TxValidity`, retaining its Alonzo reexport. Add `collateralOutputsTxBody` and move `mkCollateralTxIn` to Core, preserving accepted sizes and collateral-return indices.
+* Persist Dijkstra Stores as `[depositFormulaHistory, totalDepositAmount, allocations]`, histories as `[initialFormula, formulas]`, and entries as `[output, allocatedAt]`, retaining MemPack sharing in snapshots. Reject retired formula-bearing/nullable history schemas, invalid change order and inconsistent totals. Pre-Dijkstra payload formats remain unchanged and contain no Store history; decoding marks entries `AtStoreMigration` without recovering original creation dates or prices. Legacy decoding uses the default V1/4310 history; `decodeUTxOStoreWithFormula baseline credentials` optionally supplies a different baseline. Dijkstra snapshots retain their persisted history.
+* Let `addInstantStake` and `deleteInstantStake` consume any `Foldable` collection of `TxOut` values rather than a `UTxO` wrapper. Move `getScriptHash` to `Cardano.Ledger.Address` and `verifyWitVKey` to `Cardano.Ledger.Keys.WitVKey`.
+* Extract `TxOut`, `NoDepositBackedTxOut`, the three output classes, builders, output lenses and value wrappers into `Cardano.Ledger.TxOut`; retain the existing `Core` exports. Move `sumAllAssets`, `sumAllValue`, `sumAllApplicationAssets`, `sumAllCoin` and `areAllAdaOnly` into that module as well; import these collection queries directly rather than through the ledger-state API.
+* Use `MinAdaTxOut` and `DepositBackedTxOut` for the two output APIs, with `EraMinAdaTxOut`, `EraDepositBackedTxOut` and their corresponding basic-output builders.
+* Add `UTxOStore`, reexported from `Cardano.Ledger.State`, with `depositFormulaHistory`, `totalDepositAmount :: DepositAmount` and `allocations :: IndexedUTxOs era`. `Unspent` retains `output` and `allocatedAt :: AllocatedAt`: `AtStoreMigration` permanently selects the baseline, while `AtSlot slot` selects the latest applicable change or the baseline. The cached total counts only external deposits.
+* Expose complete Store access through `CanGetUTxOStore` / `CanSetUTxOStore` in `Cardano.Ledger.State.Accounting.UTxOs`, alongside `EraUTxO` and `ScriptsProvided`. Keep the model and operations in `State.Accounting.UTxOs.Store`; remove the experimental `UTxOs` sum type and whole-Store output projections.
+* Place accepted entries in `State.Accounting.UTxOs.IndexedUTxOs` and `Unspent` in `State.Accounting.UTxOs.Unspent`. `allocatedDepositTotalAmount` and `sumDepositAmounts` take history explicitly. `State.Accounting.UTxOs.Deposit` owns `DepositAmount`, `DepositFormula` and `DepositFormulaHistory`. `mkDepositFormulaHistory baseline` starts with no dated changes. `Default DepositFormula` is V1 at 4310 lovelace per byte; `Default DepositFormulaHistory` uses it with an empty change map, and `Default UTxOStore` has that history with no allocations. This is a fixed model default, not recovered historical pricing; `appendFormula` accepts the first change at any slot and requires subsequent changes to be strictly later. `formulaAt` and `latestFormula` are total; `DepositPeriod.fromInclusive = Nothing` identifies the baseline interval.
+* Add `EraDepositBackedTxOut.getDepositTxOut` for external deposits, with the formula supplied by Store history. Only Dijkstra implements pricing; earlier eras have no `DepositBackedTxOut` values. `computeExternalDeposit history entry` returns zero for min-ADA outputs and uses the allocation-time formula for deposit-backed outputs. Aggregate external totals return `DepositAmount`, converted with `toCoin`. The core `Deposit.computeDeposit` evaluates V1/V2 from `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`, each wrapping `Natural`, and returns `DepositAmount`. Dijkstra owns output measurement and migrated min-ADA reserve queries.
+* Remove `OutputStoreError` and the ambiguous `fromLegacyTxOutMap` import. `mkUTxOStore` and `allocate` return a Store directly and retain outputs and allocation origins. `IndexedUTxOs.fromMinAdaTxOuts` accepts only `MinAdaTxOut` payloads and marks them `AtStoreMigration` without inventing creation dates. Decoders reject malformed persisted metadata.
+* Add `Cardano.Ledger.StrictlyPositiveCoin` with abstract `StrictlyPositiveCoin`, checked construction and CBOR/JSON decoding for amounts from 1 to the maximum unsigned 64-bit value; expose `mkStrictlyPositiveCoin` and `unStrictlyPositiveCoin`.
+
 ## 1.23.0.0
 
 * Remove `DecCBOR` instances from `Data` and `PlutusData`
@@ -16,7 +44,7 @@
 
 ## 1.22.0.0
 
-* Add `maxKeyAgeEpochs` accessor in `Cardano.Ledger.State.SnapShots` module
+* Add `maxKeyAgeEpochs` accessor in `Cardano.Ledger.State.Epoch.SnapShots` module
 * Move `allInputsTxBodyF` from `EraTxBody` to `EraTx` in order to workaround a GHC bug
 * Add `assocMapToList`, `assocMapKeys` and `assocMapElems`
 * Add `ToPlutusData` instance for `SlotInterval`
@@ -32,7 +60,7 @@
 * Remove `BbodySignal`
 * Add `TPraosBbodySignal`, `PraosBbodySignal` and `LeiosBbodySignal` instead of `BbodySignal`
 * Add `EraIndependentTx` and `EraIndependentTxWits` phantom types to `Cardano.Ledger.Hashes`.
-* Add `addVRFKeyHashOccurrence`, `removeVRFKeyHashOccurrence` and `populateVRFKeyHashes` to `Cardano.Ledger.State.CertState`
+* Add `addVRFKeyHashOccurrence`, `removeVRFKeyHashOccurrence` and `populateVRFKeyHashes` to `Cardano.Ledger.State.Certificates`
 * Remove `poolDistrDistrL`, `poolDistrTotalL`
 * Remove `EraDecoder` and add `EraCodec` to be used in its place
 * Remove `ppEraDecoder` from `PParam` and add `ppuEraCodec` to `PParamUpdate`
@@ -449,7 +477,7 @@
 * Export `credToDRep` and `dRepToCred`
 * Add `ppVrfL`, `ppCostL`, `ppMetadataL`, `spsVrfL` to `StakePool` module
 * Deprecate `PoolParams` in favor of `StakePoolState`. #5196
-  - Move the `PoolParams` module to `Cardano.Ledger.State.StakePool` and export from there.
+  - Move the `PoolParams` module to `Cardano.Ledger.State.Certificates.StakePool` and export from there.
   - Add the `StakePoolState` data type to the new module.
   - Reexport `PoolParams` from its original module and deprecate it.
   - Replace `PoolParams` with `StatekPoolState` in `PState` and rename the fields and lenses.

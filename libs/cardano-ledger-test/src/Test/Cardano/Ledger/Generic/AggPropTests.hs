@@ -9,17 +9,16 @@
 
 module Test.Cardano.Ledger.Generic.AggPropTests where
 
-import Cardano.Ledger.Alonzo.Tx (IsPhase2Valid (..))
 import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules.Reports (synopsisCoinMap)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.Val ((<+>))
 import Control.State.Transition (STS (..))
 import Data.Foldable as F (foldl')
@@ -86,7 +85,7 @@ consistentUtxoSizeProp proof = aggProp agg0 aggregate makeprop
         body = getBody proof tx
     makeprop firstSt lastSt n = getUtxoSize firstSt === getUtxoSize lastSt - n
     getUtxoSize :: MockChainState era -> Int
-    getUtxoSize = Map.size . unUTxO . utxosUtxo . lsUTxOState . esLState . nesEs . mcsNes
+    getUtxoSize = IndexedUTxOs.size . allocations . asUTxOStore . lsAccountingState . esLState . nesEs . mcsNes
 
 aggUTxO ::
   forall era.
@@ -131,11 +130,11 @@ depositInvariant ::
   SourceSignalTarget (MOCKCHAIN era) ->
   Property
 depositInvariant SourceSignalTarget {source = mockChainSt} =
-  let LedgerState {lsUTxOState = utxost, lsCertState = certState} = (esLState . nesEs . mcsNes) mockChainSt
+  let LedgerState {lsAccountingState = utxost, lsCertState = certState} = (esLState . nesEs . mcsNes) mockChainSt
       -- TODO handle VState
       pstate = certState ^. certPStateL
       accountsMap = certState ^. certDStateL . accountsL . accountsMapL
-      allDeposits = utxosDeposited utxost
+      allDeposits = asDeposited utxost
       keyDeposits = fromCompact $ foldMap (^. depositAccountStateL) accountsMap
       poolDeposits = foldMap (fromCompact . spsDeposit) (psStakePools pstate)
    in counterexample

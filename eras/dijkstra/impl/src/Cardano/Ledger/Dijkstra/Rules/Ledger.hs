@@ -31,7 +31,6 @@ import qualified Cardano.Ledger.Allegra.Rules as Allegra
 import Cardano.Ledger.Alonzo (AlonzoScript)
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
 import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
-import Cardano.Ledger.Babbage (BabbageTxOut)
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.BaseTypes (
   Mismatch (..),
@@ -77,17 +76,16 @@ import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure, UtxoEnv (..)
 import Cardano.Ledger.Dijkstra.Rules.Utxow (DijkstraUtxowPredFailure)
 import Cardano.Ledger.Dijkstra.TxBody
 import Cardano.Ledger.Dijkstra.UTxO (DijkstraEraUTxO (..), batchNonDistinctRefScriptsSize)
+import Cardano.Ledger.Dijkstra.UTxOs.Deposit (activateDepositParameters)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest)
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
   lsCertState,
-  lsUTxOStateL,
-  utxosGovStateL,
-  utxosUtxo,
+  lsGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Slot (epochFromSlot)
+import Cardano.Ledger.Slot (epochFromSlot, slotToEpochBoundary)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended
 import Data.Word (Word32)
@@ -310,7 +308,7 @@ instance
   , Embed (EraRule "GOV" era) (LEDGER era)
   , Embed (EraRule "ENTITIES" era) (LEDGER era)
   , Embed (EraRule "SUBLEDGERS" era) (LEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "ENTITIES" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
@@ -348,11 +346,11 @@ validateAllRefScriptSize ::
   , DijkstraEraTxBody era
   ) =>
   PParams era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Tx TopTx era ->
   Test (DijkstraLedgerPredFailure era)
-validateAllRefScriptSize pp utxo tx =
-  let totalRefScriptSize = batchNonDistinctRefScriptsSize utxo tx
+validateAllRefScriptSize pp inputAllocations tx =
+  let totalRefScriptSize = batchNonDistinctRefScriptsSize inputAllocations tx
       maxRefScriptSizePerTx = fromIntegral @Word32 @Int $ pp ^. ppMaxRefScriptSizePerTxG
    in failureUnless (totalRefScriptSize <= maxRefScriptSizePerTx) $
         DijkstraTxRefScriptsSizeTooBig
@@ -373,7 +371,7 @@ dijkstraLedgerTransition ::
   , Embed (EraRule "GOV" era) (LEDGER era)
   , Embed (EraRule "ENTITIES" era) (LEDGER era)
   , Embed (EraRule "SUBLEDGERS" era) (LEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "ENTITIES" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
@@ -394,15 +392,24 @@ dijkstraLedgerTransition = do
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
-  -- Capture the original UTxO before any subtransaction processing.
-  -- This is passed through the environment to UTXOW
-  -- and SUBLEDGERS, and used for all witness/validation lookups.
-  let originalUtxo = utxosUtxo (ledgerState ^. lsUTxOStateL)
+  (activationSlot, _) <- liftSTS $ slotToEpochBoundary slot
+
+  -- Synchronize effective parameters once for the batch (also covering direct
+  -- ledger callers). Preserve the active formula version and historical entries.
+  -- Retain the previous store before SubTxs consume any entries.
+  -- Witness checks and whole-batch accounting retain these original allocations,
+  -- including each output's payload and allocation origin, together with
+  -- the Store's shared formula history.
+  let activeLedgerState = ledgerState & utxoStoreL %~ activateDepositParameters activationSlot pp
+      previousUTxOStore = activeLedgerState ^. utxoStoreG
+      originalAllocations =
+        IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . allocations $
+          previousUTxOStore
       subStAnnTxs = subTransactionsStAnnTx stAnnTx
       originalAccounts = lsCertState ledgerState ^. certDStateL . accountsL
 
   -- Process all subtransactions first
-  LedgerState utxoStateAfterSubLedgers certStateAfterSubLedgers <-
+  ledgerStateAfterSubLedgers <-
     trans @(EraRule "SUBLEDGERS" era) $
       TRC
         ( SubLedgerEnv
@@ -410,23 +417,24 @@ dijkstraLedgerTransition = do
             mbCurEpochNo
             pp
             chainAccountState
-            originalUtxo
+            (allocations previousUTxOStore)
             originalAccounts
             (tx ^. isPhase2ValidTxL)
-        , ledgerState
+        , activeLedgerState
         , subStAnnTxs
         )
 
+  let certStateAfterSubLedgers = lsCertState ledgerStateAfterSubLedgers
   curEpochNo <- maybe (liftSTS $ epochFromSlot slot) pure mbCurEpochNo
 
   let txBody = tx ^. bodyTxL
   runTest $ Conway.validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
-  runTest $ validateAllRefScriptSize pp originalUtxo tx
+  runTest $ validateAllRefScriptSize pp originalAllocations tx
 
-  (utxoStateBeforeUtxow, certStateFinal) <-
+  (ledgerStateBeforeUtxow, certStateFinal) <-
     if tx ^. isPhase2ValidTxL == Phase2Valid
       then do
-        let govState = utxoStateAfterSubLedgers ^. utxosGovStateL
+        let govState = ledgerStateAfterSubLedgers ^. lsGovStateL
             committee = govState ^. committeeGovStateL
             proposals = govState ^. proposalsGovStateL
             committeeProposals = proposalsWithPurpose grCommitteeL proposals
@@ -464,15 +472,15 @@ dijkstraLedgerTransition = do
               , govSignal
               )
         pure
-          ( utxoStateAfterSubLedgers
-              & utxosGovStateL . proposalsGovStateL .~ proposalsState
+          ( ledgerStateAfterSubLedgers
+              & lsGovStateL . proposalsGovStateL .~ proposalsState
           , certStateAfterENTITIES
           )
-      else pure (utxoStateAfterSubLedgers, certStateAfterSubLedgers)
+      else pure (ledgerStateAfterSubLedgers, certStateAfterSubLedgers)
 
-  -- Call UTXOW with UtxoEnv, passing the original UTxO, the original certState,
+  -- Call UTXOW with UtxoEnv, passing the previous store, the original certState,
   -- and the PState updated by all sub-ledgers
-  utxoStateFinal <-
+  ledgerStateFinal <-
     trans @(EraRule "UTXOW" era) $
       TRC
         ( UtxoEnv
@@ -480,21 +488,20 @@ dijkstraLedgerTransition = do
             pp
             (certStateAfterSubLedgers ^. certPStateL)
             (lsCertState ledgerState)
-            originalUtxo
-        , utxoStateBeforeUtxow
+            previousUTxOStore
+        , ledgerStateBeforeUtxow
         , stAnnTx
         )
-  pure $ LedgerState utxoStateFinal certStateFinal
+  pure $ ledgerStateFinal {lsCertState = certStateFinal}
 
 instance
   ( AlonzoEraTx era
   , EraUTxO era
   , BabbageEraTxBody era
   , Embed (EraRule "UTXO" era) (UTXOW era)
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
   , Script era ~ AlonzoScript era
-  , TxOut era ~ BabbageTxOut era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , PredicateFailure (EraRule "UTXOW" era) ~ DijkstraUtxowPredFailure era

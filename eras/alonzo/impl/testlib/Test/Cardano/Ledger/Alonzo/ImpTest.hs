@@ -98,11 +98,11 @@ import Cardano.Ledger.Shelley.API.Mempool (mkStAnnTx)
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   nesEsL,
-  utxoL,
  )
-import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..), UTxO (..), txouts)
-import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Shelley.UTxO (EraUTxO (..), ScriptsProvided (..))
+import Cardano.Ledger.TxIn (TxIn (..))
 import Control.Monad (forM)
+import Data.Foldable (toList)
 import qualified Data.List.NonEmpty as NonEmpty
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
@@ -183,8 +183,8 @@ impGetPlutusContexts ::
   ImpTestM era [(PlutusPurpose AsIxItem era, ScriptHash, ScriptTestContext)]
 impGetPlutusContexts tx = do
   let txBody = tx ^. bodyTxL
-  utxo <- getsNES utxoL
-  let AlonzoScriptsNeeded asn = getScriptsNeeded utxo txBody
+  entries <- getIndexedUTxOs
+  let AlonzoScriptsNeeded asn = getScriptsNeeded entries txBody
   mbyContexts <- forM asn $ \(prp, sh) -> do
     pure $ (prp,sh,) <$> impLookupScriptContext @era sh
   pure $ catMaybes mbyContexts
@@ -215,9 +215,9 @@ fixupRedeemers tx = impAnn "fixupRedeemers" $ do
   let oldRedeemers = tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL
   txWithMaxExUnits <- txWithMaxRedeemers tx
   let newMaxRedeemers = txWithMaxExUnits ^. witsTxL . rdmrsTxWitsL . unRedeemersL
-  utxo <- getUTxO
+  entries <- getIndexedUTxOs
   Globals {systemStart, epochInfo} <- use impGlobalsL
-  let reports = evalTxExUnits pp txWithMaxExUnits utxo epochInfo systemStart
+  let reports = evalTxExUnits pp txWithMaxExUnits entries epochInfo systemStart
   exUnitsPerPurpose <-
     fmap (Map.mapMaybe id) $ forM reports $ \case
       Left err -> do
@@ -265,8 +265,8 @@ fixupScriptWits ::
   ImpTestM era (Tx l era)
 fixupScriptWits tx = impAnn "fixupScriptWits" $ do
   contexts <- impGetPlutusContexts tx
-  utxo <- getUTxO
-  let ScriptsProvided provided = getScriptsProvided utxo tx
+  entries <- getIndexedUTxOs
+  let ScriptsProvided provided = getScriptsProvided entries tx
   let contextsToAdd = filter (\(_, sh, _) -> not (Map.member sh provided)) contexts
   scriptWits <- forM contextsToAdd $ \(_, sh, ScriptTestContext plutus _) ->
     (sh,) . fromPlutusScript <$> mkPlutusScript plutus
@@ -487,8 +487,8 @@ impPlutusWithContexts ::
 impPlutusWithContexts tx = do
   globals <- use impGlobalsL
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  utxo <- getUTxO
-  let stAnnTx = mkStAnnTx (epochInfo globals) (systemStart globals) pp utxo mempty tx
+  entries <- getIndexedUTxOs
+  let stAnnTx = mkStAnnTx (epochInfo globals) (systemStart globals) pp entries mempty tx
   case plutusScriptsWithContextStAnnTx stAnnTx of
     Left errs ->
       assertFailure $
@@ -547,36 +547,36 @@ impAlonzoExpectTxSuccess ::
   ) =>
   Tx TopTx era -> ImpTestM era ()
 impAlonzoExpectTxSuccess tx = do
-  utxo <- getsNES utxoL
+  currentAllocations <- getIndexedUTxOs
   let inputs = tx ^. bodyTxL . inputsTxBodyL
       collaterals = tx ^. bodyTxL . collateralInputsTxBodyL
-      outputs = Map.toList . unUTxO . txouts $ tx ^. bodyTxL
+      outputs = zip (map (TxIn (txIdTx tx)) [minBound ..]) . toList $ tx ^. bodyTxL . outputsTxBodyL
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Inputs should be gone from UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | txIn <- Set.toList inputs]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | txIn <- Set.toList inputs]
       impAnn "Collateral inputs should still be in UTxO" $
-        expectUTxOContent utxo [(txIn, isJust) | txIn <- Set.toList $ collaterals \\ inputs]
+        expectUTxOContent currentAllocations [(txIn, isJust) | txIn <- Set.toList $ collaterals \\ inputs]
       impAnn "Outputs should be in UTxO" $
-        expectUTxOContent utxo [(txIn, (== Just txOut)) | (txIn, txOut) <- outputs]
+        expectUTxOContent currentAllocations [(txIn, (== Just txOut)) | (txIn, txOut) <- outputs]
     else do
       impAnn "Non-collateral inputs should still be in UTxO" $
-        expectUTxOContent utxo [(txIn, isJust) | txIn <- Set.toList $ inputs \\ collaterals]
+        expectUTxOContent currentAllocations [(txIn, isJust) | txIn <- Set.toList $ inputs \\ collaterals]
       impAnn "Collateral inputs should not be in UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | txIn <- Set.toList collaterals]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | txIn <- Set.toList collaterals]
       impAnn "Outputs should not be in UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | (txIn, _txOut) <- outputs]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | (txIn, _txOut) <- outputs]
 
 computeScriptIntegrity ::
   AlonzoEraImp era =>
   PParams era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Tx l era ->
   StrictMaybe (ScriptIntegrity era)
-computeScriptIntegrity pp utxo tx = mkScriptIntegrity pp tx langs
+computeScriptIntegrity pp entries tx = mkScriptIntegrity pp tx langs
   where
-    ScriptsProvided scriptsProvided = getScriptsProvided utxo tx
-    scriptsNeeded = getScriptsHashesNeeded . getScriptsNeeded utxo $ tx ^. bodyTxL
+    ScriptsProvided scriptsProvided = getScriptsProvided entries tx
+    scriptsNeeded = getScriptsHashesNeeded . getScriptsNeeded entries $ tx ^. bodyTxL
     scriptsUsed = Map.elems $ Map.restrictKeys scriptsProvided scriptsNeeded
     langs = Set.fromList $ plutusScriptLanguage <$> mapMaybe toPlutusScript scriptsUsed
 
@@ -585,7 +585,7 @@ impComputeScriptIntegrity ::
   Tx l era ->
   ImpTestM era (StrictMaybe (ScriptIntegrity era))
 impComputeScriptIntegrity tx =
-  computeScriptIntegrity <$> getsPParams id <*> getUTxO <*> pure tx
+  computeScriptIntegrity <$> getsPParams id <*> getIndexedUTxOs <*> pure tx
 
 computeScriptIntegrityHash ::
   AlonzoEraImp era => Tx l era -> ImpTestM era (StrictMaybe ScriptIntegrityHash)
@@ -602,14 +602,14 @@ mkTxWithPlutusAndBootstrapAddress slang = do
   let scriptHash = hashPlutusScript $ alwaysSucceedsWithDatum slang
       datumHash = hashData datum
       txOutScript =
-        mkBasicTxOut @era (mkAddr scriptHash StakeRefNull) mempty
+        mkBasicTxOutWithMinAda @era (mkAddr scriptHash StakeRefNull) mempty
           & dataHashTxOutL .~ SJust datumHash
   tx <-
     submitTx $
       mkBasicTx $
         mkBasicTxBody & outputsTxBodyL .~ [txOutScript]
   let txIn = txInAt 0 tx
-      txOutBootstrapAddr = mkBasicTxOut @era (AddrBootstrap ba) mempty
+      txOutBootstrapAddr = mkBasicTxOutWithMinAda @era (AddrBootstrap ba) mempty
   return $
     AnyLevelTx $
       mkBasicTx
@@ -633,4 +633,4 @@ mkTokenMintingTx sh = do
     AnyLevelTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . mintTxBodyL .~ ma
-        & bodyTxL . outputsTxBodyL .~ [mkBasicTxOut addr (MaryValue mempty ma)]
+        & bodyTxL . outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr (MaryValue mempty ma)]

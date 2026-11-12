@@ -49,7 +49,7 @@ import Cardano.Ledger.Plutus (
   decodePlutusRunnable,
   hashData,
  )
-import Cardano.Ledger.State (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.Val (inject)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -90,7 +90,12 @@ tests =
 collectTwoPhaseScriptInputsOutputOrdering ::
   Expectation
 collectTwoPhaseScriptInputsOutputOrdering = do
-  collectInputs @AlonzoEra testEpochInfo testSystemStart defaultPParams validatingTx initUTxO
+  collectInputs @AlonzoEra
+    testEpochInfo
+    testSystemStart
+    defaultPParams
+    validatingTx
+    initUTxO
     `shouldBe` Right
       [ PlutusWithContext
           { pwcProtocolVersion = pvMajor protVer
@@ -149,7 +154,7 @@ validatingTx =
       mkBasicTxBody
         & inputsTxBodyL .~ [mkGenesisTxIn 1]
         & collateralInputsTxBodyL .~ [mkGenesisTxIn 11]
-        & outputsTxBodyL .~ [mkBasicTxOut someAddr (inject $ Coin 4995)]
+        & outputsTxBodyL .~ [mkBasicTxOutWithMinAda someAddr (inject $ Coin 4995)]
         & feeTxBodyL .~ Coin 5
         & scriptIntegrityHashTxBodyL
           .~ newScriptIntegrityHash defaultPParams [PlutusV1] redeemers (mkTxDats datum)
@@ -175,7 +180,7 @@ collectInputs ::
   SystemStart ->
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Either (NonEmpty (CollectError era)) [PlutusWithContext]
 collectInputs = collectPlutusScriptsWithContext
 

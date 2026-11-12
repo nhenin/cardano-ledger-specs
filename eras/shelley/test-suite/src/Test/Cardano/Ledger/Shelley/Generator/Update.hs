@@ -51,9 +51,9 @@ import Cardano.Ledger.Shelley.API (
   Update,
  )
 import Cardano.Ledger.Shelley.LedgerState (
+  AccountingState (..),
   CertState,
   DState (..),
-  UTxOState (..),
   dsGenDelegsL,
  )
 import Cardano.Ledger.Shelley.PParams
@@ -322,7 +322,7 @@ genUpdate ::
   [(GenesisKeyPair c, AllIssuerKeys c GenesisDelegate)] ->
   Map (KeyHash GenesisDelegate) (AllIssuerKeys c GenesisDelegate) ->
   PParams era ->
-  (UTxOState era, CertState era) ->
+  (AccountingState era, CertState era) ->
   Gen (Maybe (Update era), [KeyPair Witness])
 genUpdate
   c@Constants {frequencyTxUpdates}

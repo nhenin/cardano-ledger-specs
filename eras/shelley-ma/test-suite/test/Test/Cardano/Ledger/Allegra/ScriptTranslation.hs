@@ -26,6 +26,7 @@ import qualified Data.Sequence.Strict as StrictSeq
 import qualified Data.Set as Set
 import GHC.Stack
 import Lens.Micro ((&), (.~))
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Utils (applySTSTest, runShelleyBase)
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase)
@@ -53,10 +54,10 @@ testScriptPostTranslation =
               (S.ScriptHashObj scriptHash)
               S.StakeRefNull
           utxo =
-            S.UTxO $
+            legacyIndexedUTxOs $
               Map.singleton
                 (S.TxIn bootstrapTxId minBound)
-                (mkCoinTxOut addr (S.Coin 1))
+                (MinAdaTxOut $ mkCoinTxOut addr (S.Coin 1))
           env =
             S.LedgerEnv
               (SlotNo 0)
@@ -64,7 +65,10 @@ testScriptPostTranslation =
               minBound
               emptyPParams
               (ChainAccountState (S.Coin 0) (S.Coin 0))
-          utxoStShelley = def {S.utxosUtxo = utxo}
+          utxoStShelley =
+            def
+              { S.asUTxOStore = mkUTxOStore def utxo
+              }
           utxoStAllegra = fromRight . runExcept $ translateEra @AllegraEra NoGenesis utxoStShelley
           txb =
             mkBasicTxBody @ShelleyEra @TopTx
@@ -77,7 +81,7 @@ testScriptPostTranslation =
           result =
             runShelleyBase $
               applySTSTest @(Shelley.LEDGER AllegraEra)
-                (TRC (env, LedgerState utxoStAllegra def, txa))
+                (TRC (env, LedgerState utxoStAllegra def def, txa))
        in case result of
             Left e -> error $ show e
             Right _ -> pure ()

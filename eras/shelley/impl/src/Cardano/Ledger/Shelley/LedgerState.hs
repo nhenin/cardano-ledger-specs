@@ -11,25 +11,32 @@
 -- as specified in /A Simplified Formal Specification of a UTxO Ledger/.
 module Cardano.Ledger.Shelley.LedgerState (
   -- * UTxO
-  UTxO (..),
-  CanGetUTxO (..),
-  CanSetUTxO (..),
+  IndexedUTxOs (..),
+  CanGetUTxOStore (..),
+  CanSetUTxOStore (..),
 
-  -- * Others to organize
+  -- * Ledger state
+  LedgerState (..),
+  lsAccountingStateL,
+  lsCertStateL,
+  lsGovStateL,
+
+  -- * Accounting
+  AccountingState (..),
+  smartAccountingState,
+  asDepositedL,
+  asFeesL,
+  asDonationL,
+  asUTxOStoreL,
+  asInstantStakeL,
+
+  -- * Certificates
   AccountState,
-  ChainAccountState,
   EraCertState (..),
   DState (..),
-  EpochState (..),
-  PulsingRewUpdate (..),
   FutureGenDeleg (..),
   InstantaneousRewards (..),
-  LedgerState (..),
   PState (..),
-  RewardUpdate (..),
-  RewardSnapShot (..),
-  UTxOState (..),
-  smartUTxOState,
   mkShelleyCertState,
   ShelleyCertState (..),
 
@@ -41,6 +48,11 @@ module Cardano.Ledger.Shelley.LedgerState (
   allObligations,
 
   -- * Epoch boundary
+  ChainAccountState,
+  EpochState (..),
+  PulsingRewUpdate (..),
+  RewardUpdate (..),
+  RewardSnapShot (..),
   applyRUpd,
   applyRUpdFiltered,
   filterAllRewards,
@@ -82,12 +94,6 @@ module Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   prevPParamsEpochStateL,
   futurePParamsEpochStateL,
-  lsUTxOStateL,
-  lsCertStateL,
-  utxosDepositedL,
-  utxosFeesL,
-  utxosGovStateL,
-  utxosDonationL,
   epochStateGovStateL,
   epochStateStakeDistrL,
   epochStateStakePoolsL,

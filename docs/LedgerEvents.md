@@ -136,6 +136,11 @@ This event is triggered on each tx and gives us the votes, proposals and txid of
 
 This event is triggered on each tx and gives us the consumed and created UTxOs of that valid tx.
 
+Both arguments are `IndexedUTxOs era`: complete stored entries, including their
+recorded sizes and deposit calculations. Consumed entries come from the previous
+Store; created entries come from the updated Store. Transaction-body output
+proposals (`IndexedTxOs`) are converted to stored entries during allocation.
+
 ## Notes / TODO
 
 There appears to be multiple, redundant `NewEpoch` events.

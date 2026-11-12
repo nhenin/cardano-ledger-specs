@@ -15,6 +15,8 @@ import Cardano.Ledger.Coin
 import Cardano.Ledger.Compactible
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
 import Data.Foldable
 import qualified Data.Map.Strict as Map
@@ -23,6 +25,7 @@ import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Api.Arbitrary ()
+import qualified Test.Cardano.Ledger.Api.Tx.Body.DepositBalance.Spec as DepositBalance
 import Test.Cardano.Ledger.Common
 
 totalTxDeposits ::
@@ -77,7 +80,7 @@ evaluateTransactionBalance ::
   (MaryEraTxBody era, ShelleyEraTxCert era, EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   TxBody TopTx era ->
   Value era
 evaluateTransactionBalance pp dpstate utxo txBody =
@@ -87,17 +90,20 @@ evaluateTransactionBalanceShelley ::
   (EraTxBody era, ShelleyEraTxCert era, EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   TxBody TopTx era ->
   Value era
-evaluateTransactionBalanceShelley pp dpstate utxo txBody = consumed <-> produced
+evaluateTransactionBalanceShelley pp dpstate entries txBody = consumed <-> produced
   where
     produced =
-      sumUTxO (txouts txBody)
+      ( unAssets . sumAllAssets . map fst $
+          zip (toList $ txBody ^. outputsTxBodyL) ([minBound ..] :: [TxIx])
+      )
         <+> inject (txBody ^. feeTxBodyL <+> totalTxDeposits pp dpstate txBody)
     consumed =
-      sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+      (unAssets . sumAllAssets $ consumedTxOuts)
         <> inject (refunds <> withdrawals)
+    consumedTxOuts = IndexedUTxOs.txOuts . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL) $ entries
     refunds = keyTxRefunds pp dpstate txBody
     withdrawals = fold . unWithdrawals $ txBody ^. withdrawalsTxBodyL
 
@@ -106,11 +112,11 @@ evaluateTransactionBalanceShelley pp dpstate utxo txBody = consumed <-> produced
 genTxBodyFrom ::
   (EraTxBody era, ShelleyEraTxCert era, Arbitrary (TxBody l era), EraCertState era) =>
   CertState era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Gen (TxBody l era)
-genTxBodyFrom certState (UTxO u) = do
+genTxBodyFrom certState entries = do
   txBody <- arbitrary
-  inputs <- sublistOf (Map.keys u)
+  inputs <- sublistOf . Set.toList . IndexedUTxOs.inputIds $ entries
   unDelegCreds <- sublistOf (Map.keys (certState ^. certDStateL . accountsL . accountsMapL))
   deRegKeys <- sublistOf (Map.keys (certState ^. certPStateL . psStakePoolsL))
   network <- arbitrary
@@ -138,7 +144,7 @@ propEvalBalanceTxBody ::
   ) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Property
 propEvalBalanceTxBody pp certState utxo = do
   property $
@@ -153,7 +159,7 @@ propEvalBalanceShelleyTxBody ::
   (EraUTxO era, ShelleyEraTxCert era, Arbitrary (TxBody TopTx era), EraCertState era) =>
   PParams era ->
   CertState era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Property
 propEvalBalanceShelleyTxBody pp certState utxo =
   property $
@@ -180,3 +186,4 @@ spec =
       prop "evalBalanceTxBody" $ propEvalBalanceTxBody @AlonzoEra
     describe "BabbageEra" $ do
       prop "evalBalanceTxBody" $ propEvalBalanceTxBody @BabbageEra
+    describe "DijkstraEra" DepositBalance.spec

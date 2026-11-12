@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -29,7 +30,7 @@ import Cardano.Ledger.BaseTypes
 import Cardano.Ledger.Binary (
   DecCBOR (..),
   EncCBOR (..),
-  sizedValue,
+  Sized (sizedValue),
  )
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin)
@@ -40,20 +41,30 @@ import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   SUBUTXO,
  )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  DepositStoreOutputDeclarationFailure (..),
+  validateSubTxAllocationDeclarationPresence,
+  validateSubTxReleaseDeclarationPresence,
+ )
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin (validateMinimumCoin)
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
  )
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody)
 import Cardano.Ledger.Rules.ValidationMode
-import Cardano.Ledger.Shelley.LedgerState (UTxOState, utxosDonationL, utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (
+  LedgerState (..),
+ )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
-import Data.List.NonEmpty (NonEmpty)
+import Data.List.NonEmpty (NonEmpty (..))
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
@@ -63,7 +74,7 @@ data SubUtxoEnv era = SubUtxoEnv
   { sueSlot :: SlotNo
   , suePParams :: PParams era
   , sueCertState :: CertState era
-  , sueOriginalUtxo :: UTxO era
+  , sueOriginalAllocations :: IndexedUTxOs era
   , sueTopTxIsPhase2Valid :: IsPhase2Valid
   }
 
@@ -95,6 +106,8 @@ data DijkstraSubUtxoPredFailure era
   | -- | list of supplied transaction outputs that are too small,
     -- together with the minimum value for the given output.
     SubBabbageOutputTooSmallUTxO (NonEmpty (TxOut era, Coin))
+  | -- | This SubTx creates or spends a deposit-backed output without its own UTxO deposit declaration.
+    SubMissingUTxODepositDeclaration
   deriving (Generic)
 
 deriving stock instance
@@ -172,12 +185,12 @@ instance InjectRuleEvent "SUBUTXO" DijkstraSubUtxoEvent DijkstraEra
 
 data DijkstraSubUtxoEvent era
   = TotalDeposits (SafeHash EraIndependentTxBody) Coin
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
-      (UTxO era)
-      -- | UTxO created
-      (UTxO era)
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
+      (IndexedUTxOs era)
+      -- | Created entries from the updated Store, retaining their sizes and allocation origins.
+      (IndexedUTxOs era)
   deriving (Generic)
 
 deriving instance (Era era, Eq (TxOut era)) => Eq (DijkstraSubUtxoEvent era)
@@ -199,7 +212,7 @@ instance
   ) =>
   STS (SUBUTXO era)
   where
-  type State (SUBUTXO era) = UTxOState era
+  type State (SUBUTXO era) = LedgerState era
   type Signal (SUBUTXO era) = StAnnTx SubTx era
   type Environment (SUBUTXO era) = SubUtxoEnv era
   type BaseM (SUBUTXO era) = ShelleyBase
@@ -207,6 +220,11 @@ instance
   type Event (SUBUTXO era) = DijkstraSubUtxoEvent era
 
   transitionRules = [dijkstraSubUtxoTransition @era]
+
+depositStoreOutputDeclarationToSubUtxoPredFailure ::
+  DepositStoreOutputDeclarationFailure -> DijkstraSubUtxoPredFailure era
+depositStoreOutputDeclarationToSubUtxoPredFailure MissingBodyUTxODepositDeclaration =
+  SubMissingUTxODepositDeclaration
 
 dijkstraSubUtxoTransition ::
   forall era.
@@ -223,11 +241,14 @@ dijkstraSubUtxoTransition ::
   ) =>
   TransitionRule (EraRule "SUBUTXO" era)
 dijkstraSubUtxoTransition = do
-  TRC (SubUtxoEnv slot pp _ _ topTxIsPhase2Valid, utxoState, stAnnTx) <-
+  TRC (SubUtxoEnv slot pp _ originalAllocations topTxIsPhase2Valid, ledgerState, stAnnTx) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
 
   let txBody = tx ^. bodyTxL
+
+  validateTransLabeled depositStoreOutputDeclarationToSubUtxoPredFailure (lblStatic :| []) $
+    validateSubTxAllocationDeclarationPresence txBody
 
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
@@ -242,24 +263,43 @@ dijkstraSubUtxoTransition = do
   runTest $ Shelley.validateInputSetEmptyUTxO txBody
 
   let inputs = txBody ^. inputsTxBodyL
-  runTest $ Shelley.validateBadInputsUTxO (utxosUtxo utxoState) inputs
+  runTest $
+    Shelley.validateBadInputsUTxO (allocations . asUTxOStore . lsAccountingState $ ledgerState) inputs
+
+  -- Check releases against the allocations from before any SubTx executed.
+  validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $
+    validateSubTxReleaseDeclarationPresence originalAllocations txBody
 
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
-  runTest $ Babbage.validateOutputTooSmallUTxO pp allSizedOutputs
+  runTest $
+    validateMinimumCoin
+      (Store.currentFormula . asUTxOStore . lsAccountingState $ ledgerState)
+      allOutputs
 
   netId <- liftSTS $ asks networkId
   runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs
   runTestOnSignal $ Alonzo.validateWrongNetworkInTxBody netId txBody
 
   case topTxIsPhase2Valid of
-    Phase2Valid ->
-      Shelley.updateUTxOAndInstantStake
-        txBody
-        (\a b -> tellEvent $ TxUTxODiff a b)
-        (utxoState & utxosDonationL <>~ txBody ^. treasuryDonationTxBodyL)
+    Phase2Valid -> do
+      let withDonation = lsAccountingState ledgerState & asDonationL <>~ txBody ^. treasuryDonationTxBodyL
+          Store.TxProjected {Store.updatedStore, Store.consumedOutputs, Store.producedOutputs} = StoreInternals.projectValidTxBody slot txBody (asUTxOStore withDonation)
+      tellEvent $ TxUTxODiff consumedOutputs producedOutputs
+      pure $
+        ledgerState
+          { lsAccountingState =
+              withDonation
+                { asUTxOStore = updatedStore
+                , asInstantStake =
+                    updateInstantStake
+                      consumedOutputs
+                      producedOutputs
+                      (asInstantStake withDonation)
+                }
+          }
     Phase2Invalid ->
-      pure utxoState
+      pure ledgerState
 
 instance
   ( Era era
@@ -279,6 +319,7 @@ instance
       SubWrongNetworkInTxBody mm -> Sum SubWrongNetworkInTxBody 8 !> To mm
       SubOutsideForecast a -> Sum SubOutsideForecast 9 !> To a
       SubBabbageOutputTooSmallUTxO x -> Sum SubBabbageOutputTooSmallUTxO 10 !> To x
+      SubMissingUTxODepositDeclaration -> Sum SubMissingUTxODepositDeclaration 11
 
 instance
   ( Era era
@@ -299,6 +340,7 @@ instance
     8 -> SumD SubWrongNetworkInTxBody <! From
     9 -> SumD SubOutsideForecast <! From
     10 -> SumD SubBabbageOutputTooSmallUTxO <! From
+    11 -> SumD SubMissingUTxODepositDeclaration
     n -> Invalid n
 
 dijkstraUtxoToDijkstraSubUtxoPredFailure ::
@@ -327,3 +369,7 @@ dijkstraUtxoToDijkstraSubUtxoPredFailure = \case
   BabbageNonDisjointRefInputs _ -> error "Impossible: `BabbageNonDisjointRefInputs` for SUBUTXO"
   PtrPresentInCollateralReturn _ -> error "Impossible: `PtrPresentInCollateralReturn` for SUBUTXO"
   ValueNotConservedInLegacyMode _ -> error "Impossible: `ValueNotConservedInLegacyMode` for SUBUTXO"
+  MissingTopTxUTxODepositDeclaration -> error "Impossible: `MissingTopTxUTxODepositDeclaration` for SUBUTXO"
+  MissingUTxODepositDeclaration -> SubMissingUTxODepositDeclaration
+  -- Accounting uses the complete batch and is validated only by TopTx's UTXO rule.
+  DepositStoreFailure _ -> error "Impossible: `DepositStoreFailure` for SUBUTXO"

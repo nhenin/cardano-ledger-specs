@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -8,6 +9,7 @@ module Test.Cardano.Ledger.Core.Utils (
   mkDummySafeHash,
   txInAt,
   mkActiveStake,
+  legacyIndexedUTxOs,
 ) where
 
 import Cardano.Ledger.BaseTypes (
@@ -23,7 +25,11 @@ import Cardano.Ledger.Compactible (toCompactPartial)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes (unsafeMakeSafeHash)
-import Cardano.Ledger.State (ActiveStake (..), StakeWithDelegation (..))
+import Cardano.Ledger.State (
+  ActiveStake (..),
+  StakeWithDelegation (..),
+ )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn, mkTxInPartial)
 import Cardano.Slotting.EpochInfo (fixedEpochInfo)
 import Cardano.Slotting.Time (SystemStart (..), mkSlotLength)
@@ -34,6 +40,15 @@ import qualified Data.VMap as VMap
 import Test.Cardano.Ledger.Binary.Random (mkDummyHash)
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.Rational (unsafeBoundRational)
+
+-- | Adapt an output-only legacy fixture to canonical allocation metadata.
+-- Deposit-backed outputs require their actual historical metadata and are rejected.
+legacyIndexedUTxOs :: Map TxIn (TxOut era) -> IndexedUTxOs era
+legacyIndexedUTxOs = IndexedUTxOs.fromMinAdaTxOuts . Map.map requireLegacyFixture
+  where
+    requireLegacyFixture = \case
+      MinAdaTxOut legacyOutput -> legacyOutput
+      DepositBackedTxOut _ -> error "legacyIndexedUTxOs: expected a min-ADA output fixture"
 
 testGlobals :: Globals
 testGlobals =

@@ -9,6 +9,7 @@ module Cardano.Ledger.Dijkstra.Transition (
 ) where
 
 import Cardano.Ledger.Alonzo.Transition (AlonzoEraTransition)
+import Cardano.Ledger.Babbage.Core (ppCoinsPerUTxOByteL)
 import Cardano.Ledger.Conway
 import Cardano.Ledger.Conway.Transition (
   ConwayEraTransition,
@@ -31,7 +32,9 @@ import Cardano.Ledger.Shelley.LedgerState (
  )
 import Cardano.Ledger.Shelley.Transition
 import Cardano.Ledger.State (
+  DepositFormula (..),
   certPStateL,
+  mkEmptyUTxOStore,
   mkGoSnapShot,
   mkMarkSnapShot,
   mkSetSnapShot,
@@ -41,6 +44,7 @@ import Cardano.Ledger.State (
   ssStakeMarkL,
   ssStakeSetL,
  )
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (mkDepositFormulaHistory)
 import GHC.Generics
 import Lens.Micro
 import NoThunks.Class (NoThunks (..))
@@ -54,12 +58,18 @@ instance EraTransition DijkstraEra where
 
   mkTransitionConfig = DijkstraTransitionConfig
 
-  -- Stake pools from the genesis are registered without going through POOL, so the VRF
-  -- key hashes that POOL tracks have to be recomputed once those pools are in place.
-  injectIntoTestState hasFS cfg nes =
-    seatInitialLeiosCommittee cfg
-      . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
-      <$> conwayInjectIntoTestState hasFS cfg nes
+  -- A chain initialized directly in Dijkstra begins its history at genesis.
+  initialUTxOStore pp =
+    mkEmptyUTxOStore . mkDepositFormulaHistory $ DepositFormulaV1 (pp ^. ppCoinsPerUTxOByteL)
+
+  -- Genesis registrations bypass POOL, so restore their tracked VRF key hashes.
+  -- Fund injection preserves the Store's initialized history and existing origins.
+  injectIntoTestState hasFS cfg =
+    fmap
+      ( seatInitialLeiosCommittee cfg
+          . (nesEsL . esLStateL . lsCertStateL . certPStateL %~ populateVRFKeyHashes)
+      )
+      . conwayInjectIntoTestState hasFS cfg
 
   tcPreviousEraConfigL =
     lens dtcConwayTransitionConfig (\dtc pc -> dtc {dtcConwayTransitionConfig = pc})

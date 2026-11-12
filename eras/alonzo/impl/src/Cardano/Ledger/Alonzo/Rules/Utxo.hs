@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -27,6 +28,7 @@ module Cardano.Ledger.Alonzo.Rules.Utxo (
   AlonzoUtxoPredFailure (..),
   allegraToAlonzoUtxoPredFailure,
   AlonzoUtxoEvent (..),
+  emitAccountingEvents,
   validateCollateralContainsNonADA,
   validateExUnitsTooBigUTxO,
   validateOutputTooBigUTxO,
@@ -54,11 +56,10 @@ import Cardano.Ledger.Alonzo.Rules.Utxos (
   UtxosEnv (..),
  )
 import Cardano.Ledger.Alonzo.Scripts (OrdExUnits (..), pointWiseExUnits)
-import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (..), IsPhase2Valid (..))
+import Cardano.Ledger.Alonzo.Tx (AlonzoEraTx (getTotalExUnits))
 import Cardano.Ledger.Alonzo.TxBody (
   AllegraEraTxBody (..),
   AlonzoEraTxBody (..),
-  AlonzoEraTxOut (..),
   MaryEraTxBody (..),
  )
 import Cardano.Ledger.Alonzo.TxWits (AlonzoEraTxWits (..), unRedeemersL)
@@ -96,7 +97,11 @@ import Cardano.Ledger.Rules.ValidationMode (
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.TxOut (areAllAdaOnly, sumAllAssets, sumAllCoin)
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.EpochInfo.API (EpochInfo, epochInfoSlotToUTCTime)
 import Cardano.Slotting.EpochInfo.Extend (unsafeLinearExtendEpochInfo)
@@ -107,12 +112,11 @@ import Control.Monad (unless)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
 import qualified Data.ByteString.Lazy as BSL (length)
+import Data.Coerce (coerce)
 import Data.Either (isRight)
 import Data.Foldable as F (foldl', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
-import qualified Data.Map.Strict as Map
-import Data.MapExtras (extractKeys)
 import qualified Data.Set as Set
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
@@ -222,7 +226,7 @@ deriving stock instance
 instance
   ( Era era
   , NFData (Value era)
-  , NFData (UTxO era)
+  , NFData (IndexedUTxOs era)
   , NFData (PredicateFailure (EraRule "UTXOS" era))
   , NFData (TxOut era)
   ) =>
@@ -231,13 +235,29 @@ instance
 data AlonzoUtxoEvent era
   = UtxosEvent (Event (EraRule "UTXOS" era))
   | TotalDeposits (SafeHash EraIndependentTxBody) Coin
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
-      (UTxO era)
-      -- | UTxO created
-      (UTxO era)
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
+      (IndexedUTxOs era)
+      -- | Created entries from the updated Store, retaining their sizes and allocation origins.
+      (IndexedUTxOs era)
   deriving (Generic)
+
+-- | Emit the deposit change followed by actual output changes on success.
+-- Invalid projections return their collateral-updated state without either event.
+emitAccountingEvents ::
+  (EraTx era, Event (EraRule "UTXO" era) ~ AlonzoUtxoEvent era) =>
+  Tx TopTx era ->
+  Accounting.TxProjected era ->
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.AccountingState era)
+emitAccountingEvents tx projection = do
+  case tx ^. isPhase2ValidTxG of
+    Phase2Valid -> do
+      tellEvent $ TotalDeposits (hashAnnotated $ tx ^. bodyTxL) (Accounting.depositChange projection)
+      tellEvent $
+        TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
+    Phase2Invalid -> pure ()
+  pure $ Accounting.updatedAccountingState projection
 
 deriving instance
   ( Show (TxOut era)
@@ -295,15 +315,15 @@ feesOK ::
   ) =>
   PParams era ->
   Tx TopTx era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Test (AlonzoUtxoPredFailure era)
-feesOK pp tx u@(UTxO utxo) =
+feesOK pp tx entries =
   let txBody = tx ^. bodyTxL
       collateral = txBody ^. collateralInputsTxBodyL -- Inputs allocated to pay txfee
-      -- restrict Utxo to those inputs we use to pay fees.
-      utxoCollateral = Map.restrictKeys utxo collateral
+      -- Resolve only the collateral outputs used to pay fees.
+      collateralAllocations = IndexedUTxOs.restrictToInputs collateral entries
       theFee = txBody ^. feeTxBodyL
-      minFee = getMinFeeTxUtxo pp tx u
+      minFee = getMinFeeTxUtxo pp tx entries
    in sequenceA_
         [ -- Part 1: minfee pp tx ≤ txfee txb
           failureUnless
@@ -311,7 +331,7 @@ feesOK pp tx u@(UTxO utxo) =
             (FeeTooSmallUTxO Mismatch {mismatchSupplied = theFee, mismatchExpected = minFee})
         , -- Part 2: (txrdmrs tx ≠ ∅ ⇒ validateCollateral)
           unless (null $ tx ^. witsTxL . rdmrsTxWitsL . unRedeemersL) $
-            validateCollateral pp txBody utxoCollateral
+            validateCollateral pp txBody collateralAllocations
         ]
 
 validateCollateral ::
@@ -320,29 +340,33 @@ validateCollateral ::
   ) =>
   PParams era ->
   TxBody TopTx era ->
-  Map.Map TxIn (TxOut era) ->
+  IndexedUTxOs era ->
   Test (AlonzoUtxoPredFailure era)
-validateCollateral pp txb utxoCollateral =
+validateCollateral pp txb collateralAllocations =
   sequenceA_
     [ -- Part 3: (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
-      validateScriptsNotPaidUTxO utxoCollateral
+      validateScriptsNotPaidUTxO collateralAllocations
     , -- Part 4: balance ∗ 100 ≥ txfee txb ∗ (collateralPercent pp)
       validateInsufficientCollateral pp txb bal
     , -- Part 5: isAdaOnly balance
-      validateCollateralContainsNonADA utxoCollateral
+      validateCollateralContainsNonADA $ IndexedUTxOs.txOuts collateralAllocations
     , -- Part 6: (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
-      failureIf (null utxoCollateral) NoCollateralInputs
+      failureIf (IndexedUTxOs.null collateralAllocations) NoCollateralInputs
     ]
   where
-    bal = toDeltaCoin $ sumAllCoin utxoCollateral
+    bal = toDeltaCoin . sumAllCoin . IndexedUTxOs.txOuts $ collateralAllocations
 
 -- > (∀(a,_,_) ∈ range (collateral txb ◁ utxo), a ∈ Addrvkey)
 validateScriptsNotPaidUTxO ::
   EraTxOut era =>
-  Map.Map TxIn (TxOut era) ->
+  IndexedUTxOs era ->
   Test (AlonzoUtxoPredFailure era)
-validateScriptsNotPaidUTxO utxoCollateral =
-  failureOnNonEmptyMap (Map.filter (not . vKeyLocked) utxoCollateral) ScriptsNotPaidUTxO
+validateScriptsNotPaidUTxO collateralAllocations =
+  failureOnNonEmptyMap
+    ( IndexedUTxOs.mapTxOuts id . IndexedUTxOs.filterByTxOut (not . vKeyLocked) $
+        collateralAllocations
+    )
+    ScriptsNotPaidUTxO
 
 -- > balance ∗ 100 ≥ txfee txb ∗ (collateralPercent pp)
 validateInsufficientCollateral ::
@@ -370,7 +394,7 @@ validateCollateralContainsNonADA ::
 validateCollateralContainsNonADA collateralTxOuts =
   failureUnless (areAllAdaOnly collateralTxOuts) $
     CollateralContainsNonADA $
-      sumAllValue collateralTxOuts
+      coerce (sumAllAssets collateralTxOuts)
 
 -- | If tx has non-native scripts, end of validity interval must translate to time
 --
@@ -397,16 +421,16 @@ validateOutsideForecast ei slotNo sysSt tx =
               failureUnless (isRight (epochInfoSlotToUTCTime ei' sysSt ifj)) $ OutsideForecast ifj
     _ -> pure ()
 
--- | Ensure that there are no `TxOut`s that have value less than the sized @coinsPerUTxOWord@
+-- | Private: ensure implicit-deposit outputs cover the sized @coinsPerUTxOWord@ cost.
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (utxoEntrySize txout ∗ coinsPerUTxOWord pp)
-validateOutputTooSmallUTxO ::
-  (AlonzoEraTxOut era, Foldable f) =>
+validateImplicitDeposits ::
+  (EraMinAdaTxOut era, Foldable f) =>
   PParams era ->
-  f (TxOut era) ->
+  f (MinAdaTxOut era) ->
   Test (AlonzoUtxoPredFailure era)
-validateOutputTooSmallUTxO pp outputs =
-  failureOnNonEmpty outputsTooSmall OutputTooSmallUTxO
+validateImplicitDeposits pp outputs =
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap MinAdaTxOut)
   where
     outputsTooSmall =
       filter
@@ -417,9 +441,8 @@ validateOutputTooSmallUTxO pp outputs =
         )
         (toList outputs)
 
--- | Ensure that there are no `TxOut`s that have `Value` of size larger
--- than @MaxValSize@. We use serialized length of `Value` because this Value
--- size is being limited inside a serialized `Tx`.
+-- | Ensure the serialized value of either output variant does not exceed
+-- @MaxValSize@. For deposit-backed outputs, measure their application assets.
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp
 validateOutputTooBigUTxO ::
@@ -437,8 +460,10 @@ validateOutputTooBigUTxO pp outputs =
     protVer = pp ^. ppProtocolVersionL
     outputsTooBig = F.foldl' accum [] outputs
     accum ans txOut =
-      let v = txOut ^. valueTxOutL
-          serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) v
+      let value = case txOut of
+            MinAdaTxOut output -> output ^. valueTxOutL
+            DepositBackedTxOut output -> unApplicationAssets $ output ^. applicationAssetsTxOutL
+          serSize = fromIntegral $ BSL.length $ serialize (pvMajor protVer) value
        in if serSize > maxValSize
             then (fromIntegral serSize, fromIntegral maxValSize, txOut) : ans
             else ans
@@ -497,6 +522,7 @@ validateTooManyCollateralInputs pp txBody =
 utxoTransition ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , AlonzoEraTx era
   , AtMostEra "Babbage" era
   , EraRule "UTXO" era ~ UTXO era
@@ -514,9 +540,10 @@ utxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 utxoTransition = do
-  TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      utxo = utxosUtxo utxos
+      storedAllocations = Store.allocations . asUTxOStore . lsAccountingState $ ledgerState
+      inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
 
   {-   txb := txbody tx   -}
   let txBody = tx ^. bodyTxL
@@ -539,21 +566,24 @@ utxoTransition = do
   runTestOnSignal $ Shelley.validateInputSetEmptyUTxO txBody
 
   {-   feesOK pp tx utxo   -}
-  runTest $ feesOK pp tx utxo -- Generalizes the fee to small from earlier Era's
+  runTest $ feesOK pp tx inputAllocations -- Generalizes the fee to small from earlier Era's
 
   {- inputsAndCollateral = txins txb ∪ collateral txb -}
   {- (txins txb) ∪ (collateral txb) ⊆ dom utxo   -}
-  runTest $ Shelley.validateBadInputsUTxO utxo inputsAndCollateral
+  runTest $
+    Shelley.validateBadInputsUTxO storedAllocations inputsAndCollateral
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ Shelley.validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   {- adaPolicy ∉ supp mint tx
      above check not needed because mint field of type MultiAsset cannot contain ada -}
 
   let outputs = txBody ^. outputsTxBodyL
+      -- This legacy transition has only implicit-deposit outputs.
+      implicitOutputs = [output | MinAdaTxOut output <- toList outputs]
   {-   ∀ txout ∈ txouts txb, getValuetxout ≥ inject (uxoEntrySizetxout ∗ coinsPerUTxOWord p) -}
-  runTest $ validateOutputTooSmallUTxO pp outputs
+  runTest $ validateImplicitDeposits pp implicitOutputs
 
   {-   ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ maxValSize pp   -}
   runTest $ validateOutputTooBigUTxO pp outputs
@@ -582,9 +612,20 @@ utxoTransition = do
 
   updatedGovState <-
     trans @(EraRule "UTXOS" era) $
-      TRC (UtxosEnv slot pp certState, utxosGovState utxos, stAnnTx)
+      TRC (UtxosEnv slot pp certState, lsGovState ledgerState, stAnnTx)
 
-  updateUTxOState pp certState tx (utxos & utxosGovStateL .~ updatedGovState)
+  Accounting.projectTx
+    slot
+    pp
+    certState
+    (lsAccountingState ledgerState)
+    tx
+    & emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState
+        { lsAccountingState = newAccountingState
+        , lsGovState = updatedGovState
+        }
 
 --------------------------------------------------------------------------------
 -- UTXO STS
@@ -593,6 +634,7 @@ utxoTransition = do
 instance
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , AlonzoEraTx era
   , Embed (EraRule "UTXOS" era) (UTXO era)
   , Environment (EraRule "UTXOS" era) ~ UtxosEnv era
@@ -610,7 +652,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = UTxOState era
+  type State (UTXO era) = LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = Shelley.UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase
@@ -758,38 +800,3 @@ allegraToAlonzoUtxoPredFailure = \case
   Allegra.UpdateFailure x -> UtxosFailure (injectFailure @"UTXOS" @t x)
   Allegra.OutputBootAddrAttrsTooBig xs -> OutputBootAddrAttrsTooBig xs
   Allegra.OutputTooBigUTxO xs -> OutputTooBigUTxO (fmap (0,0,) xs)
-
-updateUTxOState ::
-  forall era.
-  ( AlonzoEraTx era
-  , EraStake era
-  , EraCertState era
-  , Event (EraRule "UTXO" era) ~ AlonzoUtxoEvent era
-  ) =>
-  PParams era ->
-  CertState era ->
-  Tx TopTx era ->
-  UTxOState era ->
-  Rule (EraRule "UTXO" era) 'Transition (UTxOState era)
-updateUTxOState pp certState tx utxoState =
-  let txBody = tx ^. bodyTxL
-      utxo = utxosUtxo utxoState
-   in case tx ^. isPhase2ValidTxL of
-        Phase2Valid ->
-          Shelley.updateUTxOState
-            pp
-            txBody
-            certState
-            (tellEvent . TotalDeposits (hashAnnotated txBody))
-            (\a b -> tellEvent (TxUTxODiff a b))
-            utxoState
-        Phase2Invalid ->
-          {- utxoKeep = txBody ^. collateralInputsTxBodyL ⋪ utxo -}
-          {- utxoDel  = txBody ^. collateralInputsTxBodyL ◁ utxo -}
-          let !(utxoKeep, utxoDel) = extractKeys (unUTxO utxo) (txBody ^. collateralInputsTxBodyL)
-           in pure $!
-                utxoState
-                  { utxosUtxo = UTxO utxoKeep
-                  , utxosFees = utxosFees utxoState <> sumAllCoin utxoDel
-                  , utxosInstantStake = deleteInstantStake (UTxO utxoDel) (utxoState ^. instantStakeL)
-                  }

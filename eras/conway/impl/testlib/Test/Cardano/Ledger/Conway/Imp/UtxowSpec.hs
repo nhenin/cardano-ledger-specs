@@ -25,12 +25,12 @@ import Cardano.Ledger.Conway.Core (
   EraIndependentScriptIntegrity,
   EraTx (..),
   EraTxBody (..),
-  EraTxOut (..),
   EraTxWits (..),
   InjectRuleFailure (..),
   SafeHash,
   SafeToHash (..),
   TxLevel (..),
+  mkBasicTxOutWithMinAda,
   ppCoinsPerUTxOByteL,
   txIdTx,
  )
@@ -134,7 +134,7 @@ setupBadPPViewHashTx = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 1)
   someKeyHash <- arbitrary @StakeReference
   let scriptTxOut =
-        mkBasicTxOut
+        mkBasicTxOutWithMinAda
           ( Addr
               Testnet
               (ScriptHashObj (hashPlutusScript $ alwaysSucceedsWithDatum SPlutusV2))

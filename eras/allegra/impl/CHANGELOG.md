@@ -2,7 +2,8 @@
 
 ## 1.10.2.1
 
-*
+* Use `IndexedUTxOs` for stored entries and era translation. Both `TxUTxODiff` arguments contain complete `IndexedUTxOs` from the previous and updated Stores; preserve ledger behavior and pre-Dijkstra serialized output maps.
+* Initialize the new UTxO DepositStore state to empty during era translation.
 
 ## 1.10.2.0
 

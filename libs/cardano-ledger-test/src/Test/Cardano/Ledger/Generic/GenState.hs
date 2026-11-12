@@ -88,7 +88,7 @@ import Cardano.Ledger.Allegra.Scripts (
  )
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts hiding (Script)
-import Cardano.Ledger.Alonzo.Tx (IsPhase2Valid (..), ScriptIntegrityHash)
+import Cardano.Ledger.Alonzo.Tx (ScriptIntegrityHash)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
 import Cardano.Ledger.BaseTypes (EpochNo (..), Network (Testnet), inject)
 import Cardano.Ledger.Coin (Coin (..), compactCoinOrError)
@@ -99,7 +99,7 @@ import Cardano.Ledger.Plutus.Data (Data (..), hashData)
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  smartUTxOState,
+  smartAccountingState,
   totalObligation,
  )
 import Cardano.Ledger.Shelley.Scripts (
@@ -133,6 +133,7 @@ import Numeric.Natural
 import Test.Cardano.Ledger.Allegra.TreeDiff ()
 import Test.Cardano.Ledger.Alonzo.TreeDiff ()
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..))
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Era
 import Test.Cardano.Ledger.Examples.STSTestUtils (EraModel (..), PlutusPurposeTag (..))
 import Test.Cardano.Ledger.Generic.Functions (
@@ -651,9 +652,15 @@ instance (Reflect era, ShelleyEraTest era) => Show (GenState era) where
 -- logically be applied one after another)
 
 initialLedgerState :: forall era. Reflect era => GenState era -> LedgerState era
-initialLedgerState gstate = LedgerState utxostate dpstate
+initialLedgerState gstate = LedgerState accountingState dpstate emptyGovState
   where
-    utxostate = smartUTxOState pp (UTxO (gsInitialUtxo gstate)) deposited (Coin 0) emptyGovState mempty
+    accountingState =
+      smartAccountingState
+        pp
+        (legacyIndexedUTxOs (gsInitialUtxo gstate))
+        deposited
+        (Coin 0)
+        mempty
     dpstate =
       def
         & certPStateL .~ pstate

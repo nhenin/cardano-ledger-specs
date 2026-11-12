@@ -52,6 +52,11 @@ library
     Cardano.Ledger.Dijkstra.TxOut
     Cardano.Ledger.Dijkstra.TxWits
     Cardano.Ledger.Dijkstra.UTxO
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx
+    Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
+    Cardano.Ledger.Dijkstra.UTxOs.Unspent
 
   other-modules:
     Cardano.Ledger.Dijkstra.Block
@@ -59,6 +64,10 @@ library
     Cardano.Ledger.Dijkstra.Rules.Cert
     Cardano.Ledger.Dijkstra.Rules.Certs
     Cardano.Ledger.Dijkstra.Rules.Deleg
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration
+    Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin
     Cardano.Ledger.Dijkstra.Rules.Entities
     Cardano.Ledger.Dijkstra.Rules.Epoch
     Cardano.Ledger.Dijkstra.Rules.Gov
@@ -83,9 +92,10 @@ library
     Cardano.Ledger.Dijkstra.Rules.Utxo
     Cardano.Ledger.Dijkstra.Rules.Utxos
     Cardano.Ledger.Dijkstra.Rules.Utxow
-    Cardano.Ledger.Dijkstra.State.Account
-    Cardano.Ledger.Dijkstra.State.CertState
-    Cardano.Ledger.Dijkstra.State.Stake
+    Cardano.Ledger.Dijkstra.State.Accounting
+    Cardano.Ledger.Dijkstra.State.Accounting.InstantStake
+    Cardano.Ledger.Dijkstra.State.Certificates
+    Cardano.Ledger.Dijkstra.State.Certificates.Account
     Cardano.Ledger.Dijkstra.Translation
 
   hs-source-dirs: src
@@ -197,6 +207,7 @@ library testlib
       -Wno-pattern-namespace-specifier
   build-depends:
     FailT,
+    aeson,
     base,
     bytestring,
     cardano-base,
@@ -283,7 +294,89 @@ test-suite tests
   other-modules:
     Paths_cardano_ledger_dijkstra
     Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec
+    Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec
+    Test.Cardano.Ledger.Dijkstra.Binary.UTxOStoreSpec
+    Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec
     Test.Cardano.Ledger.Dijkstra.GoldenSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Encoding
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Encoding.CBOR
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Encoding.JSON
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Assertions
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Collateral
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.ADA
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.LedgerEffects.UTxO
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.OutputIndex
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Attribution
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Balance
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.SubTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.TopTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Authorization
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.SubTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.TopTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.MinimumCoin
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement.Designation
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement.OutputCoin
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement.OutputIndex
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Allocation
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Allocation
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Collateral
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Declaration
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Operations
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Output
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.ConservationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.FeesSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.EpochSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.TranslationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.AllocationsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.BalanceSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.UTxOSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffectsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.AssetsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.FundingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Collateral.TotalSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.CollateralSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.AttributionSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.BalanceSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.SubTxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.TopTxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChangeSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AccountingSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.AuthorizationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.SubTxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Grammar.TopTxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.GrammarSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.AllocationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ReleaseSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.Operations.ZeroNetChangeSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.OperationsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.Requirements.SubTxDeclarationsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Declarations.RequirementsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.DeclarationsSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.MinimumCoinSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Settlement.DesignationSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Settlement.OutputCoinSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Settlement.OutputIndexSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.SettlementSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.TxSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRulesSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec
     Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec
 
   default-language: Haskell2010
@@ -300,14 +393,24 @@ test-suite tests
     -with-rtsopts=-N
 
   build-depends:
+    aeson,
     base,
+    bytestring,
     cardano-base:testlib,
     cardano-data,
     cardano-ledger-alonzo:{cardano-ledger-alonzo, testlib},
     cardano-ledger-babbage:testlib,
-    cardano-ledger-binary:testlib,
+    cardano-ledger-binary:{cardano-ledger-binary, testlib},
     cardano-ledger-conway:{cardano-ledger-conway, testlib},
     cardano-ledger-core:{cardano-ledger-core, testlib},
     cardano-ledger-dijkstra:{cardano-ledger-dijkstra, cddl, testlib},
-    cardano-ledger-shelley:testlib,
+    cardano-ledger-mary,
+    cardano-ledger-shelley:{cardano-ledger-shelley, testlib},
     cardano-protocol:{cardano-protocol, testlib},
+    cardano-strict-containers,
+    containers,
+    data-default,
+    microlens,
+    microlens-mtl,
+    plutus-ledger-api,
+    validation-selective,

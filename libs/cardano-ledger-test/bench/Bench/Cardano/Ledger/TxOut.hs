@@ -42,12 +42,12 @@ benchTxOut =
           MultiAsset (singleton (PolicyID policyId28) (singleton assName 217))
       txOutAddr :: Int -> TxOut AlonzoEra
       txOutAddr n =
-        mkBasicTxOut (addr n) value & dataHashTxOutL .~ SJust dataHash32
+        mkBasicTxOutWithMinAda (addr n) value & dataHashTxOutL .~ SJust dataHash32
       txOutAddrAdaOnly :: Int -> TxOut AlonzoEra
-      txOutAddrAdaOnly n = mkBasicTxOut (addr n) ada
+      txOutAddrAdaOnly n = mkBasicTxOutWithMinAda (addr n) ada
       txOutAddrAdaOnlyDataHash :: Int -> TxOut AlonzoEra
       txOutAddrAdaOnlyDataHash n =
-        mkBasicTxOut (addr n) ada & dataHashTxOutL .~ SJust dataHash32
+        mkBasicTxOutWithMinAda (addr n) ada & dataHashTxOutL .~ SJust dataHash32
       count :: Int
       count = 1000
    in bgroup
@@ -84,7 +84,8 @@ constructTxOutAlonzoBench count name mkAddr value !mdh =
     bgroup
       name
       [ env (pure (mkAddr <$> [1 .. count])) $
-          bench "TxOut" . nf (map (\addr -> AlonzoTxOut addr value mdh :: TxOut AlonzoEra))
+          bench "TxOut"
+            . nf (map (\addr -> MinAdaTxOut (AlonzoTxOut addr value mdh) :: TxOut AlonzoEra))
       , env (pure (compactAddr . mkAddr <$> [1 .. count])) $
           bench "TxOutCompact" . nf (map (\caddr -> mkTxOutCompact caddr cvalue :: TxOut AlonzoEra))
       ]
@@ -94,8 +95,8 @@ constructTxOutAlonzoBench count name mkAddr value !mdh =
       CompactAddr -> CompactForm MaryValue -> TxOut AlonzoEra
     mkTxOutCompact =
       case mdh of
-        SNothing -> TxOutCompact
-        SJust dh -> \a v -> TxOutCompactDH a v dh
+        SNothing -> \a v -> MinAdaTxOut (TxOutCompact a v)
+        SJust dh -> \a v -> MinAdaTxOut (TxOutCompactDH a v dh)
 
 accessTxOutAlonzoBench :: Int -> String -> (Int -> TxOut AlonzoEra) -> Benchmark
 accessTxOutAlonzoBench count name mkTxOuts =
@@ -103,14 +104,20 @@ accessTxOutAlonzoBench count name mkTxOuts =
     name
     [ env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
         bench "TxOut" $
-          nf (map (\(AlonzoTxOut addr vl dh) -> addr `deepseq` vl `deepseq` dh)) txOuts
+          nf
+            ( map
+                (\(MinAdaTxOut (AlonzoTxOut addr vl dh)) -> addr `deepseq` vl `deepseq` dh)
+            )
+            txOuts
     , env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
         bench "TxOutCompact" $
           nf
             ( map
-                ( \case
-                    TxOutCompact addr vl -> addr `deepseq` vl
-                    TxOutCompactDH addr vl dh -> addr `deepseq` dh `deepseq` vl
+                ( ( \case
+                      TxOutCompact addr vl -> addr `deepseq` vl
+                      TxOutCompactDH addr vl dh -> addr `deepseq` dh `deepseq` vl
+                  )
+                    . implicitAlonzoTxOut
                 )
             )
             txOuts
@@ -118,12 +125,16 @@ accessTxOutAlonzoBench count name mkTxOuts =
         bench "addrTxOutL" $
           nf (map (^. addrTxOutL)) txOuts
     , env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
-        bench "valueTxOutL" $ nf (map (^. valueTxOutL)) txOuts
+        bench "valueTxOutL" $ nf (map ((^. valueTxOutL) . implicitAlonzoTxOut)) txOuts
     , env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
-        bench "coin . valueTxOutL" $ nf (map (coin . (^. valueTxOutL))) txOuts
+        bench "coin . valueTxOutL" $ nf (map (coin . (^. valueTxOutL) . implicitAlonzoTxOut)) txOuts
     , env (pure (mkTxOuts <$> [1 .. count])) $ \txOuts ->
         bench "coinTxOutL" $ nf (map (^. coinTxOutL)) txOuts
     ]
+
+-- | Private. Unwrap the only output variant supported by Alonzo.
+implicitAlonzoTxOut :: TxOut AlonzoEra -> AlonzoTxOut AlonzoEra
+implicitAlonzoTxOut (MinAdaTxOut output) = output
 
 serializeTxOutAlonzoBench :: Int -> String -> (Int -> TxOut AlonzoEra) -> Benchmark
 serializeTxOutAlonzoBench count name mkTxOuts =

@@ -33,7 +33,7 @@ mintBasicToken = do
       txValue = MaryValue mempty txAsset
       txBody =
         mkBasicTxBody
-          & outputsTxBodyL .~ [mkBasicTxOut addr txValue]
+          & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr txValue]
           & mintTxBodyL .~ txAsset
   submitTx $ mkBasicTx txBody
 
@@ -56,7 +56,9 @@ spec = describe "UTXO" $ do
       let MaryValue c (MultiAsset mintedMultiAsset) =
             case txMinted ^. bodyTxL . outputsTxBodyL of
               Empty -> error "Empty outputs was unexpected"
-              txOut :<| _ -> txOut ^. valueTxOutL
+              MinAdaTxOut implicitOutput :<| _ -> implicitOutput ^. valueTxOutL
+              DepositBackedTxOut _ :<| _ ->
+                error "ValueNotConservedUTxO: unexpected DepositBackedTxOut for the minted output"
           burnTooMuchMultiAsset@(MultiAsset burnTooMuch) =
             MultiAsset (Map.map (Map.map (subtract tooMuch . negate)) mintedMultiAsset)
           -- Produced should contain positive value that was atttempted to be burned
@@ -66,7 +68,10 @@ spec = describe "UTXO" $ do
               & inputsTxBodyL .~ [txInAt 0 txMinted]
               & mintTxBodyL .~ burnTooMuchMultiAsset
       (_, rootTxOut) <- getImpRootTxOut
-      let rootTxOutValue = rootTxOut ^. valueTxOutL
+      let rootTxOutValue = case rootTxOut of
+            MinAdaTxOut implicitOutput -> implicitOutput ^. valueTxOutL
+            DepositBackedTxOut _ ->
+              error "ValueNotConservedUTxO: unexpected DepositBackedTxOut for the root output"
       submitFailingTx
         (mkBasicTx txBody)
         [ injectFailure $

@@ -11,6 +11,9 @@ inputs:
   name:
     description: The name the installed binary should have
     required: false
+  strip-components:
+    description: Leading path components to remove from tar archives
+    default: '1'
 
 runs:
   using: composite
@@ -35,8 +38,17 @@ runs:
 
       SUBDIR=$(mktemp -d -p "$WORKDIR" XXX)
       PATTERN='${{ inputs.pattern }}'
-      gh release download -R '${{ inputs.repo }}' '${{ inputs.release }}' \
-        ${PATTERN:+--pattern="$PATTERN"} -D "$SUBDIR"
+      for attempt in 1 2 3 4 5; do
+        if gh release download -R '${{ inputs.repo }}' '${{ inputs.release }}' \
+          ${PATTERN:+--pattern="$PATTERN"} --clobber -D "$SUBDIR"; then
+          break
+        fi
+        if (( attempt == 5 )); then
+          echo 'Release download failed after five attempts.' >&2
+          exit 1
+        fi
+        sleep "$((attempt * 5))"
+      done
 
       recursive-unpack()
       {
@@ -45,7 +57,7 @@ runs:
           case $F in
             *.tar.*|*.tgz|*.tbz|*.txz)
               local SUBDIR=$(mktemp -d -p "$WORKDIR" XXX)
-              tar -xf "$F" --strip-components=1 -C "$SUBDIR"
+              tar -xf "$F" --strip-components='${{ inputs.strip-components }}' -C "$SUBDIR"
               find "$SUBDIR" -type f ! -perm -u+x -delete
               recursive-unpack "$SUBDIR"
               ;;

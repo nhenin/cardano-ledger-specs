@@ -75,9 +75,13 @@ import Cardano.Ledger.BaseTypes (
   textToUrl,
  )
 import qualified Cardano.Ledger.BaseTypes as BaseTypes
-import Cardano.Ledger.Binary (EncCBOR, Sized, mkSized)
+import Cardano.Ledger.Binary (EncCBOR, Sized, mkSized, natVersion)
 import Cardano.Ledger.Block (BlockHeaderVersionInfo (..))
-import Cardano.Ledger.Coin (Coin (..), CompactForm (..), DeltaCoin (..))
+import Cardano.Ledger.Coin (
+  Coin (..),
+  CompactForm (..),
+  DeltaCoin (..),
+ )
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential (..), Ptr (..), SlotNo32 (..), StakeReference (..))
 import Cardano.Ledger.Genesis (NoGenesis (..))
@@ -100,17 +104,25 @@ import Cardano.Ledger.Plutus.ExUnits (ExUnits (..), Prices (..))
 import Cardano.Ledger.Plutus.Language (Language (..), nonNativeLanguages)
 import Cardano.Ledger.Rewards (Reward (..), RewardType (..))
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.StrictlyPositiveCoin (
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
+ )
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Slotting.Slot (SlotInterval (..))
 import Control.Monad (replicateM)
 import Control.Monad.Identity (Identity)
 import Control.Monad.Trans.Fail.String (errorFail)
 import Data.Containers.ListUtils (nubOrdOn)
+import Data.Default (def)
 import Data.Foldable (toList)
 import Data.GenValidity
 import Data.Int (Int64)
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import Data.Maybe (mapMaybe)
 import Data.Ratio ((%))
 import Data.Set (Set)
 import qualified Data.Set as Set
@@ -128,7 +140,7 @@ import System.Random.Stateful (StatefulGen, uniformRM)
 import Test.Cardano.Base.Bytes (genByteArray, genShortByteString)
 import qualified Test.Cardano.Chain.Common.Gen as Byron
 import Test.Cardano.Ledger.Binary.Arbitrary
-import Test.Cardano.Ledger.Core.Utils (unsafeBoundRational)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs, unsafeBoundRational)
 import Test.Cardano.Slotting.Arbitrary ()
 import Test.Cardano.StrictContainers.Instances ()
 import Test.Crypto.Hash ()
@@ -148,6 +160,35 @@ instance (Era era, EncCBOR (f era), Arbitrary (f era)) => Arbitrary (Sized (f er
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.BaseTypes --------------------------------------------------------------
 ------------------------------------------------------------------------------------------
+
+-- Only supported formula versions belong in valid serialized stores.
+instance Arbitrary DepositFormula where
+  arbitrary = oneof [DepositFormulaV1 <$> arbitrary, DepositFormulaV2 <$> arbitrary]
+  shrink (DepositFormulaV1 rate) = DepositFormulaV1 <$> shrink rate
+  shrink (DepositFormulaV2 rate) = DepositFormulaV2 <$> shrink rate
+
+instance Arbitrary a => Arbitrary (Unspent a) where
+  arbitrary = Unspent <$> arbitrary <*> arbitrary
+
+instance Arbitrary AllocatedAt where
+  arbitrary = oneof [pure AtStoreMigration, AtSlot <$> arbitrary]
+  shrink AtStoreMigration = []
+  shrink (AtSlot slot) = AtStoreMigration : map AtSlot (shrink slot)
+
+-- Every generated history includes an explicit baseline. Map order determines
+-- the activation sequence; allocations before the first change use the baseline.
+instance Arbitrary DepositFormulaHistory where
+  arbitrary = DepositFormulaHistory <$> arbitrary <*> resize 5 arbitrary
+
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxOStore era) where
+  arbitrary
+    | eraProtVerLow @era >= natVersion @12 = mkUTxOStore <$> arbitrary <*> arbitrary
+    | otherwise = mkUTxOStore def <$> arbitrary
+  shrink store =
+    map
+      (mkUTxOStore (depositFormulaHistory store) . IndexedUTxOs.fromList)
+      $ shrinkList (const []) . IndexedUTxOs.toList
+      $ allocations store
 
 instance Arbitrary ActiveSlotCoeff where
   arbitrary = mkActiveSlotCoeff <$> arbitrary
@@ -396,6 +437,10 @@ instance Arbitrary Coin where
   arbitrary = Coin <$> oneof [choose (0, 1000000), getNonNegative <$> arbitrary]
   shrink (Coin i) = Coin <$> shrink i
 
+instance Arbitrary StrictlyPositiveCoin where
+  arbitrary = suchThatMap (Coin . toInteger <$> arbitrary @Word64) mkStrictlyPositiveCoin
+  shrink = mapMaybe mkStrictlyPositiveCoin . shrink . unStrictlyPositiveCoin
+
 instance Arbitrary DeltaCoin where
   arbitrary = DeltaCoin <$> choose (-1000000, 1000000)
   shrink (DeltaCoin i) = DeltaCoin <$> shrink i
@@ -547,7 +592,7 @@ instance Arbitrary ChainAccountState where
   shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.PoolDistr --------------------------------------------------------
+-- Cardano.Ledger.State.Epoch.PoolDistr --------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
 instance Arbitrary PoolDistr where
@@ -571,10 +616,14 @@ instance Arbitrary DRepState where
   arbitrary = DRepState <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
--- Cardano.Ledger.State.UTxO -------------------------------------------------------------
+-- Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs -------------------------------------------------------------
 ------------------------------------------------------------------------------------------
 
-deriving instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (UTxO era)
+instance (EraTxOut era, Arbitrary (TxOut era)) => Arbitrary (IndexedUTxOs era) where
+  arbitrary
+    | eraProtVerLow @era >= natVersion @12 = IndexedUTxOs <$> arbitrary
+    | otherwise = legacyIndexedUTxOs <$> arbitrary
+  shrink = map IndexedUTxOs.fromList . shrinkList (const []) . IndexedUTxOs.toList
 
 ------------------------------------------------------------------------------------------
 -- Cardano.Ledger.Core.PParams -----------------------------------------------------------

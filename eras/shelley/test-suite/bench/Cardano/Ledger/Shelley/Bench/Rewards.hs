@@ -20,13 +20,16 @@ import Cardano.Ledger.BaseTypes (
   epochInfoPure,
  )
 import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Core (TxOut (..))
 import Cardano.Ledger.Credential (Credential (..), StakeReference (..))
 import Cardano.Ledger.Keys (KeyHash, KeyRole (Staking))
 import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.Genesis (ShelleyGenesisStaking (..))
 import qualified Cardano.Ledger.Shelley.LedgerState as LS
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
-import Cardano.Ledger.State (StakePoolParams (..), UTxO (..))
+import Cardano.Ledger.State (StakePoolParams (..))
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Protocol.Crypto (hashVerKeyVRF)
 import Cardano.Slotting.EpochInfo
 import Cardano.Slotting.Slot (EpochNo)
@@ -85,17 +88,19 @@ genChainInEpoch epoch = do
   -- - We group them into 50 groups (number of stake pools). The first one in
   --   each group becomes the pool owner, with pledge set to the value in that
   --   address.
-  let initUtxo =
-        LS.utxosUtxo
-          . LS.lsUTxOState
+  let initialAllocations =
+        Store.allocations
+          . LS.asUTxOStore
+          . LS.lsAccountingState
           . LS.esLState
           . LS.nesEs
-          $ chainNes genesisChainState
+          . chainNes
+          $ genesisChainState
       initUtxoAddrs =
-        Maybe.mapMaybe (\(ShelleyTxOut addr _) -> addrToKeyHash addr)
-          . Map.elems
-          . unUTxO
-          $ initUtxo
+        Maybe.mapMaybe
+          (\entry -> case Unspent.toTxOut entry of MinAdaTxOut (ShelleyTxOut addr _) -> addrToKeyHash addr)
+          . Store.unspentOutputs
+          $ initialAllocations
       stakeMap =
         zip stakePools $
           chunk (length initUtxoAddrs `div` length stakePools) initUtxoAddrs

@@ -2,8 +2,16 @@
 
 ## 1.16.0.0
 
+* Expose the output APIs as `MinAdaTxOut` and `DepositBackedTxOut`, replacing `LegacyTxOut` and `NewTxOut`, with the corresponding era classes, builders and lenses. Transaction construction and deposit-balancing semantics are unchanged; output encodings are preserved.
+* Add `computeNetBalance`, `updateTxBodyWithNetBalance`, `computeSubTxNetBalance` and `updateSubTxBodyWithNetBalance` to `Api.Tx.Body` for preparing typed Dijkstra deposit declarations. `UTxODepositStrategy` groups a `DepositTopUp` funding choice with a `TopTxDepositSettlement` or `SubTxDepositSettlement` policy for a new refund output, an existing output index, or no local settlement. New refund outputs are appended only when needed, including their deposit in the final balance. TopTx uses already-balanced SubTx declarations. `NetBalanceError` reports resolution, funding and representation failures.
 * Add `queryStakePoolState` with the `QueryResultStakePoolState` result type
 * Add `queryLeiosCommittee` (`GetLeiosCommittee`) with the `QueryResultLeiosCommittee` result type
+* Distinguish `IndexedTxOs` (sized output proposals) from `IndexedUTxOs` (accepted outputs with allocation origins). `producedTxOuts` returns `IndexedTxOs` without pricing or allocation metadata. Remove the `Allocations` wrapper; preserve pre-Dijkstra encodings and output-index behavior.
+* Export `AllocatedAt(..)`, `Unspent(..)`, `DepositFormulaHistory(..)`, `mkDepositFormulaHistory`, `appendFormula`, `formulaAt`, `computeDeposit` and `computeApplicationAssets` through `Api.UTxO`. History contains a baseline and dated changes; its default is V1 at 4310 lovelace per byte with no changes. Deposit/application queries are implemented in Dijkstra for Dijkstra outputs, including migrated min-ADA outputs. `computeDeposit` returns `DepositAmount`; use `toCoin` for Coin arithmetic. `AtStoreMigration` uses the baseline permanently; dated entries use the latest applicable change or the baseline. Min-ADA reserve is capped at output ADA; its application view preserves native assets and the stored payload. Deposit-backed outputs retain their application value and use their allocation-time external deposit.
+* Rename the Dijkstra UTxO capacity deposit API to `NetUTxODepositChange`, `SubTxNetUTxODepositChange` and their allocation/release, settlement and lens names. Corresponding JSON names change; CBOR numeric keys, tags and encoded bytes remain unchanged by this rename.
+* Re-export `TopTxReleaseSettlement` and its constructors for explicit TopTx participation in net-release settlement.
+* Re-export abstract `StrictlyPositiveCoin`, `mkStrictlyPositiveCoin`, and `unStrictlyPositiveCoin` for constructing TopTx and SubTx UTxO capacity deposit operations, with `NoUTxODepositChange` and `SubTxNoUTxODepositChange` for explicit zero contributions.
+* Export Dijkstra UTxO capacity deposit operations and lenses for top-level transactions and sub-transactions, including explicit requests for allocation funding and net-release accounting by the top-level transaction.
 * Add methods to `AnyEraTxBody`:
   - `subTransactionsTxBodyG`
   - `requiredTopLevelGuardsTxBodyG`
@@ -18,6 +26,8 @@
 
 ## 1.15.0.0
 
+* Add `ssLeiosCommittee` to `StakeSnapshots`: the Leios voting committee seated on the `set` snapshot, in seat order, each seat attributed to its pool and carrying the pool's registered key with its registration epoch and whether that key is still honoured. Adds `QueryLeiosSeat`
+* Replace `qpsrStakePoolParams` and `qpsrDeposits` with a single `qpsrStakePools` reporting `StakePoolState`, so `queryPoolState` exposes a pool's registered BLS key with the epoch it was registered in, plus its delegators. `queryPoolState` and `mkQueryPoolStateResult` no longer take a `Network`
 * Add `queryNonMyopicMemberRewards` (`GetNonMyopicMemberRewards`) with the `QueryResultNonMyopicMemberRewards` result type
 * Move `allInputsTxBodyF` from `EraTxBody` to `EraTx` in order to workaround a GHC bug
 * Add `era` parameter to `QueryPoolStateResult`, `StakePoolParams`

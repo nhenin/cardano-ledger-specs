@@ -78,7 +78,7 @@ spec = describe "LEDGER" $ do
           tx
           [injectFailure $ ConwayWdrlNotDelegatedToDRep [kh]]
       else submitAnyTx_ tx
-    _ <- delegateToDRep cred (Coin 1_000_000) DRepAlwaysAbstain
+    _ <- delegateToDRep cred (Coin 2_000_000) DRepAlwaysAbstain
     submitAnyTx_ $
       mkBasicTx $
         mkBasicTxBody
@@ -94,7 +94,7 @@ spec = describe "LEDGER" $ do
     submitAndExpireProposalToMakeReward cred
     balance <- getBalance cred
 
-    (drep, _, _) <- setupSingleDRep 1_000_000
+    (drep, _, _) <- setupSingleDRep 2_000_000
 
     unRegisterDRep drep
     expectDRepNotRegistered drep
@@ -116,7 +116,7 @@ spec = describe "LEDGER" $ do
   -- TODO: Re-enable after issue is resolved, by removing this override
   disableInConformanceIt "Withdraw and unregister staking credential in the same transaction" $ do
     refund <- getsNES $ nesEsL . curPParamsEpochStateL . ppKeyDepositL
-    (_, cred, _) <- setupSingleDRep 1_000_000
+    (_, cred, _) <- setupSingleDRep 2_000_000
     ra <- getAccountAddressFor cred
 
     Positive newDeposit <- arbitrary
@@ -145,14 +145,14 @@ spec = describe "LEDGER" $ do
     submitAndExpireProposalToMakeReward cred
     balance <- getBalance cred
 
-    (drep, _, _) <- setupSingleDRep 1_000_000
+    (drep, _, _) <- setupSingleDRep 2_000_000
 
     -- expire the drep before delegation
     mkMinFeeUpdateGovAction SNothing >>= submitGovAction_
     passNEpochs 4
     isDRepExpired drep `shouldReturn` True
 
-    _ <- delegateToDRep cred (Coin 1_000_000) (DRepCredential drep)
+    _ <- delegateToDRep cred (Coin 2_000_000) (DRepCredential drep)
 
     submitAnyTx_ $
       mkBasicTx $
@@ -168,7 +168,7 @@ spec = describe "LEDGER" $ do
       pp
         & ppGovActionLifetimeL .~ EpochInterval 4
         & ppDRepActivityL .~ EpochInterval 1
-    (drep, cred, _) <- setupSingleDRep 1_000_000
+    (drep, cred, _) <- setupSingleDRep 2_000_000
     ra <- getAccountAddressFor cred
     submitAndExpireProposalToMakeReward cred
     balance <- getBalance cred
@@ -191,7 +191,7 @@ spec = describe "LEDGER" $ do
     let scriptHash = hashPlutusScript $ alwaysSucceedsNoDatum SPlutusV3
     let cred = ScriptHashObj scriptHash
     ra <- registerStakeCredential cred
-    void $ delegateToDRep cred (Coin 1_000_000) DRepAlwaysAbstain
+    void $ delegateToDRep cred (Coin 2_000_000) DRepAlwaysAbstain
     submitAndExpireProposalToMakeReward cred
     balance <- getBalance cred
 

@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Shelley.Rules.CollisionFreeness (
   tests,
@@ -19,11 +20,14 @@ import Cardano.Ledger.Keys (witVKeyHash)
 import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn (..))
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.State.Transition.Extended (BaseM, Environment, STS, Signal, State)
 import Data.Foldable (toList)
 import qualified Data.Map.Strict as Map
@@ -111,13 +115,17 @@ eliminateTxInputs SourceSignalTarget {source = chainSt, signal = block} =
     (_, ledgerTr) = ledgerTraceFromBlock @era chainSt block
     inputsEliminated
       SourceSignalTarget
-        { target = LedgerState (UTxOState {utxosUtxo = (UTxO u')}) _
+        { target =
+          LedgerState
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')})
+            _
+            _
         , signal = stAnnTx
         } =
         let tx = stAnnTx ^. txStAnnTxG
          in property $
               hasFailedScripts tx
-                || Set.null (Set.intersection (txins @era (tx ^. bodyTxL)) (Map.keysSet u'))
+                || Set.null (Set.intersection (tx ^. bodyTxL . inputsTxBodyL) (Map.keysSet u'))
 
 -- | Collision-Freeness of new TxIds - checks that all new outputs of a Tx are
 -- included in the new UTxO and that all TxIds are new.
@@ -143,17 +151,27 @@ newEntriesAndUniqueTxIns SourceSignalTarget {source = chainSt, signal = block} =
     (_, ledgerTr) = ledgerTraceFromBlock @era chainSt block
     newEntryPresent
       SourceSignalTarget
-        { source = LedgerState (UTxOState {utxosUtxo = UTxO u}) _
+        { source =
+          LedgerState
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)})
+            _
+            _
         , signal = stAnnTx
-        , target = LedgerState (UTxOState {utxosUtxo = UTxO u'}) _
+        , target =
+          LedgerState
+            (AccountingState {asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')})
+            _
+            _
         } =
         let tx = stAnnTx ^. txStAnnTxG
-            UTxO outs = txouts @era (tx ^. bodyTxL)
+            outs = IndexedTxOs.mapTxOuts id $ outputsTxBody @era (tx ^. bodyTxL)
             outIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet outs)
             oldIds = Set.map (\(TxIn _id _) -> _id) (Map.keysSet u)
          in property $
               hasFailedScripts tx
-                || ((outIds `Set.disjoint` oldIds) && (outs `Map.isSubmapOf` u'))
+                || ( (outIds `Set.disjoint` oldIds)
+                       && (Map.isSubmapOfBy (\output entry -> output == Unspent.toTxOut entry) outs u')
+                   )
 
 -- | Check for required signatures in case of Multi-Sig. There has to be one set
 -- of possible signatures for a multi-sig script which is a sub-set of the

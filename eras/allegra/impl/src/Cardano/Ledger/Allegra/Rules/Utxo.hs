@@ -39,12 +39,16 @@ import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), serialize)
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest)
-import Cardano.Ledger.Shelley.LedgerState (utxosGovStateL)
+import Cardano.Ledger.Shelley.LedgerState (lsGovStateL)
 import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.Shelley.PParams (Update)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting as Accounting
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import qualified Cardano.Ledger.Val as Val
 import Cardano.Slotting.Slot (SlotNo)
 import Control.DeepSeq (NFData)
@@ -54,7 +58,6 @@ import qualified Data.ByteString.Lazy as BSL (length)
 import Data.Foldable (toList)
 import Data.Int (Int64)
 import Data.List.NonEmpty (NonEmpty)
-import qualified Data.Map.Strict as Map
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
@@ -129,12 +132,12 @@ instance
 data AllegraUtxoEvent era
   = UpdateEvent (Event (EraRule "PPUP" era))
   | TotalDeposits (SafeHash EraIndependentTxBody) Coin
-  | -- | The UTxOs consumed and created by a signal tx
+  | -- | Stored entries consumed and created by a signal tx.
     TxUTxODiff
-      -- | UTxO consumed
-      (UTxO era)
-      -- | UTxO created (produced)
-      (UTxO era)
+      -- | Consumed entries from the previous Store, retaining their historical metadata.
+      (IndexedUTxOs era)
+      -- | Created entries from the updated Store, retaining their allocation origins.
+      (IndexedUTxOs era)
   deriving (Generic)
 
 deriving instance
@@ -151,10 +154,27 @@ instance
   ) =>
   NFData (AllegraUtxoEvent era)
 
+-- | Emit the deposit change followed by actual output changes on success.
+-- Invalid projections return their collateral-updated state without either event.
+emitAccountingEvents ::
+  (EraTx era, Event (EraRule "UTXO" era) ~ AllegraUtxoEvent era) =>
+  Tx TopTx era ->
+  Accounting.TxProjected era ->
+  Rule (EraRule "UTXO" era) 'Transition (Accounting.AccountingState era)
+emitAccountingEvents tx projection = do
+  case tx ^. isPhase2ValidTxG of
+    Phase2Valid -> do
+      tellEvent $ TotalDeposits (hashAnnotated $ tx ^. bodyTxL) (Accounting.depositChange projection)
+      tellEvent $
+        TxUTxODiff (Accounting.consumedOutputs projection) (Accounting.producedOutputs projection)
+    Phase2Invalid -> pure ()
+  pure $ Accounting.updatedAccountingState projection
+
 -- | The UTxO transition rule for the Allegra era.
 utxoTransition ::
   forall era.
   ( EraUTxO era
+  , Accounting.EraAccounting era
   , EraStake era
   , EraCertState era
   , ShelleyEraTxBody era
@@ -173,9 +193,11 @@ utxoTransition ::
   ) =>
   TransitionRule (EraRule "UTXO" era)
 utxoTransition = do
-  TRC (Shelley.UtxoEnv slot pp certState, utxos, stAnnTx) <- judgmentContext
+  TRC (Shelley.UtxoEnv slot pp certState, ledgerState, stAnnTx) <- judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
-      Shelley.UTxOState utxo _ _ ppup _ _ = utxos
+      storedAllocations = Store.allocations . Shelley.asUTxOStore . Shelley.lsAccountingState $ ledgerState
+      inputAllocations = IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) $ storedAllocations
+      ppup = Shelley.lsGovState ledgerState
       txBody = tx ^. bodyTxL
       genDelegs = certState ^. Shelley.certDStateL . Shelley.dsGenDelegsL
 
@@ -186,10 +208,12 @@ utxoTransition = do
   runTest $ Shelley.validateInputSetEmptyUTxO txBody
 
   {- minfee pp tx ≤ txfee txb -}
-  runTest $ Shelley.validateFeeTooSmallUTxO pp tx utxo
+  runTest $ Shelley.validateFeeTooSmallUTxO pp tx inputAllocations
 
   {- txins txb ⊆ dom utxo -}
-  runTest $ Shelley.validateBadInputsUTxO utxo $ txBody ^. inputsTxBodyL
+  runTest $
+    Shelley.validateBadInputsUTxO storedAllocations $
+      txBody ^. inputsTxBodyL
 
   netId <- liftSTS $ asks networkId
 
@@ -200,7 +224,7 @@ utxoTransition = do
   runTest $ Shelley.validateWrongNetworkWithdrawal netId txBody
 
   {- consumed pp utxo txb = produced pp poolParams txb -}
-  runTest $ Shelley.validateValueNotConservedUTxO pp utxo certState txBody
+  runTest $ Shelley.validateValueNotConservedUTxO pp inputAllocations certState txBody
 
   -- process Protocol Parameter Update Proposals
   govStateAfterPPUP <-
@@ -209,27 +233,33 @@ utxoTransition = do
   {- adaPolicy ∉ supp mint tx
      above check not needed because mint field of type MultiAsset cannot contain ada -}
 
-  let outputs = txouts txBody
+  let outputs = IndexedTxOs.txOuts $ outputsTxBody txBody
+      -- This legacy rule, also used by Mary, has only implicit-deposit outputs.
+      implicitOutputs = [output | MinAdaTxOut output <- outputs]
   {- ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp)) -}
-  runTest $ validateOutputTooSmallUTxO pp outputs
+  runTest $ validateImplicitDeposits pp implicitOutputs
 
   {- ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ MaxValSize -}
   -- MaxValSize = 4000
-  runTest $ validateOutputTooBigUTxO pp outputs
+  runTest $ validateOutputTooBigUTxO pp implicitOutputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ txoutstxb,  a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}
-  runTest $ Shelley.validateOutputBootAddrAttrsTooBig (Map.elems (unUTxO outputs))
+  runTest $ Shelley.validateOutputBootAddrAttrsTooBig (outputs)
 
   {- txsize tx ≤ maxTxSize pp -}
   runTest $ Shelley.validateMaxTxSizeUTxO pp tx
 
-  Shelley.updateUTxOState
+  Accounting.projectTx
+    slot
     pp
-    txBody
     certState
-    (tellEvent . TotalDeposits (hashAnnotated txBody))
-    (\a b -> tellEvent $ TxUTxODiff a b)
-    (utxos & utxosGovStateL .~ govStateAfterPPUP)
+    (Shelley.lsAccountingState ledgerState)
+    tx
+    & emitAccountingEvents tx
+    <&> \newAccountingState ->
+      ledgerState
+        & Shelley.lsAccountingStateL .~ newAccountingState
+        & lsGovStateL .~ govStateAfterPPUP
 
 -- | Ensure the transaction is within the validity window.
 --
@@ -243,16 +273,16 @@ validateOutsideValidityIntervalUTxO slot txb =
   failureUnless (inInterval slot (txb ^. vldtTxBodyL)) $
     OutsideValidityIntervalUTxO (txb ^. vldtTxBodyL) slot
 
--- | Ensure that there are no `TxOut`s that have `Value` of size larger than @MaxValSize@
+-- | Private: ensure implicit-deposit outputs have no value larger than @MaxValSize@.
 --
 -- > ∀ txout ∈ txouts txb, serSize (getValue txout) ≤ MaxValSize
 validateOutputTooBigUTxO ::
-  EraTxOut era =>
+  (EraMinAdaTxOut era, Foldable f) =>
   PParams era ->
-  UTxO era ->
+  f (MinAdaTxOut era) ->
   Test (AllegraUtxoPredFailure era)
-validateOutputTooBigUTxO pp (UTxO outputs) =
-  failureOnNonEmpty outputsTooBig OutputTooBigUTxO
+validateOutputTooBigUTxO pp outputs =
+  failureOnNonEmpty outputsTooBig (OutputTooBigUTxO . fmap MinAdaTxOut)
   where
     version = pvMajor (pp ^. ppProtocolVersionL)
     maxValSize = 4000 :: Int64
@@ -262,18 +292,18 @@ validateOutputTooBigUTxO pp (UTxO outputs) =
             let v = out ^. valueTxOutL
              in BSL.length (serialize version v) > maxValSize
         )
-        (Map.elems outputs)
+        (toList outputs)
 
--- | Ensure that there are no `TxOut`s that have value less than the scaled @minUTxOValue@
+-- | Private: ensure implicit-deposit outputs have at least the scaled @minUTxOValue@.
 --
 -- > ∀ txout ∈ txouts txb, getValue txout ≥ inject (scaledMinDeposit v (minUTxOValue pp))
-validateOutputTooSmallUTxO ::
-  EraTxOut era =>
+validateImplicitDeposits ::
+  (EraMinAdaTxOut era, Foldable f) =>
   PParams era ->
-  UTxO era ->
+  f (MinAdaTxOut era) ->
   Test (AllegraUtxoPredFailure era)
-validateOutputTooSmallUTxO pp (UTxO outputs) =
-  failureOnNonEmpty outputsTooSmall OutputTooSmallUTxO
+validateImplicitDeposits pp outputs =
+  failureOnNonEmpty outputsTooSmall (OutputTooSmallUTxO . fmap MinAdaTxOut)
   where
     outputsTooSmall =
       filter
@@ -281,13 +311,14 @@ validateOutputTooSmallUTxO pp (UTxO outputs) =
             let v = txOut ^. valueTxOutL
              in Val.pointwise (<) v (Val.inject $ getMinCoinTxOut pp txOut)
         )
-        (Map.elems outputs)
+        (toList outputs)
 
 --------------------------------------------------------------------------------
 -- UTXO STS
 --------------------------------------------------------------------------------
 instance
   ( EraTx era
+  , Accounting.EraAccounting era
   , EraUTxO era
   , EraStake era
   , EraCertState era
@@ -308,7 +339,7 @@ instance
   ) =>
   STS (UTXO era)
   where
-  type State (UTXO era) = Shelley.UTxOState era
+  type State (UTXO era) = Shelley.LedgerState era
   type Signal (UTXO era) = StAnnTx TopTx era
   type Environment (UTXO era) = Shelley.UtxoEnv era
   type BaseM (UTXO era) = ShelleyBase

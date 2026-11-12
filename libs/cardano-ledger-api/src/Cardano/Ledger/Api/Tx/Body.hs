@@ -76,11 +76,31 @@ module Cardano.Ledger.Api.Tx.Body (
   currentTreasuryValueTxBodyL,
   treasuryDonationTxBodyL,
 
-  -- * Dijstra Era
+  -- * Dijkstra Era
   DijkstraEraTxBody,
+  UTxODepositStrategy (..),
+  DepositTopUp (..),
+  TopTxDepositSettlement (..),
+  SubTxDepositSettlement (..),
+  NetBalanceError (..),
+  computeNetBalance,
+  updateTxBodyWithNetBalance,
+  computeSubTxNetBalance,
+  updateSubTxBodyWithNetBalance,
   guardsTxBodyL,
   directDepositsTxBodyL,
   DirectDeposits (..),
+  netUTxODepositChangeTxBodyL,
+  NetUTxODepositChange (..),
+  TopTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
+  subTxNetUTxODepositChangeTxBodyL,
+  SubTxNetUTxODepositChange (..),
+  SubTxUTxODepositDeclaration,
+  SubTxReleaseTarget (..),
 
   -- * Upgrade
   binaryUpgradeTxBody,
@@ -93,6 +113,17 @@ import Cardano.Ledger.Allegra.Scripts (invalidBeforeL, invalidHereAfterL)
 import Cardano.Ledger.Alonzo.TxBody (AlonzoEraTxBody (..), ScriptIntegrityHash)
 import Cardano.Ledger.Api.Era
 import Cardano.Ledger.Api.Scripts
+import Cardano.Ledger.Api.Tx.Body.DepositBalance (
+  DepositTopUp (..),
+  NetBalanceError (..),
+  SubTxDepositSettlement (..),
+  TopTxDepositSettlement (..),
+  UTxODepositStrategy (..),
+  computeNetBalance,
+  computeSubTxNetBalance,
+  updateSubTxBodyWithNetBalance,
+  updateTxBodyWithNetBalance,
+ )
 import Cardano.Ledger.Api.Tx.Cert
 import Cardano.Ledger.Api.Tx.Out
 import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (..))
@@ -106,25 +137,47 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.TxBody (ConwayEraTxBody (..))
 import Cardano.Ledger.Core (
-  EraTx (..),
-  EraTxBody (..),
+  EraTx (Tx, allInputsTxBodyF),
+  EraTxBody (
+    TxBody,
+    auxDataHashTxBodyL,
+    certsTxBodyL,
+    feeTxBodyL,
+    inputsTxBodyL,
+    mkBasicTxBody,
+    outputsTxBodyL,
+    spendableInputsTxBodyF,
+    withdrawalsTxBodyL
+  ),
   PParams,
   TxAuxDataHash (..),
   TxLevel (..),
   Value,
-  allInputsTxBodyF,
   binaryUpgradeTxBody,
   txIdTxBody,
  )
 import Cardano.Ledger.Credential (Credential (KeyHashObj))
-import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
+import Cardano.Ledger.Dijkstra.TxBody (
+  DijkstraEraTxBody (..),
+  NetUTxODepositChange (..),
+  SubTxNetUTxODepositChange (..),
+  SubTxReleaseTarget (..),
+  SubTxUTxODepositDeclaration,
+  TopTxReleaseSettlement (..),
+  TopTxUTxODepositDeclaration,
+ )
 import Cardano.Ledger.Keys (KeyHash (..), KeyRole (..))
 import Cardano.Ledger.Mary.Core (MaryEraTxBody (..))
 import Cardano.Ledger.Mary.Value (MultiAsset)
 import Cardano.Ledger.Shelley.Core (ShelleyEraTxBody (..))
 import Cardano.Ledger.Shelley.PParams (Update)
 import Cardano.Ledger.Shelley.UTxO (getProducedValue)
-import Cardano.Ledger.State (EraUTxO (getConsumedValue), UTxO)
+import Cardano.Ledger.State (EraUTxO (getConsumedValue), IndexedUTxOs)
+import Cardano.Ledger.StrictlyPositiveCoin (
+  StrictlyPositiveCoin,
+  mkStrictlyPositiveCoin,
+  unStrictlyPositiveCoin,
+ )
 import Cardano.Ledger.TxIn (TxId, TxIn)
 import Cardano.Ledger.Val ((<->))
 import Data.Map.Strict (Map)
@@ -373,7 +426,7 @@ instance AnyEraTxBody DijkstraEra
 --
 -- > let lookupRefund = lookupDepositDState (certDState dpState)
 -- > let isRegPoolId = (`Map.member` psStakePools (certPState dpState))
--- > evalBalanceTxBody pp lookupRefund isRegPoolId utxo txBody
+-- > evalBalanceTxBody pp lookupRefund isRegPoolId allocations txBody
 evalBalanceTxBody ::
   EraUTxO era =>
   -- | Current protocol parameters
@@ -388,12 +441,12 @@ evalBalanceTxBody ::
   -- requirement to answer this question for all stake pool credentials, just for the ones
   -- that have the registration certificates included in the supplied `TxBody`
   (KeyHash StakePool -> Bool) ->
-  -- | The UTxO relevant to the transaction.
-  UTxO era ->
+  -- | Accepted allocations relevant to the transaction.
+  IndexedUTxOs era ->
   -- | The transaction being evaluated for balance.
   TxBody TopTx era ->
   -- | The difference between what the transaction consumes and what it produces.
   Value era
-evalBalanceTxBody pp lookupKeyRefund isRegPoolId utxo txBody =
-  getConsumedValue pp lookupKeyRefund utxo txBody
+evalBalanceTxBody pp lookupKeyRefund isRegPoolId allocations txBody =
+  getConsumedValue pp lookupKeyRefund allocations txBody
     <-> getProducedValue pp isRegPoolId txBody

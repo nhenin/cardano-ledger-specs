@@ -12,11 +12,15 @@ import Cardano.Ledger.Mary (MaryEra)
 import Data.Default (def)
 import Test.Cardano.Ledger.Allegra.Binary.Annotator ()
 import Test.Cardano.Ledger.Alonzo.Binary.Annotator ()
+import qualified Test.Cardano.Ledger.Api.AccountingTxSpec as AccountingTx (spec)
+import qualified Test.Cardano.Ledger.Api.IndexedUTxOsSpec as IndexedUTxOs (spec)
 import qualified Test.Cardano.Ledger.Api.State.Imp.QuerySpec as ImpQuery (spec, stakePoolStateSpec)
 import qualified Test.Cardano.Ledger.Api.State.QuerySpec as StateQuery (spec)
+import qualified Test.Cardano.Ledger.Api.Transition.InitialFundsSpec as InitialFunds (spec)
 import qualified Test.Cardano.Ledger.Api.Tx as Tx (spec)
 import qualified Test.Cardano.Ledger.Api.Tx.Body as TxBody (spec)
 import qualified Test.Cardano.Ledger.Api.Tx.Out as TxOut (spec)
+import qualified Test.Cardano.Ledger.Api.UnspentSpec as Unspent (spec)
 import Test.Cardano.Ledger.Api.Upgrade (BinaryUpgradeOpts (..))
 import qualified Test.Cardano.Ledger.Api.Upgrade as Upgrade
 import Test.Cardano.Ledger.Babbage.Binary.Annotator ()
@@ -38,6 +42,10 @@ apiSpec =
       TxBody.spec
     describe "State" $ do
       StateQuery.spec
+      AccountingTx.spec
+      IndexedUTxOs.spec
+      Unspent.spec
+    describe "Transition" InitialFunds.spec
     describe "Imp" $ do
       ImpQuery.spec @ConwayEra
       ImpQuery.spec @DijkstraEra

@@ -27,6 +27,7 @@ import Test.Cardano.Ledger.Constrained.Conway.Deleg (witnessedKeyHashStakePoolMa
 import Test.Cardano.Ledger.Constrained.Conway.Instances
 import Test.Cardano.Ledger.Constrained.Conway.LedgerTypes.Specs (
   accountStateSpec,
+  accountingStateSpec,
   conwayCertStateSpec,
   conwayDStateSpec,
   conwayGovStateSpec,
@@ -41,7 +42,6 @@ import Test.Cardano.Ledger.Constrained.Conway.LedgerTypes.Specs (
   snapShotSpec,
   snapShotsSpec,
   utxoSpecWit,
-  utxoStateSpec,
   vStateSpec,
   whoDelegatesSpec,
  )
@@ -90,24 +90,23 @@ csX = do
   context <- genCertContext @era univ
   genFromSpec (conwayCertStateSpec univ context (lit (EpochNo 10)))
 
-utxoX :: forall era. era ~ ConwayEra => Gen (UTxO era)
+utxoX :: forall era. era ~ ConwayEra => Gen (IndexedUTxOs era)
 utxoX = do
   univ <- genWitUniv @era 50
   cs <-
     genFromSpec
       @(Map (Credential Staking) (KeyHash StakePool))
       (hasSize (rangeSize 30 30))
-  genFromSpec @(UTxO era) (utxoSpecWit @era univ (lit cs))
+  genFromSpec @(IndexedUTxOs era) (utxoSpecWit @era univ (lit cs))
 
-utxostateX ::
+accountingStateX ::
   forall era.
   (era ~ ConwayEra, HasSpec (InstantStake era)) =>
-  PParams era ->
-  Gen (UTxOState era)
-utxostateX pp = do
+  Gen (AccountingState era)
+accountingStateX = do
   univ <- genWitUniv @era 50
   certstate <- csX @era
-  genFromSpec @(UTxOState era) (utxoStateSpec pp univ (lit certstate))
+  genFromSpec @(AccountingState era) (accountingStateSpec univ (lit certstate))
 
 govenvX :: PParams ConwayEra -> Gen (Conway.GovEnv ConwayEra)
 govenvX pp = genFromSpec @(Conway.GovEnv ConwayEra) (govEnvSpec pp)
@@ -254,9 +253,9 @@ instance
   , IsNormalType (CertState era)
   , HasSpec (InstantStake era)
   ) =>
-  WellFormed (UTxOState era) era
+  WellFormed (AccountingState era) era
   where
-  wffWithPP = utxostateX
+  wffWithPP _ = accountingStateX
 
 instance WellFormed (GovEnv ConwayEra) ConwayEra where
   wffWithPP = govenvX

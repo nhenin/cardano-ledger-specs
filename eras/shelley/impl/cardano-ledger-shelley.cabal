@@ -90,9 +90,10 @@ library
     Cardano.Ledger.Shelley.Rules.Upec
     Cardano.Ledger.Shelley.Rules.Utxo
     Cardano.Ledger.Shelley.Rules.Utxow
-    Cardano.Ledger.Shelley.State.Account
-    Cardano.Ledger.Shelley.State.CertState
-    Cardano.Ledger.Shelley.State.Stake
+    Cardano.Ledger.Shelley.State.Accounting
+    Cardano.Ledger.Shelley.State.Accounting.InstantStake
+    Cardano.Ledger.Shelley.State.Certificates
+    Cardano.Ledger.Shelley.State.Certificates.Account
 
   default-language: Haskell2010
   ghc-options:
@@ -246,6 +247,7 @@ library testlib
   build-depends:
     FailT,
     ImpSpec,
+    aeson,
     base,
     bytestring,
     cardano-base,

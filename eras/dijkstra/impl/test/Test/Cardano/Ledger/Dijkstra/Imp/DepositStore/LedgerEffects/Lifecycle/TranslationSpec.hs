@@ -1,0 +1,88 @@
+{-# LANGUAGE TypeApplications #-}
+
+-- | Translation preserves existing assets and introduces no retroactive Store
+-- obligation. The expected output fields come directly from the Conway state.
+module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Lifecycle.TranslationSpec (spec) where
+
+import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Dijkstra (DijkstraEra)
+import Cardano.Ledger.Dijkstra.Core
+import Cardano.Ledger.Shelley.LedgerState
+import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
+import qualified Data.Aeson as Aeson
+import qualified Data.Map.Strict as Map
+import Lens.Micro ((^.))
+import Test.Cardano.Ledger.Common (
+  Spec,
+  describe,
+  expectationFailure,
+  forAll,
+  forM_,
+  prop,
+  shouldBe,
+ )
+import Test.Cardano.Ledger.Dijkstra.Examples (exampleDijkstraGenesis)
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Lifecycle as Lifecycle
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedDepositTotal,
+  liveOutputStore,
+  outputs,
+  recordedAmounts,
+ )
+
+{- FOURMOLU_DISABLE -}
+spec :: Spec
+spec = describe "DS-STATE-TRANSLATION - Translation" $
+  prop "DS-STATE-TRANSLATION-N01 - Conway → Dijkstra ⇒ (outputsAfter, externalDepositsAfter, existingPotsAfter) = (implicit(outputsBefore), zero, existingPotsBefore)" $
+    forAll Lifecycle.conwayStates $ \states ->
+      forM_ states $ \previousState -> do
+        let translatedState = translateEra' @DijkstraEra exampleDijkstraGenesis previousState
+            previousAccountingState = previousState ^. nesEsL . esLStateL . lsAccountingStateL
+            accountingState = translatedState ^. nesEsL . esLStateL . lsAccountingStateL
+            previousOutputs = outputs previousAccountingState
+            translatedOutputs = outputs accountingState
+        Map.keysSet translatedOutputs `shouldBe` Map.keysSet previousOutputs
+        forM_ (Map.toList previousOutputs) $ \(input, previousOutput) ->
+          case (previousOutput, Map.lookup input translatedOutputs) of
+            (MinAdaTxOut previousImplicit, Just output@(MinAdaTxOut implicit)) -> do
+              output ^. addrTxOutL `shouldBe` previousOutput ^. addrTxOutL
+              implicit ^. valueTxOutL `shouldBe` previousImplicit ^. valueTxOutL
+              -- Compare datum semantics and script identity across their era types.
+              Aeson.toJSON (output ^. datumTxOutL) `shouldBe` Aeson.toJSON (previousOutput ^. datumTxOutL)
+              fmap hashScript (output ^. referenceScriptTxOutL)
+                `shouldBe` fmap hashScript (previousOutput ^. referenceScriptTxOutL)
+            _ -> expectationFailure "Every translated Conway output must remain present and implicit"
+        recordedAmounts (liveOutputStore accountingState) `shouldBe` Map.empty
+        -- Translation activates the effective Dijkstra rate for future outputs;
+        -- imported min-ADA outputs resolve the initial fork formula through AtStoreMigration.
+        currentFormula (liveOutputStore accountingState)
+          `shouldBe` DepositFormulaV1 (translatedState ^. nesEsL . curPParamsEpochStateL . ppCoinsPerUTxOByteL)
+        initialFormula (depositFormulaHistory $ liveOutputStore accountingState)
+          `shouldBe` currentFormula (liveOutputStore accountingState)
+        formulaChanges (depositFormulaHistory $ liveOutputStore accountingState)
+          `shouldBe` Map.empty
+        let entries = allocations $ liveOutputStore accountingState
+        IndexedUTxOs.inputIds entries `shouldBe` Map.keysSet translatedOutputs
+        forM_ (IndexedUTxOs.unspentOutputs entries) $ \entry -> case Unspent.toTxOut entry of
+          MinAdaTxOut _ -> do
+            -- Migration marks the retained output without inventing its original
+            -- creation date. The initial formula needs no dated activation.
+            allocatedAt entry `shouldBe` AtStoreMigration
+            Unspent.computeExternalDeposit (depositFormulaHistory $ liveOutputStore accountingState) entry
+              `shouldBe` Coin 0
+          DepositBackedTxOut _ -> expectationFailure "Every translated Conway output must remain a MinAdaTxOut"
+        toCoin (totalDepositAmount $ liveOutputStore accountingState)
+          `shouldBe` expectedDepositTotal (liveOutputStore accountingState)
+        -- Check each actual monetary pot, so a swapped or reset pot is visible.
+        translatedState ^. treasuryL `shouldBe` previousState ^. treasuryL
+        translatedState ^. reservesL `shouldBe` previousState ^. reservesL
+        asDeposited accountingState `shouldBe` asDeposited previousAccountingState
+        asFees accountingState `shouldBe` asFees previousAccountingState
+        asDonation accountingState `shouldBe` asDonation previousAccountingState
+        let previousAccounts = previousState ^. nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL . accountsMapL
+            accounts = translatedState ^. nesEsL . esLStateL . lsCertStateL . certDStateL . accountsL . accountsMapL
+        Map.map (\account -> (account ^. balanceAccountStateL, account ^. depositAccountStateL)) accounts
+          `shouldBe` Map.map (\account -> (account ^. balanceAccountStateL, account ^. depositAccountStateL)) previousAccounts
+{- FOURMOLU_ENABLE -}

@@ -26,11 +26,14 @@ spec = describe "UTXO" $ do
       addr2 <- freshKeyAddr_
       (_, rootTxOut) <- getImpRootTxOut
       let extra = Coin 3
-          rootTxOutValue = rootTxOut ^. valueTxOutL
+          rootTxOutValue = case rootTxOut of
+            MinAdaTxOut o -> o ^. valueTxOutL
+            DepositBackedTxOut _ ->
+              error "ValueNotConservedUTxO: unexpected DepositBackedTxOut for the root output"
           txBody =
             mkBasicTxBody
               & inputsTxBodyL .~ [txIn]
-              & outputsTxBodyL .~ [mkBasicTxOut addr2 mempty]
+              & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr2 mempty]
           adjustTxOut = \case
             Empty -> error "Unexpected empty sequence of outputs"
             txOut :<| outs -> (txOut & coinTxOutL %~ (<> extra)) :<| outs

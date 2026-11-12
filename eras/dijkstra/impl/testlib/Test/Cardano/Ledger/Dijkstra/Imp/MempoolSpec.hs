@@ -12,7 +12,7 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraSubUtxoPredFailure (..),
   DijkstraUtxoPredFailure (..),
  )
-import Cardano.Ledger.State (utxoG)
+import Cardano.Ledger.State (allocations, lookupUTxO, utxoStoreG)
 import Data.Maybe (isNothing)
 import qualified Data.Set.NonEmpty as NES
 import Lens.Micro ((&), (.~), (^.))
@@ -85,7 +85,7 @@ spec = describe "MEMPOOL" $ do
       (mempoolState, _) <-
         expectRight
           =<< trySubmitMempoolTx (mkBasicTx $ mkBasicTxBody & inputsTxBodyL .~ [txIn])
-      expectUTxOContent (mempoolState ^. utxoG) [(txIn, isNothing)]
+      lookupUTxO txIn (allocations (mempoolState ^. utxoStoreG)) `shouldSatisfy` isNothing
 
   describe "Composite tests" $ do
     it "no ledger check runs when all inputs are spent" $ do

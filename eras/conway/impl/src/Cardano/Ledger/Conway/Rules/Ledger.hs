@@ -97,11 +97,12 @@ import Cardano.Ledger.Rules.ValidationMode (
  )
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
-  utxosGovStateL,
+  lsGovStateL,
  )
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (epochFromSlot)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (unless)
 import Control.State.Transition.Extended
@@ -302,7 +303,7 @@ instance
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Embed (EraRule "GOV" era) (LEDGER era)
   , Embed (EraRule "CERTS" era) (LEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "CERTS" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
@@ -344,7 +345,7 @@ conwayLedgerTransitionTRC ::
   , Embed (EraRule "UTXOW" era) (someLEDGER era)
   , Embed (EraRule "GOV" era) (someLEDGER era)
   , Embed (EraRule "CERTS" era) (someLEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "CERTS" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
@@ -365,21 +366,29 @@ conwayLedgerTransitionTRC ::
 conwayLedgerTransitionTRC
   ( TRC
       ( Shelley.LedgerEnv slot mbCurEpochNo _txIx pp chainAccountState
-        , LedgerState utxoState certState
+        , ledgerState@LedgerState {lsCertState = certState}
         , stAnnTx
         )
     ) = do
     let tx = stAnnTx ^. txStAnnTxG
     curEpochNo <- maybe (liftSTS $ epochFromSlot slot) pure mbCurEpochNo
 
-    (utxoState', certStateAfterCERTS) <-
+    (ledgerState', certStateAfterCERTS) <-
       if tx ^. isPhase2ValidTxL == Phase2Valid
         then do
           let txBody = tx ^. bodyTxL
           runTest $ validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
-          runTest $ validateRefScriptSize pp (utxoState ^. utxoL) tx
+          runTest $
+            validateRefScriptSize
+              pp
+              ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                  . Store.allocations
+                  . (^. utxoStoreG)
+                  $ ledgerState
+              )
+              tx
 
-          let govState = utxoState ^. utxosGovStateL
+          let govState = ledgerState ^. lsGovStateL
               committee = govState ^. committeeGovStateL
               proposals = govState ^. proposalsGovStateL
               committeeProposals = proposalsWithPurpose grCommitteeL proposals
@@ -430,13 +439,13 @@ conwayLedgerTransitionTRC
                 , proposals
                 , govSignal
                 )
-          let utxoState' =
-                utxoState
-                  & utxosGovStateL . proposalsGovStateL .~ proposalsState
-          pure (utxoState', certStateAfterCERTS)
-        else pure (utxoState, certState)
+          let ledgerState' =
+                ledgerState
+                  & lsGovStateL . proposalsGovStateL .~ proposalsState
+          pure (ledgerState', certStateAfterCERTS)
+        else pure (ledgerState, certState)
 
-    utxoState'' <-
+    ledgerState'' <-
       trans @(EraRule "UTXOW" era) $
         TRC
           -- Pass to UTXOW the unmodified CertState in its Environment,
@@ -445,10 +454,10 @@ conwayLedgerTransitionTRC
           -- (certStateAfterCERTS) has these already removed from its
           -- AccountState.
           ( Shelley.UtxoEnv @era slot pp certState
-          , utxoState'
+          , ledgerState'
           , stAnnTx
           )
-    pure $ LedgerState utxoState'' certStateAfterCERTS
+    pure $ ledgerState'' {lsCertState = certStateAfterCERTS}
 
 validateTreasuryValue ::
   ConwayEraTxBody era => TxBody l era -> Coin -> Test (ConwayLedgerPredFailure era)
@@ -469,9 +478,9 @@ validateRefScriptSize ::
   , BabbageEraTxBody era
   , ConwayEraPParams era
   ) =>
-  PParams era -> UTxO era -> Tx l era -> Test (ConwayLedgerPredFailure era)
-validateRefScriptSize pp utxo tx =
-  let totalRefScriptSize = txNonDistinctRefScriptsSize utxo tx
+  PParams era -> IndexedUTxOs era -> Tx l era -> Test (ConwayLedgerPredFailure era)
+validateRefScriptSize pp inputAllocations tx =
+  let totalRefScriptSize = txNonDistinctRefScriptsSize inputAllocations tx
       maxRefScriptSizePerTx = fromIntegral @Word32 @Int $ pp ^. ppMaxRefScriptSizePerTxG
    in failureUnless (totalRefScriptSize <= maxRefScriptSizePerTx) $
         ConwayTxRefScriptsSizeTooBig
@@ -509,7 +518,7 @@ conwayLedgerTransition ::
   , Embed (EraRule "UTXOW" era) (someLEDGER era)
   , Embed (EraRule "GOV" era) (someLEDGER era)
   , Embed (EraRule "CERTS" era) (someLEDGER era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "CERTS" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
   , Environment (EraRule "UTXOW" era) ~ Shelley.UtxoEnv era
@@ -533,10 +542,10 @@ instance
   , EraUTxO era
   , BabbageEraTxBody era
   , Embed (EraRule "UTXO" era) (UTXOW era)
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
   , Script era ~ AlonzoScript era
-  , TxOut era ~ BabbageTxOut era
+  , MinAdaTxOut era ~ BabbageTxOut era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , PredicateFailure (EraRule "UTXOW" era) ~ ConwayUtxowPredFailure era
@@ -582,7 +591,7 @@ instance
   , Environment (EraRule "CERTS" era) ~ CertsEnv era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Signal (EraRule "CERTS" era) ~ Seq (TxCert era)
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "CERTS" era) ~ CertState era
   , EraRule "GOV" era ~ GOV era
   , ConwayEraCertState era

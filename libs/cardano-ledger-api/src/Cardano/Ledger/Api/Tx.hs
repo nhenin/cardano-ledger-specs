@@ -105,11 +105,17 @@ import Cardano.Ledger.Api.Tx.Body
 import Cardano.Ledger.Api.Tx.Cert
 import Cardano.Ledger.Api.Tx.Wits
 import Cardano.Ledger.Babbage.Collateral (mkCollateralTxIn)
-import Cardano.Ledger.Core (EraTx (..), TxLevel (..), binaryUpgradeTx, txIdTx)
-import Cardano.Ledger.State (UTxO (..), txouts)
+import Cardano.Ledger.Core (
+  EraTx (Tx, auxDataTxL, bodyTxL, getMinFeeTx, mkBasicTx, sizeTxF, witsTxL),
+  TxLevel (..),
+  binaryUpgradeTx,
+  outputsTxBody,
+  txIdTx,
+ )
 import Cardano.Ledger.Tools (calcMinFeeTx, estimateMinFeeTx, setMinFeeTx, setMinFeeTxUtxo)
+import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs)
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.Monad (join)
-import qualified Data.Map as Map
 import Lens.Micro
 
 class (EraTx era, AnyEraTxBody era, AnyEraTxWits era, AnyEraTxAuxData era) => AnyEraTx era where
@@ -139,15 +145,15 @@ instance AnyEraTx ConwayEra
 
 instance AnyEraTx DijkstraEra
 
--- | Construct all of the unspent outputs that will be produced by this transaction
-producedTxOuts :: AnyEraTx era => Tx TopTx era -> UTxO era
+-- | Index the outputs selected by the phase-2 outcome, retaining their encoded
+-- sizes. This view does not establish ledger acceptance or record deposit pricing.
+producedTxOuts :: AnyEraTx era => Tx TopTx era -> IndexedTxOs era
 producedTxOuts tx =
   case tx ^. isPhase2ValidTxG of
     Just Phase2Invalid ->
-      UTxO $
-        case join (txBody ^. collateralReturnTxBodyG) of
-          Nothing -> mempty
-          Just txOut -> Map.singleton (mkCollateralTxIn txBody) txOut
-    _ -> txouts txBody
+      case join (txBody ^. sizedCollateralReturnTxBodyG) of
+        Nothing -> mempty
+        Just output -> IndexedTxOs.singleton (mkCollateralTxIn txBody) output
+    _ -> outputsTxBody txBody
   where
     txBody = tx ^. bodyTxL
