@@ -125,14 +125,21 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
   let input = txInAt (0 :: Int) created
   impGetUTxO input >>= (`shouldBe` source)
   refreshFeeSource feeSource
+  -- Match the new embedded reserves with Bob's funding and, for a batch,
+  -- the parent's own input. The signed release then equals Bob's old deposit.
+  parentAddress <- freshKeyAddrNoPtr_
+  bobFunding <- sendCoinTo bobAddress $ Coin 4_000_000
+  parentFunding <- case scenarioMode of
+    StandaloneTopTx -> pure Set.empty
+    _ -> Set.singleton <$> sendCoinTo parentAddress (Coin 10_000_000)
   state <- Release.readAccountingState
   recorded <- expectJust $ Map.lookup input $ recordedAmounts $ liveOutputStore state
   recorded `shouldBe` allocated
-  parentAddress <- freshKeyAddrNoPtr_
   let parent = case scenarioMode of
-        StandaloneTopTx -> spendingTx bobAddress input applicationCoins
+        StandaloneTopTx -> spendingTx bobAddress (Set.fromList [input, bobFunding]) applicationCoins
         _ ->
           mkBasicTx mkBasicTxBody
+            & bodyTxL . inputsTxBodyL .~ parentFunding
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton
@@ -140,7 +147,7 @@ fund Scenario {scenarioMode, applicationCoins, bytePrice} = do
             & bodyTxL
               . subTransactionsTxBodyL
               .~ OMap.fromFoldable
-                [spendingTx bobAddress input applicationCoins]
+                [spendingTx bobAddress (Set.fromList [input, bobFunding]) applicationCoins]
   pure $
     Fixture
       scenarioMode
@@ -168,12 +175,12 @@ refreshFeeSource (input, output) = do
 -- | An undeclared body consumes Bob's source and retains its application ADA in
 -- implicit output zero. Declaration-aware preparation adds a local release there
 -- or leaves the delegated amount for TopTx, as selected explicitly by the spec.
-spendingTx :: Typeable l => Addr -> TxIn -> Coin -> Tx l DijkstraEra
-spendingTx address input amount =
+spendingTx :: Typeable l => Addr -> Set.Set TxIn -> Coin -> Tx l DijkstraEra
+spendingTx address inputs amount =
   mkBasicTx mkBasicTxBody
     & bodyTxL
       . inputsTxBodyL
-      .~ Set.singleton input
+      .~ inputs
     & bodyTxL
       . outputsTxBodyL
       .~ SSeq.singleton

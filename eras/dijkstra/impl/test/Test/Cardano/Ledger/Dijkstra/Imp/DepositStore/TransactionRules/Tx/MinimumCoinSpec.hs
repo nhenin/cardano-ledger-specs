@@ -47,7 +47,7 @@ spec =
     prop "DS-TX-MINIMUM-COIN-N01 - depositBacked(output) ∧ nativeAssets(output) ≠ ∅ ∧ applicationADA(output) = 0 ⇒ accepted" $
       forAll MinimumCoin.depositBackedNativeAssets $ \scenarios ->
         forM_ scenarios $ \scenario -> do
-          Fixture{proposal, allocatedDeposit = Coin deposit} <- MinimumCoin.fund scenario
+          Fixture{proposal, signedBacking = Coin deposit} <- MinimumCoin.fund scenario
           MinimumCoin.buildAndSignTx scenario (TopTx.addDeclaration
             (Declarations
               (TopTx.DeclaresNetUTxODepositAllocation $ positiveAmount deposit)
@@ -61,7 +61,7 @@ spec =
     prop "DS-TX-MINIMUM-COIN-N02 - depositBacked(output) ∧ applicationAssets(output) = ∅ ∧ payload(output) ∈ {datumOnly, referenceScriptOnly} ⇒ accepted" $
       forAll MinimumCoin.depositBackedDatumOrReferenceScript $ \scenarios ->
         forM_ scenarios $ \scenario -> do
-          Fixture{proposal, allocatedDeposit = Coin deposit} <- MinimumCoin.fund scenario
+          Fixture{proposal, signedBacking = Coin deposit} <- MinimumCoin.fund scenario
           MinimumCoin.buildAndSignTx scenario (TopTx.addDeclaration
             (Declarations
               (TopTx.DeclaresNetUTxODepositAllocation $ positiveAmount deposit)
@@ -75,7 +75,7 @@ spec =
     prop "DS-TX-MINIMUM-COIN-N03 - depositBacked(output) ∧ addressOnly(output) ⇒ accepted" $
       forAll MinimumCoin.depositBackedAddressOnly $ \scenarios ->
         forM_ scenarios $ \scenario -> do
-          Fixture{proposal, allocatedDeposit = Coin deposit} <- MinimumCoin.fund scenario
+          Fixture{proposal, signedBacking = Coin deposit} <- MinimumCoin.fund scenario
           MinimumCoin.buildAndSignTx scenario (TopTx.addDeclaration
             (Declarations
               (TopTx.DeclaresNetUTxODepositAllocation $ positiveAmount deposit)

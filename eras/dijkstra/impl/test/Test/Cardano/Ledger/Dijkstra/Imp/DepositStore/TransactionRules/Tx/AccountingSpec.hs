@@ -7,6 +7,7 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Account
 import Test.Cardano.Ledger.Common (Spec, describe)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.AttributionSpec as Attribution
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.BalanceSpec as Balance
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.MixedBackingSpec as MixedBacking
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChangeSpec as NetChange
 
 -- | Register the requirements in domain order.
@@ -15,3 +16,4 @@ spec = describe "DS-TX-ACCOUNTING - Accounting" $ do
   NetChange.spec
   Attribution.spec
   Balance.spec
+  MixedBacking.spec

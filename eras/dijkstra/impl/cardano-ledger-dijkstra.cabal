@@ -64,6 +64,7 @@ library
     Cardano.Ledger.Dijkstra.Rules.Cert
     Cardano.Ledger.Dijkstra.Rules.Certs
     Cardano.Ledger.Dijkstra.Rules.Deleg
+    Cardano.Ledger.Dijkstra.Rules.DepositStore
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral
     Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration
@@ -354,6 +355,7 @@ test-suite tests
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.CollateralSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.AttributionSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.BalanceSpec
+    Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.MixedBackingSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.SubTxSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChange.TopTxSpec
     Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.TransactionRules.Tx.Accounting.NetChangeSpec

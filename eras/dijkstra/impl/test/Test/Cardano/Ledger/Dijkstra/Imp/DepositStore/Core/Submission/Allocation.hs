@@ -64,12 +64,14 @@ forAllStandaloneAllocationTx scenarios check =
   forAll scenarios $ \scenario -> do
     modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 4_310)
     address <- freshKeyAddrNoPtr_
-    parameters <- getsNES $ nesEsL . curPParamsEpochStateL
+    -- Renew the fee input at the active price so its backing cancels change.
+    ImpTest.submitTx_ $ mkBasicTx mkBasicTxBody
+    store <- getUTxOStore
     let proposal =
           mkBasicTx mkBasicTxBody
             & bodyTxL . outputsTxBodyL .~ SSeq.fromList (TopTx.createdOutputs address scenario)
             & bodyTxL . netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
-    check $ TopTx.AllocationTx parameters proposal
+    check $ TopTx.AllocationTx store proposal
 
 -- | Translate a Conway output through the production Dijkstra conversion, fund
 -- that translated output through an accepted ledger transaction, then propose
@@ -84,7 +86,6 @@ forAllPostConwayAllocationTx scenarios check =
   forAll scenarios $ \scenario -> do
     modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 4_310)
     address <- freshKeyAddrNoPtr_
-    parameters <- getsNES $ nesEsL . curPParamsEpochStateL
     let outputs = TopTx.createdOutputs address scenario
         sourceCoins = foldMap (^. coinTxOutL) outputs <> Coin 10_000_000
         conwayOutput = mkBasicTxOutWithMinAda @ConwayEra address $ inject sourceCoins
@@ -101,8 +102,9 @@ forAllPostConwayAllocationTx scenarios check =
     records <-
       recordedAmounts . liveOutputStore <$> getsNES (nesEsL . esLStateL . lsAccountingStateL)
     Map.lookup sourceInput records `shouldBe` Nothing
+    store <- getUTxOStore
     check $
-      TopTx.AllocationTx parameters $
+      TopTx.AllocationTx store $
         mkBasicTx mkBasicTxBody
           & bodyTxL . inputsTxBodyL .~ Set.singleton sourceInput
           & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
@@ -125,13 +127,14 @@ forAllTopTxAndSubTxAllocationTx scenarios check =
         childOutputs = TopTx.createdOutputs address $ TopTx.subTxAllocation scenario
         childAllocation = foldMap (Pricing.outputDeposit parameters) childOutputs
     childInput <- sendCoinTo address $ foldMap (^. coinTxOutL) childOutputs <> childAllocation
+    store <- getUTxOStore
     let child =
           mkBasicTx mkBasicTxBody
             & bodyTxL . inputsTxBodyL .~ Set.singleton childInput
             & bodyTxL . outputsTxBodyL .~ SSeq.fromList childOutputs
             & bodyTxL . subTxNetUTxODepositChangeTxBodyL .~ SubTx.NoUTxODepositDeclaration
         proposal =
-          TopTx.AllocationTx parameters $
+          TopTx.AllocationTx store $
             mkTopTxWithSubTxs [child]
               & bodyTxL . outputsTxBodyL .~ SSeq.fromList ownOutputs
               & bodyTxL . netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration

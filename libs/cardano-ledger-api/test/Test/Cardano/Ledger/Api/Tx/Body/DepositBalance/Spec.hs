@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module Test.Cardano.Ledger.Api.Tx.Body.DepositBalance.Spec (spec) where
 
@@ -11,6 +12,7 @@ import Cardano.Ledger.Dijkstra.Rules (validateOrdinaryDepositStore)
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.State (mkUTxOStore)
+import Data.Default (def)
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro ((&), (.~))
@@ -21,6 +23,7 @@ import Test.Cardano.Ledger.Common (Spec, describe, expectRight, it, shouldBe)
 spec :: Spec
 spec = describe "computeNetBalance and body updates" $ do
   bodyInputsAndOutputsSpec
+  mixedOutputFormsSpec
   subTxSpec
   topTxSpec
   ordinaryInputsAndOutputsSpec
@@ -36,7 +39,7 @@ bodyInputsAndOutputsSpec :: Spec
 bodyInputsAndOutputsSpec = describe "body inputs and outputs" $ do
   it "computes a declaration from the SubTx body's selected inputs and outputs" $
     subNetBalance Fixture.localSettlement Fixture.allocation
-      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1820)
+      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1070)
   it "combines the TopTx body's outputs with already balanced child declarations" $ do
     let body =
           mkBasicTxBody
@@ -44,14 +47,66 @@ bodyInputsAndOutputsSpec = describe "body inputs and outputs" $ do
             & Fixture.withChildren [Fixture.localRelease]
     topNetBalance body `shouldBe` Right (TopTx.AllocateUTxODeposit $ Fixture.depositAmount 1070)
 
+mixedOutputFormsSpec :: Spec
+mixedOutputFormsSpec = describe "signed backing across output forms" $ do
+  it "allocates 0.4 ADA when 1.6 ADA of embedded backing becomes a 2 ADA deposit" $
+    checkMixedTransfer
+      Fixture.embeddedToExternal
+      (TopTx.AllocateUTxODeposit $ Fixture.depositAmount 400_000)
+      (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 400_000)
+  it "credits only the imported input's 2 ADA against a 3 ADA requirement" $
+    checkMixedTransfer
+      Fixture.importedToExternal
+      (TopTx.AllocateUTxODeposit $ Fixture.depositAmount 1_000_000)
+      (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1_000_000)
+  it "declares zero when a 2 ADA deposit becomes a 2 ADA embedded reserve" $
+    checkMixedTransfer
+      Fixture.externalToEmbedded
+      TopTx.NoUTxODepositChange
+      SubTx.SubTxNoUTxODepositChange
+  it "includes the net reserve of a minimum-ADA child that omits its declaration" $ do
+    let body = mkBasicTxBody & Fixture.withChildren [Fixture.minAdaTransfer]
+    balanced <- expectRight $ updateTopBalance body
+    view netUTxODepositChangeTxBodyL balanced
+      `shouldBe` TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1070)
+    validateOrdinaryDepositStore (mkUTxOStore Fixture.history Fixture.resolvedInputs) balanced
+      `shouldBe` pure ()
+
+checkMixedTransfer ::
+  Fixture.MixedTransfer -> TopTx.NetUTxODepositChange -> SubTx.SubTxNetUTxODepositChange -> IO ()
+checkMixedTransfer transfer expectedTop expectedChild = do
+  let history = Fixture.transferHistory transfer
+      inputs = Fixture.transferInputs transfer
+      store = mkUTxOStore history inputs
+      topStrategy = UTxODepositStrategy TopUpAlreadyIncluded NoTopTxRefund
+      childStrategy = UTxODepositStrategy TopUpAlreadyIncluded Fixture.localSettlement
+      topBody = Fixture.mixedTransferBody transfer & feeTxBodyL .~ Coin 200_000
+      childBody = Fixture.mixedTransferBody transfer
+  top <- expectRight $ updateTxBodyWithNetBalance history inputs topStrategy topBody
+  view netUTxODepositChangeTxBodyL top `shouldBe` TopTx.declareUTxODepositChange expectedTop
+  validateOrdinaryDepositStore store top `shouldBe` pure ()
+  evalBalanceTxBody def (const Nothing) (const False) store top `shouldBe` mempty
+  child <- expectRight $ updateSubTxBodyWithNetBalance history inputs childStrategy childBody
+  view subTxNetUTxODepositChangeTxBodyL child `shouldBe` SubTx.declareUTxODepositChange expectedChild
+  batch <-
+    expectRight $
+      updateTxBodyWithNetBalance
+        history
+        inputs
+        topStrategy
+        (mkBasicTxBody & Fixture.withChildren [child] & feeTxBodyL .~ Coin 200_000)
+  view netUTxODepositChangeTxBodyL batch `shouldBe` TopTx.declareUTxODepositChange expectedTop
+  validateOrdinaryDepositStore store batch `shouldBe` pure ()
+  evalBalanceTxBody def (const Nothing) (const False) store batch `shouldBe` mempty
+
 subTxSpec :: Spec
 subTxSpec = describe "computeSubTxNetBalance" $ do
   it "allocates the active-price deposit locally" $
     subNetBalance Fixture.localSettlement Fixture.allocation
-      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1820)
+      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1070)
   it "requests the active-price allocation from TopTx when delegated" $
     subNetBalance DelegateDepositToTopTx Fixture.allocation
-      `shouldBe` Right (SubTx.SubTxRequestUTxODepositFromTopTx $ Fixture.depositAmount 1820)
+      `shouldBe` Right (SubTx.SubTxRequestUTxODepositFromTopTx $ Fixture.depositAmount 1070)
   it "releases the historical deposit into the supplied local output" $
     subNetBalance Fixture.localSettlement Fixture.historicalRelease
       `shouldBe` Right (SubTx.SubTxReleaseUTxODeposit (Fixture.depositAmount 750) Fixture.localTarget)
@@ -64,12 +119,12 @@ subTxSpec = describe "computeSubTxNetBalance" $ do
   it "returns explicit zero when the delegation choice has no amount to delegate" $
     subNetBalance DelegateDepositToTopTx Fixture.replacement
       `shouldBe` Right SubTx.SubTxNoUTxODepositChange
-  it "returns zero for a transfer between min-ADA outputs" $
+  it "prices a minimum-ADA replacement at the active rate and credits its historical rate" $
     subNetBalance Fixture.localSettlement Fixture.minAdaTransfer
-      `shouldBe` Right SubTx.SubTxNoUTxODepositChange
+      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1070)
   it "preserves the deposit when the application ADA in an output changes" $
     subNetBalance Fixture.localSettlement Fixture.changedOutput
-      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1820)
+      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1070)
 
 topTxSpec :: Spec
 topTxSpec = describe "computeNetBalance" $ do
@@ -84,7 +139,7 @@ topTxSpec = describe "computeNetBalance" $ do
         )
   it "adds local and delegated child declarations to the parent's balance once" $
     topNetBalance Fixture.mixedBatch
-      `shouldBe` Right (TopTx.AllocateUTxODeposit $ Fixture.depositAmount 2890)
+      `shouldBe` Right (TopTx.AllocateUTxODeposit $ Fixture.depositAmount 2140)
   it "trusts a balanced child's declaration without resolving its inputs again" $
     updateTxBodyWithNetBalance
       Fixture.history
@@ -118,11 +173,14 @@ topTxSpec = describe "computeNetBalance" $ do
   it "selects the TopTx output when its attributed release exceeds the batch release" $
     topNetBalance Fixture.settlementLargerThanBatch
       `shouldBe` Right
-        ( TopTx.ReleaseUTxODeposit (Fixture.depositAmount 750) $
+        ( TopTx.ReleaseUTxODeposit (Fixture.depositAmount 1500) $
             TopTx.TopTxSettlementOutput Fixture.refundIndex
         )
   it "returns explicit zero for offsetting parent and child balances" $ do
-    let body = Fixture.parentRelease & Fixture.withChildren [Fixture.localAllocation]
+    let body =
+          mkBasicTxBody
+            & Fixture.appendOutput Fixture.depositBackedOutput
+            & Fixture.withChildren [Fixture.currentRelease]
     topNetBalance body `shouldBe` Right TopTx.NoUTxODepositChange
 
 ordinaryInputsAndOutputsSpec :: Spec
@@ -150,7 +208,7 @@ refundTargetSpec = describe "refund output index" $ do
     subNetBalance Fixture.localSettlement body
       `shouldBe` Left (UnresolvedDepositOutput Fixture.refundIndex)
   it "accepts delegated SubTx releases without a local refund output" $ do
-    let body = Fixture.historicalRelease & outputsTxBodyL .~ mempty
+    let body = mkBasicTxBody & Fixture.withInput Fixture.historicalInput
     subNetBalance DelegateDepositToTopTx body
       `shouldBe` Right (SubTx.SubTxReleaseUTxODeposit (Fixture.depositAmount 750) SubTx.DelegateToTopTx)
   it "propagates a missing refund output through the TopTx updater" $ do
@@ -164,19 +222,19 @@ refundTargetSpec = describe "refund output index" $ do
 newRefundOutputSpec :: Spec
 newRefundOutputSpec = describe "refund settlement policy" $ do
   it "appends the supplied TopTx refund output unchanged and selects its index" $
-    updateTopSettling (TopTxRefundToNewOutput Fixture.refundOutput) Fixture.parentRelease
+    updateTopSettling (TopTxRefundToNewOutput Fixture.refundOutput) Fixture.parentMultipleRelease
       `shouldBe` Right
-        ( Fixture.parentRelease
+        ( Fixture.parentMultipleRelease
             & Fixture.appendOutput Fixture.refundOutput
             & netUTxODepositChangeTxBodyL
               .~ TopTx.DeclaresNetUTxODepositRelease
-                (Fixture.depositAmount 1820)
+                (Fixture.depositAmount 750)
                 (TopTx.TopTxSettlementOutput Fixture.appendedRefundIndex)
         )
   it "appends the supplied SubTx refund output unchanged and selects its index" $
-    updateSubBalance (SubTxRefundToNewOutput Fixture.refundOutput) Fixture.historicalRelease
+    updateSubBalance (SubTxRefundToNewOutput Fixture.refundOutput) Fixture.subMultipleRelease
       `shouldBe` Right
-        ( Fixture.historicalRelease
+        ( Fixture.subMultipleRelease
             & Fixture.appendOutput Fixture.refundOutput
             & subTxNetUTxODepositChangeTxBodyL
               .~ SubTx.DeclaresNetUTxODepositRelease
@@ -184,37 +242,41 @@ newRefundOutputSpec = describe "refund settlement policy" $ do
                 (SubTx.SubTxSettlementOutput Fixture.appendedRefundIndex)
         )
   it "computes the TopTx declaration for the appended output before updating the body" $
-    topNetBalanceSettling (TopTxRefundToNewOutput Fixture.refundOutput) Fixture.parentRelease
+    topNetBalanceSettling (TopTxRefundToNewOutput Fixture.refundOutput) Fixture.parentMultipleRelease
       `shouldBe` Right
-        ( TopTx.ReleaseUTxODeposit (Fixture.depositAmount 1820) $
+        ( TopTx.ReleaseUTxODeposit (Fixture.depositAmount 750) $
             TopTx.TopTxSettlementOutput Fixture.appendedRefundIndex
         )
   it "computes the SubTx declaration for the appended output before updating the body" $
-    subNetBalance (SubTxRefundToNewOutput Fixture.refundOutput) Fixture.historicalRelease
+    subNetBalance (SubTxRefundToNewOutput Fixture.refundOutput) Fixture.subMultipleRelease
       `shouldBe` Right
         ( SubTx.SubTxReleaseUTxODeposit (Fixture.depositAmount 750) $
             SubTx.SubTxSettlementOutput Fixture.appendedRefundIndex
         )
   it "appends a refund output after the top-up changes allocation into release" $
     updateTxBodyWithNetBalance
-      Fixture.history
+      Fixture.highHistoricalPrice
       Fixture.resolvedInputs
       UTxODepositStrategy
-        { depositTopUp = TopUpFromInput Fixture.currentInput
+        { depositTopUp = TopUpFromInput Fixture.historicalInput
         , depositSettlement = TopTxRefundToNewOutput Fixture.refundOutput
         }
-      Fixture.parentAllocationBeforeRefund
+      Fixture.parentAllocation
       `shouldBe` Right
-        ( Fixture.parentAllocationBeforeRefund
-            & Fixture.withInput Fixture.currentInput
+        ( Fixture.parentAllocation
+            & Fixture.withInput Fixture.historicalInput
             & Fixture.appendOutput Fixture.refundOutput
             & netUTxODepositChangeTxBodyL
               .~ TopTx.DeclaresNetUTxODepositRelease
-                (Fixture.depositAmount 750)
+                (Fixture.depositAmount 1360)
                 (TopTx.TopTxSettlementOutput Fixture.appendedRefundIndex)
         )
   it "rejects a new refund output whose appended index cannot be represented" $
-    topNetBalanceSettling (TopTxRefundToNewOutput Fixture.refundOutput) Fixture.parentAtOutputIndexLimit
+    computeNetBalance
+      Fixture.zeroActivePrice
+      Fixture.resolvedInputs
+      (UTxODepositStrategy TopUpAlreadyIncluded $ TopTxRefundToNewOutput Fixture.refundOutput)
+      Fixture.parentAtOutputIndexLimit
       `shouldBe` Left (RefundOutputIndexOutOfRange 65536)
   it "deducts the new refund output's deposit from the TopTx release" $
     updateTopSettling
@@ -260,7 +322,7 @@ newRefundOutputSpec = describe "refund settlement policy" $ do
     topNetBalanceSettling
       (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput)
       Fixture.settlementLargerThanBatch
-      `shouldBe` Left (RefundOutputConsumesRelease (Coin 750) (Coin 1820))
+      `shouldBe` Left (RefundOutputConsumesRelease (Coin 1500) (Coin 1820))
   it "limits the new output's deposit by the parent's share when it is smaller than the batch release" $ do
     let body = Fixture.parentRelease & Fixture.withChildren [Fixture.localRelease]
     topNetBalanceSettling (TopTxRefundToNewOutput Fixture.depositBackedRefundOutput) body
@@ -294,7 +356,7 @@ updateTopTxSpec = describe "updateTxBodyWithNetBalance" $ do
     updateTopBalance Fixture.mixedBatch
       `shouldBe` Right
         ( Fixture.mixedBatch
-            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 2890)
+            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 2140)
         )
   it "writes the supplied refund target into a release declaration" $
     updateTopBalance Fixture.parentRelease
@@ -357,11 +419,11 @@ topUpTopTxSpec = describe "optional TopTx top-up input" $ do
         )
   it "funds an allocation delegated by a balanced child" $ do
     let body = mkBasicTxBody & Fixture.withChildren [Fixture.delegatedAllocation]
-    updateTopWithCandidate (TopUpFromInput Fixture.currentInput) body
+    updateTopWithCandidate (TopUpFromInput Fixture.historicalInput) body
       `shouldBe` Right
         ( body
-            & Fixture.withInput Fixture.currentInput
-            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresZeroNetUTxODeposit
+            & Fixture.withInput Fixture.historicalInput
+            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 320)
         )
   it "uses the attributed TopTx share even when the batch total is a release" $
     updateTopWithCandidate
@@ -371,14 +433,14 @@ topUpTopTxSpec = describe "optional TopTx top-up input" $ do
         ( Fixture.locallyReleasedBatchWithParentAllocation
             & Fixture.withInput Fixture.minAdaInput
             & netUTxODepositChangeTxBodyL
-              .~ TopTx.DeclaresNetUTxODepositRelease (Fixture.depositAmount 750) TopTx.NoTopTxSettlement
+              .~ TopTx.DeclaresNetUTxODepositRelease (Fixture.depositAmount 1500) TopTx.NoTopTxSettlement
         )
   it "leaves a child's local allocation to that child" $ do
     let body = mkBasicTxBody & Fixture.withChildren [Fixture.localAllocation]
     updateTopWithCandidate (TopUpFromInput Fixture.missingInput) body
       `shouldBe` Right
         ( body
-            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1820)
+            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1070)
         )
   it "ignores an unresolved candidate when TopTx releases a deposit" $
     updateTopWithCandidate (TopUpFromInput Fixture.missingInput) Fixture.parentRelease
@@ -398,7 +460,7 @@ topUpTopTxSpec = describe "optional TopTx top-up input" $ do
     updateTopWithCandidate (TopUpFromInput Fixture.minAdaInput) body
       `shouldBe` Right
         ( body
-            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1820)
+            & netUTxODepositChangeTxBodyL .~ TopTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1070)
         )
   it "includes the candidate's historical release in a pure calculation" $
     computeNetBalance
@@ -427,16 +489,16 @@ topUpSubTxSpec = describe "optional SubTx top-up input" $ do
         ( Fixture.allocation
             & Fixture.withInput Fixture.historicalInput
             & subTxNetUTxODepositChangeTxBodyL
-              .~ SubTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 1070)
+              .~ SubTx.DeclaresNetUTxODepositAllocation (Fixture.depositAmount 320)
         )
   it "writes explicit zero when the candidate's deposit covers the allocation" $
     updateSubWithCandidate
       (TopUpFromInput Fixture.currentInput)
       Fixture.localSettlement
-      Fixture.allocation
+      (Fixture.allocation & inputsTxBodyL .~ mempty)
       `shouldBe` Right
         ( Fixture.allocation
-            & Fixture.withInput Fixture.currentInput
+            & inputsTxBodyL .~ Set.singleton Fixture.currentInput
             & subTxNetUTxODepositChangeTxBodyL .~ SubTx.DeclaresZeroNetUTxODeposit
         )
   it "changes allocation into a local refund when the top-up releases a larger deposit" $
@@ -483,7 +545,7 @@ topUpSubTxSpec = describe "optional SubTx top-up input" $ do
         , depositSettlement = Fixture.localSettlement
         }
       Fixture.allocation
-      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 1070)
+      `shouldBe` Right (SubTx.SubTxAllocateUTxODeposit $ Fixture.depositAmount 320)
   it "is idempotent after adding the candidate" $ do
     body <-
       expectRight $

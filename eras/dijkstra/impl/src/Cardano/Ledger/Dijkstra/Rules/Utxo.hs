@@ -30,9 +30,9 @@ module Cardano.Ledger.Dijkstra.Rules.Utxo (
 
 import qualified Cardano.Ledger.Allegra.Rules as Allegra
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
-import Cardano.Ledger.Alonzo.TxWits (unRedeemersL)
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.BaseTypes (
+  Inject (..),
   Mismatch (..),
   Network,
   Relation (..),
@@ -62,34 +62,29 @@ import qualified Cardano.Ledger.Conway.Rules as Conway
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Credential (StakeReference (..))
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, UTXO)
-import qualified Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting as DepositStore
-import Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral (validateCollateralFunding)
+import qualified Cardano.Ledger.Dijkstra.Rules.DepositStore as DepositStore
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
+  DepositStoreAccountingFailure,
+  delegatedSubTxNetUTxODeposit,
+ )
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreDeclarationFailure (..),
   DepositStoreOutputDeclarationFailure (..),
-  validateTopTxAllocationDeclarationPresence,
-  validateTopTxNetUTxODepositDeclaration,
-  validateTopTxReleaseDeclarationPresence,
  )
-import Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin (validateMinimumCoin)
 import Cardano.Ledger.Dijkstra.Rules.Utxos ()
 import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (
   DijkstraEraUTxO,
-  dijkstraConsumed,
   plutusLegacyModeStAnnTxG,
  )
-import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (OrdExUnits)
 import Cardano.Ledger.Rules.ValidationMode (Test, failOnJustStatic, runTest, runTestOnSignal)
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.Shelley.UTxO (produced)
 import qualified Cardano.Ledger.State.Accounting as Accounting
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
-import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn)
-import Cardano.Ledger.Val (inject)
+import qualified Cardano.Ledger.Val as Val
 import Control.DeepSeq (NFData)
 import Control.Monad (when)
 import Control.Monad.Trans.Reader (asks)
@@ -102,11 +97,11 @@ import Control.State.Transition.Extended (
   judgmentContext,
   liftSTS,
   trans,
-  validate,
  )
 import Data.Bifunctor
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map.NonEmpty (NonEmptyMap)
+import qualified Data.Map.Strict as Map
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word16, Word32)
 import GHC.Generics (Generic)
@@ -187,7 +182,7 @@ data DijkstraUtxoPredFailure era
     MissingTopTxUTxODepositDeclaration
   | -- | This body creates or spends a deposit-backed output without its own UTxO deposit declaration.
     MissingUTxODepositDeclaration
-  | DepositStoreFailure !DepositStore.DepositStoreAccountingFailure
+  | DepositStoreFailure !DepositStoreAccountingFailure
   deriving (Generic)
 
 type instance EraRuleFailure "UTXO" DijkstraEra = DijkstraUtxoPredFailure DijkstraEra
@@ -262,15 +257,14 @@ instance
   ) =>
   NFData (DijkstraUtxoPredFailure era)
 
-depositStoreDeclarationToUtxoPredFailure ::
-  DepositStoreDeclarationFailure -> DijkstraUtxoPredFailure era
-depositStoreDeclarationToUtxoPredFailure = \case
-  MissingTopTxDeclaration -> MissingTopTxUTxODepositDeclaration
+instance Inject DepositStoreDeclarationFailure (DijkstraUtxoPredFailure era) where
+  inject MissingTopTxDeclaration = MissingTopTxUTxODepositDeclaration
 
-depositStoreOutputDeclarationToUtxoPredFailure ::
-  DepositStoreOutputDeclarationFailure -> DijkstraUtxoPredFailure era
-depositStoreOutputDeclarationToUtxoPredFailure MissingBodyUTxODepositDeclaration =
-  MissingUTxODepositDeclaration
+instance Inject DepositStoreOutputDeclarationFailure (DijkstraUtxoPredFailure era) where
+  inject MissingBodyUTxODepositDeclaration = MissingUTxODepositDeclaration
+
+instance Inject DepositStoreAccountingFailure (DijkstraUtxoPredFailure era) where
+  inject = DepositStoreFailure
 
 validateNoPtrInCollateralReturn ::
   ( BabbageEraTxBody era
@@ -285,30 +279,6 @@ validateNoPtrInCollateralReturn txBody = do
         Just collateralReturn
   failOnJustStatic hasCollateralTxOut (injectFailure . PtrPresentInCollateralReturn)
 
--- | Validate collateral if any transaction in the batch has redeemers.
-validateBatchCollateral ::
-  forall era rule.
-  ( AlonzoEraTx era
-  , DijkstraEraTxBody era
-  , InjectRuleFailure rule Alonzo.AlonzoUtxoPredFailure era
-  , InjectRuleFailure rule Babbage.BabbageUtxoPredFailure era
-  ) =>
-  PParams era ->
-  Tx TopTx era ->
-  UTxOStore era ->
-  Test (EraRuleFailure rule era)
-validateBatchCollateral pp tx store
-  | hasBatchRedeemers tx = validateCollateralFunding pp (tx ^. bodyTxL) store
-  | otherwise = pure ()
-
--- | A SubTx's redeemers trigger collateral validation for the complete batch.
-hasBatchRedeemers :: (AlonzoEraTx era, DijkstraEraTxBody era) => Tx TopTx era -> Bool
-hasBatchRedeemers tx =
-  hasRedeemers tx || any hasRedeemers (tx ^. bodyTxL . subTransactionsTxBodyL)
-
-hasRedeemers :: AlonzoEraTx era => Tx l era -> Bool
-hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
-
 -- | Ensure that value consumed and produced matches up exactly,  aggregated across the entire batch
 -- (top-level transaction and all its sub-transactions).
 --
@@ -316,39 +286,41 @@ hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
 validateValueNotConservedUTxO ::
   EraUTxO era =>
   PParams era ->
-  IndexedUTxOs era ->
+  UTxOStore era ->
   PState era ->
   TxBody TopTx era ->
   Test (Mismatch RelEQ (Value era))
-validateValueNotConservedUTxO pp inputAllocations pState txBody =
-  failureUnless (consumedValue == producedValue) $
-    Mismatch
-      { mismatchSupplied = consumedValue
-      , mismatchExpected = producedValue
-      }
-  where
-    consumedValue = dijkstraConsumed pp inputAllocations txBody
-    producedValue = produced pp pState txBody
+validateValueNotConservedUTxO pp store pState =
+  uncurry validateValueBalance . batchConsumedAndProduced pp store pState
 
--- | Legacy self-balance uses TopTx's attributed share, excluding locally
--- accounted SubTx contributions while retaining explicitly delegated amounts.
+batchConsumedAndProduced ::
+  EraUTxO era =>
+  PParams era -> UTxOStore era -> PState era -> TxBody TopTx era -> (Value era, Value era)
+batchConsumedAndProduced pp store pState =
+  consumedAndProducedValue pp (const Nothing) (`Map.member` (pState ^. psStakePoolsL)) store
+
+validateValueBalance :: Eq value => value -> value -> Test (Mismatch RelEQ value)
+validateValueBalance consumed produced =
+  failureUnless (consumed == produced) $ Mismatch consumed produced
+
+-- | TopTx covers its own external Store movement plus the signed amounts
+-- delegated by children. Each child's embedded ADA travels in its own inputs.
 validateLegacyValueNotConservedUTxO ::
   (EraUTxO era, DijkstraEraTxBody era) =>
   PParams era ->
-  IndexedUTxOs era ->
+  UTxOStore era ->
   PState era ->
   TxBody TopTx era ->
   Validation (NonEmpty (Mismatch RelEQ (Value era))) ()
-validateLegacyValueNotConservedUTxO pp inputAllocations pState body =
-  let Coin topTxNetDeposit = DepositStore.attributedTopTxNetUTxODeposit body
-      ordinaryBody =
-        body
-          & subTransactionsTxBodyL .~ mempty
-          & netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
-      consumedValue =
-        dijkstraConsumed pp inputAllocations ordinaryBody <> inject (Coin $ max 0 $ negate topTxNetDeposit)
-      producedValue = produced pp pState ordinaryBody <> inject (Coin $ max 0 topTxNetDeposit)
-   in failureUnless (consumedValue == producedValue) $ Mismatch consumedValue producedValue
+validateLegacyValueNotConservedUTxO pp store pState body =
+  let (consumed, produced) = batchConsumedAndProduced pp store pState (body & subTransactionsTxBodyL .~ mempty)
+      Coin delegated =
+        foldMap
+          (delegatedSubTxNetUTxODeposit . (^. bodyTxL . subTxNetUTxODepositChangeTxBodyL))
+          (body ^. subTransactionsTxBodyL)
+   in validateValueBalance
+        (consumed <> Val.inject (Coin $ max 0 $ negate delegated))
+        (produced <> Val.inject (Coin $ max 0 delegated))
 
 dijkstraUtxoTransition ::
   forall era.
@@ -358,6 +330,7 @@ dijkstraUtxoTransition ::
   , DijkstraEraTxBody era
   , AlonzoEraTx era
   , EraStake era
+  , PredicateFailure (EraRule "UTXO" era) ~ DijkstraUtxoPredFailure era
   , InjectRuleFailure "UTXO" Shelley.ShelleyUtxoPredFailure era
   , InjectRuleFailure "UTXO" Allegra.AllegraUtxoPredFailure era
   , InjectRuleFailure "UTXO" Alonzo.AlonzoUtxoPredFailure era
@@ -388,14 +361,6 @@ dijkstraUtxoTransition = do
 
   let txBody = tx ^. bodyTxL
 
-  runTestOnSignal $
-    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-      validateTopTxAllocationDeclarationPresence txBody
-
-  runTestOnSignal $
-    first (fmap depositStoreDeclarationToUtxoPredFailure) $
-      validateTopTxNetUTxODepositDeclaration txBody
-
   {- inInterval (SlotOf Γ) (ValidIntervalOf txTop) -}
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
@@ -421,22 +386,10 @@ dijkstraUtxoTransition = do
   {- SpendInputsOf txTop ⊆ dom(utxo_s) — prevents double-spend with subtxs -}
   runTest $ Shelley.validateBadInputsUTxO (allocations utxoStore) inputs
 
-  -- Release declaration presence uses the original allocations on both phase-2 paths.
-  runTest $
-    first (fmap depositStoreOutputDeclarationToUtxoPredFailure) $
-      validateTopTxReleaseDeclarationPresence (allocations previousUTxOStore) txBody
-
-  -- Whole-batch exactness uses the original store on both phase-2 paths.
-  -- SubTx changes have already been applied only to the live store.
-  runTest $
-    first (fmap DepositStoreFailure) $
-      DepositStore.validateOrdinaryDepositStore previousUTxOStore txBody
-
   {- minfee pp txTop utxo₀ ≤ txfee txb -}
   runTest $ Shelley.validateFeeTooSmallUTxO pp tx inputAllocations
 
-  {- (RedeemersOf txTop ≠ ∅ ⊎ Any (λ txSub → RedeemersOf txSub ≠ ∅) subtxs) → collateralCheck -}
-  validate $ validateBatchCollateral pp tx previousUTxOStore
+  DepositStore.validateTopTx pp previousUTxOStore tx
 
   -- If the transaction is phase2-invalid, the `produced` value in legacy mode will
   -- wrongly include a deposit for a pool that a sub-transaction already registered,
@@ -451,7 +404,7 @@ dijkstraUtxoTransition = do
       first (fmap Shelley.ValueNotConservedUTxO) $
         validateValueNotConservedUTxO
           pp
-          inputAllocations
+          previousUTxOStore
           originalPState
           txBody
 
@@ -461,16 +414,12 @@ dijkstraUtxoTransition = do
         first (fmap ValueNotConservedInLegacyMode) $
           validateLegacyValueNotConservedUTxO
             pp
-            inputAllocations
+            previousUTxOStore
             postSubsPState
             txBody
 
-  -- Proposed min-ADA outputs, including the collateral return, contain the
-  -- deposit priced by the active Store formula. Existing allocations keep theirs.
-  let allOutputs = fmap sizedValue $ txBody ^. allSizedOutputsTxBodyF
-  runTest $ validateMinimumCoin (Store.currentFormula previousUTxOStore) allOutputs
-
   {- ∀ txout ∈ allOuts txb, serSize (getValue txout) ≤ maxValSize pp -}
+  let allOutputs = fmap sizedValue $ txBody ^. allSizedOutputsTxBodyF
   runTest $ Alonzo.validateOutputTooBigUTxO pp allOutputs
 
   {- ∀ ( _ ↦ (a,_)) ∈ allOuts txb, a ∈ Addrbootstrap → bootstrapAttrsSize a ≤ 64 -}

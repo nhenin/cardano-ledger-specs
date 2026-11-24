@@ -5,7 +5,8 @@
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement.OutputIndex (
   localReleases,
   indexBoundaries,
-  withOutputCounts,
+  fundOutputCounts,
+  childReleases,
   resizeOutputs,
   topOutputCount,
   childAt,
@@ -14,22 +15,33 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Settlement.Ou
   childBodyId,
 ) where
 
-import Cardano.Ledger.Coin (Coin (..))
+import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.TxIn (TxId)
+import Cardano.Ledger.Val ((<->))
 import Data.Foldable (toList)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedBackingChange,
+  liveOutputStore,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting (
   AccountingScenario,
   bodyOperations,
   scenario,
  )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (isImplicitOutput)
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting (
+  fundAccountingScenario,
+ )
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (readAccountingState)
+import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM, getsPParams, modifyPParams, submitTx_)
 
 -- | TopTx and two children independently release one to three deposits. Every
 -- output is implicit; generated sequence lengths leave room for both boundaries
@@ -51,11 +63,23 @@ localReleases = do
 indexBoundaries :: Gen (Int, Int)
 indexBoundaries = (,) <$> chooseInt (0, 6) <*> chooseInt (1, 6)
 
--- | Change only the implicit ordinary-output sequences of an unsigned proposal.
--- Funding context, source inputs, declarations and the sum of each body's ADA stay fixed.
-withOutputCounts :: Int -> [Int] -> ReleaseTx -> ReleaseTx
-withOutputCounts topCount childCounts proposal =
-  proposal {unsignedTx = resizeOutputs topCount childCounts $ unsignedTx proposal}
+-- | Fund the historical reserves at one ADA each. A zero creation price lets
+-- this index test resize output sequences before and after fee fixup without
+-- changing the backing signed by each owner. Renew the fee input at that price.
+fundOutputCounts :: Int -> [Int] -> AccountingScenario -> ImpTestM DijkstraEra ReleaseTx
+fundOutputCounts topCount childCounts plan = do
+  proposal <- fundAccountingScenario plan
+  modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 0)
+  submitTx_ $ mkBasicTx mkBasicTxBody
+  context <- Pricing.LedgerState <$> readAccountingState <*> getsPParams id
+  pure $ ReleaseTx context $ resizeOutputs topCount childCounts (unsignedTx proposal)
+
+childReleases :: ReleaseTx -> [Coin]
+childReleases proposal =
+  let store = liveOutputStore $ Pricing.accountingState $ ledgerState proposal
+   in map ((mempty <->) . expectedBackingChange store . (^. bodyTxL)) $
+        OMap.elems $
+          unsignedTx proposal ^. bodyTxL . subTransactionsTxBodyL
 
 -- | Redistribute each body's application ADA across its requested own sequence.
 -- Call before fee preparation to reserve the desired serialized output space;

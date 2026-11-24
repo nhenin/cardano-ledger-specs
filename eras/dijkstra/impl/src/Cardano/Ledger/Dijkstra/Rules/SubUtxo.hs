@@ -41,12 +41,10 @@ import Cardano.Ledger.Dijkstra.Era (
   DijkstraEra,
   SUBUTXO,
  )
+import qualified Cardano.Ledger.Dijkstra.Rules.DepositStore as DepositStore
 import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
   DepositStoreOutputDeclarationFailure (..),
-  validateSubTxAllocationDeclarationPresence,
-  validateSubTxReleaseDeclarationPresence,
  )
-import Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin (validateMinimumCoin)
 import Cardano.Ledger.Dijkstra.Rules.Utxo (
   DijkstraUtxoPredFailure (..),
   conwayToDijkstraUtxoPredFailure,
@@ -64,7 +62,7 @@ import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
 import Control.State.Transition.Extended
-import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty (NonEmpty)
 import Data.Set.NonEmpty (NonEmptySet)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
@@ -221,10 +219,8 @@ instance
 
   transitionRules = [dijkstraSubUtxoTransition @era]
 
-depositStoreOutputDeclarationToSubUtxoPredFailure ::
-  DepositStoreOutputDeclarationFailure -> DijkstraSubUtxoPredFailure era
-depositStoreOutputDeclarationToSubUtxoPredFailure MissingBodyUTxODepositDeclaration =
-  SubMissingUTxODepositDeclaration
+instance Inject DepositStoreOutputDeclarationFailure (DijkstraSubUtxoPredFailure era) where
+  inject MissingBodyUTxODepositDeclaration = SubMissingUTxODepositDeclaration
 
 dijkstraSubUtxoTransition ::
   forall era.
@@ -247,9 +243,6 @@ dijkstraSubUtxoTransition = do
 
   let txBody = tx ^. bodyTxL
 
-  validateTransLabeled depositStoreOutputDeclarationToSubUtxoPredFailure (lblStatic :| []) $
-    validateSubTxAllocationDeclarationPresence txBody
-
   runTest $ Allegra.validateOutsideValidityIntervalUTxO slot txBody
 
   sysSt <- liftSTS $ asks systemStart
@@ -262,20 +255,12 @@ dijkstraSubUtxoTransition = do
 
   runTest $ Shelley.validateInputSetEmptyUTxO txBody
 
-  let inputs = txBody ^. inputsTxBodyL
-  runTest $
-    Shelley.validateBadInputsUTxO (allocations . asUTxOStore . lsAccountingState $ ledgerState) inputs
-
-  -- Check releases against the allocations from before any SubTx executed.
-  validateTrans depositStoreOutputDeclarationToSubUtxoPredFailure $
-    validateSubTxReleaseDeclarationPresence originalAllocations txBody
+  let store = asUTxOStore $ lsAccountingState ledgerState
+  runTest $ Shelley.validateBadInputsUTxO (allocations store) (txBody ^. inputsTxBodyL)
 
   runTestOnSignal $ Shelley.validateOutputBootAddrAttrsTooBig allOutputs
 
-  runTest $
-    validateMinimumCoin
-      (Store.currentFormula . asUTxOStore . lsAccountingState $ ledgerState)
-      allOutputs
+  DepositStore.validateSubTx (Store.currentFormula store) originalAllocations txBody
 
   netId <- liftSTS $ asks networkId
   runTestOnSignal $ Shelley.validateWrongNetwork netId allOutputs

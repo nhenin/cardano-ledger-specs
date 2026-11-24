@@ -18,6 +18,7 @@ import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val
+import Data.Default (def)
 import Data.Foldable
 import qualified Data.Map.Strict as Map
 import Data.MapExtras as Map (extract)
@@ -149,7 +150,7 @@ propEvalBalanceTxBody ::
 propEvalBalanceTxBody pp certState utxo = do
   property $
     forAll (genTxBodyFrom @_ @TopTx certState utxo) $ \txBody ->
-      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId utxo txBody
+      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId (mkUTxOStore def utxo) txBody
         `shouldBe` evaluateTransactionBalance pp certState utxo txBody
   where
     lookupKeyDeposit = lookupDepositDState (certState ^. certDStateL)
@@ -164,7 +165,7 @@ propEvalBalanceShelleyTxBody ::
 propEvalBalanceShelleyTxBody pp certState utxo =
   property $
     forAll (genTxBodyFrom @_ @TopTx certState utxo) $ \txBody ->
-      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId utxo txBody
+      evalBalanceTxBody pp lookupKeyDeposit isRegPoolId (mkUTxOStore def utxo) txBody
         `shouldBe` evaluateTransactionBalanceShelley pp certState utxo txBody
   where
     lookupKeyDeposit = lookupDepositDState (certState ^. certDStateL)

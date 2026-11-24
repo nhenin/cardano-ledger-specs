@@ -27,11 +27,11 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Ba
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Mary.Value (AssetName (..), MaryValue (..), MultiAsset (..))
+import Cardano.Ledger.State (UTxOStore)
+import qualified Cardano.Ledger.State as Store
 import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (lookupUTxO)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
-import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val (isAdaOnly, (<->)), inject)
 import Data.Foldable (toList)
@@ -41,6 +41,7 @@ import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (externalDepositChange)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting (
   AccountingScenario,
   bodyOperations,
@@ -58,20 +59,22 @@ data Balance = Balance
 -- | Sum resolved application inputs and proposed outputs directly, without the
 -- production consumed/produced or deposit-accounting helpers. Missing or repeated
 -- ordinary inputs are fixture errors, not silently omitted values.
-balance :: IndexedUTxOs DijkstraEra -> Tx TopTx DijkstraEra -> Balance
-balance sources tx =
+balance :: UTxOStore DijkstraEra -> Tx TopTx DijkstraEra -> Balance
+balance store tx =
   let children = OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL
       inputs =
         toList (tx ^. bodyTxL . inputsTxBodyL) <> concatMap (toList . (^. bodyTxL . inputsTxBodyL)) children
-      inputValues = map (inputValue sources) inputs
+      inputValues = map (inputValue $ Store.allocations store) inputs
       outputValues = outputsValue tx <> foldMap outputsValue children
-      Coin declared = declaredChange $ tx ^. bodyTxL . netUTxODepositChangeTxBodyL
+      Coin movement =
+        externalDepositChange store (tx ^. bodyTxL)
+          <> foldMap (externalDepositChange store . (^. bodyTxL)) children
    in if Set.size (Set.fromList inputs) /= length inputs
         then error "Balance oracle requires distinct ordinary inputs across bodies"
         else
           Balance
-            (foldMap id inputValues <> inject (Coin $ max 0 $ negate declared))
-            (outputValues <> inject (tx ^. bodyTxL . feeTxBodyL) <> inject (Coin $ max 0 declared))
+            (foldMap id inputValues <> inject (Coin $ max 0 $ negate movement))
+            (outputValues <> inject (tx ^. bodyTxL . feeTxBodyL) <> inject (Coin $ max 0 movement))
 
 -- | Look up an actual funded input; an unresolved input cannot establish balance.
 inputValue :: IndexedUTxOs DijkstraEra -> TxIn -> MaryValue
@@ -85,21 +88,12 @@ outputsValue :: Tx l DijkstraEra -> MaryValue
 outputsValue tx = foldMap outputValue $ tx ^. bodyTxL . outputsTxBodyL
 
 -- | Read application assets from either output form. A recorded Store deposit
--- is external to these values and enters the equation through TopTx's total.
+-- is external to these values and enters the equation through the actual Store movement.
 outputValue :: TxOut DijkstraEra -> MaryValue
 outputValue (MinAdaTxOut output) = output ^. valueTxOutL
 outputValue (DepositBackedTxOut output) =
   case output ^. applicationAssetsTxOutL of
     ApplicationAssets assets -> assets
-
--- | Interpret the supplied declaration directly. Every balance scenario supplies
--- an explicit total; absence is not silently treated as an explicit zero.
-declaredChange :: TopTx.TopTxUTxODepositDeclaration -> Coin
-declaredChange declaration = case declaration of
-  TopTx.DeclaresNetUTxODepositAllocation amount -> unStrictlyPositiveCoin amount
-  TopTx.DeclaresNetUTxODepositRelease amount _ -> Coin 0 <-> unStrictlyPositiveCoin amount
-  TopTx.DeclaresZeroNetUTxODeposit -> Coin 0
-  TopTx.NoUTxODepositDeclaration -> error "Balance scenarios require an explicit TopTx declaration"
 
 -- | Equality of complete values, including native assets as well as ADA.
 isBalanced :: Balance -> Bool

@@ -2,6 +2,7 @@
 
 ## 1.23.0.1
 
+* Add `consumedAndProducedValue` for financial balance with the original Store. It combines ordinary consumed and produced values with the era's `getNetUTxOStoreChange`.
 * Rename `LegacyTxOut` to `MinAdaTxOut` and `NewTxOut` to `DepositBackedTxOut`, including their era classes, payload builders, lenses and `NoDepositBackedTxOut`. Use `mkBasicTxOutWithMinAda`, `mkBasicTxOutWithDeposit`, `getDepositTxOut` and `IndexedUTxOs.fromMinAdaTxOuts`. This API naming change preserves output encodings and deposit accounting.
 * Reject V2-to-V1 downgrades in `Store.activateNewFormula`; allow rate increases and decreases within the active version while retaining historical formulas.
 * Return `TxProjected {updatedStore, consumedOutputs, producedOutputs}` from `Store.projectTx` and both internal body projections. Report only actually inserted outputs, excluding retained collisions. Add `State.Accounting.InstantStake.updateInstantStake` to apply these consumed/produced entries independently of Store projection. Existing ledger events retain their entry-only payload.

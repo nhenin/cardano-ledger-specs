@@ -46,7 +46,7 @@ import Lens.Micro
 import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (expectedOutputDeposit)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (expectedOutputBacking)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (isImplicitOutput)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
@@ -81,7 +81,7 @@ data Scenario = Scenario
 -- are independently priced from the exact selected output supplied to the ledger.
 data Fixture = Fixture
   { proposal :: ReleaseTx
-  , allocatedDeposit :: Coin
+  , signedBacking :: Coin
   , requiredMinimum :: Coin
   }
   deriving (Show)
@@ -156,6 +156,9 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
         & bodyTxL . outputsTxBodyL .~ SSeq.singleton source
   impGetUTxO (txInAt (0 :: Int) funding) >>= (`shouldBe` source)
   output <- outputForScenario generated address $ MaryValue (Coin 0) assets
+  parentInputs <- case body of
+    TopTxOutput -> pure Set.empty
+    SubTxOutput -> Set.singleton <$> sendCoinTo address (Coin 20_000_000)
   let balanceOutput = mkBasicTxOutWithMinAda address $ inject $ Coin 20_000_000
       ownBody =
         mkBasicTx mkBasicTxBody
@@ -165,6 +168,7 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
         TopTxOutput -> ownBody
         SubTxOutput ->
           mkBasicTx mkBasicTxBody
+            & bodyTxL . inputsTxBodyL .~ parentInputs
             & bodyTxL . outputsTxBodyL .~ SSeq.singleton balanceOutput
             & bodyTxL . subTransactionsTxBodyL
               .~ OMap.fromFoldable
@@ -172,11 +176,13 @@ fund generated@Scenario {body, content, depositFormula, sourceCoins} = do
                     (Set.singleton $ txInAt (0 :: Int) funding)
                     [balanceOutput, output]
                 ]
-      allocation = expectedOutputDeposit depositFormula output
+      netBacking =
+        (expectedOutputBacking depositFormula output <> expectedOutputBacking depositFormula balanceOutput)
+          <-> expectedOutputBacking depositFormula source
       minimumAmount = minimumCoins depositFormula output
   state <- Release.readAccountingState
   output ^. coinTxOutL `shouldBe` minimumAmount
-  pure $ Fixture (ReleaseTx (Pricing.LedgerState state parameters) tx) allocation minimumAmount
+  pure $ Fixture (ReleaseTx (Pricing.LedgerState state parameters) tx) netBacking minimumAmount
 
 -- | Construct an undeclared body with its supplied input ownership and output order.
 bodyWithOutputs :: Typeable l => Set.Set TxIn -> [TxOut DijkstraEra] -> Tx l DijkstraEra
@@ -215,13 +221,7 @@ withDatum generated =
 -- assets, datum and script. Its ADA does not participate in that calculation.
 minimumCoins :: DepositFormula -> TxOut DijkstraEra -> Coin
 minimumCoins _ (DepositBackedTxOut _) = Coin 0
-minimumCoins pricing output@(MinAdaTxOut legacy) =
-  expectedOutputDeposit pricing $
-    mkBasicTxOutWithDeposit
-      (output ^. addrTxOutL)
-      (ApplicationAssets $ legacy ^. valueTxOutL)
-      & datumTxOutL .~ (output ^. datumTxOutL)
-      & referenceScriptTxOutL .~ (output ^. referenceScriptTxOutL)
+minimumCoins pricing output = expectedOutputBacking pricing output
 
 -- | Place the required reserve directly in the min-ADA output. No serialization
 -- fixed point is needed: the formula does not price its ADA amount or encoding.

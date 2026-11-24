@@ -20,7 +20,7 @@ import Cardano.Ledger.Dijkstra.Rules (
   DijkstraUtxoPredFailure (..),
  )
 import qualified Cardano.Ledger.Dijkstra.Rules as Rules
-import Cardano.Ledger.Val (inject)
+import Cardano.Ledger.Val (inject, (<->))
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Maybe (listToMaybe)
 import Data.Maybe.Strict (StrictMaybe (..))
@@ -76,9 +76,9 @@ spec =
     -- Rejection preserves the valid control, which is accepted afterward.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F01 - index = |ownOutputs(body)| ⇒ rejectedWith(InvalidSettlementOutput)" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts count [count, count] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
-            childReleases = SubTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts count [count, count] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
+            childReleases = Index.childReleases proposal
         control <- Balance.buildAndSignTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
@@ -99,9 +99,9 @@ spec =
     -- An existing TopTx output cannot satisfy a child's missing own index.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F02 - |ownOutputs(subTx)| ≤ index < |ownOutputs(topTx)| ⇒ rejectedWith(InvalidSettlementOutput(subTx))" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts (count + 1) [count, count] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
-            childReleases = SubTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts (count + 1) [count, count] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
+            childReleases = Index.childReleases proposal
         control <- Balance.buildAndSignTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
@@ -120,9 +120,9 @@ spec =
     -- outputs, but that reference is not an ordinary settlement destination.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F03 - collateralReturn ≠ ∅ ∧ index = |ownOutputs(topTx)| ⇒ rejectedWith(InvalidSettlementOutput(topTx))" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts count [count, count] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
-            childReleases = SubTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts count [count, count] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
+            childReleases = Index.childReleases proposal
         control <- Balance.buildAndSignPhase2InvalidTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
@@ -142,7 +142,7 @@ spec =
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F04 - ownOutputs(subTx) = ∅ ∧ releasedDeposits(subTx) > 0 ∧ localIndex = 0 ⇒ rejectedWith(InvalidSettlementOutput(subTx))" $
       forAll Settlement.finalInputsWithoutOutputs $ \scenario -> do
         proposal <- Settlement.withoutSubTxOutputs <$> fundAccountingScenario scenario
-        let Coin released = TopTx.releasedDeposits proposal
+        let Coin released = mempty <-> TopTx.netDeposit proposal
         control <- Release.buildAndSignTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount released) (TopTx.TopTxSettlementOutput $ TxIx 0))
@@ -161,25 +161,25 @@ spec =
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-N01 - |ownOutputs(body)| > 0 ∧ index ∈ {0, |ownOutputs(body)| - 1} ⇒ accepted" $
       forAll Index.localReleases $ \(scenario, count) ->
         forM_ [0, count - 1] $ \position -> do
-          proposal <- Index.withOutputCounts count [count, count] <$> fundAccountingScenario scenario
-          let Coin totalRelease = TopTx.releasedDeposits proposal
+          proposal <- Index.fundOutputCounts count [count, count] scenario
+          let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
               index = TxIx $ fromIntegral position
           Balance.buildAndSignTx (TopTx.addDeclaration
             (Declarations
               (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput index))
-              [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput index) | Coin amount <- SubTx.releasedDeposits proposal]) proposal)
+              [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput index) | Coin amount <- Index.childReleases proposal]) proposal)
             >>= Balance.resignTx . Index.resizeOutputs count [count, count]
             >>= submitTx >>= isAccepted
 
     -- A nested child's larger output sequence does not extend TopTx's sequence.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F05 - |ownOutputs(topTx)| ≤ index < |ownOutputs(subTx)| ⇒ rejectedWith(InvalidSettlementOutput(topTx))" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts count [count + 1, count] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts count [count + 1, count] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
         control <- Balance.buildAndSignTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
-            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput $ TxIx 0) | Coin amount <- SubTx.releasedDeposits proposal]) proposal)
+            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput $ TxIx 0) | Coin amount <- Index.childReleases proposal]) proposal)
           >>= Balance.resignTx . Index.resizeOutputs count [count + 1, count]
         let index = TxIx $ fromIntegral count
         (Index.topOutputCount control, Index.childOutputCount 0 control) `shouldBe` (count, count + 1)
@@ -193,9 +193,9 @@ spec =
     -- children release deposits in the same globally balanced transaction.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F06 - |ownOutputs(subTx)| ≤ index < |ownOutputs(sibling)| ⇒ rejectedWith(InvalidSettlementOutput(subTx))" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts count [count, count + 1] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
-            childReleases = SubTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts count [count, count + 1] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
+            childReleases = Index.childReleases proposal
         control <- Balance.buildAndSignTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
@@ -214,13 +214,13 @@ spec =
     -- The selected ordinary outputs are proposals; their creation does not execute.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-N02 - phase2 = invalid ∧ ∀ body: 0 ≤ selectedIndex(body) < |ownOutputs(body)| ⇒ accepted" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts count [count, count] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts count [count, count] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
             index = TxIx $ fromIntegral $ count - 1
         Balance.buildAndSignPhase2InvalidTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput index))
-            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput index) | Coin amount <- SubTx.releasedDeposits proposal]) proposal)
+            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount amount) (SubTx.SubTxSettlementOutput index) | Coin amount <- Index.childReleases proposal]) proposal)
           >>= Balance.resignTx . Index.resizeOutputs count [count, count]
           >>= submitTx >>= isAccepted
 
@@ -228,9 +228,9 @@ spec =
     -- on the phase-2 failure path. Only the index changes; collateral stays valid.
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-F07 - phase2 = invalid ∧ selectedIndex(body) = |ownOutputs(body)| ⇒ rejectedWith(InvalidSettlementOutput)" $
       forAll Index.localReleases $ \(scenario, count) -> do
-        proposal <- Index.withOutputCounts count [count, count] <$> fundAccountingScenario scenario
-        let Coin totalRelease = TopTx.releasedDeposits proposal
-            childReleases = SubTx.releasedDeposits proposal
+        proposal <- Index.fundOutputCounts count [count, count] scenario
+        let Coin totalRelease = mempty <-> TopTx.netDeposit proposal
+            childReleases = Index.childReleases proposal
         control <- Balance.buildAndSignPhase2InvalidTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount totalRelease) (TopTx.TopTxSettlementOutput $ TxIx 0))
@@ -253,7 +253,7 @@ spec =
     prop "DS-TX-SETTLEMENT-OUTPUT-INDEX-N03 - ownOutputs(subTx) = ∅ ∧ releasedDeposits(subTx) > 0 ∧ delegatesReleaseToTopTx ⇒ accepted" $
       forAll Settlement.finalInputsWithoutOutputs $ \scenario -> do
         proposal <- Settlement.withoutSubTxOutputs <$> fundAccountingScenario scenario
-        let Coin released = TopTx.releasedDeposits proposal
+        let Coin released = mempty <-> TopTx.netDeposit proposal
         signedTx <- Release.buildAndSignTx (TopTx.addDeclaration
           (Declarations
             (TopTx.DeclaresNetUTxODepositRelease (positiveAmount released) (TopTx.TopTxSettlementOutput $ TxIx 0))

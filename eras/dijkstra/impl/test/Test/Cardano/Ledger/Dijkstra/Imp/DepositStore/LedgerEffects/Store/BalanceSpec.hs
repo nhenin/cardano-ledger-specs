@@ -34,13 +34,17 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted, submitTx)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
+  fundFixtureTx,
+  isAccepted,
+  prepareFixtureFunding,
+  submitTx,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   ordinarySpendingInputs,
   readAccountingState,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest (
-  fixupTx,
   freshKeyAddrNoPtr_,
   freshKeyHash,
   getCurSlotNo,
@@ -50,7 +54,6 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (
   modifyPParams,
   passTick,
  )
-import qualified Test.Cardano.Ledger.Dijkstra.ImpTest as Imp
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 
 {- FOURMOLU_DISABLE -}
@@ -109,11 +112,10 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       address <- freshKeyAddrNoPtr_
       let recordedDeposit = Coin $ 1000 * 250
           source = txInAt 0 allocationTx
-      spendingTx <- fixupTx $
-        Pricing.declareNetDeposit (Coin 0 <-> recordedDeposit) $
-          mkBasicTx mkBasicTxBody
-            & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin coins)
+      spendingTx <- prepareFixtureFunding $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . inputsTxBodyL .~ Set.singleton source
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin coins)
       previousStore <- liveOutputStore <$> readAccountingState
       Map.lookup source (recordedAmounts previousStore) `shouldBe` Just recordedDeposit
       submitTx spendingTx >>= isAccepted
@@ -156,11 +158,10 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       parameters <- getsNES $ nesEsL . curPParamsEpochStateL
       let output = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject $ Coin coins
           newDeposit = Pricing.outputDeposit parameters output
-      signedTx <- fixupTx $
-        Pricing.declareNetDeposit (newDeposit <-> releases) $
-          mkBasicTx mkBasicTxBody
-            & bodyTxL . inputsTxBodyL .~ Set.fromList [oldInput, newerInput]
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
+      signedTx <- prepareFixtureFunding $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . inputsTxBodyL .~ Set.fromList [oldInput, newerInput]
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
       submitTx signedTx >>= isAccepted
       after <- readAccountingState
       retainsCreationMetadata (txInAt 0 signedTx) (CoinPerByte $ CompactCoin 3000) after
@@ -182,11 +183,10 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 2000)
       address <- freshKeyAddrNoPtr_
       let release = Coin $ 1000 * 250
-      spendingTx <- fixupTx $
-        Pricing.declareNetDeposit (Coin 0 <-> release) $
-          mkBasicTx mkBasicTxBody
-            & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin coins)
+      spendingTx <- prepareFixtureFunding $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . inputsTxBodyL .~ Set.singleton source
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject $ Coin coins)
       submitTx spendingTx >>= isAccepted
       after <- readAccountingState
       assertDepositTotal after
@@ -211,11 +211,10 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       Effects.restoreAccountingState before
       modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin $ fromInteger $ 3 * currentPrice)
       address <- freshKeyAddrNoPtr_
-      spendingTx <- fixupTx $
-        Pricing.declareNetDeposit (Coin 0 <-> release) $
-          mkBasicTx mkBasicTxBody
-            & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ unAssets $ sumAllAssets [returned])
+      spendingTx <- prepareFixtureFunding $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . inputsTxBodyL .~ Set.singleton source
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ unAssets $ sumAllAssets [returned])
       submitTx spendingTx >>= isAccepted
       after <- readAccountingState
       assertDepositTotal after
@@ -233,29 +232,27 @@ spec = describe "DS-STATE-BALANCE - Store balance" $ do
       let assets = multiAssetFromList [(policy, AssetName "A", quantity), (policy, AssetName "B", 1)]
           value = MaryValue (Coin 50000000) assets
           output = mkBasicTxOutWithDeposit address $ ApplicationAssets value
-          allocateAt amount = Imp.submitTx $
-            Pricing.declareNetDeposit amount $
-              mkBasicTx mkBasicTxBody
-                & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
-                & bodyTxL . mintTxBodyL .~ assets
+          allocate = fundFixtureTx $
+            mkBasicTx mkBasicTxBody
+              & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
+              & bodyTxL . mintTxBodyL .~ assets
           v1 = Coin $ 4310 * (250 + 74 * 2)
           v2 = Coin $ 4310 * (260 + 80 * 2)
-      oldTx <- allocateAt v1
+      oldTx <- allocate
       passTick
       activationSlot <- getCurSlotNo
       modifyNES $ utxoStoreL %~ activateNewFormula activationSlot (DepositFormulaV2 rate)
-      newTx <- allocateAt v2
+      newTx <- allocate
       readAccountingState >>= Effects.restoreAccountingState
       before <- liveOutputStore <$> readAccountingState
       let oldInput = txInAt 0 oldTx
           newInput = txInAt 0 newTx
           inputs = Set.fromList [oldInput, newInput]
       Map.restrictKeys (recordedAmounts before) inputs `shouldBe` Map.fromList [(oldInput, v1), (newInput, v2)]
-      signed <- fixupTx $
-        Pricing.declareNetDeposit (Coin 0 <-> (v1 <> v2)) $
-          mkBasicTx mkBasicTxBody
-            & bodyTxL . inputsTxBodyL .~ inputs
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address (value <> value))
+      signed <- prepareFixtureFunding $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . inputsTxBodyL .~ inputs
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address (value <> value))
       submitTx signed >>= isAccepted
       after <- readAccountingState
       storedDepositTotal (liveOutputStore after) `shouldBe` storedDepositTotal before <-> (v1 <> v2)

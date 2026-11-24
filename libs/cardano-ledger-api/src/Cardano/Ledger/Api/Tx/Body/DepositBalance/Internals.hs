@@ -2,9 +2,8 @@
 
 -- | Internal preparation, accounting and declaration construction.
 module Cardano.Ledger.Api.Tx.Body.DepositBalance.Internals (
-  prepareTopTxBody,
-  topTxNetBalance,
-  writeTopTxNetBalance,
+  balanceTopTx,
+  applyTopTxNetBalance,
   prepareSubTxBody,
   subTxNetBalance,
   writeSubTxNetBalance,
@@ -24,7 +23,8 @@ import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Rules (
   declaredSubTxNetUTxODeposit,
   locallyAccountedSubTxNetUTxODeposit,
-  requiredUTxODeposit,
+  netUTxOBacking,
+  requiredUTxOBacking,
  )
 import Cardano.Ledger.Dijkstra.TxBody (
   netUTxODepositChangeTxBodyL,
@@ -33,13 +33,13 @@ import Cardano.Ledger.Dijkstra.TxBody (
  )
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
-import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormulaHistory, latestFormula, toCoin)
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormulaHistory, latestFormula)
 import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, mkStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val ((<->))
-import Data.Foldable (find)
+import Data.Foldable (find, toList)
 import Data.Maybe (fromJust)
 import qualified Data.Sequence.Strict as SSeq
 import Data.Set (Set)
@@ -47,16 +47,21 @@ import qualified Data.Set as Set
 import Lens.Micro ((%~), (&), (.~), (^.))
 import Lens.Micro.Extras (view)
 
-prepareTopTxBody ::
+balanceTopTx ::
   DepositFormulaHistory ->
   IndexedUTxOs DijkstraEra ->
   UTxODepositStrategy (TopTxDepositSettlement DijkstraEra) ->
   TxBody TopTx DijkstraEra ->
-  Either NetBalanceError (TxBody TopTx DijkstraEra)
-prepareTopTxBody history utxos strategy body = do
-  spent <- prepareTopTxInputs history utxos (depositTopUp strategy) body
-  prepareTopTxRefund history (depositSettlement strategy) spent $
-    body & inputsTxBodyL .~ IndexedUTxOs.inputIds spent
+  Either NetBalanceError (TxBody TopTx DijkstraEra, TopTx.NetUTxODepositChange)
+balanceTopTx history utxos strategy body = do
+  children <- subTxBackingTotal history utxos body
+  spent <- prepareTopTxInputs history utxos (depositTopUp strategy) children body
+  let settlement = depositSettlement strategy
+      batchBacking txBody = netUTxOBacking history txBody spent <> children
+      fundedBody = body & inputsTxBodyL .~ IndexedUTxOs.inputIds spent
+  prepared <- prepareTopTxRefund history settlement (batchBacking fundedBody) fundedBody
+  change <- topTxDepositChange prepared settlement (batchBacking prepared)
+  pure (prepared, change)
 
 prepareSubTxBody ::
   DepositFormulaHistory ->
@@ -73,11 +78,12 @@ prepareTopTxInputs ::
   DepositFormulaHistory ->
   IndexedUTxOs DijkstraEra ->
   DepositTopUp ->
+  Coin ->
   TxBody TopTx DijkstraEra ->
   Either NetBalanceError (IndexedUTxOs DijkstraEra)
-prepareTopTxInputs history utxos topUp body = do
+prepareTopTxInputs history utxos topUp children body = do
   spent <- resolveSpendingInputs utxos body
-  let total = batchNetDeposit history body spent
+  let total = netUTxOBacking history body spent <> children
   fundDeposit utxos (subTxSpendingInputs body) topUp (topTxDepositShare body total) spent
 
 prepareSubTxInputs ::
@@ -92,7 +98,7 @@ prepareSubTxInputs history utxos strategy body = do
     utxos
     mempty
     (depositTopUp strategy)
-    (subTxFundingRequirement (depositSettlement strategy) $ netDeposit history body spent)
+    (subTxFundingRequirement (depositSettlement strategy) $ netUTxOBacking history body spent)
     spent
 
 resolveSpendingInputs ::
@@ -130,27 +136,17 @@ fundDeposit utxos childInputs (TopUpFromInput input) required spent
 prepareTopTxRefund ::
   DepositFormulaHistory ->
   TopTxDepositSettlement DijkstraEra ->
-  IndexedUTxOs DijkstraEra ->
-  TxBody TopTx DijkstraEra ->
-  Either NetBalanceError (TxBody TopTx DijkstraEra)
-prepareTopTxRefund history (TopTxRefundToNewOutput output) spent body =
-  appendTopTxRefund history output (batchNetDeposit history body spent) body
-prepareTopTxRefund _ _ _ body = Right body
-
-appendTopTxRefund ::
-  DepositFormulaHistory ->
-  TxOut DijkstraEra ->
   Coin ->
   TxBody TopTx DijkstraEra ->
   Either NetBalanceError (TxBody TopTx DijkstraEra)
-appendTopTxRefund history output total body
+prepareTopTxRefund history (TopTxRefundToNewOutput output) total body
   | total < mempty && topTxDepositShare body total < mempty =
       appendRefundOutput
         history
         (min (mempty <-> total) (mempty <-> topTxDepositShare body total))
         output
         body
-  | otherwise = Right body
+prepareTopTxRefund _ _ _ body = Right body
 
 prepareSubTxRefund ::
   DepositFormulaHistory ->
@@ -159,7 +155,7 @@ prepareSubTxRefund ::
   TxBody SubTx DijkstraEra ->
   Either NetBalanceError (TxBody SubTx DijkstraEra)
 prepareSubTxRefund history (SubTxRefundToNewOutput output) spent body =
-  let amount = netDeposit history body spent
+  let amount = netUTxOBacking history body spent
    in if amount < mempty
         then appendRefundOutput history (mempty <-> amount) output body
         else Right body
@@ -172,7 +168,7 @@ appendRefundOutput ::
   TxBody txLevel DijkstraEra ->
   Either NetBalanceError (TxBody txLevel DijkstraEra)
 appendRefundOutput history available output body = do
-  validateRefundDeposit available $ requiredUTxODeposit (latestFormula history) output
+  validateRefundDeposit available $ requiredUTxOBacking (latestFormula history) output
   _ <- refundOutputIndex $ length (body ^. outputsTxBodyL)
   Right $ body & outputsTxBodyL %~ (SSeq.|> output)
 
@@ -185,16 +181,6 @@ refundOutputIndex :: Int -> Either NetBalanceError TxIx
 refundOutputIndex count =
   maybe (Left $ RefundOutputIndexOutOfRange count) Right $ txIxFromIntegral count
 
-topTxNetBalance ::
-  DepositFormulaHistory ->
-  IndexedUTxOs DijkstraEra ->
-  TopTxDepositSettlement DijkstraEra ->
-  TxBody TopTx DijkstraEra ->
-  Either NetBalanceError TopTx.NetUTxODepositChange
-topTxNetBalance history utxos settlement body =
-  (topTxDepositChange body settlement . batchNetDeposit history body)
-    =<< resolveSpendingInputs utxos body
-
 subTxNetBalance ::
   DepositFormulaHistory ->
   IndexedUTxOs DijkstraEra ->
@@ -202,34 +188,35 @@ subTxNetBalance ::
   TxBody SubTx DijkstraEra ->
   Either NetBalanceError SubTx.SubTxNetUTxODepositChange
 subTxNetBalance history utxos settlement body =
-  (subTxDepositChange body settlement . netDeposit history body)
+  (subTxDepositChange body settlement . netUTxOBacking history body)
     =<< resolveSpendingInputs utxos body
 
-batchNetDeposit ::
-  DepositFormulaHistory -> TxBody TopTx DijkstraEra -> IndexedUTxOs DijkstraEra -> Coin
-batchNetDeposit history body =
-  (<> subTxDepositTotal declaredSubTxNetUTxODeposit body) . netDeposit history body
-
--- | New outputs use the active formula, spent outputs their allocation history.
--- Min-ADA reserves, reference inputs and collateral contribute no ordinary deposit.
-netDeposit ::
+-- Explicit children have already signed their contributions. A minimum-ADA
+-- child may omit its declaration, so recover its contribution from its body.
+subTxBackingTotal ::
   DepositFormulaHistory ->
-  TxBody txLevel DijkstraEra ->
   IndexedUTxOs DijkstraEra ->
-  Coin
-netDeposit history body =
-  (foldMap (requiredUTxODeposit $ latestFormula history) (body ^. outputsTxBodyL) <->)
-    . toCoin
-    . IndexedUTxOs.sumDepositAmounts history
-
-subTxDepositTotal ::
-  (SubTx.SubTxUTxODepositDeclaration -> Coin) -> TxBody TopTx DijkstraEra -> Coin
-subTxDepositTotal contribution =
-  foldMap (contribution . view (bodyTxL . subTxNetUTxODepositChangeTxBodyL))
+  TxBody TopTx DijkstraEra ->
+  Either NetBalanceError Coin
+subTxBackingTotal history utxos =
+  fmap mconcat
+    . traverse (subTxBacking history utxos . view bodyTxL)
+    . toList
     . view subTransactionsTxBodyL
 
+subTxBacking ::
+  DepositFormulaHistory ->
+  IndexedUTxOs DijkstraEra ->
+  TxBody SubTx DijkstraEra ->
+  Either NetBalanceError Coin
+subTxBacking history utxos body = case body ^. subTxNetUTxODepositChangeTxBodyL of
+  SubTx.NoUTxODepositDeclaration -> netUTxOBacking history body <$> resolveSpendingInputs utxos body
+  declaration -> Right $ declaredSubTxNetUTxODeposit declaration
+
 topTxDepositShare :: TxBody TopTx DijkstraEra -> Coin -> Coin
-topTxDepositShare body = (<-> subTxDepositTotal locallyAccountedSubTxNetUTxODeposit body)
+topTxDepositShare body =
+  let localChange = locallyAccountedSubTxNetUTxODeposit . view (bodyTxL . subTxNetUTxODepositChangeTxBodyL)
+   in (<-> foldMap localChange (body ^. subTransactionsTxBodyL))
 
 topTxDepositChange ::
   TxBody TopTx DijkstraEra ->
@@ -298,15 +285,6 @@ resolveDepositOutput :: TxBody txLevel DijkstraEra -> TxIx -> Either NetBalanceE
 resolveDepositOutput body index
   | txIxToInt index < length (body ^. outputsTxBodyL) = Right index
   | otherwise = Left $ UnresolvedDepositOutput index
-
-writeTopTxNetBalance ::
-  DepositFormulaHistory ->
-  IndexedUTxOs DijkstraEra ->
-  TopTxDepositSettlement DijkstraEra ->
-  TxBody TopTx DijkstraEra ->
-  Either NetBalanceError (TxBody TopTx DijkstraEra)
-writeTopTxNetBalance history utxos settlement body =
-  applyTopTxNetBalance body <$> topTxNetBalance history utxos settlement body
 
 applyTopTxNetBalance ::
   TxBody TopTx DijkstraEra ->

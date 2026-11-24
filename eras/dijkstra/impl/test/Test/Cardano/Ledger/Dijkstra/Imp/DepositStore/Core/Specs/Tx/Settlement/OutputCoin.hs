@@ -38,6 +38,7 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe (listToMaybe)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
+import qualified Data.Set as Set
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, elements)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
@@ -53,7 +54,8 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Balance (
   observeBalance,
   resignTx,
  )
-import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (readAccountingState)
+import Test.Cardano.Ledger.Dijkstra.ImpTest (ImpTestM, sendCoinTo)
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 import Validation (Validation)
 
@@ -128,9 +130,15 @@ fund generated = do
   proposal <- fundAccountingScenario $ operations generated
   firstOutput <- expectJust . listToMaybe . toList $ unsignedTx proposal ^. bodyTxL . outputsTxBodyL
   let surplus = firstOutput & coinTxOutL .~ Coin 10_000_000
+  funding <- sendCoinTo (surplus ^. addrTxOutL) (surplus ^. coinTxOutL)
+  state <- readAccountingState
   pure
     proposal
-      { unsignedTx = unsignedTx proposal & bodyTxL . outputsTxBodyL %~ (<> SSeq.singleton surplus)
+      { ledgerState = (ledgerState proposal) {Pricing.accountingState = state}
+      , unsignedTx =
+          unsignedTx proposal
+            & bodyTxL . inputsTxBodyL %~ Set.insert funding
+            & bodyTxL . outputsTxBodyL %~ (<> SSeq.singleton surplus)
       }
 
 -- | The funded body has implicit output zero and, when requested, Store output one.

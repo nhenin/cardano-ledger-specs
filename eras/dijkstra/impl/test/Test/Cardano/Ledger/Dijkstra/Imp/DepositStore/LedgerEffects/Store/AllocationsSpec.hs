@@ -5,6 +5,7 @@
 -- price the output contents; unconsumed records retain their creation-time amounts.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.LedgerEffects.Store.AllocationsSpec (spec) where
 
+import Cardano.Ledger.BaseTypes (TxIx (..))
 import qualified Cardano.Ledger.Binary as Binary
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
@@ -25,7 +26,7 @@ import Cardano.Ledger.State (
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
-import Cardano.Ledger.Val (inject, (<->))
+import Cardano.Ledger.Val (inject)
 import qualified Data.Map.Strict as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import qualified Data.Sequence.Strict as SSeq
@@ -44,12 +45,19 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   recordedAmounts,
   retainsCreationMetadata,
  )
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
+  positiveAmount,
+ )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting as Accounting
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations (..))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (isImplicitOutput)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release as Context
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (isAccepted, submitTx)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
+  isAccepted,
+  prepareFixtureFunding,
+  submitTx,
+ )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting as AccountingSubmission
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (
   createdOrdinaryOutputs,
@@ -64,6 +72,7 @@ import Test.Cardano.Ledger.Dijkstra.ImpTest (
   modifyNES,
   modifyPParams,
   passTick,
+  submitTx_,
  )
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
 
@@ -150,11 +159,10 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
       retainsCreationMetadata source (CoinPerByte $ CompactCoin 1000) referencedState
       recordedAmounts (liveOutputStore referencedState) `shouldBe` records
       address <- freshKeyAddrNoPtr_
-      spendingTx <- fixupTx $
-        Pricing.declareNetDeposit (Coin 0 <-> creationDeposit) $
-          mkBasicTx mkBasicTxBody
-            & bodyTxL . inputsTxBodyL .~ Set.singleton source
-            & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject coins)
+      spendingTx <- prepareFixtureFunding $
+        mkBasicTx mkBasicTxBody
+          & bodyTxL . inputsTxBodyL .~ Set.singleton source
+          & bodyTxL . outputsTxBodyL .~ SSeq.singleton (mkBasicTxOutWithMinAda address $ inject coins)
       submitTx spendingTx >>= isAccepted
       consumedState <- readAccountingState
       currentFormula (liveOutputStore consumedState) `shouldBe` activeFormula
@@ -171,9 +179,14 @@ spec = describe "DS-STATE-ALLOCATIONS - Allocation records" $ do
         proposal <- AccountingSubmission.fundAccountingScenario scenario
         modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 0)
         parameters <- getsNES $ nesEsL . curPParamsEpochStateL
-        let repriced = proposal {Context.ledgerState = (Context.ledgerState proposal) {Pricing.protocolParameters = parameters}}
+        -- Renew the fee input at zero. Each body's original implicit funding
+        -- still receives one ADA of historical backing credit.
+        submitTx_ $ mkBasicTx mkBasicTxBody
+        state <- readAccountingState
+        let repriced = proposal {Context.ledgerState = Pricing.LedgerState state parameters}
         signedTx <- AccountingSubmission.buildAndSignTx $ Context.addDeclaration
-          (Declarations TopTx.DeclaresZeroNetUTxODeposit [SubTx.DeclaresZeroNetUTxODeposit]) repriced
+          (Declarations (TopTx.DeclaresNetUTxODepositRelease (positiveAmount 2000000) (TopTx.TopTxSettlementOutput $ TxIx 0))
+            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount 1000000) (SubTx.SubTxSettlementOutput $ TxIx 0)]) repriced
         previousAccountingState <- readAccountingState
         let newAllocations = Map.map (const $ Coin 0) $
               Map.filter (not . isImplicitOutput) $ createdOrdinaryOutputs signedTx

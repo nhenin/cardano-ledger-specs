@@ -575,18 +575,26 @@ balanceSubTransactions ::
 balanceSubTransactions topTx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
   pools <- Map.keysSet <$> getsNES (nesEsL . epochStateStakePoolsL)
-  entries <- getIndexedUTxOs
+  store <- getUTxOStore
   let
     subTransactions = topTx ^. bodyTxL . subTransactionsTxBodyL
     subsCerts = foldMap' (^. bodyTxL . certsTxBodyL) subTransactions
-    subsConsumed = coin $ foldMap' (dijkstraConsumed pp entries . (^. bodyTxL)) subTransactions
+    subsConsumed = coin $ foldMap' (dijkstraConsumed pp (allocations store) . (^. bodyTxL)) subTransactions
     subsProduced =
       foldMap' (coin . localProducedValue pp . (^. bodyTxL)) subTransactions
         <> getTotalDepositsTxCerts pp (`Set.member` pools) subsCerts
+        <> foldMap (locallyFundedStoreChange store . (^. bodyTxL)) subTransactions
   balancer <- mkBalancerSubTx subsConsumed subsProduced
   case balancer of
     Nothing -> pure topTx
     Just b -> pure $ topTx & bodyTxL . subTransactionsTxBodyL %~ (OMap.|> b)
+
+-- | The child's input/output values already carry its embedded reserves.
+-- The parent settles the signed portion explicitly delegated to it.
+locallyFundedStoreChange :: DijkstraEraTxBody era => UTxOStore era -> TxBody SubTx era -> Coin
+locallyFundedStoreChange store body =
+  bodyStoreChange store body
+    <-> delegatedSubTxNetUTxODeposit (body ^. subTxNetUTxODepositChangeTxBodyL)
 
 mkBalancerSubTx ::
   forall era.

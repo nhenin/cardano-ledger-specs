@@ -82,7 +82,6 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositive
  )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (
   Declarations (..),
-  subTxWithDepositDeclaration,
  )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (isImplicitOutput)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (
@@ -95,6 +94,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Top
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release as Context
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   checkPreservedOutputsAndDeclarations,
+  fundFixtureTx,
   isAccepted,
   isRejectedWith,
   preparePhase2InvalidTx,
@@ -103,7 +103,6 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitTxAndExpectFailureContaining,
  )
 import Test.Cardano.Ledger.Dijkstra.ImpTest hiding (submitTx)
-import qualified Test.Cardano.Ledger.Dijkstra.ImpTest as ImpTest
 import Test.Cardano.Ledger.Imp.Common (
   expectJust,
   forM_,
@@ -154,16 +153,23 @@ forAllSingleSubTxReleaseTx scenarios check =
           (Children.unrelatedApplicationCoins scenario)
           Standalone.ImplicitOutputs
           []
-    input <- expectJust $ Set.lookupMin (sourceTx ^. bodyTxL . inputsTxBodyL)
     recordedDeposit <-
       expectJust $ mkStrictlyPositiveCoin $ Standalone.releasedDeposits ledgerState sourceTx
-    let subTx =
-          subTxWithDepositDeclaration input SubTx.NoUTxODepositDeclaration
-            & bodyTxL . outputsTxBodyL .~ (sourceTx ^. bodyTxL . outputsTxBodyL)
+    let subTx = subTxSpendingReleaseInputs SubTx.NoUTxODepositDeclaration sourceTx
         proposal =
           mkTopTxWithSubTxs [subTx]
             & bodyTxL . netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
     check recordedDeposit $ Context.ReleaseTx ledgerState proposal
+
+-- | Transfer the complete spending plan, including matching minimum-ADA inputs,
+-- to the child that will sign for the release.
+subTxSpendingReleaseInputs ::
+  SubTx.SubTxUTxODepositDeclaration -> Tx TopTx DijkstraEra -> Tx SubTx DijkstraEra
+subTxSpendingReleaseInputs declaration source =
+  mkBasicTx mkBasicTxBody
+    & bodyTxL . inputsTxBodyL .~ (source ^. bodyTxL . inputsTxBodyL)
+    & bodyTxL . outputsTxBodyL .~ (source ^. bodyTxL . outputsTxBodyL)
+    & bodyTxL . subTxNetUTxODepositChangeTxBodyL .~ declaration
 
 -- | Fund every generated source and preserve child order, including implicit
 -- sources and equal recorded amounts. TopTx and all SubTxs omit their declarations;
@@ -260,20 +266,27 @@ fundReleaseScenario scenario = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin 4_310)
   address <- freshKeyAddrNoPtr_
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  let outputs = Standalone.sourceOutputs address scenario
+  -- Pair every proposed minimum-ADA output with separately funded embedded
+  -- backing. These release-presence cases then isolate the external operations.
+  let externalSources = Standalone.sourceOutputs address scenario
+      implicitSources =
+        [embeddedFundingOutput address | Standalone.outputForms scenario /= Standalone.DepositBackedOutputs]
+      outputs = externalSources <> implicitSources
       allocation = foldMap (Standalone.outputDeposit pp) outputs
       fundingTx =
         Standalone.declareNetDeposit allocation $
           mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
   before <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
-  funded <- ImpTest.submitTx fundingTx
+  funded <- fundFixtureTx fundingTx
   after <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   let fundingAllocations =
         Map.fromList
-          [(txInAt index funded, Standalone.outputDeposit pp output) | (index, output) <- zip [0 ..] outputs]
-      inputs =
-        Set.fromList
-          [txInAt index funded | index <- [0 .. length (Standalone.consumedApplicationAmounts scenario) - 1]]
+          [ (txInAt index funded, Standalone.outputDeposit pp output)
+          | (index, output) <- zip [0 ..] externalSources
+          ]
+      consumedIndices = [0 .. length (Standalone.consumedApplicationAmounts scenario) - 1]
+      matchingIndices = [length externalSources | not (null implicitSources)]
+      inputs = Set.fromList [txInAt index funded | index <- consumedIndices <> matchingIndices]
       ledgerState = Standalone.LedgerState after pp
       spending = mkBasicTx mkBasicTxBody & bodyTxL . inputsTxBodyL .~ inputs
       released = Standalone.releasedDeposits ledgerState spending
@@ -390,13 +403,15 @@ fundSubTxReleaseScenario scenario = do
   let ownSources = map Children.DepositBackedSource $ maybeToList $ Children.topTxSource scenario
       childSources = Children.subTxSources scenario
       sources = ownSources <> childSources <> [Children.DepositBackedSource $ Coin 11_000_000]
-      outputs = map (sourceOutput address) sources
+      sourceOutputs = map (sourceOutput address) sources
+      matchedSources = [embeddedFundingOutput address | Children.DepositBackedSource _ <- ownSources <> childSources]
+      outputs = sourceOutputs <> matchedSources
       allocation = foldMap (Standalone.outputDeposit pp) outputs
       fundingTx =
         Standalone.declareNetDeposit allocation $
           mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList outputs
   before <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
-  funded <- ImpTest.submitTx fundingTx
+  funded <- fundFixtureTx fundingTx
   after <- getsNES $ nesEsL . esLStateL . lsAccountingStateL
   let allocationRecords = recordedAmounts $ liveOutputStore after
       fundedInputs = [txInAt index funded | index <- [0 .. length outputs - 1]]
@@ -404,14 +419,18 @@ fundSubTxReleaseScenario scenario = do
       childInputs = take (length childSources) $ drop (length ownSources) fundedInputs
       ownDeposit = foldMap (recordedInputDeposit allocationRecords) ownInput
       childDeposits = map (recordedInputDeposit allocationRecords) childInputs
-      children = zipWith3 (subTxSettlingItsSource address) childSources childInputs childDeposits
+      externalInputs =
+        [input | (Children.DepositBackedSource _, input) <- zip (ownSources <> childSources) fundedInputs]
+      matchedInputs = Map.fromList $ zip externalInputs $ drop (length sourceOutputs) fundedInputs
+      childSpendingInputs = map (withEmbeddedFunding matchedInputs) childInputs
+      children = zipWith3 (subTxSettlingItsSource address) childSources childSpendingInputs childDeposits
       ownOutputs =
         [ mkBasicTxOutWithMinAda address $ inject $ amount <> ownDeposit
         | amount <- maybeToList $ Children.topTxSource scenario
         ]
       tx =
         mkTopTxWithSubTxs children
-          & bodyTxL . inputsTxBodyL .~ Set.fromList (maybeToList ownInput)
+          & bodyTxL . inputsTxBodyL .~ foldMap (withEmbeddedFunding matchedInputs) ownInput
           & bodyTxL . outputsTxBodyL .~ SSeq.fromList ownOutputs
           & bodyTxL . netUTxODepositChangeTxBodyL .~ TopTx.NoUTxODepositDeclaration
       fundingAllocations =
@@ -429,7 +448,7 @@ fundSubTxReleaseScenario scenario = do
       capturedDeposits = zip childInputs childDeposits <> [(input, ownDeposit) | input <- maybeToList ownInput]
   length actualChildren `shouldBe` length childSources
   (length actualChildren >= 1 && length actualChildren <= 5) `shouldBe` True
-  map (^. bodyTxL . inputsTxBodyL) actualChildren `shouldBe` map Set.singleton childInputs
+  map (^. bodyTxL . inputsTxBodyL) actualChildren `shouldBe` childSpendingInputs
   Set.size (Set.fromList childInputs) `shouldBe` length childInputs
   Set.intersection (Set.fromList $ maybeToList ownInput) (Set.fromList childInputs)
     `shouldBe` Set.empty
@@ -441,6 +460,13 @@ fundSubTxReleaseScenario scenario = do
     isImplicitOutput output `shouldBe` (deposit == Coin 0)
     (isImplicitOutput output || deposit > Coin 0) `shouldBe` True
   pure $ Context.ReleaseTx (Standalone.LedgerState after pp) tx
+
+embeddedFundingOutput :: Addr -> TxOut DijkstraEra
+embeddedFundingOutput address = mkBasicTxOutWithMinAda address $ inject $ Coin 2_000_000
+
+withEmbeddedFunding :: Map.Map TxIn TxIn -> TxIn -> Set.Set TxIn
+withEmbeddedFunding matchedInputs input =
+  Set.insert input . foldMap Set.singleton $ Map.lookup input matchedInputs
 
 sourceOutput :: Addr -> Children.Source -> TxOut DijkstraEra
 sourceOutput address (Children.DepositBackedSource amount) =
@@ -455,9 +481,10 @@ recordedInputDeposit records input = Map.findWithDefault mempty input records
 -- An implicit source contributes no deposit. Leave the child's declaration absent
 -- so the spec explicitly chooses whether and where to declare a release.
 subTxSettlingItsSource ::
-  Addr -> Children.Source -> TxIn -> Coin -> Tx SubTx DijkstraEra
-subTxSettlingItsSource address source input deposit =
-  subTxWithDepositDeclaration input SubTx.NoUTxODepositDeclaration
+  Addr -> Children.Source -> Set.Set TxIn -> Coin -> Tx SubTx DijkstraEra
+subTxSettlingItsSource address source inputs deposit =
+  mkBasicTx mkBasicTxBody
+    & bodyTxL . inputsTxBodyL .~ inputs
     & bodyTxL . outputsTxBodyL
       .~ SSeq.singleton
         (mkBasicTxOutWithMinAda address $ inject $ Children.sourceApplicationCoins source <> deposit)
@@ -545,9 +572,7 @@ prepareSingleBodyReleaseWith prepare owner scenario declarationsForDeposit = do
     SubTxReleasing -> do
       length childDeclarations `shouldBe` 1
       childDeclaration <- expectJust $ listToMaybe childDeclarations
-      let subTx =
-            subTxWithDepositDeclaration input childDeclaration
-              & bodyTxL . outputsTxBodyL .~ (sourceTx ^. bodyTxL . outputsTxBodyL)
+      let subTx = subTxSpendingReleaseInputs childDeclaration sourceTx
       pure $
         mkTopTxWithSubTxs [subTx]
           & bodyTxL . netUTxODepositChangeTxBodyL .~ topDeclaration
@@ -582,10 +607,9 @@ buildTxSpendingDepositBackedOutput owner = do
         TopTxReleasing -> Standalone.declareNetDeposit (Coin 0 <-> deposit) topTx
         SubTxReleasing ->
           let subTx =
-                subTxWithDepositDeclaration
-                  input
+                subTxSpendingReleaseInputs
                   (SubTx.DeclaresNetUTxODepositRelease positiveDeposit $ SubTx.SubTxSettlementOutput $ TxIx 0)
-                  & bodyTxL . outputsTxBodyL .~ (topTx ^. bodyTxL . outputsTxBodyL)
+                  topTx
            in mkTopTxWithSubTxs [subTx]
                 & bodyTxL . netUTxODepositChangeTxBodyL
                   .~ TopTx.DeclaresNetUTxODepositRelease positiveDeposit TopTx.NoTopTxSettlement
@@ -704,11 +728,11 @@ forAllReferenceOnlyStoreTx ::
 forAllReferenceOnlyStoreTx scenarios check =
   forAll scenarios $ \scenario -> do
     (ledgerState, sourceTx) <- fundReleaseScenario scenario
-    let references = sourceTx ^. bodyTxL . inputsTxBodyL
+    let records = recordedAmounts . liveOutputStore . Standalone.accountingState $ ledgerState
+        references = Map.keysSet records `Set.intersection` (sourceTx ^. bodyTxL . inputsTxBodyL)
         proposal =
           mkBasicTx mkBasicTxBody
             & bodyTxL . referenceInputsTxBodyL .~ references
-        records = recordedAmounts . liveOutputStore . Standalone.accountingState $ ledgerState
         context = Context.ReleaseTx ledgerState proposal
     Set.null references `shouldBe` False
     forM_ references $ \input -> do
@@ -748,7 +772,7 @@ buildAndSignCollateralOnlyTx scenario declarations = do
         mkBasicTxOutWithMinAda address $ inject $ Release.collateralReturnCoins scenario
       allocation = Standalone.outputDeposit pp inputOutput
   fundingTx <-
-    ImpTest.submitTx $
+    fundFixtureTx $
       Standalone.declareNetDeposit allocation $
         mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.singleton inputOutput
   let collateralInput = txInAt 0 fundingTx

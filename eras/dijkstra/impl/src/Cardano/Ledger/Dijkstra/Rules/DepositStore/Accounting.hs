@@ -4,27 +4,56 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 
--- | Exact UTxO capacity deposit accounting. Input allocations are recorded
--- ledger obligations; only newly created outputs are priced. Transaction
--- declarations authorize the resulting net transfer, never a second transfer
--- alongside their SubTx contributions.
+-- | Ordinary transactions sign the change in backing across minimum-ADA and
+-- deposit-backed outputs. For example, replacing 1.6 ADA of embedded backing
+-- with a 2 ADA external deposit signs an allocation of 0.4 ADA and adds 2 ADA
+-- to the Store.
 module Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
+  -- * Ordinary transaction validation
+
+  -- | Check the batch declaration, each declared SubTx contribution and the
+  -- outputs designated to receive releases.
+  validateOrdinaryDepositStore,
   DepositStoreAccountingFailure (..),
-  requiredUTxODeposit,
-  allocatedUTxODeposits,
-  releasedUTxODeposits,
-  requiredNetUTxODeposit,
-  requiredTxTotalNetUTxODeposit,
-  declaredTopTxNetUTxODeposit,
-  declaredSubTxNetUTxODeposit,
-  locallyAccountedSubTxNetUTxODeposit,
-  attributedTopTxNetUTxODeposit,
   validateTopTxExactness,
   validateSubTxExactness,
   validateTopTxSettlement,
   validateSettlementOutput,
-  validateOrdinaryDepositStore,
+
+  -- * Required backing
+
+  -- | Price new outputs at the active formula and credit ordinary inputs at
+  -- their historical formula. A minimum-ADA input contributes at most its ADA.
+  requiredTxTotalNetUTxODeposit,
+  requiredNetUTxODeposit,
+  netUTxOBacking,
+  requiredUTxOBacking,
+
+  -- * Declared backing and settlement responsibility
+
+  -- | A TopTx declaration gives the batch total. A SubTx declaration gives
+  -- the child's own change, which it can settle locally or delegate to TopTx.
+  declaredTopTxNetUTxODeposit,
+  declaredSubTxNetUTxODeposit,
+  locallyAccountedSubTxNetUTxODeposit,
+  delegatedSubTxNetUTxODeposit,
+  attributedTopTxNetUTxODeposit,
+
+  -- * External Store deposits
+
+  -- | A deposit-backed output moves ADA into the Store on creation and out
+  -- on spend. A minimum-ADA output carries its backing in its serialized value.
+  requiredUTxODeposit,
+  allocatedUTxODeposits,
+  releasedUTxODeposits,
+
+  -- * Collateral settlement
+
+  -- | Account for collateral inputs, the optional return and the fee credited
+  -- when the ledger applies the phase-2 failure path.
   CollateralDepositSettlement (..),
   collateralDepositSettlement,
 ) where
@@ -34,12 +63,21 @@ import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..))
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra.Core
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Declaration (
+  validateSubTxAllocationDeclarationPresence,
+  validateSubTxReleaseDeclarationPresence,
+ )
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Formula
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
+import qualified Cardano.Ledger.Dijkstra.UTxOs.Unspent as Unspent
+import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.State (UTxOStore)
 import qualified Cardano.Ledger.State as Store
 import Cardano.Ledger.State.Accounting.UTxOs.Deposit (
   DepositFormula,
+  DepositFormulaHistory,
+  latestFormula,
  )
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.StrictlyPositiveCoin (unStrictlyPositiveCoin)
@@ -48,7 +86,7 @@ import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<->))
 import Control.DeepSeq (NFData)
 import Control.Monad (when)
-import Data.Foldable (sequenceA_, toList)
+import Data.Foldable (foldMap', sequenceA_, toList)
 import Data.List.NonEmpty (NonEmpty)
 import GHC.Generics (Generic)
 import Lens.Micro ((^.))
@@ -129,12 +167,31 @@ releasedUTxODeposits store body =
     IndexedUTxOs.allocatedDepositTotalAmount (Store.depositFormulaHistory store) (body ^. inputsTxBodyL) $
       Store.allocations store
 
+-- | New ordinary outputs require their full active price, including minimum-ADA outputs.
+requiredUTxOBacking ::
+  (BabbageEraTxOut era, Value era ~ MaryValue) => DepositFormula -> TxOut era -> Coin
+requiredUTxOBacking formula = Store.toCoin . Formula.computeDeposit formula
+
+-- | Subtract historical input backing from the active backing of the body's
+-- outputs. The caller supplies only the resolved ordinary spending inputs.
+netUTxOBacking ::
+  DijkstraEraTxBody era =>
+  DepositFormulaHistory -> TxBody l era -> IndexedUTxOs era -> Coin
+netUTxOBacking history body =
+  (foldMap' (requiredUTxOBacking $ latestFormula history) (body ^. outputsTxBodyL) <->)
+    . foldMap' (Store.toCoin . Unspent.computeDeposit history)
+    . IndexedUTxOs.unspentOutputs
+
+-- | Resolve one body's ordinary spending inputs in the original Store and
+-- compute its signed backing change.
 requiredNetUTxODeposit ::
   DijkstraEraTxBody era =>
   UTxOStore era -> TxBody l era -> Coin
 requiredNetUTxODeposit store body =
-  allocatedUTxODeposits (Store.currentFormula store) body <-> releasedUTxODeposits store body
+  netUTxOBacking (Store.depositFormulaHistory store) body $
+    IndexedUTxOs.restrictToInputs (body ^. inputsTxBodyL) (Store.allocations store)
 
+-- | Sum the required backing changes of TopTx and every SubTx, each counted once.
 requiredTxTotalNetUTxODeposit ::
   (EraTx era, DijkstraEraTxBody era) =>
   UTxOStore era -> TxBody TopTx era -> Coin
@@ -142,8 +199,7 @@ requiredTxTotalNetUTxODeposit store body =
   requiredNetUTxODeposit store body
     <> foldMap (requiredNetUTxODeposit store . (^. bodyTxL)) (body ^. subTransactionsTxBodyL)
 
--- | Monetary transfer described by TopTx. Absence contributes no transfer;
--- presence and exactness are validated independently.
+-- | Signed batch backing change authorized by TopTx.
 declaredTopTxNetUTxODeposit :: TopTx.TopTxUTxODepositDeclaration -> Coin
 declaredTopTxNetUTxODeposit = \case
   TopTx.NoUTxODepositDeclaration -> mempty
@@ -167,10 +223,14 @@ locallyAccountedSubTxNetUTxODeposit = \case
   SubTx.DeclaresNetUTxODepositRelease _ SubTx.DelegateToTopTx -> mempty
   declaration -> declaredSubTxNetUTxODeposit declaration
 
+-- | Signed funding or release that a child assigns to TopTx.
+delegatedSubTxNetUTxODeposit :: SubTx.SubTxUTxODepositDeclaration -> Coin
+delegatedSubTxNetUTxODeposit declaration =
+  declaredSubTxNetUTxODeposit declaration <-> locallyAccountedSubTxNetUTxODeposit declaration
+
 -- | TopTx owns the declared total after removing locally accounted child shares.
 -- Requested allocations and delegated releases therefore remain with TopTx. This
--- signed amount is shared by settlement selection and legacy self-balance; exactness
--- separately establishes that the total and every originating contribution are valid.
+-- signed amount determines TopTx's settlement destination and coverage.
 attributedTopTxNetUTxODeposit ::
   (EraTx era, DijkstraEraTxBody era) => TxBody TopTx era -> Coin
 attributedTopTxNetUTxODeposit body =
@@ -196,15 +256,15 @@ validateOrdinaryDepositStore store body =
   where
     children = toList $ body ^. subTransactionsTxBodyL
 
--- | An absent nonzero contribution is already a presence failure. Do not
--- derive a misleading TopTx settlement share by treating that contribution as
--- zero. A body without a net contribution does not change the derived share.
+-- | Missing mandatory child declarations leave the local/delegated choice unknown.
+-- A minimum-ADA-only child may omit its declaration and still contribute backing
+-- to the batch total. Such a child must not suppress TopTx settlement validation.
 hasKnownSubTxContribution ::
   DijkstraEraTxBody era =>
   UTxOStore era -> TxBody SubTx era -> Bool
-hasKnownSubTxContribution store body
-  | SubTx.hasUTxODepositDeclaration (body ^. subTxNetUTxODepositChangeTxBodyL) = True
-  | otherwise = requiredNetUTxODeposit store body == mempty
+hasKnownSubTxContribution store body =
+  validateSubTxAllocationDeclarationPresence body == pure ()
+    && validateSubTxReleaseDeclarationPresence (Store.allocations store) body == pure ()
 
 -- | An explicit TopTx declaration describes the complete transaction's net
 -- deposit change, including every SubTx exactly once.
@@ -267,8 +327,8 @@ validateTopTxSettlement body =
                 *> validateSettlementOutput body index requiredRelease
     _ -> pure ()
 
--- | Resolve the index within this body's regular outputs and check application ADA.
--- The output's external Store deposit does not count toward this lower bound.
+-- | The selected ordinary output's serialized ADA must cover the release.
+-- A minimum-ADA output carries its reserve in that value.
 validateSettlementOutput ::
   EraTxBody era =>
   TxBody l era -> TxIx -> Coin -> Validation (NonEmpty DepositStoreAccountingFailure) ()
@@ -296,6 +356,8 @@ data CollateralDepositSettlement = CollateralDepositSettlement
 
 instance NFData CollateralDepositSettlement
 
+-- | Price the collateral return at the active formula and release the
+-- historical external deposits on the collateral inputs.
 collateralDepositSettlement ::
   DijkstraEraTxBody era =>
   UTxOStore era ->

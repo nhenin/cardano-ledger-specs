@@ -39,6 +39,7 @@ import Cardano.Ledger.Shelley.LedgerState (
   nesEsL,
  )
 import Cardano.Ledger.Shelley.Scripts (ShelleyEraScript (mkRequireSignature))
+import Cardano.Ledger.State.Accounting.UTxOs.Deposit (DepositFormula (DepositFormulaV2))
 import Cardano.Ledger.TxIn (TxIn)
 import Cardano.Ledger.Val (Val ((<->)), inject)
 import qualified Data.ByteString as BS
@@ -51,12 +52,14 @@ import qualified PlutusLedgerApi.V1 as Plutus
 import Test.Cardano.Ledger.Common (Gen, arbitrary, chooseInt, chooseInteger)
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedOutputBacking,
   liveOutputStore,
   recordedAmounts,
  )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration as Declaration
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (fundFixtureTx)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release (readAccountingState)
 import Test.Cardano.Ledger.Dijkstra.ImpTest
 import Test.Cardano.Ledger.Imp.Common (expectJust, shouldBe)
@@ -207,13 +210,11 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
       unrelatedOutput = output DepositBacked address (sourceBytes scenario) $ inject inputCoinsPerOutput
       allOutputs = sourceOutputs <> [unrelatedOutput]
       totalAssets = foldMap (const assets) inputForms
-      sourceAllocation = foldMap (Pricing.outputDeposit sourceParameters) allOutputs
   fundingTx <-
-    submitTx $
-      Pricing.declareNetDeposit sourceAllocation $
-        mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.fromList allOutputs
-          & bodyTxL . mintTxBodyL .~ totalAssets
+    fundFixtureTx $
+      mkBasicTx mkBasicTxBody
+        & bodyTxL . outputsTxBodyL .~ SSeq.fromList allOutputs
+        & bodyTxL . mintTxBodyL .~ totalAssets
   let sourceInputs = [txInAt index fundingTx | index <- [0 .. length inputForms - 1]]
   traverse impGetUTxO sourceInputs >>= (`shouldBe` sourceOutputs)
   modifyPParams $ ppCoinsPerUTxOByteL .~ CoinPerByte (CompactCoin $ fromInteger bytePrice)
@@ -233,10 +234,16 @@ buildAndSign scenario@Scenario {inputForms, returnForm, phase2, bytePrice, sourc
   scriptInput <- produceScript . hashPlutusScript $ case phase2 of
     Phase2Valid -> alwaysSucceedsWithDatum SPlutusV4
     Phase2Invalid -> alwaysFailsWithDatum SPlutusV4
+  scriptOutput <- impGetUTxO scriptInput
+  -- The return-boundary test activates V2 after preparation. Keep the ordinary
+  -- script output valid under either price so only the collateral return varies.
+  let v2Price = DepositFormulaV2 $ parameters ^. ppCoinsPerUTxOByteL
+      scriptReturn = scriptOutput & coinTxOutL %~ max (expectedOutputBacking v2Price scriptOutput)
   prepared <-
     fixupTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . inputsTxBodyL .~ Set.singleton scriptInput
+        & bodyTxL . outputsTxBodyL .~ SSeq.singleton scriptReturn
         & bodyTxL . feeTxBodyL .~ Coin 2_000_011
         & bodyTxL . collateralInputsTxBodyL .~ inputs
         & bodyTxL . collateralReturnTxBodyL .~ preparationReturn

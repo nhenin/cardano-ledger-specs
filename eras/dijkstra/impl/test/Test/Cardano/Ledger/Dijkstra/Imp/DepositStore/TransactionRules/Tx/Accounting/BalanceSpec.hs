@@ -54,9 +54,9 @@ spec = describe "DS-TX-ACCOUNTING-BALANCE - Balance" $ do
   -- Common premises: exact declarations and every non-balance rule satisfied.
   -- Phase 2 is valid except N08. Values include all asset quantities and identities.
   -- inputValue/outputValue sum application values across TopTx and all its SubTxs.
-  -- fees is TopTx's fee; declaredNetDeposit is its signed complete Store total.
-  -- consumedValue = inputValue + inject(max(0, -declaredNetDeposit)).
-  -- producedValue = outputValue + inject(fees + max(0, declaredNetDeposit)).
+  -- fees is TopTx's fee; storeChange prices only external deposits across the batch.
+  -- consumedValue = inputValue + inject(max(0, -storeChange)).
+  -- producedValue = outputValue + inject(fees + max(0, storeChange)).
   -- transactionBalance = consumedValue - producedValue (a full asset Value).
   -- adaBalance/nativeAssetBalance are its ADA/native-asset components.
   -- Δ denotes a change from the independently balanced control. Only the listed
@@ -69,7 +69,7 @@ spec = describe "DS-TX-ACCOUNTING-BALANCE - Balance" $ do
 
   -- Every ordinary input/output asset and the signed Store transfer balances.
   -- Funding mints native assets separately; this proposed transaction does not mint.
-  prop "DS-TX-ACCOUNTING-BALANCE-P01 - phase2Valid ∧ accepted ⇒ inputValue + inject(max(0, -declaredNetDeposit)) = outputValue + inject(fees + max(0, declaredNetDeposit))" $
+  prop "DS-TX-ACCOUNTING-BALANCE-P01 - phase2Valid ∧ accepted ⇒ inputValue + inject(max(0, -storeChange)) = outputValue + inject(fees + max(0, storeChange))" $
     forAll ((,) <$> Accounting.arbitraryScenario <*> chooseInteger (1, 10)) $ \(scenario, quantity) -> do
       funded <- fundAccountingScenario scenario
       (_, proposal) <- fundNativeAssets quantity funded
@@ -248,8 +248,8 @@ spec = describe "DS-TX-ACCOUNTING-BALANCE - Balance" $ do
       proposal <- fundTenAdaWithTwoAdaDeposit funding
       buildAndSignTx (TopTx.addDeclaration
           (Declarations
-            (TopTx.DeclaresNetUTxODepositRelease (positiveAmount 2_000_000) TopTx.NoTopTxSettlement)
-            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount 2_000_000) (SubTx.SubTxSettlementOutput $ TxIx 0)]) proposal) >>= submitTx >>= isAccepted
+            TopTx.DeclaresZeroNetUTxODeposit
+            [SubTx.DeclaresZeroNetUTxODeposit]) proposal) >>= submitTx >>= isAccepted
 
   -- The child receives 10 ADA; exactly the released 2 ADA increases TopTx's fee.
   prop "DS-TX-ACCOUNTING-BALANCE-N07 - inputCoins(subTx) = 10 ADA ∧ releasedDeposits(subTx) = 2 ADA ∧ outputCoins(subTx) = 10 ADA ∧ feeContribution(subTx) = 2 ADA ⇒ accepted" $
@@ -257,8 +257,8 @@ spec = describe "DS-TX-ACCOUNTING-BALANCE - Balance" $ do
       proposal <- fundTenAdaWithTwoAdaDeposit funding
       control <- buildAndSignTx (TopTx.addDeclaration
           (Declarations
-            (TopTx.DeclaresNetUTxODepositRelease (positiveAmount 2_000_000) TopTx.NoTopTxSettlement)
-            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount 2_000_000) (SubTx.SubTxSettlementOutput $ TxIx 0)]) proposal)
+            TopTx.DeclaresZeroNetUTxODeposit
+            [SubTx.DeclaresZeroNetUTxODeposit]) proposal)
       resignTx (Balance.contributeSubTxCoinsToFees (Coin 2_000_000) control) >>= submitTx >>= isAccepted
 
   -- Removing the same 2 ADA without any fee export leaves an unaccounted surplus.
@@ -267,8 +267,8 @@ spec = describe "DS-TX-ACCOUNTING-BALANCE - Balance" $ do
       proposal <- fundTenAdaWithTwoAdaDeposit funding
       control <- buildAndSignTx (TopTx.addDeclaration
           (Declarations
-            (TopTx.DeclaresNetUTxODepositRelease (positiveAmount 2_000_000) TopTx.NoTopTxSettlement)
-            [SubTx.DeclaresNetUTxODepositRelease (positiveAmount 2_000_000) (SubTx.SubTxSettlementOutput $ TxIx 0)]) proposal)
+            TopTx.DeclaresZeroNetUTxODeposit
+            [SubTx.DeclaresZeroNetUTxODeposit]) proposal)
       signedTx <- resignTx $ Balance.changeSubTxOutputCoins 0 (Coin (-2_000_000)) control
       observed <- observeBalance signedTx
       submitTx signedTx >>= isRejectedWith (Shelley.ValueNotConservedUTxO @DijkstraEra $

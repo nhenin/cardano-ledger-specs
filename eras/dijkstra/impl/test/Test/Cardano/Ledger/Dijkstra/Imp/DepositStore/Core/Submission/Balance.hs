@@ -33,6 +33,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Accounting.Balance as Balance
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (fundFixtureTx)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting as Accounting
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release as Release
 import Test.Cardano.Ledger.Dijkstra.ImpTest
@@ -53,8 +54,8 @@ observeBalance :: Tx TopTx DijkstraEra -> ImpTestM DijkstraEra Balance.Balance
 observeBalance tx = do
   checkSupportedBody tx
   forM_ (OMap.elems $ tx ^. bodyTxL . subTransactionsTxBodyL) checkSupportedBody
-  allocations <- getIndexedUTxOs
-  pure $ Balance.balance allocations tx
+  store <- getUTxOStore
+  pure $ Balance.balance store tx
 
 -- | These scenarios have application inputs/outputs, fees and Store transfers.
 -- Additional financial flows must extend the independent oracle before use.
@@ -150,12 +151,11 @@ fundTenAdaWithTwoAdaDeposit topFunding = do
       implicitFunding = mkBasicTxOutWithMinAda address $ inject topFunding
   Pricing.outputDeposit parameters source `shouldBe` Coin 2_000_000
   funding <-
-    submitTx $
-      Pricing.declareNetDeposit (Coin 2_000_000) $
-        mkBasicTx mkBasicTxBody
-          & bodyTxL
-            . outputsTxBodyL
-            .~ SSeq.fromList [implicitFunding, source]
+    fundFixtureTx $
+      mkBasicTx mkBasicTxBody
+        & bodyTxL
+          . outputsTxBodyL
+          .~ SSeq.fromList [implicitFunding, source]
   state <- Release.readAccountingState
   impGetUTxO (txInAt (1 :: Int) funding) >>= (`shouldBe` source)
   Map.lookup (txInAt (1 :: Int) funding) (recordedAmounts $ liveOutputStore state)

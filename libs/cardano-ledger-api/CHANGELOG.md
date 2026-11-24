@@ -2,6 +2,8 @@
 
 ## 1.16.0.0
 
+* Dijkstra deposit balancing counts the historical backing of ordinary inputs and the active backing of ordinary outputs, including minimum-ADA inputs, change and refund outputs. TopTx also computes the backing contribution of a child that omits its declaration.
+* Pass the `UTxOStore` to `evalBalanceTxBody`. It uses the Store's formula history to account for external deposits when balancing serialized values.
 * Expose the output APIs as `MinAdaTxOut` and `DepositBackedTxOut`, replacing `LegacyTxOut` and `NewTxOut`, with the corresponding era classes, builders and lenses. Transaction construction and deposit-balancing semantics are unchanged; output encodings are preserved.
 * Add `computeNetBalance`, `updateTxBodyWithNetBalance`, `computeSubTxNetBalance` and `updateSubTxBodyWithNetBalance` to `Api.Tx.Body` for preparing typed Dijkstra deposit declarations. `UTxODepositStrategy` groups a `DepositTopUp` funding choice with a `TopTxDepositSettlement` or `SubTxDepositSettlement` policy for a new refund output, an existing output index, or no local settlement. New refund outputs are appended only when needed, including their deposit in the final balance. TopTx uses already-balanced SubTx declarations. `NetBalanceError` reports resolution, funding and representation failures.
 * Add `queryStakePoolState` with the `QueryResultStakePoolState` result type

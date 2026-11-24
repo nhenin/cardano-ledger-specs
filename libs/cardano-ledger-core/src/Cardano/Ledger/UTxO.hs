@@ -12,13 +12,16 @@
 -- | Era-specific transaction queries over accepted unspent outputs.
 module Cardano.Ledger.UTxO (
   EraUTxO (..),
+  consumedAndProducedValue,
   ScriptsProvided (..),
 ) where
 
 import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
+import Cardano.Ledger.State.Accounting.UTxOs.Store (UTxOStore, allocations)
 import Cardano.Ledger.State.Certificates (CertState)
+import Cardano.Ledger.Val (inject, (<->))
 import Control.DeepSeq (NFData)
 import Data.Kind (Type)
 import qualified Data.Map.Strict as Map
@@ -46,7 +49,7 @@ class EraTx era => EraUTxO era where
   -- scripts needed for the transaction.
   type ScriptsNeeded era = (r :: Type) | r -> era
 
-  -- | Calculate all the value that is being consumed by the transaction.
+  -- | Consumed value before accounting for externally held UTxO deposits.
   getConsumedValue ::
     PParams era ->
     -- | Function that can lookup current delegation deposits
@@ -55,12 +58,17 @@ class EraTx era => EraUTxO era where
     TxBody t era ->
     Value era
 
+  -- | Produced value before accounting for externally held UTxO deposits.
   getProducedValue ::
     PParams era ->
     -- | Check whether a pool with a supplied PoolStakeId is already registered.
     (KeyHash StakePool -> Bool) ->
     TxBody TopTx era ->
     Value era
+
+  -- | Change in externally held deposits on ordinary inputs and outputs of the batch.
+  getNetUTxOStoreChange :: UTxOStore era -> TxBody TopTx era -> Coin
+  getNetUTxOStoreChange _ _ = mempty
 
   -- | Initial eras will look into witness set to find all of the available scripts, but
   -- starting with Babbage we can look for available scripts in accepted allocations using reference
@@ -85,3 +93,22 @@ class EraTx era => EraUTxO era where
 
   -- | Minimum fee computation, excluding witnesses and including ref scripts size
   getMinFeeTxUtxo :: PParams era -> Tx t era -> IndexedUTxOs era -> Coin
+
+-- | Financial balance uses the actual Store movement. Embedded reserves already
+-- travel with the serialized input and output values.
+consumedAndProducedValue ::
+  EraUTxO era =>
+  PParams era ->
+  (Credential Staking -> Maybe Coin) ->
+  (KeyHash StakePool -> Bool) ->
+  UTxOStore era ->
+  TxBody TopTx era ->
+  (Value era, Value era)
+consumedAndProducedValue pp lookupRefund isRegistered store body =
+  let consumed = getConsumedValue pp lookupRefund (allocations store) body
+      produced = getProducedValue pp isRegistered body
+      change = getNetUTxOStoreChange store body
+   in case compare change mempty of
+        LT -> (consumed <> inject (mempty <-> change), produced)
+        EQ -> (consumed, produced)
+        GT -> (consumed, produced <> inject change)

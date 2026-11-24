@@ -8,10 +8,11 @@
 -- deposits left after funding the return reach the fee pot without relaxing
 -- either requirement.
 module Cardano.Ledger.Dijkstra.Rules.DepositStore.Collateral (
-  validateCollateralFunding,
+  validateBatchCollateral,
 ) where
 
 import qualified Cardano.Ledger.Alonzo.Rules as Alonzo
+import Cardano.Ledger.Alonzo.TxWits (unRedeemersL)
 import Cardano.Ledger.Babbage.Collateral (collAdaBalance)
 import qualified Cardano.Ledger.Babbage.Rules as Babbage
 import Cardano.Ledger.Coin (toDeltaCoin)
@@ -31,6 +32,28 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Maybe.Strict (StrictMaybe (..))
 import Lens.Micro ((^.))
 import Validation (Validation, failureUnless)
+
+-- | Redeemers anywhere in the batch require collateral funding.
+validateBatchCollateral ::
+  ( AlonzoEraTx era
+  , DijkstraEraTxBody era
+  , InjectRuleFailure rule Alonzo.AlonzoUtxoPredFailure era
+  , InjectRuleFailure rule Babbage.BabbageUtxoPredFailure era
+  ) =>
+  PParams era ->
+  Tx TopTx era ->
+  UTxOStore era ->
+  Validation (NonEmpty (EraRuleFailure rule era)) ()
+validateBatchCollateral pp tx store
+  | hasBatchRedeemers tx = validateCollateralFunding pp (tx ^. bodyTxL) store
+  | otherwise = pure ()
+
+hasBatchRedeemers :: (AlonzoEraTx era, DijkstraEraTxBody era) => Tx TopTx era -> Bool
+hasBatchRedeemers tx =
+  hasRedeemers tx || any hasRedeemers (tx ^. bodyTxL . subTransactionsTxBodyL)
+
+hasRedeemers :: AlonzoEraTx era => Tx l era -> Bool
+hasRedeemers = not . null . (^. witsTxL . rdmrsTxWitsL . unRedeemersL)
 
 -- | Preserve existing collateral eligibility, native-asset conservation and
 -- optional-total semantics for both output variants. The minimum fee is funded

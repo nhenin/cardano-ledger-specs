@@ -300,7 +300,6 @@ import Cardano.Ledger.Shelley.Transition (
   tcInitialStakingL,
  )
 import Cardano.Ledger.Shelley.Translation (toFromByronTranslationContext)
-import Cardano.Ledger.Shelley.UTxO (produced, shelleyConsumed)
 import Cardano.Ledger.Slot (epochFromSlot, epochInfoFirst, getTheSlotOfNoReturn)
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
@@ -1297,7 +1296,8 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   -- Fee will be overwritten later on, unless it wasn't set to zero to begin with:
   let tx = txOriginal & bodyTxL . feeTxBodyL .~ zero
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  entries <- getIndexedUTxOs
+  store <- getUTxOStore
+  let entries = allocations store
   certState <- getsNES $ nesEsL . esLStateL . lsCertStateL
   addr <-
     if eraProtVerLow @era < natVersion @12
@@ -1309,8 +1309,13 @@ fixupFees txOriginal = impAnn "fixupFees" $ do
   let
     nativeScriptKeyWits = Map.keysSet nativeScriptKeyPairs
     accounts = certState ^. certDStateL . accountsL
-    consumedValue = shelleyConsumed pp accounts entries (tx ^. bodyTxL)
-    producedValue = produced pp (certState ^. certPStateL) (tx ^. bodyTxL)
+    (consumedValue, producedValue) =
+      consumedAndProducedValue
+        pp
+        (`lookupAccountDeposit` accounts)
+        (`Map.member` (certState ^. certPStateL . psStakePoolsL))
+        store
+        (tx ^. bodyTxL)
     ensureNonNegativeCoin v
       | pointwise (<=) zero v = pure v
       | otherwise = do

@@ -9,6 +9,8 @@
 -- helpers additionally compare ledger state before and after submission.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (
   submitTx,
+  prepareFixtureFunding,
+  fundFixtureTx,
   isAccepted,
   isRejectedWith,
   isRejectedOnlyWith,
@@ -35,7 +37,11 @@ import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.SubTx as SubTx
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Plutus (SLanguage (..), hashPlutusScript)
 import Cardano.Ledger.Shelley.LedgerState (esLStateL, nesEsL)
-import Cardano.Ledger.State (DepositAmount (toCoin), currentFormula)
+import Cardano.Ledger.State (
+  DepositAmount (toCoin),
+  currentFormula,
+ )
+import Control.Monad ((>=>))
 import Data.Bifunctor (first)
 import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -43,6 +49,9 @@ import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
 import Lens.Micro
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedBackingChange,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (
   subTxWithDepositDeclaration,
  )
@@ -53,7 +62,9 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (
   topTxBody,
  )
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output as Output
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.ImpTest hiding (submitTx)
+import qualified Test.Cardano.Ledger.Dijkstra.ImpTest as Imp
 import Test.Cardano.Ledger.Imp.Common (
   expectLeftDeepExpr,
   expectRightDeepExpr_,
@@ -71,6 +82,18 @@ submitTx ::
     DijkstraEra
     (Either (NonEmpty (DijkstraLedgerPredFailure DijkstraEra)) (Tx TopTx DijkstraEra))
 submitTx tx = first fst <$> withNoFixup (trySubmitTx tx)
+
+-- | Create standalone source UTxOs for a later test. Include the fee input and
+-- change finalized by fixup in this setup transaction's signed backing delta.
+prepareFixtureFunding :: Tx TopTx DijkstraEra -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
+prepareFixtureFunding tx = do
+  fixed <- fixupTx tx
+  store <- getUTxOStore
+  rederiveAddrTxWits $
+    Pricing.declareNetDeposit (expectedBackingChange store $ fixed ^. bodyTxL) fixed
+
+fundFixtureTx :: Tx TopTx DijkstraEra -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
+fundFixtureTx = prepareFixtureFunding >=> withNoFixup . Imp.submitTx
 
 -- | Require acceptance of an already submitted transaction. On rejection, report
 -- the ledger's predicate failures; this assertion never submits the transaction.
@@ -116,8 +139,8 @@ removeTopTxDeclaration tx =
 --
 -- * Submit a funding transaction that creates an implicit-deposit output of
 --   the active minimum ADA at a fresh address in the test ledger.
--- * Build a SubTx that spends that output, initially creates no outputs, and
---   carries exactly the supplied declaration, including absence or explicit zero.
+-- * Build a SubTx that returns the funded value to an identical implicit output
+--   and carries the supplied declaration, including absence or explicit zero.
 --
 -- Put these SubTxs inside a TopTx carrying the supplied TopTx declaration.
 -- Distinct funding inputs keep SubTxs distinct even when their declarations match.
@@ -144,7 +167,7 @@ fundedImplicitSubTx declaration = do
     sendCoinTo address $
       toCoin . Formula.computeDeposit pricing $
         mkBasicTxOutWithMinAda @DijkstraEra address mempty
-  pure $ subTxWithDepositDeclaration input declaration
+  returnSubTxInputsToOutputs $ subTxWithDepositDeclaration input declaration
 
 -- | Exercise the phase-2 failure path with a real failing TopTx script.
 -- Return each SubTx's funded input value to itself so legacy Plutus fixup does
@@ -155,9 +178,11 @@ preparePhase2InvalidBatch batch = do
   balancedSubs <-
     traverse returnSubTxInputsToOutputs $ OMap.elems (batch ^. bodyTxL . subTransactionsTxBodyL)
   failingInput <- produceScript . hashPlutusScript $ alwaysFailsWithDatum SPlutusV3
+  scriptOutput <- impGetUTxO failingInput
   fixed <-
     fixupTx $
       batch
+        & bodyTxL . outputsTxBodyL %~ (<> SSeq.singleton scriptOutput)
         & bodyTxL
           . subTransactionsTxBodyL
           .~ OMap.fromFoldable balancedSubs
@@ -190,7 +215,12 @@ buildTxWithCreatedOutputs (Output.TxOutputs declaration variants subBodies) = do
 preparePhase2InvalidTx :: Tx TopTx DijkstraEra -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra)
 preparePhase2InvalidTx prepared = do
   failingInput <- produceScript . hashPlutusScript $ alwaysFailsWithDatum SPlutusV4
-  fixed <- fixupTx $ prepared & bodyTxL . inputsTxBodyL %~ Set.insert failingInput
+  scriptOutput <- impGetUTxO failingInput
+  fixed <-
+    fixupTx $
+      prepared
+        & bodyTxL . inputsTxBodyL %~ Set.insert failingInput
+        & bodyTxL . outputsTxBodyL %~ (<> SSeq.singleton scriptOutput)
   pure $ fixed & isPhase2ValidTxL .~ Phase2Invalid
 
 -- | Fund a fresh implicit input and retain the SubTx's declared output variants.

@@ -38,7 +38,10 @@ import Cardano.Ledger.Val ((<->))
 import Data.List.NonEmpty (NonEmpty (..))
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, elements)
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (liveOutputStore)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedBackingChange,
+  liveOutputStore,
+ )
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.StrictlyPositiveCoin (
   positiveAmount,
  )
@@ -217,8 +220,9 @@ localDeclaration allocated released = case allocated <-> released of
 -- This is independent of the transaction total and every declared amount.
 ownNetDeposit :: ReleaseTx -> Coin
 ownNetDeposit proposal =
-  Standalone.allocatedDeposits (ledgerState proposal) (unsignedTx proposal)
-    <-> Standalone.releasedDeposits (ledgerState proposal) (unsignedTx proposal)
+  expectedBackingChange
+    (liveOutputStore $ Standalone.accountingState $ ledgerState proposal)
+    (unsignedTx proposal ^. bodyTxL)
 
 -- | Observe the production required transaction total for the supplied proposal.
 -- Tests compare this with independently priced outputs and recorded input deposits;

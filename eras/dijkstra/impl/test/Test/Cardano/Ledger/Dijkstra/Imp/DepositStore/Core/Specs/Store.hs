@@ -7,6 +7,9 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
   liveOutputStore,
   expectedAllocationDeposit,
   expectedOutputDeposit,
+  expectedOutputBacking,
+  expectedBackingChange,
+  externalDepositChange,
   expectedDepositTotal,
   assertDepositTotal,
   retainsCreationMetadata,
@@ -21,6 +24,7 @@ import Cardano.Ledger.State
 import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Cardano.Ledger.TxIn (TxIn)
+import Cardano.Ledger.Val ((<->))
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
@@ -40,28 +44,58 @@ outputs = IndexedUTxOs.mapTxOuts id . allocations . asUTxOStore
 -- | Select the historical price independently of the Store and its cached total.
 expectedAllocationDeposit :: DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> Coin
 expectedAllocationDeposit history allocation =
-  expectedOutputDeposit pricing (Unspent.output allocation)
-  where
-    pricing = case allocatedAt allocation of
-      AtStoreMigration -> initialFormula history
-      AtSlot slot -> fromMaybe (initialFormula history) (snd <$> Map.lookupLE slot (formulaChanges history))
+  expectedOutputDeposit (creationFormula history allocation) (Unspent.output allocation)
+
+creationFormula :: DepositFormulaHistory -> Unspent output -> DepositFormula
+creationFormula history allocation = case allocatedAt allocation of
+  AtStoreMigration -> initialFormula history
+  AtSlot slot -> fromMaybe (initialFormula history) (snd <$> Map.lookupLE slot (formulaChanges history))
+
+creditedInputBacking :: DepositFormulaHistory -> Unspent (TxOut DijkstraEra) -> Coin
+creditedInputBacking history allocation =
+  let output = Unspent.output allocation
+      backing = expectedOutputBacking (creationFormula history allocation) output
+   in case output of
+        MinAdaTxOut _ -> min backing (output ^. coinTxOutL)
+        DepositBackedTxOut _ -> backing
 
 -- | Count distinct assets and measure the stored payloads for an external deposit.
 expectedOutputDeposit :: DepositFormula -> TxOut DijkstraEra -> Coin
 expectedOutputDeposit _ (MinAdaTxOut _) = Coin 0
-expectedOutputDeposit pricing output@(DepositBackedTxOut newOutput) =
+expectedOutputDeposit pricing output = expectedOutputBacking pricing output
+
+expectedOutputBacking :: DepositFormula -> TxOut DijkstraEra -> Coin
+expectedOutputBacking pricing output =
   Coin $ toInteger price * (base + perAsset * assetCount + datumBytes + scriptBytes)
   where
     (CoinPerByte (CompactCoin price), base, perAsset) = case pricing of
       DepositFormulaV1 rate -> (rate, 250, 74)
       DepositFormulaV2 rate -> (rate, 260, 80)
-    MaryValue _ assets = unApplicationAssets (newOutput ^. applicationAssetsTxOutL)
+    MaryValue _ assets = case output of
+      MinAdaTxOut legacy -> legacy ^. valueTxOutL
+      DepositBackedTxOut newOutput -> unApplicationAssets (newOutput ^. applicationAssetsTxOutL)
     assetCount = toInteger $ length $ flattenMultiAsset assets
     datumBytes = case output ^. datumTxOutL of
       NoDatum -> 0
       DatumHash hash -> toInteger $ BS.length $ originalBytes hash
       Datum datum -> toInteger $ BS.length $ originalBytes datum
     scriptBytes = strictMaybe 0 (toInteger . BS.length . originalBytes) (output ^. referenceScriptTxOutL)
+
+-- | Signed reserve of a body's own outputs less the credited historical
+-- reserve of its ordinary spending inputs.
+expectedBackingChange :: UTxOStore DijkstraEra -> TxBody l DijkstraEra -> Coin
+expectedBackingChange store body =
+  foldMap (expectedOutputBacking $ currentFormula store) (body ^. outputsTxBodyL)
+    <-> foldMap
+      (creditedInputBacking $ depositFormulaHistory store)
+      (IndexedUTxOs.unspentOutputs $ restrictToInputs (body ^. inputsTxBodyL) $ allocations store)
+
+-- | Change in externally held ADA for one body, priced from the fixture's
+-- independent historical and active formulas. Embedded reserves stay in values.
+externalDepositChange :: UTxOStore DijkstraEra -> TxBody l DijkstraEra -> Coin
+externalDepositChange store body =
+  foldMap (expectedOutputDeposit $ currentFormula store) (body ^. outputsTxBodyL)
+    <-> foldMap id (Map.restrictKeys (recordedAmounts store) (body ^. inputsTxBodyL))
 
 -- | Independent test observation of external deposits. Legacy entries contribute
 -- no external record; a zero-priced Deposit-backed allocation remains present.

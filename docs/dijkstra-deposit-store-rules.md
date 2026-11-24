@@ -926,13 +926,21 @@ $$
 \text{allocatedUTxODeposits(body)}
 &= \sum_{\text{output}\in\text{new deposit-backed outputs(body)}}
 \text{requiredDeposit(output)} \\
-\text{requiredNetUTxODepositChange(body)}
+\text{storeChange(body)}
 &= \text{allocatedUTxODeposits(body)} - \text{releasedUTxODeposits(body)} \\
+\text{requiredNetUTxODepositChange(body)}
+&= \text{storeChange(body)} + \text{newEmbeddedMinima(body)} - \text{creditedEmbeddedReserves(body)} \\
 \text{requiredTxTotalNetUTxODepositChange}
 &= \sum_{\text{body}\in\text{TopTx and all SubTx bodies}}
 \text{requiredNetUTxODepositChange(body)}
 \end{aligned}
 $$
+
+Each new min-ADA output contributes its full minimum under the active formula.
+Each consumed min-ADA input contributes its historical minimum capped at its
+serialized ADA. Imported inputs use the fork's initial formula. Dated inputs use
+the formula in effect at allocation. The external deposits use the same creation
+and historical prices, respectively, with the full historical deposit released.
 
 The declaration supplies a separate value, `declaredTxTotalNetUTxODepositChange`.
 [TopTx accounting](#ds-tx-accounting-net-change-toptx) compares that supplied total with the required
@@ -1524,16 +1532,13 @@ its own contribution.
 | **Allocation** | A newly created deposit-backed output needs a deposit recorded in the Store. | Collateral return and a child's outputs. |
 | **Release** | A consumed deposit-backed output releases its recorded deposit. | Reference inputs, collateral inputs and a child's inputs. |
 
-These are **gross operations**, before netting:
+These gross external operations determine declaration presence. An explicit declaration
+also counts the minimum-ADA reserves of the body's ordinary inputs and outputs.
+[Net change](#ds-tx-accounting-net-change) defines both contributions.
 
-$$
-\text{netDepositChange}=\text{allocatedDeposits}-\text{releasedDeposits}
-$$
-
-A body may require both operations, even when its net change is zero. The
-allocation and release sections therefore overlap; they do not classify the
-declaration's sign. [Zero net change](#ds-tx-declarations-requirements-operations-zero-net-change) makes
-the equal, nonzero case explicit: zero net change still requires a declaration.
+A body may require both operations, even when its signed backing change is zero.
+The zero-change fixtures match equal, nonzero external allocations and releases
+while preserving embedded backing. [Zero net change](#ds-tx-declarations-requirements-operations-zero-net-change)
 On an accepted phase-2 failure, these requirements describe
 the hypothetical ordinary transition; only collateral effects execute.
 
@@ -1812,31 +1817,19 @@ A SubTx creating only min-ADA outputs is accepted within a ledger transaction wh
 
 **2.1.1.2.1.2.6 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs#L114) - Standalone TopTx, exact allocation declaration**
 
-**No existing deposit is released.** Generate one to five outputs with varying
-application ADA, including at least one deposit-backed output. The sequence may be
-entirely deposit-backed or mixed with min-ADA outputs. Every funding input is
-min-ADA and has no Store allocation.
-
-TopTx declares the full required allocation directly. The builder funds that
-allocation, application outputs and fees, then supplies the witnesses. Under the
-shared standalone context, with all other ledger rules satisfied:
+Generate one to five outputs with varying application ADA and at least one
+deposit-backed output. Each proposed output counts toward the signed declaration.
+The fee input and its change carry equal minimum-ADA reserves, so they cancel.
+In this standalone fixture,
 
 $$
-\text{declaredNetDeposit(topTx)}=\text{allocatedDeposits(topTx)}
-\implies\text{Accepted}
+\text{declaredNetDeposit(topTx)}
+=\sum_{o\in\text{generatedOutputs}}\text{currentFormula}(o).
 $$
 
-The allocation is computed from the created outputs, independently of the
-declaration:
-
-$$
-\text{allocatedDeposits(topTx)}
-=\sum_{\text{output}\in\text{createdDepositBackedOutputs(topTx)}}
-\text{requiredDeposit(protocolParameters, output)}
-$$
-
-It prices each output’s asset count, datum and reference script at a positive rate. Min-ADA outputs
-contribute zero; no SubTx declaration is supplied.
+The builder must fund the full external deposits and the serialized output values,
+including ADA held in min-ADA outputs, along with the fee. The correctly declared,
+funded and signed proposal is accepted.
 
 <a id="ds-tx-presence-activity-creation-f02" name="ds-tx-presence-activity-creation-f02"></a>
 <a id="ds-tx-presence-operations-allocation-f02" name="ds-tx-presence-operations-allocation-f02"></a>
@@ -1854,11 +1847,10 @@ $$
 \implies\text{RejectedWith(MissingUTxODepositDeclaration)}
 $$
 
-Allocation is the reason a declaration is required: there is neither a recorded
-deposit release nor a SubTx declaration dependency. Removing the allocation
-declaration may also break conservation; that does not replace the required
-missing-declaration failure. Finally, submit the unchanged, fully declared
-transaction and require acceptance.
+Creation of a deposit-backed output requires the declaration. Removing the
+field preserves the actual external movement and submitted values. Require the
+missing-declaration failure, then submit the fully declared control and require
+acceptance.
 
 <a id="ds-tx-presence-activity-creation-f03" name="ds-tx-presence-activity-creation-f03"></a>
 <a id="ds-tx-presence-operations-allocation-f03" name="ds-tx-presence-operations-allocation-f03"></a>
@@ -1899,7 +1891,8 @@ A real phase-2 failure does not waive a creating SubTx's declaration requirement
 Build a Conway output and apply the production output upgrade to Dijkstra. Fund
 that translated output through an accepted transaction, then consume its real
 `TxIn` to create one to five generated outputs, including at least one deposit-backed
-output. Its address, value and min-ADA form are preserved; it has no Store record.
+output. Its address, value and min-ADA form are preserved. The exact declaration
+credits its historical reserve up to the ADA it contains.
 
 $$
 \begin{aligned}
@@ -1910,7 +1903,7 @@ $$
 \end{aligned}
 $$
 
-Start with the signed exact-allocation control. Remove only TopTx's declaration
+Start with the signed control declaring the exact backing change. Remove only TopTx's declaration
 and re-sign: the modified proposal must be rejected for that missing field.
 The original declared transaction must be accepted.
 
@@ -2018,15 +2011,15 @@ $$
 \text{allocatedDeposits(topTx)}&>0 \\
 \text{allocatedDeposits(subTx)}&>0 \\
 \text{releasedDeposits(topTx)}&=\text{releasedDeposits(subTx)}=0 \\
-\text{declaredNetDeposit(subTx)}&=\text{allocatedDeposits(subTx)} \\
+\text{declaredNetDeposit(subTx)}&=\text{ownNetDeposit(subTx)} \\
 \text{declaredNetDeposit(topTx)}
-&=\text{allocatedDeposits(topTx)}+\text{allocatedDeposits(subTx)}
+&=\text{ownNetDeposit(topTx)}+\text{ownNetDeposit(subTx)}
 \end{aligned}
 $$
 
-Price the two output sequences independently. Fund the child's application
-outputs and own allocation from its min-ADA input; TopTx supplies the remaining
-funding and fees. The transaction with these exact declarations must be accepted.
+Price both output forms in each body and credit the historical backing of its inputs.
+The child's min-ADA input funds its serialized outputs and external deposits.
+TopTx supplies the remaining funding and the fee. The transaction with these exact declarations must be accepted.
 
 <a id="ds-tx-presence-activity-spending" name="ds-tx-presence-activity-spending"></a>
 <a id="ds-tx-presence-operations-release" name="ds-tx-presence-operations-release"></a>
@@ -2071,9 +2064,9 @@ acceptance or rejection.
 ordinary transition. The released amount is the deposit recorded for that source;
 newly created deposit-backed outputs require separate allocations.
 
-A **gross release** does not imply a **net release**. New allocations minus
-recorded releases can be positive, zero or negative. The body declares its net
-contribution; TopTx declares the transaction total.
+The signed change also includes any increase or decrease in embedded reserves.
+A body consuming a deposit-backed input may therefore declare an allocation, a
+release or zero. TopTx declares the total across all bodies.
 
 These cases specify **transaction acceptance or rejection**, including the required
 missing-declaration failure. Reference-only access and collateral-only operations
@@ -2136,9 +2129,9 @@ All amounts below belong to this TopTx. The two sums have separate scopes:
 | $\text{releasedDeposits}$ | $\displaystyle\sum_{\text{input}}\text{recordedDeposit(input)}$ | Consumed deposit-backed inputs. |
 
 New allocations use the [deposit calculation](#ds-pricing) with fixed protocol
-parameters. Releases use the **recorded ledger amounts**. Min-ADA inputs release
-no Store deposit; min-ADA outputs require no Store allocation. Existing outputs
-left unspent are excluded.
+parameters. Releases use the historical prices of the consumed deposit-backed
+inputs. The release fixtures pair each new min-ADA output with a funded input of
+equal embedded reserve. Embedded backing therefore cancels in the formulas below.
 
 **Expected result**
 
@@ -2171,7 +2164,7 @@ for in its declared settlement output.
 **2.1.1.2.1.3.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs#L84) - Standalone TopTx, only min-ADA outputs**
 
 No new Store allocation is required ($\text{allocatedDeposits}=0$),
-so TopTx directly declares a release of $\text{releasedDeposits}$ into its output 0.
+and the matched min-ADA reserves cancel, so TopTx declares a release of $\text{releasedDeposits}$ into its output 0.
 The declaration carries the positive amount being released and represents
 $\text{netDeposit}=-\text{releasedDeposits}$. Its SubTx declaration list is empty.
 Build and sign that proposal, then require acceptance.
@@ -2711,7 +2704,7 @@ require acceptance.
 
 **2.1.1.2.1.4 Zero net change**
 
-> **Equal allocations and releases require an explicit zero declaration.**
+> **A body with Store operations and equal total input and output backing declares zero.**
 >
 > Zero net change does not mean that no Store operations occur.
 
@@ -2737,7 +2730,8 @@ $$
 \end{aligned}
 $$
 
-Equality is checked independently for every active body. A zero batch total
+These fixtures also preserve each body's embedded reserves, making the signed
+backing change zero. Equality is checked independently for every active body. A zero batch total
 alone is insufficient: every active body releases a positive deposit and
 allocates the same amount itself. Inactive bodies consume and create only
 min-ADA outputs. The active and inactive bodies partition TopTx and its actual
@@ -3560,10 +3554,10 @@ The comparison starts immediately before submission, after funding and preparati
 | [Attribution](#ds-tx-accounting-attribution) | Which signed contributions belong to TopTx or SubTx? | Derived on either path |
 | [Balance](#ds-tx-accounting-balance) | Do consumed and produced values balance, counting the Store transfer once? | Valid only |
 
-Exact declarations identify the Store transfer. Attribution assigns its signed
-contributions to bodies; it does not add another transfer. The complete transaction
-must balance when its ordinary effects apply. No step requires each SubTx to balance
-independently.
+Declarations measure the change in total backing across both output forms.
+Attribution assigns that signed change to bodies for settlement. Financial
+balance counts the actual external deposits entering or leaving the Store and
+the serialized values of all ordinary inputs and outputs.
 
 <a id="ds-tx-exactness" name="ds-tx-exactness"></a>
 <a id="ds-tx-accounting-net-change" name="ds-tx-accounting-net-change"></a>
@@ -3579,8 +3573,9 @@ independently.
 
 $$
 \begin{aligned}
-\mathrm{ownNetDeposit}(\mathit{body})
-&=\mathrm{allocatedDeposits}(\mathit{body})-\mathrm{releasedDeposits}(\mathit{body}) \\
+\mathrm{ownNetDeposit}(b)
+&=\sum_{o\in\mathrm{outputs}(b)}\mathrm{currentFormula}(o)
+  -\sum_{i\in\mathrm{inputs}(b)}\mathrm{creditedBacking}(i) \\
 \mathrm{transactionNetDeposit}(\mathit{topTx})
 &=\mathrm{ownNetDeposit}(\mathit{topTx}) \\
 &\quad+\sum_{\mathit{subTx}\in\mathrm{subTxs}(\mathit{topTx})}
@@ -3590,14 +3585,26 @@ $$
 
 | Notation | Meaning |
 | --- | --- |
+| $\mathrm{currentFormula}(o)$ | Required backing at creation. A min-ADA output must contain this minimum in its value. A deposit-backed output requires this amount in the Store. |
+| $\mathrm{creditedBacking}(i)$ | For a deposit-backed input, the full historical deposit. For a min-ADA input, the lesser of the historical price and the ADA in the input. Imported inputs use the initial formula. Dated inputs use the formula at allocation. |
 | $\mathrm{allocatedDeposits}(\mathit{body})$ | [Price](#ds-pricing) the body's newly created deposit-backed outputs. |
 | $\mathrm{releasedDeposits}(\mathit{body})$ | Read the recorded deposits of its consumed deposit-backed inputs. |
 | $\mathrm{declaredNetDeposit}(\mathit{body})$ | The **signed** declared value: allocation $>0$, release $<0$, explicit zero $=0$. Absence has no declared value. |
 | $1$ in amount comparisons | One lovelace. Example values labelled ADA are converted to lovelace. |
 
-These short names refer to the same amounts as `requiredNetUTxODepositChange(body)`
-and `requiredTxTotalNetUTxODepositChange` in the domain model. Derive them independently
-of declarations. Reference inputs and collateral do not enter this ordinary calculation.
+The builder and ledger derive these amounts from ordinary inputs resolved in the
+original UTxO and the proposed regular outputs. Fee funding and change count on
+the same terms. Reference inputs and collateral have separate rules.
+
+These three ledger cases compare the signed declaration with the actual change
+in external ADA. Each case also rejects the external-only amount when declared
+by TopTx or SubTx. [Mixed-output regression tests](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/MixedBackingSpec.hs) and [verification results](dijkstra-deposit-store-verification.md#signed-backing-change-for-mixed-output-forms--24-november-2026).
+
+| Consumed backing | Required output backing | Exact declaration | Change in Store ADA |
+| --- | --- | --- | ---: |
+| 1.6 ADA embedded at allocation | 2 ADA external | Allocate 0.4 ADA | +2 ADA |
+| Imported min-ADA input holding 2 ADA with a historical minimum of 3 ADA | 3 ADA external | Allocate 1 ADA | +3 ADA |
+| 2 ADA external | 2 ADA embedded | Explicit zero | −2 ADA |
 
 **Example, in ADA:**
 
@@ -3625,14 +3632,16 @@ $$
 \end{aligned}
 $$
 
-After Requirements, an undeclared SubTx has no Store operations and contributes
-zero to the required total. It contributes no declared value to a sum of declarations.
+A SubTx with only min-ADA inputs and outputs may omit its declaration. Its
+computed backing change still enters any required TopTx total. An undeclared
+child has no locally declared share.
 
 **Reading the contracts.** Requirements, valid grammar and resolved inputs
 are assumed. Accepted controls satisfy the other transaction rules. Rejection must
 include the targeted exactness failure; a [Balance](#ds-tx-accounting-balance) failure alone is insufficient.
-The same required ordinary amounts apply on both phase-2 outcomes; [Execution](#ds-state-execution)
-selects the effects actually applied. [Historical pricing](#ds-pricing-history) determines each released deposit.
+The same required ordinary amounts apply on both phase-2 outcomes. The generated
+net-change cases below match embedded input and output backing when isolating
+external operations. See [Execution](#ds-state-execution) and [Historical pricing](#ds-pricing-history).
 
 <a id="ds-tx-exactness-contribution" name="ds-tx-exactness-contribution"></a>
 <a id="ds-tx-exactness-subtx" name="ds-tx-exactness-subtx"></a>
@@ -3888,7 +3897,8 @@ $$
 \end{aligned}
 $$
 
-Min-ADA outputs require no new Store allocation, so the declaration releases the complete recorded input deposit.
+The fixture pairs its min-ADA outputs with inputs carrying equal embedded backing.
+The signed release therefore equals the historical external deposits consumed.
 
 <a id="ds-tx-exactness-contribution-f07" name="ds-tx-exactness-contribution-f07"></a>
 <a id="ds-tx-exactness-subtx-f07" name="ds-tx-exactness-subtx-f07"></a>
@@ -3961,7 +3971,8 @@ $$
 \end{aligned}
 $$
 
-The live input was translated from the previous era into a min-ADA output. Its coins fund new Store obligations, but it releases no Store deposit.
+The translated input funds the external obligations. Its credited min-ADA
+reserve cancels the reserve of the fixture's min-ADA change output.
 
 <a id="ds-tx-exactness-contribution-f08" name="ds-tx-exactness-contribution-f08"></a>
 <a id="ds-tx-exactness-subtx-f08" name="ds-tx-exactness-subtx-f08"></a>
@@ -4103,13 +4114,13 @@ while the transaction total remains unchanged.
 | 3 ADA | 5 ADA | Release 2 ADA |
 | 5 ADA | 5 ADA | Explicit zero |
 
-TopTx has no separate declaration for its own change. Derive it by subtracting **all**
-declared SubTx changes from the declared total, as shown in N02. This differs from
-`topTxNetUTxODepositChange` in [Attribution](#ds-tx-accounting-attribution), which retains delegated SubTx changes.
+To recover TopTx's own change, subtract every child's computed backing change
+from the batch total, including any undeclared min-ADA-only children.
+[Attribution](#ds-tx-accounting-attribution) derives the share for TopTx settlement.
 
-On ordinary success, the transaction total is applied once; SubTx amounts are already
-included. Accepted phase-2 failure applies no ordinary Store transfer. Requirements
-still decide whether the field is mandatory: net zero does not imply absence.
+On ordinary success, the Store receives external output deposits and pays out
+external input deposits. On accepted phase-2 failure, only collateral effects
+apply. [Requirements](#ds-tx-declarations-requirements) determines field presence.
 
 <a id="ds-tx-exactness-netting-p01" name="ds-tx-exactness-netting-p01"></a>
 <a id="ds-tx-exactness-toptx-p01" name="ds-tx-exactness-toptx-p01"></a>
@@ -4190,7 +4201,9 @@ $$
 \end{aligned}
 $$
 
-Subtract all present child declarations, including delegated operations. Children without declarations have no own Store operations. The result is a diagnostic, not another declaration field.
+In this fixture every undeclared child has zero net embedded backing. Subtracting
+all present child declarations, including delegated operations, therefore recovers
+the parent's own backing change.
 
 <a id="ds-tx-exactness-netting-n02" name="ds-tx-exactness-netting-n02"></a>
 <a id="ds-tx-exactness-toptx-n03" name="ds-tx-exactness-toptx-n03"></a>
@@ -4482,7 +4495,7 @@ Omitting or adding a second copy of a delegated child change makes the total ine
 | Allocation requested from TopTx | $+\text{amount}$ | $0$ | $+\text{amount}$ |
 | Release delegated to TopTx | $-\text{amount}$ | $0$ | $-\text{amount}$ |
 | Explicit zero | $0$ | $0$ | $0$ |
-| Absent declaration | No declared operation | $0$ | $0$ |
+| Absent declaration (min-ADA only) | Computed embedded backing change | $0$ | Full computed change |
 
 An absent declaration is not explicit zero; declaration requirements still apply.
 A delegated contribution is already included in the transaction total. It changes
@@ -4497,15 +4510,15 @@ $$
 \end{aligned}
 $$
 
-This is TopTx's **attributed amount**, including delegated child contributions.
-Its **own change** comes only from its recorded inputs and newly priced outputs.
-For exact declarations, the same responsibility can therefore be derived
-independently as:
+TopTx retains its own signed change, all delegated changes, and the computed
+backing of undeclared children. For exact declarations,
 
 $$
 \text{topTxNetUTxODepositChange}
 =\text{ownNetDeposit(topTx)}
 +\sum_{\text{subTx}\in\text{delegatingSubTxs}}
+  \text{ownNetDeposit(subTx)}
++\sum_{\text{subTx}\in\text{undeclaredSubTxs}}
   \text{ownNetDeposit(subTx)}
 $$
 
@@ -4535,7 +4548,8 @@ $$
 \end{aligned}
 $$
 
-Generate all six declaration forms from the table above. Observe production
+The undeclared children in P01 preserve embedded backing. Generate all six
+declaration forms from the table above. Observe production
 accounting and compare it with independently measured input deposits and output
 allocations. Local allocations contribute positively, local releases negatively;
 requests and delegated releases remain in TopTx's share **exactly once**. Include
@@ -4621,11 +4635,12 @@ remain fixed. Unqualified coin amounts are in lovelace.
 
 | Notation | Meaning |
 | --- | --- |
-| $\text{inputValue}$ | Sum of application values in all ordinary inputs of TopTx and its SubTxs. |
-| $\text{outputValue}$ | Sum of their proposed ordinary output values. |
+| $\text{inputValue}$ | Sum of serialized values of all ordinary inputs across TopTx and its SubTxs, including embedded min-ADA. |
+| $\text{outputValue}$ | Sum of their proposed regular output values, also including embedded min-ADA. |
+| $\text{storeChange}$ | External deposits of newly created deposit-backed outputs minus historical deposits of consumed deposit-backed inputs, across all bodies. |
 | $\text{fees}$ | TopTx's fee. |
 | $\text{declaredNetDeposit}$ | TopTx's explicit signed total: allocation $>0$, release $<0$, zero $=0$. |
-| $\text{inputCoins(body)}$, $\text{outputCoins(body)}$ | Application ADA in that body's own inputs or outputs. |
+| $\text{inputCoins(body)}$, $\text{outputCoins(body)}$ | Serialized ADA in that body's own inputs or outputs. |
 | $\Delta$ | Change from the independently balanced control. |
 | $\text{outputAdjustment}$ | Change to TopTx's min-ADA output zero. |
 | $\text{feeContribution(subTx)}$ | Application ADA redirected from the child's output into an increased TopTx fee; not a declaration field. |
@@ -4636,9 +4651,9 @@ changing native assets:
 $$
 \begin{aligned}
 \text{consumedValue}
-&=\text{inputValue}+\text{inject}(\max(0,-\text{declaredNetDeposit})) \\
+&=\text{inputValue}+\text{inject}(\max(0,-\text{storeChange})) \\
 \text{producedValue}
-&=\text{outputValue}+\text{inject}(\text{fees}+\max(0,\text{declaredNetDeposit})) \\
+&=\text{outputValue}+\text{inject}(\text{fees}+\max(0,\text{storeChange})) \\
 \text{transactionBalance}
 &=\text{consumedValue}-\text{producedValue}
 \end{aligned}
@@ -4647,9 +4662,9 @@ $$
 $\text{transactionBalance}$ retains all asset identities and quantities. Its ADA
 and native-asset components are $\text{adaBalance}$ and
 $\text{nativeAssetBalance}$; zero means no remaining difference in that component.
-TopTx's total already includes every SubTx contribution. Adding those contributions
-again would duplicate the Store transfer. An absent declaration has no declared
-value: an all-absent transaction has no Store term, rather than an explicit zero.
+Each body contributes its actual external movement once. Embedded reserves already
+travel in the input and output values. A batch can therefore have an explicit zero
+declaration and a nonzero Store transfer.
 
 [Net change](#ds-tx-accounting-net-change) separately establishes that declarations
 match the required deposit changes on both phase-2 outcomes. The balance equation
@@ -4664,14 +4679,19 @@ deposits.
 
 Native assets used by P01 and F02 are minted in a separate accepted funding
 transaction. Their proposed spending transaction does not mint. The independent
-observer resolves every ordinary input from the ledger and sums application
-values, outputs, fees and the declared Store term directly. It does not call the
+observer resolves every ordinary input from the ledger and independently sums
+serialized values, fees and actual external deposits. It does not call the
 production consumed/produced-value helpers. Additional ledger flows would require
 extending this observer before adding them to these fixtures.
 
 The ordinary cases use key witnesses in normal mode. N08 adds a genuinely failing
 phase-2 script with valid collateral. These fixtures do not exercise legacy-mode
-balance restrictions.
+balance restrictions. A separate mixed-output test covers the legacy TopTx
+self-balance check. TopTx funds its own external movement plus explicitly
+requested child allocations, less explicitly delegated child releases. A child
+that converts 1.6 ADA of embedded reserve to 2 ADA of external backing can
+request 0.4 ADA from the parent. Its own serialized input supplies the other
+1.6 ADA.
 
 **Isolate financial balance.** Every declaration remains exact. Start with a
 proposal independently balanced after fee preparation; change only implicit
@@ -4682,7 +4702,7 @@ values, and each rejection scenario also submits its balanced acceptance control
 
 **The concrete release example.** N06, N07 and F04 hold every other batch flow
 fixed. TopTx funds its base fee separately; the child has one input, one min-ADA
-output, no new allocation and no other financial flow. For these cases, the
+output requiring 2 ADA of embedded backing and no other financial flow. For these cases, the
 transaction equation reduces to:
 
 $$
@@ -4700,9 +4720,9 @@ requirement that all SubTxs balance independently.
 | $10$ ADA | $2$ ADA | $10$ ADA | $0$ ADA | Rejected: $2$ ADA unaccounted for |
 
 The $2$ ADA release is the deposit recorded for the actual deposit-backed input.
-Only the stated output and fee contribution vary between rows. The existing
-settlement bound remains mandatory; stronger local-settlement guarantees remain
-open under DS-TX-SETTLEMENT-REFINEMENT.
+The replacement min-ADA output requires 2 ADA of embedded backing, so TopTx and
+SubTx both declare zero. Only the serialized output ADA and the fee contribution
+vary between rows.
 
 <a id="ds-tx-conservation-p01" name="ds-tx-conservation-p01"></a>
 <a id="ds-tx-accounting-balance-p01" name="ds-tx-accounting-balance-p01"></a>
@@ -4712,8 +4732,8 @@ open under DS-TX-SETTLEMENT-REFINEMENT.
 $$
 \begin{aligned}
 &\text{phase2Valid}\land\text{Accepted} \\
-&\implies\text{inputValue}+\text{inject}(\max(0,-\text{declaredNetDeposit})) \\
-&\qquad=\text{outputValue}+\text{inject}(\text{fees}+\max(0,\text{declaredNetDeposit}))
+&\implies\text{inputValue}+\text{inject}(\max(0,-\text{storeChange})) \\
+&\qquad=\text{outputValue}+\text{inject}(\text{fees}+\max(0,\text{storeChange}))
 \end{aligned}
 $$
 
@@ -4767,8 +4787,8 @@ min-ADA output:
 | $+\text{declaredNetDeposit}$ | Spend the allocation again as application ADA. | Rejected |
 | $-\text{declaredNetDeposit}$ | Charge the allocation twice, leaving an unaccounted surplus. | Rejected |
 
-Neither mutation changes the declared amount or any deposit-backed output. The
-ledger must count the whole declared allocation once, including its child share.
+The matched embedded backing in this fixture makes the exact declared allocation
+equal to the external transfer. Neither mutation changes a deposit or a reserve.
 
 <a id="ds-tx-conservation-n02" name="ds-tx-conservation-n02"></a>
 <a id="ds-tx-accounting-balance-n02" name="ds-tx-accounting-balance-n02"></a>
@@ -4792,8 +4812,8 @@ declarations and compare these uses of the complete net release:
 | $-\text{declaredNetDeposit}$ | Spend a second copy of the release. | Rejected |
 | $+\text{declaredNetDeposit}$ | Leave the release unaccounted for. | Rejected |
 
-The changes affect only TopTx's min-ADA output. Counting SubTx releases again
-would credit value already present in the declared transaction total.
+The changes affect only TopTx's min-ADA output. The matched embedded backing in
+this fixture makes the declared release equal to the actual Store payout.
 
 <a id="ds-tx-conservation-n03" name="ds-tx-conservation-n03"></a>
 <a id="ds-tx-accounting-balance-n03" name="ds-tx-accounting-balance-n03"></a>
@@ -4935,8 +4955,9 @@ $$
 
 Fund one actual deposit-backed input containing $10$ ADA of application value
 and a recorded $2$ ADA deposit. Its SubTx consumes that input and creates one
-min-ADA output. It declares the $2$ ADA release into its own output; TopTx declares
-the same total with `NoTopTxSettlement`.
+min-ADA output requiring $2$ ADA of embedded backing. The child and parent
+explicitly declare zero. The Store pays out $2$ ADA, giving the child $12$ ADA
+of serialized output value.
 
 Accept the transaction. TopTx's separate generated funding pays its base fee, so
 no fee or additional child input changes this example. This fixed child scenario
@@ -4962,7 +4983,7 @@ min-ADA output from $12$ ADA to $10$ ADA and increase TopTx's fee by exactly
 $2$ ADA, preserving every other flow.
 
 Accept the transaction. The release is fully accounted for through the smaller
-child output and the explicit fee contribution; its declaration remains unchanged.
+child output and the explicit fee contribution. Both declarations remain zero.
 
 <a id="ds-tx-conservation-f04" name="ds-tx-conservation-f04"></a>
 <a id="ds-tx-accounting-balance-f04" name="ds-tx-accounting-balance-f04"></a>
@@ -5122,7 +5143,7 @@ test.
 | --- | --- |
 | [Designation](#ds-tx-settlement-designation) | Must TopTx designate a settlement output? |
 | [Output index](#ds-tx-settlement-output-index) | Does the selected index exist in the declaring body's own outputs? |
-| [Output coin](#ds-tx-settlement-output-coin) | Does that output contain at least the required application ADA? |
+| [Output coin](#ds-tx-settlement-output-coin) | Does that output contain the required ADA in its serialized value? |
 
 <a id="ds-tx-settlement-participation" name="ds-tx-settlement-participation"></a>
 <a id="ds-tx-settlement-designation" name="ds-tx-settlement-designation"></a>
@@ -5141,7 +5162,7 @@ test.
 | Notation | Meaning |
 | --- | --- |
 | $\text{totalChange}$ | Signed net deposit change for TopTx and all SubTxs. |
-| $\text{topTxChange}$ | TopTx's attributed change: its own operations plus delegated child changes. |
+| $\text{topTxChange}$ | Batch backing change minus all locally declared SubTx shares. |
 | $\text{hasTopTxOutput}$ | The declaration uses `TopTxSettlementOutput index`. |
 | $\text{noTopTxOutput}$ | A release uses `NoTopTxSettlement`, or the declaration has no designation field. |
 
@@ -5171,7 +5192,9 @@ $$
 
 `NoTopTxSettlement` does **not** mean zero transaction release: the SubTxs may settle
 it locally. The declared release amount remains the whole transaction's net change.
-TopTx's designated output is checked against its attributed share instead.
+The designated TopTx output must cover the magnitude of its attributed release.
+An undeclared min-ADA-only child can contribute a release to the batch. If the
+batch and the parent share are both negative, TopTx must designate an output.
 
 These exact net-release examples use ADA:
 
@@ -5551,7 +5574,7 @@ The SubTx spends its final deposit-backed inputs and creates no replacement outp
 
 > **Check the ADA already present in the selected output.**
 >
-> $\text{applicationADA(selectedOutput)}\ge\text{requiredSettlement(body)}$.
+> $\text{serializedADA(selectedOutput)}\ge\text{requiredSettlement(body)}$.
 > External deposits do not count toward this bound.
 
 **Decision:** Agreed.
@@ -5562,14 +5585,15 @@ output. This rule then compares two amounts:
 | Amount | TopTx | SubTx settling locally |
 | --- | --- | --- |
 | Required settlement | $\max(0,-\text{attributedTopTxChange})$ | The SubTx's declared release |
-| Available coin | Application ADA in the selected TopTx output | Application ADA in the selected SubTx output |
+| Available coin | Serialized ADA in the selected TopTx output | Serialized ADA in the selected SubTx output |
 
-For a min-ADA output, application ADA is its full coin value. For a deposit-backed
-output, the external deposit remains separate from application ADA.
+The selected min-ADA output contributes its full serialized coin value, including
+its embedded reserve. A deposit-backed output contributes its application ADA.
+Its externally held deposit stays in the Store.
 
 Example: TopTx's required share is 2 ADA.
 
-| Selected output | Application ADA | External deposit | Result |
+| Selected output | Serialized ADA | External deposit | Result |
 | --- | ---: | ---: | --- |
 | Implicit | 2 ADA | — | Accepted |
 | Implicit | 4 ADA | — | Accepted |
@@ -5578,7 +5602,7 @@ Example: TopTx's required share is 2 ADA.
 
 The last row still lacks one application ADA. The external deposit cannot fill the
 shortfall. TopTx's required share may be smaller or larger than the transaction's
-net Store release; compare against the **share**, not the transaction total.
+net backing release. The selected output must cover the **share**.
 
 This is a lower bound on the final output coin. It does not identify where those
 coins came from, require independent SubTx balance or prevent SubTx fee exports.
@@ -5597,7 +5621,7 @@ comparison means one lovelace.
 
 $$
 \text{passesOutputCoinValidation}
-\iff\text{applicationADA(selectedOutput)}\ge\text{requiredSettlement(body)}
+\iff\text{serializedADA(selectedOutput)}\ge\text{requiredSettlement(body)}
 $$
 
 Compare the isolated output-coin validator with the independent lower-bound predicate. Generate exact amounts, surplus and shortfall for TopTx and SubTx, using both min-ADA and deposit-backed outputs. This equivalence concerns output coin only.
@@ -5610,7 +5634,7 @@ Compare the isolated output-coin validator with the independent lower-bound pred
 $$
 \begin{aligned}
 &\text{implicit(selectedOutput)} \\
-&\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
+&\land\text{serializedADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
 &\implies\text{RejectedWith(InsufficientSettlementOutput)}
 \end{aligned}
 $$
@@ -5624,7 +5648,7 @@ The index exists and all declarations are exact. Move one lovelace from the desi
 
 $$
 \text{implicit(selectedOutput)}
-\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
+\land\text{serializedADA(selectedOutput)}=\text{requiredSettlement(body)}
 \implies\text{Accepted}
 $$
 
@@ -5637,7 +5661,7 @@ Exact equality is sufficient. Test the boundary for TopTx and for a SubTx settli
 
 $$
 \text{implicit(selectedOutput)}
-\land\text{applicationADA(selectedOutput)}>\text{requiredSettlement(body)}
+\land\text{serializedADA(selectedOutput)}>\text{requiredSettlement(body)}
 \implies\text{Accepted}
 $$
 
@@ -5651,8 +5675,8 @@ The selected min-ADA output may contain additional ADA. Its coin value need not 
 $$
 \begin{aligned}
 &\text{depositBacked(selectedOutput)} \\
-&\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
-&\land\text{applicationADA(selectedOutput)}+\text{externalDeposit(selectedOutput)}
+&\land\text{serializedADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
+&\land\text{serializedADA(selectedOutput)}+\text{externalDeposit(selectedOutput)}
   \ge\text{requiredSettlement(body)} \\
 &\implies\text{RejectedWith(InsufficientSettlementOutput)}
 \end{aligned}
@@ -5667,7 +5691,7 @@ Select a deposit-backed output whose application ADA is one lovelace short. Even
 
 $$
 \text{depositBacked(selectedOutput)}
-\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
+\land\text{serializedADA(selectedOutput)}=\text{requiredSettlement(body)}
 \implies\text{Accepted}
 $$
 
@@ -5681,7 +5705,7 @@ Allocate the external deposit independently and place exactly the required settl
 $$
 \begin{aligned}
 &0<\text{topTxSettlement}<\text{transactionRelease} \\
-&\land\text{applicationADA(selectedTopTxOutput)}=\text{topTxSettlement} \\
+&\land\text{serializedADA(selectedTopTxOutput)}=\text{topTxSettlement} \\
 &\implies\text{Accepted}
 \end{aligned}
 $$
@@ -5695,7 +5719,7 @@ For example, the transaction releases 5 ADA: a SubTx settles 3 ADA locally and T
 
 $$
 \text{phase2Invalid}
-\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}
+\land\text{serializedADA(selectedOutput)}=\text{requiredSettlement(body)}
 \implies\text{Accepted}
 $$
 
@@ -5709,7 +5733,7 @@ Use a real failing script with exactly the required coin in the designated ordin
 $$
 \begin{aligned}
 &\text{phase2Invalid} \\
-&\land\text{applicationADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
+&\land\text{serializedADA(selectedOutput)}=\text{requiredSettlement(body)}-1 \\
 &\implies\text{RejectedWith(InsufficientSettlementOutput)}
 \end{aligned}
 $$
@@ -5724,7 +5748,7 @@ From the valid phase-2-invalid controls, move one lovelace out of the selected o
 $$
 \begin{aligned}
 &\text{transactionRelease}<\text{topTxSettlement} \\
-&\land\text{applicationADA(selectedTopTxOutput)}=\text{transactionRelease} \\
+&\land\text{serializedADA(selectedTopTxOutput)}=\text{transactionRelease} \\
 &\implies\text{RejectedWith(InsufficientSettlementOutput)}
 \end{aligned}
 $$
@@ -6267,10 +6291,10 @@ $$
 \end{aligned}
 $$
 
-On ordinary success, the balance change equals the validated TopTx total; every SubTx is already
-included, whether funded locally or through TopTx. Accepted phase-2 failure uses
-only collateral allocations and releases. Exact declarations describe this
-validated transfer; applying them again would duplicate its movement of ADA.
+On ordinary success, the Store balance changes by the actual external deposits
+created minus those consumed, across TopTx and all SubTxs. Embedded reserves
+enter the signed declaration and travel in serialized output values. On accepted
+phase-2 failure, only collateral allocations and releases affect the Store.
 
 <a id="ds-state-balance-n02" name="ds-state-balance-n02"></a>
 For every Store, its cached balance must equal the sum calculated from its historical records:
@@ -6688,12 +6712,11 @@ projection or translation change is selected here.
 **Decision:** Output-index and output-coin checks are agreed, as is existing SubTx
 imbalance. The stronger settlement guarantee remains open.
 
-The agreed example is a SubTx consuming 10 ADA of application assets and releasing 2 ADA
-of UTxO capacity deposits, with a local release targeting its only output, a min-ADA
-output. With no other ADA sources, charges or transfers, that output must contain 12
-ADA. An output containing 10 ADA must fail. The existing destination bound alone accepts
-10 ADA, and exact UTxO capacity deposit accounting plus batch conservation does not prevent
-the other 2 ADA from funding another body's outputs or TopTx fees.
+A SubTx consuming 10 ADA of serialized value plus a 2 ADA external deposit can
+create a 12 ADA min-ADA output. If the new embedded minimum is 2 ADA, the child
+declares zero. It can also create a 10 ADA output and contribute 2 ADA to TopTx
+fees. With every other flow fixed and no fee contribution, a 10 ADA output
+leaves 2 ADA unaccounted for. [Balance N06–F04](#ds-tx-accounting-balance-n06)
 
 SubTx ADA surplus must remain available to fund TopTx fees or other bodies, including
 when the SubTx settles a net Store release locally. Choosing
@@ -6702,11 +6725,11 @@ impose independent SubTx balance or prohibit net ADA exports. The proposed no-ex
 inequality $\text{ordinaryProducedADA} \ge \text{ordinaryConsumedADA} + \text{amount}$ is therefore not
 adopted.
 
-For a local release, the accounting identity can be expressed as:
+Using the body's actual signed external Store change, its ADA export is
 
 $$
 \text{netADAExport}
-= \text{ordinaryConsumedADA} + \text{amount} - \text{ordinaryProducedADA}
+= \text{ordinaryConsumedADA} - \text{storeChange(body)} - \text{ordinaryProducedADA}
 $$
 
 Positive values contribute ADA to the rest of the batch; negative values receive
@@ -7334,9 +7357,9 @@ with **no declarations** to the case:
 | `forAllStandaloneZeroNetChangeTx` | A funded standalone TopTx with independently checked equal positive allocations and recorded releases. |
 | `forAllSubTxZeroNetChangeTx` | A funded TopTx and its SubTxs, with independently checked equal positive allocations and recorded releases for every active body, and zero amounts for inactive bodies. |
 
-`TopTx.netDeposit` computes allocations minus recorded releases across **TopTx and
-all its SubTxs**. `TopTx.releasedDeposits` returns their total recorded release;
-`SubTx.releasedDeposits` returns one amount per child in transaction order, including
+`TopTx.netDeposit` sums the signed backing change of both output forms across
+**TopTx and all its SubTxs**. `TopTx.releasedDeposits` returns their total external
+deposit release. `SubTx.releasedDeposits` returns one amount per child in transaction order, including
 zero for children consuming only min-ADA sources.
 
 `ReleaseSpec` constructs `Declarations` directly: N01 chooses allocation, explicit zero

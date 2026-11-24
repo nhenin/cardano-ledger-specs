@@ -3,7 +3,9 @@
 -- remain visible here. Invalid mutations are rejected before their exact controls
 -- are submitted, so both outcomes use the same live inputs.
 --
--- ownNetDeposit(body) = allocatedDeposits(body) - releasedDeposits(body).
+-- ownNetDeposit(body) = new output backing - credited historical input backing.
+-- These scenarios pair the implicit funding input with an equally priced implicit
+-- settlement output, so the external allocation and release difference equals the net.
 -- declaredNetDeposit is signed: allocation is positive, release negative,
 -- and explicit zero is zero. An absent declaration has no declared value.
 -- Derive allocations from independently priced outputs and releases from the
@@ -350,7 +352,7 @@ spec =
         submitTx signedTx >>= isAccepted
 
     -- A translated implicit input funds an exact allocation.
-    -- The live input was translated from the previous era into an implicit output. Its coins fund new Store obligations, but it releases no Store deposit.
+    -- Its credited minimum is reused by the implicit settlement output. The new external deposits determine the residual.
     prop "DS-TX-ACCOUNTING-NET-CHANGE-SUBTX-N08 - ordinaryInputs(subTx) = {translatedImplicitInput} ∧ depositBackedOutputs(subTx) ≠ ∅ ∧ releasedDeposits(subTx) = 0 ∧ declaredNetDeposit(subTx) = allocatedDeposits(subTx) > 0 ⇒ accepted" $
       forAll Cases.translatedImplicitInput $ \scenario -> do
         proposal <- fundAccountingScenario scenario

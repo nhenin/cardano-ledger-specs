@@ -209,7 +209,7 @@ spec =
               | recordedDeposit <- SubTx.releasedDeposits topTxWithoutDeclarations
               ])
             topTxWithoutDeclarations)
-        forM_ (SubTx.spendingInputs topTxWithoutDeclarations) $ \input ->
+        forM_ (SubTx.depositBackedInputs topTxWithoutDeclarations) $ \input ->
           removeSubTxReleaseDeclarationByInput input signedTx
             >>= submitTx
             >>= isRejectedWith (SubMissingUTxODepositDeclaration @DijkstraEra)
@@ -290,7 +290,7 @@ spec =
               | recordedDeposit <- SubTx.releasedDeposits topTxWithoutDeclarations
               ])
             topTxWithoutDeclarations)
-        forM_ (SubTx.spendingInputs topTxWithoutDeclarations) $ \input ->
+        forM_ (SubTx.depositBackedInputs topTxWithoutDeclarations) $ \input ->
           removeSubTxReleaseDeclarationByInput input signedTx
             >>= submitTx
             >>= isRejectedWith (SubMissingUTxODepositDeclaration @DijkstraEra)

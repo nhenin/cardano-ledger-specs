@@ -51,6 +51,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release as Context
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (prepareFixtureFunding)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Accounting as Submission
 import Test.Cardano.Ledger.Dijkstra.ImpTest (
   ImpTestM,
@@ -149,7 +150,7 @@ buildAndSignNoncanonicalAllocation = buildAndSignNoncanonicalAllocationAtRate (C
 -- creation rates. This ADA-only output incurs exactly the V1 base charge.
 buildAndSignNoncanonicalAllocationAtRate ::
   CoinPerByte -> Coin -> ImpTestM DijkstraEra (Tx TopTx DijkstraEra, Int)
-buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) coins = do
+buildAndSignNoncanonicalAllocationAtRate rate coins = do
   modifyPParams $ ppCoinsPerUTxOByteL .~ rate
   address <- freshKeyAddrNoPtr_
   let output = mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject coins
@@ -157,16 +158,14 @@ buildAndSignNoncanonicalAllocationAtRate rate@(CoinPerByte (CompactCoin price)) 
       canonical = BSL.toStrict $ Binary.serialize version output
       noncanonical = BS.cons 0xbf (BS.tail canonical) <> BS.singleton 0xff
       acceptedBytes = BS.length noncanonical
-      requiredDeposit = Coin $ toInteger price * 250
   -- The fixture has just address and applicationAssets, hence a two-field map.
   BS.head canonical `shouldBe` 0xa2
   Binary.decodeFull @(TxOut DijkstraEra) version (BSL.fromStrict noncanonical) `shouldBe` Right output
   prepared <-
-    fixupTx $
-      Pricing.declareNetDeposit requiredDeposit $
-        mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
-          & bodyTxL . feeTxBodyL .~ Coin 2000000
+    prepareFixtureFunding $
+      mkBasicTx mkBasicTxBody
+        & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
+        & bodyTxL . feeTxBodyL .~ Coin 2000000
   let bodyBytes = BSL.toStrict $ Binary.serialize version $ prepared ^. bodyTxL
       (prefix, suffix) = BS.breakSubstring canonical bodyBytes
       modifiedBytes = prefix <> noncanonical <> BS.drop (BS.length canonical) suffix
@@ -198,7 +197,8 @@ buildAndSignNoncanonicalSubAllocation coins = do
       deposit = 1000 * 250
       child =
         mkBasicTx mkBasicTxBody
-          & bodyTxL . outputsTxBodyL .~ SSeq.singleton output
+          & bodyTxL . outputsTxBodyL
+            .~ SSeq.fromList [output, mkBasicTxOutWithMinAda address (inject $ Coin 2000000)]
           & bodyTxL . subTxNetUTxODepositChangeTxBodyL
             .~ SubTx.RequestsUTxODepositFromTopTx (positiveAmount deposit)
   prepared <-

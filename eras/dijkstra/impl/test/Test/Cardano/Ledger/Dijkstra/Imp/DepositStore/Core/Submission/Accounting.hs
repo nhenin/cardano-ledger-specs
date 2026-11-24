@@ -42,6 +42,7 @@ import Data.Typeable (Typeable)
 import Lens.Micro
 import Test.Cardano.Ledger.Core.Utils (txInAt)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  externalDepositChange,
   liveOutputStore,
   recordedAmounts,
  )
@@ -49,6 +50,7 @@ import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Acc
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.SubTx as Children
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (fundFixtureTx)
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Release as Release
 import Test.Cardano.Ledger.Dijkstra.ImpTest
 import Test.Cardano.Ledger.Imp.Common (forM_, shouldBe)
@@ -66,11 +68,9 @@ fundAccountingScenario plan = do
   let operations = Accounting.topOperations plan :| Accounting.subOperations plan
       sourceGroups = fmap (sourcesForBody address $ Accounting.applicationCoins plan) operations
       sources = concat $ NE.toList sourceGroups
-      sourceAllocation = foldMap (Pricing.outputDeposit parameters) sources
   funded <-
-    submitTx $
-      Pricing.declareNetDeposit sourceAllocation $
-        mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList sources
+    fundFixtureTx $
+      mkBasicTx mkBasicTxBody & bodyTxL . outputsTxBodyL .~ SSeq.fromList sources
   state <- Release.readAccountingState
   let (_, inputGroups) =
         mapAccumL
@@ -184,22 +184,19 @@ balanceChild state child =
               $ state
           inputCoins = foldMap (^. coinTxOutL) . IndexedUTxOs.txOuts $ sources
           outputCoins = foldMap (^. coinTxOutL) rest
-          localDeposit = localDeclaredAmount $ child ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL
+          localDeposit =
+            externalDepositChange (liveOutputStore $ Pricing.accountingState state) (child ^. bodyTxL)
+              <-> delegatedAmount (child ^. bodyTxL . subTxNetUTxODepositChangeTxBodyL)
           settlementCoins = (inputCoins <-> outputCoins) <-> localDeposit
        in child & bodyTxL . outputsTxBodyL .~ SSeq.fromList ((first & coinTxOutL .~ settlementCoins) : rest)
     [] -> error "Accounting child must retain its implicit settlement output"
 
--- | Funding interpretation of the declaration supplied by the spec. This is
--- solely application balance preparation; required deposits use an independent
--- oracle over the funded Store records and output features.
-localDeclaredAmount :: SubTx.SubTxUTxODepositDeclaration -> Coin
-localDeclaredAmount declaration = case declaration of
-  SubTx.NoUTxODepositDeclaration -> Coin 0
-  SubTx.DeclaresZeroNetUTxODeposit -> Coin 0
-  SubTx.DeclaresNetUTxODepositAllocation amount -> unStrictlyPositiveCoin amount
-  SubTx.RequestsUTxODepositFromTopTx _ -> Coin 0
-  SubTx.DeclaresNetUTxODepositRelease _ SubTx.DelegateToTopTx -> Coin 0
-  SubTx.DeclaresNetUTxODepositRelease amount (SubTx.SubTxSettlementOutput _) -> Coin 0 <-> unStrictlyPositiveCoin amount
+-- | Only the delegated signed share is funded by the parent.
+delegatedAmount :: SubTx.SubTxUTxODepositDeclaration -> Coin
+delegatedAmount declaration = case declaration of
+  SubTx.RequestsUTxODepositFromTopTx amount -> unStrictlyPositiveCoin amount
+  SubTx.DeclaresNetUTxODepositRelease amount SubTx.DelegateToTopTx -> mempty <-> unStrictlyPositiveCoin amount
+  _ -> mempty
 
 -- | Change the parent declaration after valid transaction preparation. Re-sign
 -- only; keep application amounts and all ordinary inputs/outputs unchanged.

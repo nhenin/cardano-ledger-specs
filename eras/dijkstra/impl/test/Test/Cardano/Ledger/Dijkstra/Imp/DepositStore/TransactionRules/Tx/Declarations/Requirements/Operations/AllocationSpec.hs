@@ -40,6 +40,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.SubTx as SubTx
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration.TopTx as TopTxDeclarations
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output as Output
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as Pricing
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Allocation as TopTx
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Allocation
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Output (
@@ -109,15 +110,14 @@ spec =
     -- No existing deposit is released; all newly required deposits must be funded.
     --
     -- Standalone TopTx, exact allocation declaration.
-    -- declaredNetDeposit(topTx) = allocatedDeposits(topTx) ⇒ Accepted.
+    -- declaredNetDeposit(topTx) = requiredBacking(topTx) ⇒ Accepted.
     -- Funding, fees, witnesses and all other ledger requirements are satisfied.
-    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N05 - subTxs = ∅ ∧ spentDepositBackedOutputs(topTx) = ∅ ∧ createdDepositBackedOutputs(topTx) ≠ ∅ ∧ declaredNetDeposit(topTx) = allocatedDeposits(topTx) ⇒ Accepted" $
+    prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N05 - subTxs = ∅ ∧ spentDepositBackedOutputs(topTx) = ∅ ∧ createdDepositBackedOutputs(topTx) ≠ ∅ ∧ declaredNetDeposit(topTx) = requiredBacking(topTx) ⇒ Accepted" $
       forAllStandaloneAllocationTx TopTx.standaloneTopTxAllocatingDeposits $ \topTxWithoutTopDeclaration ->
         buildAndSignTx
           (TopTx.addDeclaration
             (Declarations
-              (TopTx.DeclaresNetUTxODepositAllocation
-                (positiveAmount $ unCoin $ TopTx.allocatedDeposits topTxWithoutTopDeclaration))
+              (Pricing.netDepositDeclaration $ TopTx.requiredBacking topTxWithoutTopDeclaration)
               [])
             topTxWithoutTopDeclaration)
           >>= submitTx >>= isAccepted
@@ -133,8 +133,7 @@ spec =
           buildAndSignTx
             (TopTx.addDeclaration
               (Declarations
-                (TopTx.DeclaresNetUTxODepositAllocation
-                  (positiveAmount $ unCoin $ TopTx.allocatedDeposits topTxWithoutTopDeclaration))
+                (Pricing.netDepositDeclaration $ TopTx.requiredBacking topTxWithoutTopDeclaration)
                 [])
               topTxWithoutTopDeclaration)
         removeTopTxDeclaration signedTx
@@ -155,8 +154,8 @@ spec =
         , Phase2Invalid, RejectedSubTx SubMissingUTxODepositDeclaration
         )
       ]
-    -- A translated Conway output has no recorded Store deposit. Consuming it
-    -- releases nothing, but the new deposit-backed outputs still require allocation.
+    -- Spending a translated Conway output credits its embedded backing.
+    -- Creating a deposit-backed output still requires an explicit declaration.
     -- Remove only the declaration, then submit the exact declared control.
     prop "DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F06 - rejects a missing own declaration when spending a translated implicit output to create deposit-backed outputs" $
       forAllPostConwayAllocationTx TopTx.standaloneTopTxAllocatingDeposits $ \topTxWithoutTopDeclaration -> do
@@ -164,8 +163,7 @@ spec =
           buildAndSignTx
             (TopTx.addDeclaration
               (Declarations
-                (TopTx.DeclaresNetUTxODepositAllocation
-                  (positiveAmount $ unCoin $ TopTx.allocatedDeposits topTxWithoutTopDeclaration))
+                (Pricing.netDepositDeclaration $ TopTx.requiredBacking topTxWithoutTopDeclaration)
                 [])
               topTxWithoutTopDeclaration)
         removeTopTxDeclaration signedTx
@@ -225,10 +223,10 @@ spec =
         buildAndSignTx
           (TopTx.addDeclaration
             (Declarations
-              (TopTx.DeclaresNetUTxODepositAllocation
-                (positiveAmount $ unCoin $ TopTx.allocatedDeposits topTxWithoutDeclarations))
-              [ SubTx.DeclaresNetUTxODepositAllocation (positiveAmount $ unCoin $ allocation)
-              | allocation <- TopTx.subTxAllocatedDeposits topTxWithoutDeclarations
+              (Pricing.netDepositDeclaration $ TopTx.requiredBacking topTxWithoutDeclarations)
+              [ if allocation == mempty then SubTx.DeclaresZeroNetUTxODeposit
+                else SubTx.DeclaresNetUTxODepositAllocation (positiveAmount $ unCoin allocation)
+              | allocation <- TopTx.subTxBacking topTxWithoutDeclarations
               ])
             topTxWithoutDeclarations)
           >>= submitTx >>= isAccepted

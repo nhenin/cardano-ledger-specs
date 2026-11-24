@@ -1,7 +1,8 @@
 {-# LANGUAGE NumericUnderscores #-}
 
 -- | TopTx declares the total change caused by itself and every SubTx.
--- ownNetDeposit(body) = allocatedDeposits(body) - releasedDeposits(body).
+-- ownNetDeposit(body) = new output backing - credited historical input backing.
+-- In these scenarios, each implicit funding input has an equally priced successor.
 -- transactionNetDeposit(topTx) = ownNetDeposit(topTx) + sum(ownNetDeposit(subTx)).
 -- Derive allocations from priced outputs and releases from recorded inputs.
 -- Declared amounts are signed: allocation is positive, release negative, explicit zero 0.
@@ -61,8 +62,7 @@ spec =
     -- bodies = {topTx} ∪ subTxs; every Σ over body includes TopTx and all SubTxs.
     -- Child sums include local and delegated operations exactly once.
     -- declaredSubTxs = {subTx ∈ subTxs | hasDeclaration(subTx)}.
-    -- RequiredDeclarations ensures an absent child declaration has no own Store operations;
-    -- its own net change is zero, without treating absence as an explicit zero declaration.
+    -- Undeclared children in these scenarios have zero own backing change.
     -- P01 isolates TopTx exactness; N02 derives an identity from the exact total.
     -- Other cases assert ledger acceptance or the specific TopTx exactness failure.
 
@@ -130,7 +130,7 @@ spec =
 
     -- TopTx's own change is derived from its total.
     -- Subtract all present child declarations, including delegated operations.
-    -- Children without declarations have no own Store operations.
+    -- Each undeclared child in this fixture has equal input and output backing.
     -- The result is a diagnostic, not another declaration field.
     prop "DS-TX-ACCOUNTING-NET-CHANGE-TOPTX-N02 - declaredNetDeposit(topTx) = transactionNetDeposit(topTx) ⇒ declaredNetDeposit(topTx) - Σ_{subTx ∈ declaredSubTxs} declaredNetDeposit(subTx) = ownNetDeposit(topTx)" $
       forAll Scenario.withEveryChildDeclarationForm $ \scenario -> do

@@ -3701,3 +3701,24 @@ Intentional insufficient-output cases are unchanged.
 Evidence: `/private/tmp/deposit-ci-consumed-values-seed1.log`,
 `/private/tmp/deposit-ci-utxo-seed1.log`, and
 `/private/tmp/deposit-ci-utxo-seed112043838.log`.
+
+## Signed backing change for mixed output forms — 24 November 2026
+
+The [builder tests](../libs/cardano-ledger-api/test/Test/Cardano/Ledger/Api/Tx/Body/DepositBalance/Spec.hs) check the declaration and the serialized ADA balance for both a standalone TopTx and a batch with a SubTx. The [ledger tests](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/MixedBackingSpec.hs) submit the transactions, check the change in the Store and compare total ADA before and after. For each conversion they also submit an incorrect declaration at each transaction level and check the corresponding exactness failure.
+
+| Conversion | Signed backing change | External Store change |
+| --- | --- | ---: |
+| Historical minimum of 1.6 ADA to a new 2 ADA deposit | Allocate 0.4 ADA | +2 ADA |
+| Imported output holding 2 ADA with a historical minimum of 3 ADA to a new 3 ADA deposit | Allocate 1 ADA | +3 ADA |
+| External deposit of 2 ADA to a minimum-ADA output requiring 2 ADA | Explicit zero | −2 ADA |
+
+The legacy-mode case delegates the 0.4 ADA allocation to TopTx. The child spends 10 ADA and produces 8.4 ADA of serialized value. Its remaining 1.6 ADA funds the rest of the external deposit. A separate case checks the required TopTx settlement output for a batch containing an undeclared minimum-ADA-only child.
+
+Both Cabal test targets built with GHC 9.6.7. Runs used seed `20261124`.
+
+| Suite | QuickCheck settings | Examples | Failures | Pending |
+| --- | --- | ---: | ---: | ---: |
+| Complete ledger API | Default | 445 | 0 | 0 |
+| Dijkstra, DepositStore selection | Default | 219 | 0 | 0 |
+| Dijkstra, Imp selection | Default | 811 | 0 | 0 |
+| Complete Dijkstra | `--qc-max-success=1 --qc-max-discard=200` | 1,452 | 0 | 2 |

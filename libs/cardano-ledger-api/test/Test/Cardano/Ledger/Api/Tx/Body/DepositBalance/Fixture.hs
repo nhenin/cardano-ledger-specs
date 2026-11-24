@@ -1,9 +1,17 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE NumericUnderscores #-}
 {-# LANGUAGE TypeApplications #-}
 
 module Test.Cardano.Ledger.Api.Tx.Body.DepositBalance.Fixture (
   history,
+  zeroActivePrice,
+  highHistoricalPrice,
   resolvedInputs,
+  MixedTransfer (..),
+  embeddedToExternal,
+  importedToExternal,
+  externalToEmbedded,
+  mixedTransferBody,
   depositAmount,
   refundIndex,
   localTarget,
@@ -70,6 +78,8 @@ import Data.Maybe (fromJust)
 import qualified Data.OMap.Strict as OMap
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
+import Data.Typeable (Typeable)
+import Data.Word (Word64)
 import Lens.Micro ((%~), (&), (.~))
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr, mkKeyHash)
 
@@ -80,6 +90,14 @@ history =
   fromJust $
     appendFormula (SlotNo 20) (DepositFormulaV2 $ CoinPerByte $ CompactCoin 7) $
       mkDepositFormulaHistory (DepositFormulaV1 $ CoinPerByte $ CompactCoin 3)
+
+-- Histories for the output-index limit and large top-up tests.
+zeroActivePrice, highHistoricalPrice :: DepositFormulaHistory
+zeroActivePrice = fromJust $ appendFormula (SlotNo 21) (DepositFormulaV2 $ CoinPerByte $ CompactCoin 0) history
+highHistoricalPrice =
+  fromJust $
+    appendFormula (SlotNo 20) (DepositFormulaV2 $ CoinPerByte $ CompactCoin 7) $
+      mkDepositFormulaHistory (DepositFormulaV1 $ CoinPerByte $ CompactCoin 20)
 
 depositAmount :: Integer -> StrictlyPositiveCoin
 depositAmount = fromJust . mkStrictlyPositiveCoin . Coin
@@ -128,6 +146,74 @@ resolvedInputs =
     , (currentInput, Unspent depositBackedOutput (AtSlot $ SlotNo 20))
     , (minAdaInput, Unspent minAdaOutput AtStoreMigration)
     ]
+    <> IndexedUTxOs.fromList
+      [ (input, Unspent minAdaOutput (AtSlot $ SlotNo 20)) | input <- parentChangeInputs <> subChangeInputs
+      ]
+
+-- Each change output replaces an equally priced input. Parent and child use
+-- distinct inputs so both can return change in the same batch.
+parentChangeInputs, subChangeInputs :: [TxIn]
+parentChangeInputs = map (outputAt . TxIx) [4, 5]
+subChangeInputs = map (outputAt . TxIx) [6, 7]
+
+withMinAdaChange :: [TxIn] -> TxBody txLevel DijkstraEra -> TxBody txLevel DijkstraEra
+withMinAdaChange inputs body =
+  body
+    & inputsTxBodyL %~ Set.union (Set.fromList inputs)
+    & outputsTxBodyL %~ (<> SSeq.fromList (map (const minAdaOutput) inputs))
+
+data MixedTransfer = MixedTransfer
+  { transferHistory :: DepositFormulaHistory
+  , transferInputs :: IndexedUTxOs DijkstraEra
+  , transferOutputs :: SSeq.StrictSeq (TxOut DijkstraEra)
+  }
+
+-- With a 0.2 ADA fee, serialized inputs cover the outputs plus the external
+-- Store movement in each transfer. The fee input and change have equal backing.
+embeddedToExternal, importedToExternal, externalToEmbedded :: MixedTransfer
+embeddedToExternal =
+  mixedTransfer
+    6400
+    8000
+    (minAdaOutput & coinTxOutL .~ Coin 6_600_000)
+    (depositBackedOutput & coinTxOutL .~ Coin 5_000_000)
+    (Coin 4_400_000)
+importedToExternal =
+  mixedTransfer
+    12000
+    12000
+    (minAdaOutput & coinTxOutL .~ Coin 2_000_000)
+    depositBackedOutput
+    (Coin 3_800_000)
+externalToEmbedded =
+  mixedTransfer
+    8000
+    8000
+    (depositBackedOutput & coinTxOutL .~ Coin 5_000_000)
+    (minAdaOutput & coinTxOutL .~ Coin 7_000_000)
+    (Coin 4_800_000)
+
+mixedTransfer :: Word64 -> Word64 -> TxOut DijkstraEra -> TxOut DijkstraEra -> Coin -> MixedTransfer
+mixedTransfer historicalRate activeRate spent created change =
+  let price = DepositFormulaV1 . CoinPerByte . CompactCoin
+      feeInput = minAdaOutput & coinTxOutL .~ Coin 5_000_000
+   in MixedTransfer
+        { transferHistory =
+            fromJust $
+              appendFormula (SlotNo 20) (price activeRate) (mkDepositFormulaHistory $ price historicalRate)
+        , transferInputs =
+            IndexedUTxOs.fromList
+              [ (historicalInput, Unspent spent AtStoreMigration)
+              , (currentInput, Unspent feeInput (AtSlot $ SlotNo 20))
+              ]
+        , transferOutputs = SSeq.fromList [created, minAdaOutput & coinTxOutL .~ change]
+        }
+
+mixedTransferBody :: Typeable l => MixedTransfer -> TxBody l DijkstraEra
+mixedTransferBody transfer =
+  mkBasicTxBody
+    & inputsTxBodyL .~ IndexedUTxOs.inputIds (transferInputs transfer)
+    & outputsTxBodyL .~ transferOutputs transfer
 
 allocation :: TxBody SubTx DijkstraEra
 allocation =
@@ -139,7 +225,7 @@ historicalRelease :: TxBody SubTx DijkstraEra
 historicalRelease =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.singleton historicalInput
-    & outputsTxBodyL .~ SSeq.fromList [minAdaOutput, minAdaOutput]
+    & withMinAdaChange subChangeInputs
 
 replacement :: TxBody SubTx DijkstraEra
 replacement = allocation & inputsTxBodyL .~ Set.singleton currentInput
@@ -153,12 +239,12 @@ changedOutput = allocation & outputsTxBodyL .~ SSeq.singleton (depositBackedOutp
 localAllocation :: TxBody SubTx DijkstraEra
 localAllocation =
   allocation
-    & subTxNetUTxODepositChangeTxBodyL .~ SubTx.DeclaresNetUTxODepositAllocation (depositAmount 1820)
+    & subTxNetUTxODepositChangeTxBodyL .~ SubTx.DeclaresNetUTxODepositAllocation (depositAmount 1070)
 
 delegatedAllocation :: TxBody SubTx DijkstraEra
 delegatedAllocation =
   allocation
-    & subTxNetUTxODepositChangeTxBodyL .~ SubTx.RequestsUTxODepositFromTopTx (depositAmount 1820)
+    & subTxNetUTxODepositChangeTxBodyL .~ SubTx.RequestsUTxODepositFromTopTx (depositAmount 1070)
 
 localRelease :: TxBody SubTx DijkstraEra
 localRelease =
@@ -174,8 +260,9 @@ delegatedRelease =
 
 currentRelease :: TxBody SubTx DijkstraEra
 currentRelease =
-  historicalRelease
-    & inputsTxBodyL .~ Set.singleton currentInput
+  mkBasicTxBody
+    & withInput currentInput
+    & withMinAdaChange subChangeInputs
     & subTxNetUTxODepositChangeTxBodyL
       .~ SubTx.DeclaresNetUTxODepositRelease (depositAmount 1820) localTarget
 
@@ -190,7 +277,7 @@ parentAllocation =
     & outputsTxBodyL .~ SSeq.fromList [depositBackedOutput, depositBackedOutput]
 
 parentRelease :: TxBody TopTx DijkstraEra
-parentRelease = parentAllocation & outputsTxBodyL .~ SSeq.fromList [minAdaOutput, minAdaOutput]
+parentRelease = mkBasicTxBody & withInput currentInput & withMinAdaChange parentChangeInputs
 
 parentMultipleRelease :: TxBody TopTx DijkstraEra
 parentMultipleRelease = parentRelease & withInput historicalInput
@@ -207,11 +294,15 @@ parentAllocationBeforeRefund :: TxBody TopTx DijkstraEra
 parentAllocationBeforeRefund =
   mkBasicTxBody
     & inputsTxBodyL .~ Set.singleton historicalInput
-    & outputsTxBodyL .~ SSeq.fromList [depositBackedOutput, minAdaOutput]
+    & appendOutput depositBackedOutput
+    & withMinAdaChange (take 1 parentChangeInputs)
 
 subAllocationBeforeRefund :: TxBody SubTx DijkstraEra
 subAllocationBeforeRefund =
-  historicalRelease & outputsTxBodyL .~ SSeq.fromList [depositBackedOutput, minAdaOutput]
+  mkBasicTxBody
+    & withInput historicalInput
+    & appendOutput depositBackedOutput
+    & withMinAdaChange (take 1 subChangeInputs)
 
 missingTopInput :: TxBody TopTx DijkstraEra
 missingTopInput = parentAllocation & inputsTxBodyL .~ Set.singleton missingInput
@@ -225,7 +316,7 @@ localReleaseBatch = mkBasicTxBody & withChildren [localRelease]
 delegatedReleaseBatch :: TxBody TopTx DijkstraEra
 delegatedReleaseBatch =
   mkBasicTxBody
-    & outputsTxBodyL .~ SSeq.fromList [minAdaOutput, minAdaOutput]
+    & withMinAdaChange parentChangeInputs
     & withChildren [delegatedRelease]
 
 locallyReleasedBatchWithParentAllocation :: TxBody TopTx DijkstraEra
@@ -235,7 +326,7 @@ locallyReleasedBatchWithParentAllocation =
     & outputsTxBodyL .~ SSeq.singleton depositBackedOutput
     & withChildren [currentRelease]
 
--- The batch releases 750, while TopTx settles its own release of 1820.
+-- The batch releases 1500, while TopTx settles its own release of 1820.
 settlementLargerThanBatch :: TxBody TopTx DijkstraEra
 settlementLargerThanBatch = parentRelease & withChildren [localAllocation, localRelease]
 

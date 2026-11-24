@@ -9,7 +9,6 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission.Operations 
 import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
-import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx as TopTx
 import Cardano.Ledger.Shelley.LedgerState (
   curPParamsEpochStateL,
   esLStateL,
@@ -31,6 +30,7 @@ import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
 import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Operations as Operations
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx (LedgerState (..))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Release (ReleaseTx (..))
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Submission (fundFixtureTx)
 import Test.Cardano.Ledger.Dijkstra.ImpTest
 import Test.Cardano.Ledger.Imp.Common (forM_, shouldBe)
 
@@ -48,10 +48,9 @@ fundOperations scenario = do
         | body <- operations
         ]
   funded <-
-    submitTx $
+    fundFixtureTx $
       mkBasicTx mkBasicTxBody
         & bodyTxL . outputsTxBodyL .~ SSeq.fromList sourceOutputs
-        & bodyTxL . netUTxODepositChangeTxBodyL .~ TopTx.DeclaresZeroNetUTxODeposit
   let children =
         [ proposalBody address (txInAt index funded) body
         | (index, body) <- zip [1 ..] (Operations.subTxOperations scenario)

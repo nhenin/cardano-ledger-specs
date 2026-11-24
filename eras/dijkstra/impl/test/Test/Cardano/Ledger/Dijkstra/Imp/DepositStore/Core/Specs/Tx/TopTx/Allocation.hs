@@ -11,8 +11,8 @@ module Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx.Allocat
   standaloneTopTxAllocatingDeposits,
   topTxAndSubTxAllocatingDeposits,
   createdOutputs,
-  allocatedDeposits,
-  subTxAllocatedDeposits,
+  requiredBacking,
+  subTxBacking,
   addDeclaration,
 ) where
 
@@ -20,14 +20,14 @@ import Cardano.Ledger.Coin (Coin (..))
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
+import Cardano.Ledger.State (UTxOStore)
 import Cardano.Ledger.Val (inject)
 import qualified Data.OMap.Strict as OMap
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen, chooseInt, chooseInteger, shuffle, vectorOf)
+import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (expectedBackingChange)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Declaration (Declarations (..))
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Output (OutputVariant (..))
-import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.Release (createdOrdinaryOutputs)
-import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Tx.TopTx as TopTx
 
 -- | Ordered output forms and their application ADA amounts. At least one output
 -- is deposit-backed; the others may be implicit. There are no SubTxs.
@@ -45,7 +45,7 @@ data AllocationBatchScenario = AllocationBatchScenario
 -- | An undeclared or explicitly declared proposal with the pricing parameters
 -- used to calculate its required allocations. Building supplies implicit inputs.
 data AllocationTx = AllocationTx
-  { protocolParameters :: PParams DijkstraEra
+  { sourceStore :: UTxOStore DijkstraEra
   , unsignedTx :: Tx TopTx DijkstraEra
   }
   deriving (Show)
@@ -81,21 +81,17 @@ createdOutput address (ImplicitOutput, amount) =
 createdOutput address (DepositBackedOutput, amount) =
   mkBasicTxOutWithDeposit address $ ApplicationAssets $ inject amount
 
--- | Sum the independently priced deposits across TopTx and all SubTx outputs.
--- Implicit outputs contribute zero. This calculation does not inspect declarations.
-allocatedDeposits :: AllocationTx -> Coin
-allocatedDeposits proposal =
-  foldMap (TopTx.outputDeposit $ protocolParameters proposal) $
-    createdOrdinaryOutputs $
-      unsignedTx proposal
+-- | Price all ordinary outputs and historical inputs. Fixup adds a fee input
+-- and a change output with equal backing to these allocation scenarios.
+requiredBacking :: AllocationTx -> Coin
+requiredBacking proposal =
+  expectedBackingChange (sourceStore proposal) (unsignedTx proposal ^. bodyTxL)
+    <> mconcat (subTxBacking proposal)
 
--- | Required allocations for each ordered SubTx's own outputs. The parent total
--- includes these contributions; each child declares only its own contribution.
-subTxAllocatedDeposits :: AllocationTx -> [Coin]
-subTxAllocatedDeposits proposal =
-  map
-    (foldMap (TopTx.outputDeposit $ protocolParameters proposal) . (^. bodyTxL . outputsTxBodyL))
-    (OMap.elems $ unsignedTx proposal ^. bodyTxL . subTransactionsTxBodyL)
+subTxBacking :: AllocationTx -> [Coin]
+subTxBacking proposal =
+  map (expectedBackingChange (sourceStore proposal) . (^. bodyTxL)) . OMap.elems $
+    unsignedTx proposal ^. bodyTxL . subTransactionsTxBodyL
 
 -- | Attach exactly the supplied declarations, preserving every output and input.
 -- A declaration-count mismatch is a fixture error, never a reason to drop a child.

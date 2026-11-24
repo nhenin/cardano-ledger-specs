@@ -20,12 +20,12 @@ import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Dijkstra (DijkstraEra)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.UTxOs.Deposit.TopTx
-import Cardano.Ledger.Val (Val ((<->)))
 import qualified Data.Map.Strict as Map
 import qualified Data.OMap.Strict as OMap
 import Lens.Micro
 import Test.Cardano.Ledger.Common (Gen)
 import Test.Cardano.Ledger.Dijkstra.Imp.DepositStore.Core.Specs.Store (
+  expectedBackingChange,
   liveOutputStore,
   recordedAmounts,
  )
@@ -64,10 +64,13 @@ releasedDeposits proposal =
       (recordedAmounts $ liveOutputStore $ TopTx.accountingState $ ledgerState proposal)
       (ordinarySpendingInputs $ unsignedTx proposal)
 
--- | Required net change: allocations minus releases. Positive allocates, negative
--- releases and zero declares no net change. This does not read the declaration.
+-- | Independently sum the signed backing of each body in the proposal.
 netDeposit :: ReleaseTx -> Coin
-netDeposit proposal = allocatedDeposits proposal <-> releasedDeposits proposal
+netDeposit proposal =
+  let store = liveOutputStore $ TopTx.accountingState $ ledgerState proposal
+      body = unsignedTx proposal ^. bodyTxL
+   in expectedBackingChange store body
+        <> foldMap (expectedBackingChange store . (^. bodyTxL)) (body ^. subTransactionsTxBodyL)
 
 -- | Apply exactly the declarations supplied for TopTx and its ordered SubTxs.
 -- Preserve the proposal's inputs, outputs and funding context. A declaration count

@@ -18,6 +18,7 @@ module Cardano.Ledger.Dijkstra.UTxO (
   scriptsProvidedDijkstraStAnnTx,
   batchNonDistinctRefScriptsSize,
   localProducedValue,
+  bodyStoreChange,
 ) where
 
 import Cardano.Ledger.Alonzo.Plutus.Context (CollectError)
@@ -44,7 +45,10 @@ import Cardano.Ledger.Conway.UTxO (
 import Cardano.Ledger.Credential (Credential, credScriptHash)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra)
-import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (declaredTopTxNetUTxODeposit)
+import Cardano.Ledger.Dijkstra.Rules.DepositStore.Accounting (
+  allocatedUTxODeposits,
+  releasedUTxODeposits,
+ )
 import Cardano.Ledger.Dijkstra.Scripts (DijkstraEraScript (..))
 import Cardano.Ledger.Dijkstra.State
 import Cardano.Ledger.Dijkstra.Tx (DijkstraStAnnTx (..))
@@ -52,6 +56,7 @@ import Cardano.Ledger.Mary.UTxO (burnedMultiAssets, getConsumedMaryValue)
 import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Cardano.Ledger.Plutus (Language, PlutusWithContext)
 import Cardano.Ledger.TxOut (sumAllAssets)
+import Cardano.Ledger.Val ((<->))
 import Data.Foldable (Foldable (..))
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Map.Strict as Map
@@ -95,7 +100,6 @@ getConsumedDijkstraValue pp lookupStakingDeposit inputAllocations txBody =
     ( \topTxBody ->
         txBodyConsumedValue topTxBody
           <> subTransactionsConsumedValue topTxBody
-          <> inject (declaredDepositRelease topTxBody)
     )
     txBodyConsumedValue
   where
@@ -120,7 +124,6 @@ dijkstraProducedValue pp isRegPoolId topTxBody =
     <> foldMap' (localProducedValue pp . (^. bodyTxL)) subTxs
     <> inject (topTxBody ^. feeTxBodyL)
     <> inject (getTotalDepositsTxCerts pp isRegPoolId batchTxCerts)
-    <> inject (declaredDepositAllocation topTxBody)
   where
     -- add all values that are produced by both top and sub-transactions
     -- Certs are excluded, since they need to be processed separately
@@ -130,18 +133,15 @@ dijkstraProducedValue pp isRegPoolId topTxBody =
         <> (topTxBody ^. certsTxBodyL)
     subTxs = topTxBody ^. subTransactionsTxBodyL
 
--- | A batch releases Store ADA once, through TopTx's total declaration.
--- Exactness is validated independently against the recorded input deposits.
-declaredDepositRelease :: DijkstraEraTxBody era => TxBody TopTx era -> Coin
-declaredDepositRelease txBody =
-  case declaredTopTxNetUTxODeposit (txBody ^. netUTxODepositChangeTxBodyL) of
-    Coin amount -> Coin $ max 0 (negate amount)
+batchStoreChange ::
+  (EraTx era, DijkstraEraTxBody era) => UTxOStore era -> TxBody TopTx era -> Coin
+batchStoreChange store body =
+  bodyStoreChange store body
+    <> foldMap' (bodyStoreChange store . view bodyTxL) (body ^. subTransactionsTxBodyL)
 
--- | The batch's net allocation is produced into the Store, not into a TxOut.
-declaredDepositAllocation :: DijkstraEraTxBody era => TxBody TopTx era -> Coin
-declaredDepositAllocation txBody =
-  case declaredTopTxNetUTxODeposit (txBody ^. netUTxODepositChangeTxBodyL) of
-    Coin amount -> Coin $ max 0 amount
+bodyStoreChange :: DijkstraEraTxBody era => UTxOStore era -> TxBody l era -> Coin
+bodyStoreChange store body =
+  allocatedUTxODeposits (currentFormula store) body <-> releasedUTxODeposits store body
 
 -- | Produced value that is local to a single transaction body, that is, the part
 -- that can be summed independently for each body in a batch.
@@ -165,6 +165,8 @@ instance EraUTxO DijkstraEra where
   getConsumedValue = getConsumedDijkstraValue
 
   getProducedValue = dijkstraProducedValue
+
+  getNetUTxOStoreChange = batchStoreChange
 
   getScriptsProvided = getDijkstraScriptsProvided
 

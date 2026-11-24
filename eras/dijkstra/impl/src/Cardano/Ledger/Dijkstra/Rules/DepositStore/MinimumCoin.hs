@@ -10,7 +10,9 @@ module Cardano.Ledger.Dijkstra.Rules.DepositStore.MinimumCoin (
 ) where
 
 import Cardano.Ledger.Babbage.Rules (BabbageUtxoPredFailure (BabbageOutputTooSmallUTxO))
-import Cardano.Ledger.Babbage.TxOut (BabbageEraTxOut)
+import Cardano.Ledger.Babbage.TxBody (BabbageEraTxBody (allSizedOutputsTxBodyF))
+import Cardano.Ledger.Binary (Sized (sizedValue))
+import Cardano.Ledger.Core (TxBody)
 import qualified Cardano.Ledger.Dijkstra.UTxOs.Deposit.Formula as Formula
 import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Rules.ValidationMode (Test)
@@ -24,13 +26,13 @@ import Lens.Micro ((&), (^.))
 
 -- | The full required deposit is checked before allocation; it is never capped
 -- by the proposed ADA. Preserve the existing pointwise check so negative native
--- asset quantities also fail. Callers include TopTx's collateral return.
+-- asset quantities also fail. The TopTx output collection includes its collateral return.
 validateMinimumCoin ::
-  (BabbageEraTxOut era, Value era ~ MaryValue, Foldable f) =>
+  (BabbageEraTxBody era, Value era ~ MaryValue) =>
   DepositFormula ->
-  f (TxOut era) ->
+  TxBody l era ->
   Test (BabbageUtxoPredFailure era)
-validateMinimumCoin pricing outputs =
+validateMinimumCoin pricing body =
   failureOnNonEmpty
     ( mapMaybe
         ( \case
@@ -42,6 +44,6 @@ validateMinimumCoin pricing outputs =
                     then Nothing
                     else Just (output, requiredDeposit)
         )
-        (toList outputs)
+        (map sizedValue . toList $ body ^. allSizedOutputsTxBodyF)
     )
     BabbageOutputTooSmallUTxO
