@@ -1,15 +1,16 @@
 # Dijkstra ledger rules for minimum-ADA and deposit-backed outputs
 
-The [UTxO Deposit versus UTxO Minimum ADA proposal](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) describes two ways
+[Deposit declarations](declarations.md) · [Verification record](verification.md) · [CIP draft](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) · [Latest version of this page](https://github.com/nhenin/cardano-ledger-specs/blob/v2-minutxo/docs/dijkstra-deposit-store/README.md)
+
+The *UTxO Deposit versus UTxO Minimum ADA* proposal describes two ways
 to back an output's storage. A minimum-ADA output carries its reserve in its
 own value. For a deposit-backed output, the ledger accounts for the deposit
 separately. These rules specify how Dijkstra prices that backing, checks the
 transaction's declaration and settles the change.
 
-The [declarations chapter](declarations.md) covers TopTx and SubTx forms and
-when each body must declare. Rule identifiers link each contract to its
-executable cases. The [verification record](verification.md) gives their
-implementation status and dated test results.
+The declarations chapter covers TopTx and SubTx forms and when each body must
+declare. Rule identifiers link each contract to its executable cases. The
+verification record gives their implementation status and dated test results.
 
 ## Table of contents
 

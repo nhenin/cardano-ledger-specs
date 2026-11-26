@@ -1,4 +1,8 @@
-# Verification record for the Dijkstra UTxO deposit rules
+<a id="verification-record-for-the-dijkstra-utxo-deposit-rules" name="verification-record-for-the-dijkstra-utxo-deposit-rules"></a>
+
+# Verification of the Dijkstra rules for minimum-ADA and deposit-backed outputs
+
+[Ledger rules](README.md) · [Deposit declarations](declarations.md) · [CIP acceptance criteria](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md#1-acceptance-criteria) · [Latest version of this page](https://github.com/nhenin/cardano-ledger-specs/blob/v2-minutxo/docs/dijkstra-deposit-store/verification.md)
 
 **Latest recorded tests:** [24 November 2026](#signed-backing-change-for-mixed-output-forms--24-november-2026)
 
@@ -10,9 +14,7 @@
 
 **Retained historical evidence:** recorded 9 October 2026 at code checkpoint `c8760684f`.
 
-This record documents implementation progress and test runs for
-[Dijkstra ledger rules for minimum-ADA and deposit-backed outputs](README.md), including the
-[TopTx and SubTx declaration rules](declarations.md). Current rule
+This record documents implementation progress and test runs. Current rule
 references use semantic tags matching the executable hierarchy. Numeric tags below
 identify historical runs only; their original observations and dates remain distinct
 from the new structural verification.

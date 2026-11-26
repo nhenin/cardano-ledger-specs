@@ -2,9 +2,13 @@
 
 <a id="211-declarations" name="211-declarations"></a>
 
-# 2.1.1 TopTx and SubTx deposit declarations
+<a id="211-toptx-and-subtx-deposit-declarations" name="211-toptx-and-subtx-deposit-declarations"></a>
 
-This chapter of [Dijkstra ledger rules for minimum-ADA and deposit-backed outputs](README.md#ds-tx) defines the declaration forms and when each transaction body must use them.
+# 2.1.1 TopTx and SubTx deposit declarations in Dijkstra
+
+[Ledger rules](README.md) · [Verification record](verification.md) · [CIP declaration fields](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md#33-txbody-deposit-declarations-and-encoding) · [Latest version of this page](https://github.com/nhenin/cardano-ledger-specs/blob/v2-minutxo/docs/dijkstra-deposit-store/declarations.md)
+
+This chapter defines the deposit declarations that TopTx and SubTx bodies can carry and when each body must declare.
 
 > **Valid form → required field.**
 
