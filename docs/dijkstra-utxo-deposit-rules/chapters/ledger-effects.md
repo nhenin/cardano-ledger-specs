@@ -6,13 +6,9 @@
 
 [Specification contents](../README.md#table-of-contents) · [← Transaction rules](transaction-rules.md) · [Derived distributions →](derived-distributions.md) · [Verification record](../verification.md) · [CIP draft](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) · [Latest version of this page](https://github.com/nhenin/cardano-ledger-specs/blob/v2-minutxo/docs/dijkstra-utxo-deposit-rules/chapters/ledger-effects.md)
 
-When the ledger accepts a transaction, its execution outcome determines which
-inputs leave the live UTxO set and which signed outputs enter it. The same
-choice determines the changes to external deposits, fees and stake.
+An accepted transaction has two possible effects on the live UTxO set. On **ordinary success**, the ledger spends ordinary inputs and adds ordinary outputs. On an **accepted phase-2 failure**, it spends collateral and adds the collateral return if one was supplied. The tables in this chapter use the inputs and outputs actually applied on each path.
 
-The chapter starts with the state representation and a worked transaction.
-The rules that follow specify the UTxO update, deposit accounting, conservation
-and transitions at fork and epoch boundaries. [Test results](../verification.md)
+Follow one output through a [price change](#state-historical-release), then see how the ledger updates [individual entries](#ds-state-allocations), the [total external deposits](#ds-state-balance) and the [fee pot](#ds-state-fees).
 
 ## Table of contents
 
@@ -153,7 +149,7 @@ deposit. The entry records `AtSlot 100`. Later, the same output would cost
 **2.4 ADA** to create. A transaction spends the old output and creates an
 identical successor.
 
-| Applied change | Price used | External deposit balance |
+| Applied change | Price used | Change in external deposits |
 | --- | --- | ---: |
 | Remove the old entry | Formula and rate at slot 100 | −2 ADA |
 | Insert the successor | Formula and rate at the inclusion slot | +2.4 ADA |
@@ -200,27 +196,26 @@ the collateral fee. The TopTx rule emits no `TxUTxODiff` on this path.
 \cup\mathit{createdOutputs}
 ```
 
-Here, subtraction removes map entries by input reference; union inserts the
-selected outputs without changing their payloads.
+This map gives the signed output at every live reference, for both min-ADA and
+deposit-backed outputs. Remove the inputs consumed on the selected path and add
+the outputs it creates. Every other reference keeps its original output.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-utxo-n01" name="ds-state-utxo-n01"></a>**1.&nbsp;[N01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L34)** | **Ordinary execution.** Standalone and multi-SubTx transactions allocate, release or replace deposits. Compare the entire resulting UTxO with the ordinary-input/output equation. |
-| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L48)** | **Successful scripts leave collateral inactive.** Generate collateral proposals with absent, implicit or Deposit-backed returns. Only ordinary outputs are created; collateral-only and reference-only inputs survive. |
-| <a id="ds-state-utxo-n03" name="ds-state-utxo-n03"></a>**3.&nbsp;[N03](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L62)** | **Failed scripts select collateral.** Submit a genuine phase-2 failure. Only collateral inputs disappear and only the collateral return is created; ordinary and reference-only inputs survive. |
-| <a id="ds-state-utxo-n04" name="ds-state-utxo-n04"></a>**4.&nbsp;[N04](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L77)** | **Failed TopTx, inactive SubTxs.** A real failing TopTx script selects collateral even when several children propose allocations and releases. Compare the complete UTxO: none of those ordinary effects is applied. |
-| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L95)** | **One input, two consuming roles.** A Deposit-backed input belongs to both ordinary and collateral sets. Exercise both actual script outcomes and compare the complete UTxO against the selected path; consume the shared input once. |
+| <a id="ds-state-utxo-n01" name="ds-state-utxo-n01"></a>**1.&nbsp;[N01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L34)** | **Ordinary execution.** A standalone TopTx or a batch spends ordinary inputs and creates new outputs. Each new output appears at its own body’s transaction ID and output index. |
+| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L48)** | **Successful scripts leave collateral inactive.** A successful script applies the ordinary inputs and outputs. Collateral-only and reference-only inputs stay in the UTxO, including when the transaction proposed a min-ADA or deposit-backed collateral return. |
+| <a id="ds-state-utxo-n03" name="ds-state-utxo-n03"></a>**3.&nbsp;[N03](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L62)** | **Failed scripts select collateral.** A failing script consumes the collateral inputs. An optional return creates one UTxO at the TopTx index immediately after its ordinary outputs. Without a return, the transaction creates no UTxO. Ordinary-only and reference-only inputs survive. |
+| <a id="ds-state-utxo-n04" name="ds-state-utxo-n04"></a>**4.&nbsp;[N04](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L77)** | **Failed TopTx, inactive SubTxs.** Several SubTxs propose allocations and releases. When the TopTx script fails, the complete UTxO reflects only the collateral inputs and any collateral return. |
+| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L95)** | **One input, two consuming roles.** The same deposit-backed input is both an ordinary input and collateral. Either outcome consumes it once. A separate reference-only input survives both outcomes. |
 
 <a id="ds-state-execution-f01" name="ds-state-execution-f01"></a>
 
 <a id="ds-state-execution-p02" name="ds-state-execution-p02"></a>
 
-**Rejected submissions.** A rejected transaction produces no new accepted state.
-The submission adapter installs a state only on success, so comparing its snapshots
-after rejection would mainly retest that adapter. Rejection assertions remain in
-Transaction rules; this section measures applied effects. Likewise, these failing
-scripts execute at TopTx: they do not claim to test propagation of a failing
-SubTx script through the upstream batch evaluator.
+**Rejected submissions.** A rejected transaction leaves the last accepted state
+in place. The failure cases above use a failing TopTx script and an accepted
+collateral outcome. [Transaction rules](transaction-rules.md#ds-tx) covers
+validation failures that reject the transaction.
 
 <a id="ds-state-store" name="ds-state-store"></a>
 
@@ -228,10 +223,11 @@ SubTx script through the upstream batch evaluator.
 
 ## 3.3 Store
 
-`UTxOStore` owns `depositFormulaHistory`, one indexed map of `Unspent (TxOut era)` and a
-checked cached `totalDepositAmount`. Each entry retains its output and allocation origin (`AtStoreMigration` or `AtSlot slot`). History resolves its
-formula as described in [DepositStore](domain-model.md#section-1-1). Output references and
-allocations share one map; the cached total counts only separately held ADA.
+The Store indexes every live output by its transaction input reference. Its
+`allocations` map retains the output payload and its allocation origin, either
+`AtStoreMigration` or `AtSlot slot`. The origin selects the creation-time
+formula in `depositFormulaHistory`. The Store also caches the total ADA held
+in external deposits as `totalDepositAmount`. [Store fields and historical pricing](domain-model.md#section-1-1)
 
 <a id="ds-state-allocations" name="ds-state-allocations"></a><a id="ds-state-store-allocations" name="ds-state-store-allocations"></a>
 
@@ -241,12 +237,17 @@ allocations share one map; the cached total counts only separately held ADA.
 
 ### 3.3.1 Allocations
 
-> **Retain one allocation for each live Deposit-backed output.**
+> **Each live deposit-backed output has an external deposit amount.**
 
-Here, $`\mathit{recordsBefore}`$ is mathematical notation for the deposits calculated from retained creation-time metadata, not a separate ledger type or stored map. The owning allocation map also contains min-ADA outputs, whose external deposit is zero.
-Construct $`\mathit{newAllocations}`$ only for Deposit-backed outputs in
-$`\mathit{createdOutputs}`$, priced from their contents and allocation-time formulas under
-[Deposit calculation](domain-model.md#ds-pricing). Min-ADA outputs have no external-deposit record in this view; their legacy allocations remain in the owning map. A Deposit-backed output priced at zero still has a deposit record. For either accepted outcome:
+The tests derive a second view from the Store. For each deposit-backed output,
+look up the formula for its allocation origin and calculate its deposit from the
+output payload. The maps $`\mathit{recordsBefore}`$ and $`\mathit{recordsAfter}`$ give
+those amounts by output reference. A live min-ADA output appears only in the
+full UTxO map. A deposit-backed output priced at zero appears in both views,
+with an external deposit of zero lovelace. [External deposit calculation in the tests](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/Store.hs#L100-L110)
+
+For either accepted outcome, $`\mathit{newAllocations}`$ gives the deposits on the
+newly created deposit-backed outputs. [Deposit calculation](domain-model.md#ds-pricing)
 
 ```math
 \begin{aligned}
@@ -260,20 +261,17 @@ $`\mathit{createdOutputs}`$, priced from their contents and allocation-time form
 \end{aligned}
 ```
 
-Compare the actual map with this independently constructed map, and its domain
-with the actual resulting UTxO. Equality between two sums of the same unchecked
-map would miss missing, misplaced or incorrectly priced records. A consistent
-starting state has this exact domain and nonnegative recorded amounts.
-[Balance](#ds-state-balance) checks the resulting ADA change against independently
-calculated allocations and retained releases.
+The tests compare the expected and observed amounts at each reference. They
+also check that the references in the external-deposit view are exactly those
+of live deposit-backed outputs.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L75)** | **Ordinary records.** Derive records from signed Deposit-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
-| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L96)** | **Collateral records.** Generate mixed input forms and absent, implicit or Deposit-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Deposit-backed return; reference-only records survive. |
+| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L84)** | **Ordinary records.** For each new deposit-backed output, the external-deposit view gains its reference and calculated amount. Spending an input removes its entry. Equal-valued outputs at different references remain distinct, including in batches with local or delegated funding. |
+| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L105)** | **Collateral records.** On script success, these transactions remove external deposits only for inputs spent in the ordinary role. On failure, they remove deposits for the collateral spent and add a deposit only for a deposit-backed return. A reference-only input keeps its deposit on both paths. |
 | <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L130)** | **Keep the original deposit until the output is spent.** A deposit-backed output is created under V1 with a **0.25 ADA** deposit. Its accepted CBOR encoding is 1 byte longer than its canonical encoding. After restoring the snapshot, the ledger activates V2 and doubles the byte price. Creating the same output now would require **0.52 ADA**.<br>**Reference input.** A transaction reads the original output. It stays in the live UTxO set with its **0.25 ADA** deposit.<br>**Spending input.** A later transaction consumes that output and releases its **0.25 ADA**. Only that output’s entry disappears from the set of external deposits. |
-| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L166)** | **Zero-priced allocations still have records.** Spend translated min-ADA sources and create Deposit-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; min-ADA sources never acquire allocation records. |
-| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L190)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
+| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L174)** | **Zero-priced allocations still have records.** The TopTx and a SubTx spend translated min-ADA funding outputs and create deposit-backed outputs at a zero byte price. Each new reference appears in the external-deposit view with an amount of zero lovelace. The min-ADA inputs held their backing in their output values. |
+| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L203)** | **No ordinary records on failure.** A failing TopTx script selects min-ADA collateral while its SubTxs propose ordinary allocations and releases. The collateral inputs leave the live UTxO. The external-deposit view has exactly the same references and amounts before and after. |
 
 Historical release **amounts** are checked separately by [Balance P03](#ds-state-balance-p03).
 
@@ -283,9 +281,7 @@ Historical release **amounts** are checked separately by [Balance P03](#ds-state
 
 ### 3.3.2 Balance
 
-> **The Store balance changes by newly allocated deposits minus recorded releases.**
-
-Derive the transfer from new allocations and retained consumed records:
+The Store balance, `totalDepositAmount`, is the **ADA held in external deposits**. Creating a deposit-backed output adds its deposit at the price in effect at inclusion. Spending that output releases the original amount.
 
 ```math
 \begin{aligned}
@@ -298,45 +294,34 @@ Derive the transfer from new allocations and retained consumed records:
 \end{aligned}
 ```
 
-On ordinary success, the Store balance changes by the actual external deposits
-created minus those consumed, across TopTx and all SubTxs. Embedded reserves
-enter the signed declaration and travel in serialized output values. On accepted
-phase-2 failure, only collateral allocations and releases affect the Store.
+The signed declaration also counts **embedded reserves**. Suppose a transaction spends a minimum-ADA output with 1.6 ADA of embedded reserve and creates a deposit-backed output requiring 2 ADA. With all other reserves balanced, the builder declares **Allocate 0.4 ADA**. The Store gains **2 ADA** because the input’s 1.6 ADA was held in its output value. On an accepted phase-2 failure, only the collateral inputs and any return enter the Store calculation.
+[Transaction net-change rule](transaction-rules.md#ds-tx-accounting-net-change)
 
 <a id="ds-state-balance-n02" name="ds-state-balance-n02"></a>
-For every Store, its cached balance must equal the sum calculated from its historical records:
+The tests check the cached total against an independent sum. For each live deposit-backed output, recover the deposit using its allocation origin and the shared pricing history, then add the amounts.
 
 ```math
 \mathit{storeBalance}=\sum\mathit{records}
 ```
 
-The transfer assertion compares the observed amount with independently calculated
-allocations and releases. Separate assertions recompute the total from each output’s
-asset count, datum and script, using the version and rate selected by its origin.
-[Historical pricing](domain-model.md#ds-pricing-history) keeps the original refund for each allocation.
-
 <a id="ds-state-balance-n01" name="ds-state-balance-n01"></a><a id="ds-state-balance-n03" name="ds-state-balance-n03"></a>
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L61)** | **Ordinary transfer.** Measure new deposits from signed outputs and releases from the consumed records. The sum of the resulting records changes by their difference, including multi-SubTx local/delegated funding and zero net replacement. |
-| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L82)** | **Collateral transfer.** Successful scripts release only ordinary records, including inputs shared with collateral. Failed scripts apply only the return deposit minus recorded collateral releases; deposits of all unspent outputs remain recorded. |
-| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L103)** | **Historical release after restoration.** Create an allocation from genuinely noncanonical accepted bytes, restore the state and change the price. Spending the output reduces the Store by the original allocation, not a newly calculated deposit. |
-| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L127)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
-| <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L141)** | **Mixed historical prices.** Accept two noncanonical outputs at different prices, restore their state and consume both while creating a replacement at a third price. The balance changes by the current new deposit minus both historical deposits. Retained metadata and cache totals are checked independently. |
-| <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L175)** | **Child output history.** Accept a noncanonical SubTx output, restore its allocation and change the price. A later spend of the child's own reference releases exactly its original contribution. |
-| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** Accept a real script failure with a noncanonical Deposit-backed return. Restore that applied allocation, change the price and spend the return; its contents and allocation-time formula determine the refund. |
-| <a id="ds-state-balance-p08" name="ds-state-balance-p08"></a>**8.&nbsp;[P08](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L227)** | **Across formula versions.** Accept identical two-asset outputs before and after V2 activation, restore the state and spend both together. Each refunds its allocation-time formula: $`\text{refund}=F_{1,p}(o)+F_{2,p}(o)`$. |
+| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L64)** | **Ordinary transfer.** Read the cached balance before and after applying the batch. It must increase by the deposits for all new deposit-backed outputs and decrease by the original deposits of all deposit-backed inputs spent. This holds when SubTxs settle locally or delegate to TopTx. |
+| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L85)** | **Collateral transfer.** On success, only ordinary inputs can release their deposits. If phase 2 fails, subtract the deposits of spent collateral inputs and add the deposit on the collateral return, if it has one. A reference-only input keeps its deposit on either path. |
+| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L106)** | **Historical release after restoration.** Restore the snapshot and double the byte price. Spending the deposit-backed output and creating a minimum-ADA output reduces the Store balance by the original **0.25 ADA**. The new output carries its reserve in its own value. |
+| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L129)** | **No ordinary transfer on failure.** A TopTx script fails after the batch has proposed SubTx allocations and releases. Only minimum-ADA collateral is applied, so the cached external deposit balance stays the same. |
+| <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L143)** | **Mixed historical prices.** After restoring the snapshot, spend outputs whose original deposits were **0.25 ADA** and **0.50 ADA**. Their replacement requires **0.75 ADA** at the new rate. Two old entries leave and one new entry enters. The total external deposit balance stays the same. |
+| <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L176)** | **Child output history.** A SubTx creates a deposit-backed output with a **0.25 ADA** deposit. After restoring the snapshot and doubling the rate, spend that output using the SubTx’s own transaction ID and output index. The Store releases **0.25 ADA**. |
+| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** An accepted phase-2 failure creates a deposit-backed collateral return. Restore the snapshot and triple the rate. When a later transaction spends the return, the Store releases the deposit allocated when the return was created. |
+| <a id="ds-state-balance-p08" name="ds-state-balance-p08"></a>**8.&nbsp;[P08](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L226)** | **Across formula versions.** Two identical outputs, each containing 2 distinct native assets, enter the Store at the same byte price. V1 prices the first at **1,715,380 lovelace** and V2 prices the second at **1,810,200 lovelace**. Spending both after restoring the snapshot releases **3,525,580 lovelace** in total. |
 
 <a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
-**Exact cache invariant.** The former solvency comparison is replaced by equality:
-`mkUTxOStore` establishes the cached total, `allocate` and `release` preserve it for a valid store, and decoding rejects a total that differs from the historical record sum. Raw allocation construction is separate from these checks. Direct record updates must preserve the same equality.
-The nonnegative-record and live-output correspondence requirements remain in
-[Allocations](#ds-state-allocations).
+`mkUTxOStore` computes the total when it builds a Store. Each allocation or release must preserve the equality above. [Store construction](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs#L59-L66)
 
 <a id="ds-state-solvency-n01" name="ds-state-solvency-n01"></a><a id="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent" name="342-n01---classifies-proposed-states-at-exact-backing-and-one-lovelace-above-as-solvent"></a><a id="ds-state-solvency-f01" name="ds-state-solvency-f01"></a><a id="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent" name="343-f01---classifies-a-proposed-state-one-lovelace-below-its-independently-calculated-obligations-as-insolvent"></a>
-The former below/exact/above-backing cases are retired. Their independently varied
-balance is not a valid Store: cached-total mismatch is now covered by codec rejection, rather than permitting surplus or a separate insolvency state. These anchors remain for older links.
+When restoring a Dijkstra snapshot, the decoder recomputes this total from the entries. A discrepancy of even **1 lovelace** in either direction makes the snapshot invalid. [Store decoder](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs#L253-L264)
 
 <a id="ds-collateral-surplus" name="ds-collateral-surplus"></a>
 <a id="224-surplus" name="224-surplus"></a>
@@ -349,7 +334,11 @@ balance is not a valid Store: cached-total mismatch is now covered by codec reje
 
 ## 3.4 Fees
 
-> **Credit the fee selected by the actual execution path.**
+On ordinary success, the fee pot receives the fee declared by TopTx. On accepted
+phase-2 failure, it receives the collateral fee. The ledger uses the ADA carried
+by the collateral inputs and any signed return, plus the **historical external
+deposits** released by those inputs. A deposit-backed return needs a new deposit
+at the current price. An absent or minimum-ADA return needs zero external deposit.
 
 ```math
 \begin{aligned}
@@ -364,17 +353,21 @@ balance is not a valid Store: cached-total mismatch is now covered by codec reje
 | Ordinary success | $`\mathit{txFee}`$ |
 | Phase-2 failure | $`\mathit{collateralCoinFee}+\mathit{releasedSurplus}`$ |
 
-Both paths preserve the treasury:
-$`\mathit{treasuryAfter}=\mathit{treasuryBefore}`$.
+Released deposits cover the return’s external deposit first. Input ADA must
+fund any shortfall and the collateral minimum. For example, suppose a collateral
+input carries 5 ADA and releases a 2 ADA external deposit. A minimum-ADA return
+of 4 ADA leaves 1 ADA towards the collateral minimum. If that covers the minimum,
+the fee pot gains 3 ADA, including the 2 ADA release. The treasury stays unchanged
+across either transaction outcome.
+[Collateral settlement](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Accounting.hs#L366-L388) · [Collateral funding](transaction-rules.md#ds-collateral-funding)
 
 | Case | Scenario and observation |
 | --- | --- |
 | <a id="ds-state-fees-p01" name="ds-state-fees-p01"></a>**1.&nbsp;[P01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L29)** | **Ordinary fee.** Local and delegated ordinary Store operations, plus real successful scripts with collateral proposals, credit only the declared transaction fee. |
 | <a id="ds-state-fees-p02" name="ds-state-fees-p02"></a>**2.&nbsp;[P02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L53)** | **Collateral fee.** Real failing scripts credit the application-coin fee plus unused recorded deposits. Cover absent returns, mixed inputs, deposit shortfall/equality/surplus and a changed byte price. |
 
-The input/return funding constraints belong to [Funding](transaction-rules.md#ds-collateral-funding).
-[Allocations](#ds-state-allocations) and [Balance](#ds-state-balance) observe the
-corresponding Store effects; these fee tests observe only fees and treasury.
+[Allocations](#ds-state-allocations) and [Balance](#ds-state-balance) cover the
+corresponding changes to the Store.
 
 <a id="ds-state-conservation" name="ds-state-conservation"></a>
 
@@ -382,13 +375,12 @@ corresponding Store effects; these fee tests observe only fees and treasury.
 
 ## 3.5 Conservation
 
-> **Count every actual ADA pot, including the whole Store balance, exactly once.**
-
-Start from a valid ledger state and submit an accepted transaction. Read each
-actual pot independently from the observed state. Min-ADA outputs
-contribute their full coin; Deposit-backed outputs contribute application coin.
-The deposited pot is `utxosDeposited`, backing certificate/governance deposits.
-Sum allocation records once as `storeBalance`; do not add their total a second time.
+An accepted transaction can move ADA between outputs, the Store and fees while
+preserving the total. Count the full ADA of each minimum-ADA output, including
+its embedded reserve. For a deposit-backed output, count its application ADA in
+`outputAda` and its external deposit in `storeBalance`. The `deposited` term
+is a separate pot, `AccountingState.asDeposited`, for certificate and governance
+deposits.
 
 ```math
 \begin{aligned}
@@ -408,12 +400,13 @@ Sum allocation records once as `storeBalance`; do not add their total a second t
 \end{aligned}
 ```
 
-The second equation checks the [production total](../../../eras/shelley/impl/src/Cardano/Ledger/Shelley/AdaPots.hs#L99)
-against the independent sum: `totalAdaES` includes Store balance but excludes the
-donation pot. Its certificate/governance obligation projection agrees with the
-deposited pot in a consistent valid state. Use positive recorded deposits so the
-comparison detects either omission or double counting of Store ADA, and nonzero
-donations so that pot cannot be silently omitted.
+The tests read the pots before and after submission and calculate the external
+deposits from the live entries and their pricing history. The production
+`totalAdaES` uses the Store’s cached total and the sum of certificate and
+governance obligations, which equals `asDeposited` in a consistent state.
+Adding the separate donation pot makes the two totals comparable. N01 uses
+positive external deposits and donations so both amounts affect the comparison.
+[Independent sum](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/LedgerEffects/ADA.hs#L23-L32) · [Production pots](../../../eras/shelley/impl/src/Cardano/Ledger/Shelley/AdaPots.hs#L60-L75) · [Production total](../../../eras/shelley/impl/src/Cardano/Ledger/Shelley/AdaPots.hs#L87-L98)
 
 <a id="ds-collateral-conservation" name="ds-collateral-conservation"></a><a id="227-conservation" name="227-conservation"></a><a id="ds-collateral-conservation-n01" name="ds-collateral-conservation-n01"></a><a id="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit" name="2271-n01---conserves-ada-for-mixed-collateral-inputs-when-return-storage-needs-an-additional-deposit"></a><a id="ds-collateral-conservation-p01" name="ds-collateral-conservation-p01"></a><a id="2272-p01---collateral-settlement-conserves-ada" name="2272-p01---collateral-settlement-conserves-ada"></a><a id="351-n01---still-counts-store-ada-in-total-monetary-conservation" name="351-n01---still-counts-store-ada-in-total-monetary-conservation"></a>
 
@@ -423,10 +416,13 @@ donations so that pot cannot be silently omitted.
 | <a id="ds-state-conservation-n02" name="ds-state-conservation-n02"></a>**2.&nbsp;[N02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L60)** | **Ordinary conservation.** Compare independent actual-ADA sums immediately before and after accepted standalone and multi-SubTx transactions, with local or delegated funding. |
 | <a id="ds-state-conservation-n03" name="ds-state-conservation-n03"></a>**3.&nbsp;[N03](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L72)** | **Collateral conservation.** Repeat that comparison around real accepted phase-2 failures: mixed inputs, absent returns, and return deposits smaller than, equal to or greater than the recorded releases. |
 
-For collateral, the same accounting projects to
-$`\mathit{collateralInputCoins}+\mathit{releasedDeposits} =\mathit{returnCoins}+\mathit{returnDeposit}+\mathit{collateralFee}`$.
-Its funding prerequisites belong to [Funding](transaction-rules.md#ds-collateral-funding); this
-contract observes the actual applied state.
+On accepted phase-2 failure, all ADA from collateral inputs and released
+external deposits goes into the return, its external deposit or the fee pot.
+
+```math
+\mathit{collateralInputCoins}+\mathit{releasedDeposits}
+=\mathit{returnCoins}+\mathit{returnDeposit}+\mathit{collateralFee}
+```
 
 <a id="ds-state-lifecycle" name="ds-state-lifecycle"></a>
 
@@ -434,9 +430,9 @@ contract observes the actual applied state.
 
 ## 3.6 Lifecycle
 
-Translation establishes legacy allocations with zero external deposits. Ordinary epoch processing preserves an
-existing allocation map and therefore its derived balance. Effective parameter changes
-update only the formula for future allocations.
+The Conway-to-Dijkstra fork gives existing outputs an allocation origin. Later
+epoch boundaries can change the price of new allocations while preserving the
+amount recoverable from each live output.
 
 <a id="ds-state-initialization" name="ds-state-initialization"></a><a id="36-initialization" name="36-initialization"></a><a id="ds-state-translation" name="ds-state-translation"></a>
 
@@ -444,30 +440,28 @@ update only the formula for future allocations.
 
 ### 3.6.1 Translation
 
-> **Preserve Conway outputs and existing pots while introducing legacy allocations with zero external deposits.**
+Every Conway output enters the Dijkstra Store as a minimum-ADA output under
+its existing input reference. Its ADA stays in the output. At the fork, the
+Store therefore contains all the live outputs and holds zero external deposits.
 
 ```math
 \begin{aligned}
 \mathit{outputReferencesAfter}&=\mathit{outputReferencesBefore} \\
 \mathit{outputPayloadsAfter}&=\mathit{outputPayloadsBefore} \\
-\mathit{recordsAfter}&=\varnothing \\
+\mathit{externalDepositRecordsAfter}&=\varnothing \\
 \mathit{existingMonetaryPotsAfter}&=\mathit{existingMonetaryPotsBefore}
 \end{aligned}
 ```
 
-Every translated output is min-ADA and has a legacy allocation in the owning map.
-Here `recordsAfter` denotes the empty external-deposit view; the cached total is zero.
-Migration initializes V1 from the effective translated protocol parameters with
-`mkDepositFormulaHistory formula`, leaving dated changes empty. Each imported entry
-is marked `AtStoreMigration`. Its translated output and this permanent baseline
-determine its embedded reserve. Its reserve is capped by its existing ADA, and remains inside that value.
-Preserve each output’s semantic address, value, datum
-and reference script under era translation; do not extract its implicit minimum
-coin. Translate a complete Conway `NewEpochState`, then compare these fields with
-their Conway values: output references and payloads; treasury, reserves, fees,
-deposited ADA and donations; each account's rewards and deposit. This checks the
-Store introduction and its preservation boundary, rather than equality of every
-field across two different era types.
+History begins with V1 at the effective fork byte price and has no dated changes.
+Each imported entry receives the origin `AtStoreMigration`. When it is later
+spent, the ledger calculates its embedded reserve from that baseline and the
+output’s contents, capped at the ADA the output carries.
+[Store migration](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L237-L244) · [Historical pricing](domain-model.md#ds-pricing-history)
+
+N01 translates a complete Conway `NewEpochState`. It checks each output’s
+reference, address, value, datum and reference script, then compares treasury,
+reserves, fees, deposited ADA, donations and each account’s rewards and deposit.
 
 | Case | Contract | Scenario axes |
 | --- | --- | --- |
@@ -479,7 +473,9 @@ field across two different era types.
 
 ### 3.6.2 Epoch
 
-> **Preserve historical deposits; activate effective parameters for future allocations.**
+Crossing an epoch boundary leaves live entries and their external deposits
+intact. If the byte price changes, the Store appends a dated formula using the
+version already active. Reapplying the same formula leaves history unchanged.
 
 ```math
 \mathit{recordsAfter}=\mathit{recordsBefore}
@@ -491,9 +487,11 @@ field across two different era types.
 | <a id="ds-state-epoch-n01" name="ds-state-epoch-n01"></a><a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a><a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>**1.&nbsp;[N01](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L37)** | **Retain the populated Store.** Cross actual epoch boundaries and compare the complete allocation map. | Fund one to five live allocations through an accepted transaction and cross two successive boundaries. Verify each epoch advanced and protocol parameters stayed unchanged; the cached balance and all historical metadata are preserved. |
 | <a id="ds-state-epoch-n02" name="ds-state-epoch-n02"></a>**2.&nbsp;[N02](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L59)** | **Activate the effective price.** A scheduled parameter update changes the current rate without repricing live entries. | Cross real epoch boundaries with V1 and V2 selected. Compare the effective parameters, current formula, complete allocation map and cached total. |
 
-For N02, $`V`$ is the selected formula version, $`r'`$ the newly effective byte price,
-and $`s'`$ the first slot of the epoch where the update becomes effective. Append
-$`(s',V(r'))`$ to history; entries allocated earlier retain their earlier formula:
+N02 selects a formula version $`V`$ and schedules a byte-price increase to
+$`r'`$. The change takes effect at $`s'`$, the new epoch’s first slot. The test
+checks the old formula at the preceding slot and $`V(r')`$ at $`s'`$. Entries
+allocated before the boundary keep the formula selected by their origins.
+[Parameter activation](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit.hs#L15-L25)
 
 ```math
 \begin{aligned}
@@ -504,23 +502,19 @@ $`(s',V(r'))`$ to history; entries allocated earlier retain their earlier formul
 ```
 
 <a id="ds-state-recovery" name="ds-state-recovery"></a><a id="37-recovery" name="37-recovery"></a><a id="ds-state-recovery-n01" name="ds-state-recovery-n01"></a><a id="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus" name="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus"></a>
-**Existing codec coverage.** Dijkstra's [test entry point](../../../eras/dijkstra/impl/test/Main.hs#L51)
-registers the [Conway common](../../../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Binary/RoundTrip.hs#L27)
-→ [Alonzo](../../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Binary/RoundTrip.hs#L35)
-→ [Shelley state round trips](../../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L66),
-including `AccountingState`, `LedgerState`, `EpochState` and `NewEpochState`. The [state generator](../../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Arbitrary.hs#L205)
-includes an arbitrary Dijkstra Store, and the [output generator](../../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Arbitrary.hs#L68)
-includes both output forms. This existing serialization coverage stays in the
-binary suite. [Allocations P03](#ds-state-allocations-p03) additionally submits an
-output whose accepted CBOR is one byte longer than its canonical encoding, then
-restores the serialized `AccountingState` and doubles the price. A reference-only
-transaction must retain its original record; spending must remove that record.
-[Balance P03](#ds-state-balance-p03) checks that the actual Store debit equals the
-recorded creation deposit.
+**Snapshot restoration.** Dijkstra’s binary suite checks that `AccountingState`,
+`LedgerState`, `EpochState` and `NewEpochState` survive encoding and decoding.
+The generators cover both output forms. [Dijkstra test suite](../../../eras/dijkstra/impl/test/Main.hs#L55-L56) · [Accounting and ledger states](../../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L67-L69) · [Epoch states](../../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L99-L100) · [Output generator](../../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Arbitrary.hs#L70-L77)
+
+Allocations P03 submits an output whose accepted CBOR is one byte longer than
+its canonical encoding, restores the accounting state, switches from V1 to V2
+and doubles the byte price. Referencing the output preserves the allocation.
+Spending it removes the entry. Balance P03 checks the amount debited from the
+Store after restoration and a price increase. It equals the original deposit.
+[Allocations P03](#ds-state-allocations-p03) · [Balance P03](#ds-state-balance-p03)
 
 <a id="ds-state-recovery-n02" name="ds-state-recovery-n02"></a><a id="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure" name="372-n02---restores-the-complete-prior-ledger-state-on-rollback-after-ordinary-success-or-accepted-phase-2-failure"></a>
-**Rollback integration gap.** This ledger package exposes no rollback operation
-for a LedgerEffects case to exercise. Consensus integration must restore the
-complete prior semantic state after either accepted outcome, then replay the
-transition to reproduce its result. Codec equality does not establish rollback
-coverage; the former Recovery N02 remains this explicit integration requirement.
+**Rollback and replay.** A consensus integration test is still needed. It must
+roll back an ordinary success and an accepted phase-2 failure, verify the
+complete state at the earlier chain point, then replay each transition and
+check that it reproduces the original result.

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="286" viewBox="0 0 900 286"
+     role="img" aria-labelledby="title description">
+  <title id="title">Funding a 1 ADA collateral minimum</title>
+  <desc id="description">A deposit-backed collateral input carries 5 ADA and has a 2 ADA external deposit.
+    A minimum-ADA return of 4 ADA leaves 1 ADA in input value to cover the required fee.
+    A return of 5 ADA leaves zero and fails funding. Only after an accepted script failure
+    does the fee pot receive the 1 ADA of input value plus the released 2 ADA deposit.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #192f3d; }
+    .label { font-size: 15px; fill: #4a606e; }
+    .value { font-size: 20px; font-weight: 600; }
+    .bar-label { font-size: 16px; font-weight: 600; }
+    .result { font-size: 18px; font-weight: 600; }
+  </style>
+  <rect width="900" height="286" fill="#fff"/>
+
+  <text class="label" x="16" y="26">Collateral input</text>
+  <text class="value" x="16" y="55">5 ADA in value</text>
+  <text class="label" x="322" y="26">External deposit on that input</text>
+  <text class="value" x="322" y="55">2 ADA</text>
+  <text class="label" x="661" y="26">Required collateral fee</text>
+  <text class="value" x="661" y="55">1 ADA</text>
+  <path d="M16 75h868" stroke="#c0cdd5"/>
+
+  <text class="label" x="16" y="104">Minimum-ADA return</text>
+  <text class="label" x="217" y="104">How the 5 ADA in the input value is used</text>
+  <text class="label" x="661" y="104">Funding check</text>
+  <text class="value" x="16" y="143">Return 4 ADA</text>
+  <rect x="217" y="118" width="320" height="37" rx="3" fill="#dce8ed"/>
+  <rect x="538" y="118" width="79" height="37" rx="3" fill="#3e6272"/>
+  <text class="bar-label" x="231" y="142">4 ADA returned</text>
+  <text class="bar-label" x="578" y="142" text-anchor="middle" style="fill:#fff">1 ADA</text>
+  <text class="result" x="661" y="142">Meets the minimum</text>
+
+  <text class="value" x="16" y="199">Return 5 ADA</text>
+  <rect x="217" y="174" width="400" height="37" rx="3" fill="#dce8ed"/>
+  <text class="bar-label" x="231" y="198">5 ADA returned</text>
+  <text class="result" x="661" y="198" style="fill:#903e2a">Rejected · 0 ADA left</text>
+
+  <path d="M16 230h868" stroke="#c0cdd5"/>
+  <text class="label" x="16" y="263">Fee pot on accepted phase-2 failure</text>
+  <text class="bar-label" x="322" y="263">1 ADA from value + 2 ADA from the deposit = 3 ADA</text>
+</svg>
