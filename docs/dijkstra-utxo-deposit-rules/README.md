@@ -12,21 +12,21 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
 
 ## Table of contents
 
-Expand a heading to see its subsections and test cases. Select a section number to open the corresponding rule.
+Select a title to open it. Use the arrow to expand its subsections.
 
 [Domain model](#1-domain-model) · [Transaction rules](#2-transaction-rules) · [Ledger effects](#3-ledger-effects) · [Derived distributions](#4-derived-distributions) · [Appendices](#appendices) · [Verification record](#verification-record)
 
 <a id="1-domain-model" name="1-domain-model"></a>
 
 <details open>
-  <summary><strong>1. Domain model</strong> · <a href="chapters/domain-model.md">Read chapter</a></summary>
+  <summary><strong><a href="chapters/domain-model.md">1. Domain model</a></strong></summary>
   <p>What does each form of output carry, what does the Store record, and how is the required deposit calculated?</p>
   <dl><dd>
     <div><a href="chapters/domain-model.md#section-1">1.1 Outputs</a></div>
     <div><a href="chapters/domain-model.md#section-1-1">1.2 DepositStore</a></div>
     <div><a href="chapters/domain-model.md#section-1-4">1.3 Transaction bodies</a></div>
     <details>
-      <summary><a href="chapters/domain-model.md#ds-pricing">1.4</a> Deposit calculation</summary>
+      <summary><a href="chapters/domain-model.md#ds-pricing">1.4 Deposit calculation</a></summary>
       <dl><dd>
         <div><a href="chapters/domain-model.md#ds-pricing-p01">1.4.1 P01 - Price each created output</a></div>
         <div><a href="chapters/domain-model.md#ds-pricing-n01">1.4.2 N01 - Count distinct native assets</a></div>
@@ -43,23 +43,23 @@ Expand a heading to see its subsections and test cases. Select a section number 
 <a id="2-transaction-rules" name="2-transaction-rules"></a>
 
 <details open>
-  <summary><strong>2. Transaction rules</strong> · <a href="chapters/transaction-rules.md">Read chapter</a></summary>
+  <summary><strong><a href="chapters/transaction-rules.md">2. Transaction rules</a></strong></summary>
   <p>What must TopTx and SubTx declare, who authorizes a release, and how does the ledger check accounting, settlement, minimum coin and collateral?</p>
   <dl><dd>
     <details open>
-      <summary><a href="chapters/transaction-rules.md#ds-tx">2.1</a> Tx</summary>
+      <summary><a href="chapters/transaction-rules.md#ds-tx">2.1 Tx</a></summary>
       <dl><dd>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-tx-declarations">2.1.1</a> TopTx and SubTx deposit declarations</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-tx-declarations">2.1.1 TopTx and SubTx deposit declarations</a></summary>
           <dl><dd>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar">2.1.1.1</a> Grammar</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar">2.1.1.1 Grammar</a></summary>
               <dl><dd>
                 <details>
-                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx">2.1.1.1.1</a> TopTx</summary>
+                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx">2.1.1.1.1 TopTx</a></summary>
                   <dl><dd>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-amounts">2.1.1.1.1.1</a> Amounts</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-amounts">2.1.1.1.1.1 Amounts</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-p01">2.1.1.1.1.1.1 P01 - Positive amounts survive encoding</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f01">2.1.1.1.1.1.2 F01 - Zero operation amount</a></div>
@@ -68,26 +68,26 @@ Expand a heading to see its subsections and test cases. Select a section number 
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-absence">2.1.1.1.1.2</a> Absence</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-absence">2.1.1.1.1.2 Absence</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-n03">2.1.1.1.1.2.1 N03 - Absence remains distinct from zero</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-forms">2.1.1.1.1.3</a> Forms</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-forms">2.1.1.1.1.3 Forms</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-n05">2.1.1.1.1.3.1 N05 - Every TopTx declaration form</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f06">2.1.1.1.1.3.2 F06 - Funding request in TopTx</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-structure">2.1.1.1.1.4</a> Structure</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-structure">2.1.1.1.1.4 Structure</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f02">2.1.1.1.1.4.1 F02 - Malformed declarations</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-destinations">2.1.1.1.1.5</a> Destinations</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-toptx-destinations">2.1.1.1.1.5 Destinations</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f04">2.1.1.1.1.5.1 F04 - Malformed release settlements</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f14">2.1.1.1.1.5.2 F14 - Negative output index</a></div>
@@ -97,10 +97,10 @@ Expand a heading to see its subsections and test cases. Select a section number 
                   </dd></dl>
                 </details>
                 <details>
-                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx">2.1.1.1.2</a> SubTx</summary>
+                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx">2.1.1.1.2 SubTx</a></summary>
                   <dl><dd>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-amounts">2.1.1.1.2.1</a> Amounts</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-amounts">2.1.1.1.2.1 Amounts</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-p02">2.1.1.1.2.1.1 P02 - Positive amounts survive encoding</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f07">2.1.1.1.2.1.2 F07 - Zero operation amount</a></div>
@@ -109,25 +109,25 @@ Expand a heading to see its subsections and test cases. Select a section number 
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-absence">2.1.1.1.2.2</a> Absence</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-absence">2.1.1.1.2.2 Absence</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-n04">2.1.1.1.2.2.1 N04 - Absence remains distinct from zero</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-forms">2.1.1.1.2.3</a> Forms</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-forms">2.1.1.1.2.3 Forms</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-n06">2.1.1.1.2.3.1 N06 - Every SubTx declaration form</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-structure">2.1.1.1.2.4</a> Structure</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-structure">2.1.1.1.2.4 Structure</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f03">2.1.1.1.2.4.1 F03 - Malformed declarations</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-destinations">2.1.1.1.2.5</a> Destinations</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-subtx-destinations">2.1.1.1.2.5 Destinations</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f05">2.1.1.1.2.5.1 F05 - Malformed release targets</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-grammar-f10">2.1.1.1.2.5.2 F10 - Negative output index</a></div>
@@ -139,14 +139,14 @@ Expand a heading to see its subsections and test cases. Select a section number 
               </dd></dl>
             </details>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements">2.1.1.2</a> Requirements</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements">2.1.1.2 Requirements</a></summary>
               <dl><dd>
                 <details>
-                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations">2.1.1.2.1</a> Operations</summary>
+                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations">2.1.1.2.1 Operations</a></summary>
                   <dl><dd>
                     <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-p01">2.1.1.2.1.1 P01 - Every body requiring a Store operation declares</a></div>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-allocation">2.1.1.2.1.2</a> Allocation</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-allocation">2.1.1.2.1.2 Allocation</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-allocation-n01">2.1.1.2.1.2.1 N01 - Every explicit declaration satisfies allocation presence</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-allocation-n02">2.1.1.2.1.2.2 N02 - Absence satisfies allocation presence for empty or implicit-only own outputs</a></div>
@@ -168,7 +168,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-release">2.1.1.2.1.3</a> Release</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-release">2.1.1.2.1.3 Release</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-release-n01">2.1.1.2.1.3.1 N01 - Standalone TopTx, any output form</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only min-ADA outputs</a></div>
@@ -189,7 +189,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-zero-net-change">2.1.1.2.1.4</a> Zero net change</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-zero-net-change">2.1.1.2.1.4 Zero net change</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-zero-net-change-n01">2.1.1.2.1.4.1 N01 - Standalone TopTx, equal allocations and releases with explicit zero</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-operations-zero-net-change-f01">2.1.1.2.1.4.2 F01 - Standalone TopTx, equal allocations and releases without a declaration</a></div>
@@ -210,16 +210,16 @@ Expand a heading to see its subsections and test cases. Select a section number 
                   </dd></dl>
                 </details>
                 <details>
-                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations">2.1.1.2.2</a> SubTx declarations</summary>
+                  <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations">2.1.1.2.2 SubTx declarations</a></summary>
                   <dl><dd>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c01">2.1.1.2.2.1</a> TopTx requirement</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c01">2.1.1.2.2.1 TopTx requirement</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c01-p01">2.1.1.2.2.1.1 P01 - SubTx declarations require TopTx's declaration</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c02">2.1.1.2.2.2</a> Absence and explicit zero</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c02">2.1.1.2.2.2 Absence and explicit zero</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c02-n01">2.1.1.2.2.2.1 N01 - accepts absent declarations at both levels</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c02-n02">2.1.1.2.2.2.2 N02 - accepts explicit zero at both levels</a></div>
@@ -228,21 +228,21 @@ Expand a heading to see its subsections and test cases. Select a section number 
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c03">2.1.1.2.2.3</a> Offsetting SubTx contributions</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c03">2.1.1.2.2.3 Offsetting SubTx contributions</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c03-n01">2.1.1.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c03-f01">2.1.1.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c04">2.1.1.2.2.4</a> Local and delegated accounting</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c04">2.1.1.2.2.4 Local and delegated accounting</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c04-n01">2.1.1.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c04-f01">2.1.1.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a></div>
                       </dd></dl>
                     </details>
                     <details>
-                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c05">2.1.1.2.2.5</a> Phase-2 failure</summary>
+                      <summary><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c05">2.1.1.2.2.5 Phase-2 failure</a></summary>
                       <dl><dd>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c05-n01">2.1.1.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a></div>
                         <div><a href="chapters/transaction-rules.md#ds-tx-declarations-requirements-subtx-declarations-c05-f01">2.1.1.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a></div>
@@ -255,19 +255,19 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-tx-accounting">2.1.2</a> Accounting</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-tx-accounting">2.1.2 Accounting</a></summary>
           <dl><dd>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-net-change">2.1.2.1</a> Net change</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-net-change">2.1.2.1 Net change</a></summary>
               <dl><dd>
                 <details>
-                  <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-net-change-subtx">2.1.2.1.1</a> SubTx</summary>
+                  <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-net-change-subtx">2.1.2.1.1 SubTx</a></summary>
                   <dl><dd>
                     <div><a href="chapters/appendices.md#subtx-net-change-test-cases">Appendix D.1 SubTx net-change cases</a></div>
                   </dd></dl>
                 </details>
                 <details>
-                  <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-net-change-toptx">2.1.2.1.2</a> TopTx</summary>
+                  <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-net-change-toptx">2.1.2.1.2 TopTx</a></summary>
                   <dl><dd>
                     <div><a href="chapters/appendices.md#toptx-net-change-test-cases">Appendix D.2 TopTx net-change cases</a></div>
                   </dd></dl>
@@ -275,7 +275,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
               </dd></dl>
             </details>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-attribution">2.1.2.2</a> Attribution</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-attribution">2.1.2.2 Attribution</a></summary>
               <dl><dd>
                 <div><a href="chapters/transaction-rules.md#ds-tx-accounting-attribution-p01">2.1.2.2.1 P01 - Local and delegated contributions determine TopTx's share</a></div>
                 <div><a href="chapters/transaction-rules.md#ds-tx-accounting-attribution-p02">2.1.2.2.2 P02 - Delegation moves the signed contribution to TopTx</a></div>
@@ -283,7 +283,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
               </dd></dl>
             </details>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-balance">2.1.2.3</a> Balance</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-accounting-balance">2.1.2.3 Balance</a></summary>
               <dl><dd>
                 <div><a href="chapters/transaction-rules.md#ds-tx-accounting-balance-p01">2.1.2.3.1 P01 - The transaction conserves value when phase 2 is valid</a></div>
                 <div><a href="chapters/transaction-rules.md#ds-tx-accounting-balance-p02">2.1.2.3.2 P02 - Complete balance determines acceptance</a></div>
@@ -304,17 +304,17 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-tx-authorization">2.1.3</a> Authorization</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-tx-authorization">2.1.3 Authorization</a></summary>
           <dl><dd>
             <div><a href="chapters/transaction-rules.md#ds-tx-authorization-n01">2.1.3.1 N01 - Bob spends an output funded by Alice</a></div>
             <div><a href="chapters/transaction-rules.md#ds-tx-authorization-f01">2.1.3.2 F01 - Alice's signature cannot replace Bob's</a></div>
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-tx-settlement">2.1.4</a> Settlement</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-tx-settlement">2.1.4 Settlement</a></summary>
           <dl><dd>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-settlement-designation">2.1.4.1</a> Designation</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-settlement-designation">2.1.4.1 Designation</a></summary>
               <dl><dd>
                 <div><a href="chapters/transaction-rules.md#ds-tx-settlement-designation-p01">2.1.4.1.1 P01 - Designation follows TopTx's release share</a></div>
                 <div><a href="chapters/transaction-rules.md#ds-tx-settlement-designation-n01">2.1.4.1.2 N01 - SubTxs settle the entire release</a></div>
@@ -331,7 +331,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
               </dd></dl>
             </details>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-settlement-output-index">2.1.4.2</a> Output index</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-settlement-output-index">2.1.4.2 Output index</a></summary>
               <dl><dd>
                 <div><a href="chapters/transaction-rules.md#ds-tx-settlement-output-index-p01">2.1.4.2.1 P01 - The index belongs to the declaring body</a></div>
                 <div><a href="chapters/transaction-rules.md#ds-tx-settlement-output-index-f01">2.1.4.2.2 F01 - The first missing own index is rejected</a></div>
@@ -347,7 +347,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
               </dd></dl>
             </details>
             <details>
-              <summary><a href="chapters/transaction-rules.md#ds-tx-settlement-output-coin">2.1.4.3</a> Output coin</summary>
+              <summary><a href="chapters/transaction-rules.md#ds-tx-settlement-output-coin">2.1.4.3 Output coin</a></summary>
               <dl><dd>
                 <div><a href="chapters/transaction-rules.md#ds-tx-settlement-output-coin-p01">2.1.4.3.1 P01 - Output ADA must cover the required share</a></div>
                 <div><a href="chapters/transaction-rules.md#ds-tx-settlement-output-coin-f01">2.1.4.3.2 F01 - Min-ADA output, one lovelace short</a></div>
@@ -364,7 +364,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-tx-minimum-coin">2.1.5</a> Minimum coin</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-tx-minimum-coin">2.1.5 Minimum coin</a></summary>
           <dl><dd>
             <div><a href="chapters/transaction-rules.md#ds-tx-minimum-coin-n01">2.1.5.1 N01 - Native assets without ADA</a></div>
             <div><a href="chapters/transaction-rules.md#ds-tx-minimum-coin-n02">2.1.5.2 N02 - Datum or reference script without assets</a></div>
@@ -376,10 +376,10 @@ Expand a heading to see its subsections and test cases. Select a section number 
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/transaction-rules.md#ds-collateral">2.2</a> Collateral</summary>
+      <summary><a href="chapters/transaction-rules.md#ds-collateral">2.2 Collateral</a></summary>
       <dl><dd>
         <details>
-          <summary>Existing collateral rules · <a href="chapters/transaction-rules.md#ds-collateral-existing-rules">Read section</a></summary>
+          <summary><a href="chapters/transaction-rules.md#ds-collateral-existing-rules">Existing collateral rules</a></summary>
           <dl><dd>
             <details>
               <summary>Shared collateral regressions to add or extend</summary>
@@ -397,7 +397,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-collateral-funding">2.2.1</a> Funding</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-collateral-funding">2.2.1 Funding</a></summary>
           <dl><dd>
             <div><a href="chapters/transaction-rules.md#ds-collateral-funding-n01">2.2.1.1 N01 - Funded collateral</a></div>
             <div><a href="chapters/transaction-rules.md#ds-collateral-funding-f01">2.2.1.2 F01 - Underfunded collateral</a></div>
@@ -406,14 +406,14 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-collateral-total">2.2.2</a> Total</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-collateral-total">2.2.2 Total</a></summary>
           <dl><dd>
             <div><a href="chapters/transaction-rules.md#ds-collateral-total-n01">2.2.2.1 N01 - Absent or exact total</a></div>
             <div><a href="chapters/transaction-rules.md#ds-collateral-total-f01">2.2.2.2 F01 - Incorrect total</a></div>
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/transaction-rules.md#ds-collateral-assets">2.2.3</a> Assets</summary>
+          <summary><a href="chapters/transaction-rules.md#ds-collateral-assets">2.2.3 Assets</a></summary>
           <dl><dd>
             <div><a href="chapters/transaction-rules.md#ds-collateral-assets-n01">2.2.3.1 N01 - Exact asset map</a></div>
             <div><a href="chapters/transaction-rules.md#ds-collateral-assets-f01">2.2.3.2 F01 - Missing or altered assets</a></div>
@@ -427,11 +427,11 @@ Expand a heading to see its subsections and test cases. Select a section number 
 <a id="3-ledger-effects" name="3-ledger-effects"></a>
 
 <details open>
-  <summary><strong>3. Ledger effects</strong> · <a href="chapters/ledger-effects.md">Read chapter</a></summary>
+  <summary><strong><a href="chapters/ledger-effects.md">3. Ledger effects</a></strong></summary>
   <p>After validation, which inputs, outputs, deposits and fees change on ordinary success or on a phase-2 failure?</p>
   <dl><dd>
     <details>
-      <summary><a href="chapters/ledger-effects.md#ds-state-utxo">3.1</a> UTxO</summary>
+      <summary><a href="chapters/ledger-effects.md#ds-state-utxo">3.1 UTxO</a></summary>
       <dl><dd>
         <div><a href="chapters/ledger-effects.md#ds-state-utxo-n01">3.1.1 N01 - Ordinary execution</a></div>
         <div><a href="chapters/ledger-effects.md#ds-state-utxo-n02">3.1.2 N02 - Successful scripts leave collateral inactive</a></div>
@@ -441,10 +441,10 @@ Expand a heading to see its subsections and test cases. Select a section number 
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/ledger-effects.md#ds-state-store">3.2</a> Store</summary>
+      <summary><a href="chapters/ledger-effects.md#ds-state-store">3.2 Store</a></summary>
       <dl><dd>
         <details>
-          <summary><a href="chapters/ledger-effects.md#ds-state-allocations">3.2.1</a> Allocations</summary>
+          <summary><a href="chapters/ledger-effects.md#ds-state-allocations">3.2.1 Allocations</a></summary>
           <dl><dd>
             <div><a href="chapters/ledger-effects.md#ds-state-allocations-p01">3.2.1.1 P01 - Ordinary records</a></div>
             <div><a href="chapters/ledger-effects.md#ds-state-allocations-p02">3.2.1.2 P02 - Collateral records</a></div>
@@ -454,7 +454,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/ledger-effects.md#ds-state-balance">3.2.2</a> Balance</summary>
+          <summary><a href="chapters/ledger-effects.md#ds-state-balance">3.2.2 Balance</a></summary>
           <dl><dd>
             <div><a href="chapters/ledger-effects.md#ds-state-balance-p01">3.2.2.1 P01 - Ordinary transfer</a></div>
             <div><a href="chapters/ledger-effects.md#ds-state-balance-p02">3.2.2.2 P02 - Collateral transfer</a></div>
@@ -469,14 +469,14 @@ Expand a heading to see its subsections and test cases. Select a section number 
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/ledger-effects.md#ds-state-fees">3.3</a> Fees</summary>
+      <summary><a href="chapters/ledger-effects.md#ds-state-fees">3.3 Fees</a></summary>
       <dl><dd>
         <div><a href="chapters/ledger-effects.md#ds-state-fees-p01">3.3.1 P01 - Ordinary fee</a></div>
         <div><a href="chapters/ledger-effects.md#ds-state-fees-p02">3.3.2 P02 - Collateral fee</a></div>
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/ledger-effects.md#ds-state-conservation">3.4</a> Conservation</summary>
+      <summary><a href="chapters/ledger-effects.md#ds-state-conservation">3.4 Conservation</a></summary>
       <dl><dd>
         <div><a href="chapters/ledger-effects.md#ds-state-conservation-n01">3.4.1 N01 - Count actual ADA once</a></div>
         <div><a href="chapters/ledger-effects.md#ds-state-conservation-n02">3.4.2 N02 - Ordinary conservation</a></div>
@@ -484,16 +484,16 @@ Expand a heading to see its subsections and test cases. Select a section number 
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/ledger-effects.md#ds-state-lifecycle">3.5</a> Lifecycle</summary>
+      <summary><a href="chapters/ledger-effects.md#ds-state-lifecycle">3.5 Lifecycle</a></summary>
       <dl><dd>
         <details>
-          <summary><a href="chapters/ledger-effects.md#ds-state-translation">3.5.1</a> Translation</summary>
+          <summary><a href="chapters/ledger-effects.md#ds-state-translation">3.5.1 Translation</a></summary>
           <dl><dd>
             <div><a href="chapters/ledger-effects.md#ds-state-translation-n01">3.5.1.1 N01 - Introduce legacy allocations</a></div>
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/ledger-effects.md#ds-state-epoch">3.5.2</a> Epoch</summary>
+          <summary><a href="chapters/ledger-effects.md#ds-state-epoch">3.5.2 Epoch</a></summary>
           <dl><dd>
             <div><a href="chapters/ledger-effects.md#ds-state-epoch-n01">3.5.2.1 N01 - Retain the populated Store</a></div>
             <div><a href="chapters/ledger-effects.md#ds-state-epoch-n02">3.5.2.2 N02 - Activate the effective price</a></div>
@@ -507,11 +507,11 @@ Expand a heading to see its subsections and test cases. Select a section number 
 <a id="4-derived-distributions" name="4-derived-distributions"></a>
 
 <details open>
-  <summary><strong>4. Derived distributions</strong> · <a href="chapters/derived-distributions.md">Read chapter</a></summary>
+  <summary><strong><a href="chapters/derived-distributions.md">4. Derived distributions</a></strong></summary>
   <p>How do stake and voting power follow from the resulting ledger state?</p>
   <dl><dd>
     <details>
-      <summary><a href="chapters/derived-distributions.md#ds-stake">4.1</a> Stake</summary>
+      <summary><a href="chapters/derived-distributions.md#ds-stake">4.1 Stake</a></summary>
       <dl><dd>
         <div><a href="chapters/derived-distributions.md#ds-stake-n01">4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules</a></div>
         <div><a href="chapters/derived-distributions.md#ds-stake-n02">4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules</a></div>
@@ -524,7 +524,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/derived-distributions.md#ds-voting">4.2</a> Voting</summary>
+      <summary><a href="chapters/derived-distributions.md#ds-voting">4.2 Voting</a></summary>
       <dl><dd>
         <div><a href="chapters/derived-distributions.md#ds-voting-n01">4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance</a></div>
       </dd></dl>
@@ -535,11 +535,11 @@ Expand a heading to see its subsections and test cases. Select a section number 
 <a id="appendices" name="appendices"></a>
 
 <details open>
-  <summary><strong>Appendices</strong> · <a href="chapters/appendices.md">Read appendices</a></summary>
+  <summary><strong><a href="chapters/appendices.md">Appendices</a></strong></summary>
   <p>Where are the open design questions, tag migration, implementation references and detailed net-change test cases?</p>
   <dl><dd>
     <details>
-      <summary><a href="chapters/appendices.md#section-8">A.</a> Remaining design work</summary>
+      <summary><a href="chapters/appendices.md#section-8">A. Remaining design work</a></summary>
       <dl><dd>
         <div><a href="chapters/appendices.md#ds-pricing-history">A.1 Historical pricing</a></div>
         <div><a href="chapters/appendices.md#ds-plutus-compatibility">A.2 Plutus compatibility</a></div>
@@ -549,7 +549,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
     </details>
     <div><a href="chapters/appendices.md#section-9">B. Tag migration</a></div>
     <details>
-      <summary><a href="chapters/appendices.md#section-10">C.</a> Code references</summary>
+      <summary><a href="chapters/appendices.md#section-10">C. Code references</a></summary>
       <dl><dd>
         <div><a href="chapters/appendices.md#declaration-api">C.1 Declaration API</a></div>
         <div><a href="chapters/appendices.md#transaction-body-fields">C.2 Transaction body fields</a></div>
@@ -557,10 +557,10 @@ Expand a heading to see its subsections and test cases. Select a section number 
       </dd></dl>
     </details>
     <details>
-      <summary><a href="chapters/appendices.md#net-change-test-cases">D.</a> Net-change test cases</summary>
+      <summary><a href="chapters/appendices.md#net-change-test-cases">D. Net-change test cases</a></summary>
       <dl><dd>
         <details>
-          <summary><a href="chapters/appendices.md#subtx-net-change-test-cases">D.1</a> SubTx net-change cases</summary>
+          <summary><a href="chapters/appendices.md#subtx-net-change-test-cases">D.1 SubTx net-change cases</a></summary>
           <dl><dd>
             <div><a href="chapters/appendices.md#ds-tx-accounting-net-change-subtx-p01">2.1.2.1.1.1 P01 - Each SubTx declares its own exact change</a></div>
             <div><a href="chapters/appendices.md#ds-tx-accounting-net-change-subtx-n01">2.1.2.1.1.2 N01 - Exact own change, with any allocation and release combination</a></div>
@@ -587,7 +587,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           </dd></dl>
         </details>
         <details>
-          <summary><a href="chapters/appendices.md#toptx-net-change-test-cases">D.2</a> TopTx net-change cases</summary>
+          <summary><a href="chapters/appendices.md#toptx-net-change-test-cases">D.2 TopTx net-change cases</a></summary>
           <dl><dd>
             <div><a href="chapters/appendices.md#ds-tx-accounting-net-change-toptx-p01">2.1.2.1.2.1 P01 - TopTx declares the exact transaction total</a></div>
             <div><a href="chapters/appendices.md#ds-tx-accounting-net-change-toptx-p02">2.1.2.1.2.2 P02 - Delegation preserves the transaction total</a></div>
@@ -618,13 +618,13 @@ Expand a heading to see its subsections and test cases. Select a section number 
 <a id="verification-record" name="verification-record"></a>
 
 <details open>
-  <summary><strong>Verification record</strong> · <a href="verification.md">Read verification record</a></summary>
+  <summary><strong><a href="verification.md">Verification record</a></strong></summary>
   <p>Which rules have been tested, and what were the results at each checkpoint?</p>
   <dl><dd>
     <div><a href="verification.md#verification-baselines">Verification baselines</a></div>
     <div><a href="verification.md#current-implementation-status">Current implementation status</a></div>
     <details>
-      <summary>Test infrastructure and verification method · <a href="verification.md#test-infrastructure-and-verification-method">Read section</a></summary>
+      <summary><a href="verification.md#test-infrastructure-and-verification-method">Test infrastructure and verification method</a></summary>
       <dl><dd>
         <div><a href="verification.md#fixture-cardinality">Fixture cardinality</a></div>
       </dd></dl>
@@ -666,7 +666,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           <summary>2 November</summary>
           <dl><dd>
             <details>
-              <summary>Store transaction projection · <a href="verification.md#store-transaction-projection-on-2-november-2026">Read section</a></summary>
+              <summary><a href="verification.md#store-transaction-projection-on-2-november-2026">Store transaction projection</a></summary>
               <dl><dd>
                 <div><a href="verification.md#public-store-interface-and-internals">Public Store interface and Internals</a></div>
               </dd></dl>
@@ -690,7 +690,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
             <div><a href="verification.md#active-calculation-and-indexed-outputs-on-30-october-2026">Active calculation and indexed outputs</a></div>
             <div><a href="verification.md#output-map-interface-on-30-october-2026">Output map interface</a></div>
             <details>
-              <summary>Allocation operations · <a href="verification.md#allocation-operations--30-october-2026">Read section</a></summary>
+              <summary><a href="verification.md#allocation-operations--30-october-2026">Allocation operations</a></summary>
               <dl><dd>
                 <div><a href="verification.md#mary-translation-review">Mary translation review</a></div>
               </dd></dl>
@@ -759,7 +759,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
             <div><a href="verification.md#accounting-hierarchy-verified-on-19-october-2026">Accounting hierarchy</a></div>
             <div><a href="verification.md#declarations-grouping-verified-on-19-october-2026">Declarations grouping</a></div>
             <details>
-              <summary>Accounting implementation · <a href="verification.md#accounting-implementation-verified-on-19-october-2026">Read section</a></summary>
+              <summary><a href="verification.md#accounting-implementation-verified-on-19-october-2026">Accounting implementation</a></summary>
               <dl><dd>
                 <div><a href="verification.md#subtx">SubTx exactness</a></div>
                 <div><a href="verification.md#toptx">TopTx exactness</a></div>
@@ -790,7 +790,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           <summary>15 October</summary>
           <dl><dd>
             <details>
-              <summary>Leios rebase verification · <a href="verification.md#leios-rebase-verification-on-15-october-2026">Read section</a></summary>
+              <summary><a href="verification.md#leios-rebase-verification-on-15-october-2026">Leios rebase verification</a></summary>
               <dl><dd>
                 <div><a href="verification.md#upstream-batch-script-failures">Upstream batch script failures</a></div>
               </dd></dl>
@@ -831,7 +831,7 @@ Expand a heading to see its subsections and test cases. Select a section number 
           <summary>9 October</summary>
           <dl><dd>
             <details>
-              <summary>Historical focused results · <a href="verification.md#historical-focused-results-recorded-on-9-october-2026">Read section</a></summary>
+              <summary><a href="verification.md#historical-focused-results-recorded-on-9-october-2026">Historical focused results</a></summary>
               <dl><dd>
                 <div><a href="verification.md#allocation-presence-evidence">Allocation presence evidence</a></div>
                 <div><a href="verification.md#dependency-evidence">Dependency evidence</a></div>
