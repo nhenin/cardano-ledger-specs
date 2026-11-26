@@ -1,13 +1,15 @@
-# Dijkstra DepositStore specification
+# Dijkstra ledger rules for minimum-ADA and deposit-backed outputs
 
-This specification states the DepositStore business rules and the cases used to check
-them. The rule chapters follow the executable suite’s domain groups and case order.
-Short titles introduce each case; formulas state its contract. Semantic tags connect
-each requirement to its test independently of section
-numbering. The executable suite groups Transaction rules and Ledger effects;
-Deposit calculation and Derived distributions remain documented for later tests.
-Implementation status and recorded runs belong in the
-[verification record](dijkstra-deposit-store-verification.md).
+The [UTxO Deposit versus UTxO Minimum ADA proposal](https://github.com/input-output-hk/arc-minutxo/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) describes two ways
+to back an output's storage. A minimum-ADA output carries its reserve in its
+own value. For a deposit-backed output, the ledger accounts for the deposit
+separately. These rules specify how Dijkstra prices that backing, checks the
+transaction's declaration and settles the change.
+
+The [declarations chapter](declarations.md) covers TopTx and SubTx forms and
+when each body must declare. Rule identifiers link each contract to its
+executable cases. The [verification record](verification.md) gives their
+implementation status and dated test results.
 
 ## Table of contents
 
@@ -47,60 +49,60 @@ Appendices contain the open design questions and supporting references.
       <dl>
         <dd>
           <details>
-            <summary><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations">2.1.1 Declarations</a></summary>
+            <summary><a href="declarations.md#ds-tx-declarations">2.1.1 Declarations</a></summary>
             <dl>
               <dd>
                 <details>
-                  <summary><a id="ds-tx-grammar" name="ds-tx-grammar"></a><a id="ds-tx-declarations-grammar" name="ds-tx-declarations-grammar"></a><a id="2111-grammar" name="2111-grammar"></a><a id="ds-tx-grammar-n02" name="ds-tx-grammar-n02"></a><a id="ds-tx-declarations-grammar-n02" name="ds-tx-declarations-grammar-n02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar">2.1.1.1 Grammar</a></summary>
+                  <summary><a id="ds-tx-grammar" name="ds-tx-grammar"></a><a id="ds-tx-declarations-grammar" name="ds-tx-declarations-grammar"></a><a id="2111-grammar" name="2111-grammar"></a><a id="ds-tx-grammar-n02" name="ds-tx-grammar-n02"></a><a id="ds-tx-declarations-grammar-n02" name="ds-tx-declarations-grammar-n02"></a><a href="declarations.md#ds-tx-declarations-grammar">2.1.1.1 Grammar</a></summary>
                   <dl>
                     <dd>
                       <details>
-                        <summary><a id="ds-tx-grammar-toptx" name="ds-tx-grammar-toptx"></a><a id="ds-tx-declarations-grammar-toptx" name="ds-tx-declarations-grammar-toptx"></a><a id="21111-toptx" name="21111-toptx"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-toptx">2.1.1.1.1 TopTx</a></summary>
+                        <summary><a id="ds-tx-grammar-toptx" name="ds-tx-grammar-toptx"></a><a id="ds-tx-declarations-grammar-toptx" name="ds-tx-declarations-grammar-toptx"></a><a id="21111-toptx" name="21111-toptx"></a><a href="declarations.md#ds-tx-declarations-grammar-toptx">2.1.1.1.1 TopTx</a></summary>
                         <dl>
                           <dd>
                             <details>
-                              <summary><a id="ds-tx-grammar-amounts" name="ds-tx-grammar-amounts"></a><a id="ds-tx-declarations-grammar-amounts" name="ds-tx-declarations-grammar-amounts"></a><a id="ds-tx-grammar-toptx-amounts" name="ds-tx-grammar-toptx-amounts"></a><a id="ds-tx-declarations-grammar-toptx-amounts" name="ds-tx-declarations-grammar-toptx-amounts"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-toptx-amounts">2.1.1.1.1.1 Amounts</a></summary>
+                              <summary><a id="ds-tx-grammar-amounts" name="ds-tx-grammar-amounts"></a><a id="ds-tx-declarations-grammar-amounts" name="ds-tx-declarations-grammar-amounts"></a><a id="ds-tx-grammar-toptx-amounts" name="ds-tx-grammar-toptx-amounts"></a><a id="ds-tx-declarations-grammar-toptx-amounts" name="ds-tx-declarations-grammar-toptx-amounts"></a><a href="declarations.md#ds-tx-declarations-grammar-toptx-amounts">2.1.1.1.1.1 Amounts</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-p01" name="ds-tx-grammar-p01"></a><a id="ds-tx-declarations-grammar-p01" name="ds-tx-declarations-grammar-p01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-p01">2.1.1.1.1.1.1 P01 - Positive amounts survive encoding</a><br>
-                                  <a id="ds-tx-grammar-f01" name="ds-tx-grammar-f01"></a><a id="ds-tx-declarations-grammar-f01" name="ds-tx-declarations-grammar-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f01">2.1.1.1.1.1.2 F01 - Zero operation amount</a><br>
-                                  <a id="ds-tx-grammar-f12" name="ds-tx-grammar-f12"></a><a id="ds-tx-declarations-grammar-f12" name="ds-tx-declarations-grammar-f12"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f12">2.1.1.1.1.1.3 F12 - Negative operation amount</a><br>
-                                  <a id="ds-tx-grammar-f13" name="ds-tx-grammar-f13"></a><a id="ds-tx-declarations-grammar-f13" name="ds-tx-declarations-grammar-f13"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f13">2.1.1.1.1.1.4 F13 - Overflowing operation amount</a><br>
+                                  <a id="ds-tx-grammar-p01" name="ds-tx-grammar-p01"></a><a id="ds-tx-declarations-grammar-p01" name="ds-tx-declarations-grammar-p01"></a><a href="declarations.md#ds-tx-declarations-grammar-p01">2.1.1.1.1.1.1 P01 - Positive amounts survive encoding</a><br>
+                                  <a id="ds-tx-grammar-f01" name="ds-tx-grammar-f01"></a><a id="ds-tx-declarations-grammar-f01" name="ds-tx-declarations-grammar-f01"></a><a href="declarations.md#ds-tx-declarations-grammar-f01">2.1.1.1.1.1.2 F01 - Zero operation amount</a><br>
+                                  <a id="ds-tx-grammar-f12" name="ds-tx-grammar-f12"></a><a id="ds-tx-declarations-grammar-f12" name="ds-tx-declarations-grammar-f12"></a><a href="declarations.md#ds-tx-declarations-grammar-f12">2.1.1.1.1.1.3 F12 - Negative operation amount</a><br>
+                                  <a id="ds-tx-grammar-f13" name="ds-tx-grammar-f13"></a><a id="ds-tx-declarations-grammar-f13" name="ds-tx-declarations-grammar-f13"></a><a href="declarations.md#ds-tx-declarations-grammar-f13">2.1.1.1.1.1.4 F13 - Overflowing operation amount</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-absence" name="ds-tx-grammar-absence"></a><a id="ds-tx-declarations-grammar-absence" name="ds-tx-declarations-grammar-absence"></a><a id="ds-tx-grammar-toptx-absence" name="ds-tx-grammar-toptx-absence"></a><a id="ds-tx-declarations-grammar-toptx-absence" name="ds-tx-declarations-grammar-toptx-absence"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-toptx-absence">2.1.1.1.1.2 Absence</a></summary>
+                              <summary><a id="ds-tx-grammar-absence" name="ds-tx-grammar-absence"></a><a id="ds-tx-declarations-grammar-absence" name="ds-tx-declarations-grammar-absence"></a><a id="ds-tx-grammar-toptx-absence" name="ds-tx-grammar-toptx-absence"></a><a id="ds-tx-declarations-grammar-toptx-absence" name="ds-tx-declarations-grammar-toptx-absence"></a><a href="declarations.md#ds-tx-declarations-grammar-toptx-absence">2.1.1.1.1.2 Absence</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-n03" name="ds-tx-grammar-n03"></a><a id="ds-tx-declarations-grammar-n03" name="ds-tx-declarations-grammar-n03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-n03">2.1.1.1.1.2.1 N03 - Absence remains distinct from zero</a><br>
+                                  <a id="ds-tx-grammar-n03" name="ds-tx-grammar-n03"></a><a id="ds-tx-declarations-grammar-n03" name="ds-tx-declarations-grammar-n03"></a><a href="declarations.md#ds-tx-declarations-grammar-n03">2.1.1.1.1.2.1 N03 - Absence remains distinct from zero</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-forms" name="ds-tx-grammar-forms"></a><a id="ds-tx-declarations-grammar-forms" name="ds-tx-declarations-grammar-forms"></a><a id="ds-tx-grammar-toptx-forms" name="ds-tx-grammar-toptx-forms"></a><a id="ds-tx-declarations-grammar-toptx-forms" name="ds-tx-declarations-grammar-toptx-forms"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-toptx-forms">2.1.1.1.1.3 Forms</a></summary>
+                              <summary><a id="ds-tx-grammar-forms" name="ds-tx-grammar-forms"></a><a id="ds-tx-declarations-grammar-forms" name="ds-tx-declarations-grammar-forms"></a><a id="ds-tx-grammar-toptx-forms" name="ds-tx-grammar-toptx-forms"></a><a id="ds-tx-declarations-grammar-toptx-forms" name="ds-tx-declarations-grammar-toptx-forms"></a><a href="declarations.md#ds-tx-declarations-grammar-toptx-forms">2.1.1.1.1.3 Forms</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-n05" name="ds-tx-grammar-n05"></a><a id="ds-tx-declarations-grammar-n05" name="ds-tx-declarations-grammar-n05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-n05">2.1.1.1.1.3.1 N05 - Every TopTx declaration form</a><br>
-                                  <a id="ds-tx-grammar-f06" name="ds-tx-grammar-f06"></a><a id="ds-tx-declarations-grammar-f06" name="ds-tx-declarations-grammar-f06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f06">2.1.1.1.1.3.2 F06 - Funding request in TopTx</a><br>
+                                  <a id="ds-tx-grammar-n05" name="ds-tx-grammar-n05"></a><a id="ds-tx-declarations-grammar-n05" name="ds-tx-declarations-grammar-n05"></a><a href="declarations.md#ds-tx-declarations-grammar-n05">2.1.1.1.1.3.1 N05 - Every TopTx declaration form</a><br>
+                                  <a id="ds-tx-grammar-f06" name="ds-tx-grammar-f06"></a><a id="ds-tx-declarations-grammar-f06" name="ds-tx-declarations-grammar-f06"></a><a href="declarations.md#ds-tx-declarations-grammar-f06">2.1.1.1.1.3.2 F06 - Funding request in TopTx</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-structure" name="ds-tx-grammar-structure"></a><a id="ds-tx-declarations-grammar-structure" name="ds-tx-declarations-grammar-structure"></a><a id="ds-tx-grammar-toptx-structure" name="ds-tx-grammar-toptx-structure"></a><a id="ds-tx-declarations-grammar-toptx-structure" name="ds-tx-declarations-grammar-toptx-structure"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-toptx-structure">2.1.1.1.1.4 Structure</a></summary>
+                              <summary><a id="ds-tx-grammar-structure" name="ds-tx-grammar-structure"></a><a id="ds-tx-declarations-grammar-structure" name="ds-tx-declarations-grammar-structure"></a><a id="ds-tx-grammar-toptx-structure" name="ds-tx-grammar-toptx-structure"></a><a id="ds-tx-declarations-grammar-toptx-structure" name="ds-tx-declarations-grammar-toptx-structure"></a><a href="declarations.md#ds-tx-declarations-grammar-toptx-structure">2.1.1.1.1.4 Structure</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-f02" name="ds-tx-grammar-f02"></a><a id="ds-tx-declarations-grammar-f02" name="ds-tx-declarations-grammar-f02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f02">2.1.1.1.1.4.1 F02 - Malformed declarations</a><br>
+                                  <a id="ds-tx-grammar-f02" name="ds-tx-grammar-f02"></a><a id="ds-tx-declarations-grammar-f02" name="ds-tx-declarations-grammar-f02"></a><a href="declarations.md#ds-tx-declarations-grammar-f02">2.1.1.1.1.4.1 F02 - Malformed declarations</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-destinations" name="ds-tx-grammar-destinations"></a><a id="ds-tx-declarations-grammar-destinations" name="ds-tx-declarations-grammar-destinations"></a><a id="ds-tx-grammar-toptx-destinations" name="ds-tx-grammar-toptx-destinations"></a><a id="ds-tx-declarations-grammar-toptx-destinations" name="ds-tx-declarations-grammar-toptx-destinations"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-toptx-destinations">2.1.1.1.1.5 Destinations</a></summary>
+                              <summary><a id="ds-tx-grammar-destinations" name="ds-tx-grammar-destinations"></a><a id="ds-tx-declarations-grammar-destinations" name="ds-tx-declarations-grammar-destinations"></a><a id="ds-tx-grammar-toptx-destinations" name="ds-tx-grammar-toptx-destinations"></a><a id="ds-tx-declarations-grammar-toptx-destinations" name="ds-tx-declarations-grammar-toptx-destinations"></a><a href="declarations.md#ds-tx-declarations-grammar-toptx-destinations">2.1.1.1.1.5 Destinations</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-f04" name="ds-tx-grammar-f04"></a><a id="ds-tx-declarations-grammar-f04" name="ds-tx-declarations-grammar-f04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f04">2.1.1.1.1.5.1 F04 - Malformed release settlements</a><br>
-                                  <a id="ds-tx-grammar-f14" name="ds-tx-grammar-f14"></a><a id="ds-tx-declarations-grammar-f14" name="ds-tx-declarations-grammar-f14"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f14">2.1.1.1.1.5.2 F14 - Negative output index</a><br>
-                                  <a id="ds-tx-grammar-f15" name="ds-tx-grammar-f15"></a><a id="ds-tx-declarations-grammar-f15" name="ds-tx-declarations-grammar-f15"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f15">2.1.1.1.1.5.3 F15 - Overflowing output index</a><br>
+                                  <a id="ds-tx-grammar-f04" name="ds-tx-grammar-f04"></a><a id="ds-tx-declarations-grammar-f04" name="ds-tx-declarations-grammar-f04"></a><a href="declarations.md#ds-tx-declarations-grammar-f04">2.1.1.1.1.5.1 F04 - Malformed release settlements</a><br>
+                                  <a id="ds-tx-grammar-f14" name="ds-tx-grammar-f14"></a><a id="ds-tx-declarations-grammar-f14" name="ds-tx-declarations-grammar-f14"></a><a href="declarations.md#ds-tx-declarations-grammar-f14">2.1.1.1.1.5.2 F14 - Negative output index</a><br>
+                                  <a id="ds-tx-grammar-f15" name="ds-tx-grammar-f15"></a><a id="ds-tx-declarations-grammar-f15" name="ds-tx-declarations-grammar-f15"></a><a href="declarations.md#ds-tx-declarations-grammar-f15">2.1.1.1.1.5.3 F15 - Overflowing output index</a><br>
                                 </dd>
                               </dl>
                             </details>
@@ -108,51 +110,51 @@ Appendices contain the open design questions and supporting references.
                         </dl>
                       </details>
                       <details>
-                        <summary><a id="ds-tx-grammar-subtx" name="ds-tx-grammar-subtx"></a><a id="ds-tx-declarations-grammar-subtx" name="ds-tx-declarations-grammar-subtx"></a><a id="21112-subtx" name="21112-subtx"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-subtx">2.1.1.1.2 SubTx</a></summary>
+                        <summary><a id="ds-tx-grammar-subtx" name="ds-tx-grammar-subtx"></a><a id="ds-tx-declarations-grammar-subtx" name="ds-tx-declarations-grammar-subtx"></a><a id="21112-subtx" name="21112-subtx"></a><a href="declarations.md#ds-tx-declarations-grammar-subtx">2.1.1.1.2 SubTx</a></summary>
                         <dl>
                           <dd>
                             <details>
-                              <summary><a id="ds-tx-grammar-subtx-amounts" name="ds-tx-grammar-subtx-amounts"></a><a id="ds-tx-declarations-grammar-subtx-amounts" name="ds-tx-declarations-grammar-subtx-amounts"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-subtx-amounts">2.1.1.1.2.1 Amounts</a></summary>
+                              <summary><a id="ds-tx-grammar-subtx-amounts" name="ds-tx-grammar-subtx-amounts"></a><a id="ds-tx-declarations-grammar-subtx-amounts" name="ds-tx-declarations-grammar-subtx-amounts"></a><a href="declarations.md#ds-tx-declarations-grammar-subtx-amounts">2.1.1.1.2.1 Amounts</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-p02" name="ds-tx-grammar-p02"></a><a id="ds-tx-declarations-grammar-p02" name="ds-tx-declarations-grammar-p02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-p02">2.1.1.1.2.1.1 P02 - Positive amounts survive encoding</a><br>
-                                  <a id="ds-tx-grammar-f07" name="ds-tx-grammar-f07"></a><a id="ds-tx-declarations-grammar-f07" name="ds-tx-declarations-grammar-f07"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f07">2.1.1.1.2.1.2 F07 - Zero operation amount</a><br>
-                                  <a id="ds-tx-grammar-f08" name="ds-tx-grammar-f08"></a><a id="ds-tx-declarations-grammar-f08" name="ds-tx-declarations-grammar-f08"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f08">2.1.1.1.2.1.3 F08 - Negative operation amount</a><br>
-                                  <a id="ds-tx-grammar-f09" name="ds-tx-grammar-f09"></a><a id="ds-tx-declarations-grammar-f09" name="ds-tx-declarations-grammar-f09"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f09">2.1.1.1.2.1.4 F09 - Overflowing operation amount</a><br>
+                                  <a id="ds-tx-grammar-p02" name="ds-tx-grammar-p02"></a><a id="ds-tx-declarations-grammar-p02" name="ds-tx-declarations-grammar-p02"></a><a href="declarations.md#ds-tx-declarations-grammar-p02">2.1.1.1.2.1.1 P02 - Positive amounts survive encoding</a><br>
+                                  <a id="ds-tx-grammar-f07" name="ds-tx-grammar-f07"></a><a id="ds-tx-declarations-grammar-f07" name="ds-tx-declarations-grammar-f07"></a><a href="declarations.md#ds-tx-declarations-grammar-f07">2.1.1.1.2.1.2 F07 - Zero operation amount</a><br>
+                                  <a id="ds-tx-grammar-f08" name="ds-tx-grammar-f08"></a><a id="ds-tx-declarations-grammar-f08" name="ds-tx-declarations-grammar-f08"></a><a href="declarations.md#ds-tx-declarations-grammar-f08">2.1.1.1.2.1.3 F08 - Negative operation amount</a><br>
+                                  <a id="ds-tx-grammar-f09" name="ds-tx-grammar-f09"></a><a id="ds-tx-declarations-grammar-f09" name="ds-tx-declarations-grammar-f09"></a><a href="declarations.md#ds-tx-declarations-grammar-f09">2.1.1.1.2.1.4 F09 - Overflowing operation amount</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-subtx-absence" name="ds-tx-grammar-subtx-absence"></a><a id="ds-tx-declarations-grammar-subtx-absence" name="ds-tx-declarations-grammar-subtx-absence"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-subtx-absence">2.1.1.1.2.2 Absence</a></summary>
+                              <summary><a id="ds-tx-grammar-subtx-absence" name="ds-tx-grammar-subtx-absence"></a><a id="ds-tx-declarations-grammar-subtx-absence" name="ds-tx-declarations-grammar-subtx-absence"></a><a href="declarations.md#ds-tx-declarations-grammar-subtx-absence">2.1.1.1.2.2 Absence</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-n04" name="ds-tx-grammar-n04"></a><a id="ds-tx-declarations-grammar-n04" name="ds-tx-declarations-grammar-n04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-n04">2.1.1.1.2.2.1 N04 - Absence remains distinct from zero</a><br>
+                                  <a id="ds-tx-grammar-n04" name="ds-tx-grammar-n04"></a><a id="ds-tx-declarations-grammar-n04" name="ds-tx-declarations-grammar-n04"></a><a href="declarations.md#ds-tx-declarations-grammar-n04">2.1.1.1.2.2.1 N04 - Absence remains distinct from zero</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-subtx-forms" name="ds-tx-grammar-subtx-forms"></a><a id="ds-tx-declarations-grammar-subtx-forms" name="ds-tx-declarations-grammar-subtx-forms"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-subtx-forms">2.1.1.1.2.3 Forms</a></summary>
+                              <summary><a id="ds-tx-grammar-subtx-forms" name="ds-tx-grammar-subtx-forms"></a><a id="ds-tx-declarations-grammar-subtx-forms" name="ds-tx-declarations-grammar-subtx-forms"></a><a href="declarations.md#ds-tx-declarations-grammar-subtx-forms">2.1.1.1.2.3 Forms</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-n06" name="ds-tx-grammar-n06"></a><a id="ds-tx-declarations-grammar-n06" name="ds-tx-declarations-grammar-n06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-n06">2.1.1.1.2.3.1 N06 - Every SubTx declaration form</a><br>
+                                  <a id="ds-tx-grammar-n06" name="ds-tx-grammar-n06"></a><a id="ds-tx-declarations-grammar-n06" name="ds-tx-declarations-grammar-n06"></a><a href="declarations.md#ds-tx-declarations-grammar-n06">2.1.1.1.2.3.1 N06 - Every SubTx declaration form</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-subtx-structure" name="ds-tx-grammar-subtx-structure"></a><a id="ds-tx-declarations-grammar-subtx-structure" name="ds-tx-declarations-grammar-subtx-structure"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-subtx-structure">2.1.1.1.2.4 Structure</a></summary>
+                              <summary><a id="ds-tx-grammar-subtx-structure" name="ds-tx-grammar-subtx-structure"></a><a id="ds-tx-declarations-grammar-subtx-structure" name="ds-tx-declarations-grammar-subtx-structure"></a><a href="declarations.md#ds-tx-declarations-grammar-subtx-structure">2.1.1.1.2.4 Structure</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-f03" name="ds-tx-grammar-f03"></a><a id="ds-tx-declarations-grammar-f03" name="ds-tx-declarations-grammar-f03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f03">2.1.1.1.2.4.1 F03 - Malformed declarations</a><br>
+                                  <a id="ds-tx-grammar-f03" name="ds-tx-grammar-f03"></a><a id="ds-tx-declarations-grammar-f03" name="ds-tx-declarations-grammar-f03"></a><a href="declarations.md#ds-tx-declarations-grammar-f03">2.1.1.1.2.4.1 F03 - Malformed declarations</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-grammar-subtx-destinations" name="ds-tx-grammar-subtx-destinations"></a><a id="ds-tx-declarations-grammar-subtx-destinations" name="ds-tx-declarations-grammar-subtx-destinations"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-subtx-destinations">2.1.1.1.2.5 Destinations</a></summary>
+                              <summary><a id="ds-tx-grammar-subtx-destinations" name="ds-tx-grammar-subtx-destinations"></a><a id="ds-tx-declarations-grammar-subtx-destinations" name="ds-tx-declarations-grammar-subtx-destinations"></a><a href="declarations.md#ds-tx-declarations-grammar-subtx-destinations">2.1.1.1.2.5 Destinations</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-grammar-f05" name="ds-tx-grammar-f05"></a><a id="ds-tx-declarations-grammar-f05" name="ds-tx-declarations-grammar-f05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f05">2.1.1.1.2.5.1 F05 - Malformed release targets</a><br>
-                                  <a id="ds-tx-grammar-f10" name="ds-tx-grammar-f10"></a><a id="ds-tx-declarations-grammar-f10" name="ds-tx-declarations-grammar-f10"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f10">2.1.1.1.2.5.2 F10 - Negative output index</a><br>
-                                  <a id="ds-tx-grammar-f11" name="ds-tx-grammar-f11"></a><a id="ds-tx-declarations-grammar-f11" name="ds-tx-declarations-grammar-f11"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f11">2.1.1.1.2.5.3 F11 - Overflowing output index</a><br>
+                                  <a id="ds-tx-grammar-f05" name="ds-tx-grammar-f05"></a><a id="ds-tx-declarations-grammar-f05" name="ds-tx-declarations-grammar-f05"></a><a href="declarations.md#ds-tx-declarations-grammar-f05">2.1.1.1.2.5.1 F05 - Malformed release targets</a><br>
+                                  <a id="ds-tx-grammar-f10" name="ds-tx-grammar-f10"></a><a id="ds-tx-declarations-grammar-f10" name="ds-tx-declarations-grammar-f10"></a><a href="declarations.md#ds-tx-declarations-grammar-f10">2.1.1.1.2.5.2 F10 - Negative output index</a><br>
+                                  <a id="ds-tx-grammar-f11" name="ds-tx-grammar-f11"></a><a id="ds-tx-declarations-grammar-f11" name="ds-tx-declarations-grammar-f11"></a><a href="declarations.md#ds-tx-declarations-grammar-f11">2.1.1.1.2.5.3 F11 - Overflowing output index</a><br>
                                 </dd>
                               </dl>
                             </details>
@@ -163,79 +165,79 @@ Appendices contain the open design questions and supporting references.
                   </dl>
                 </details>
                 <details>
-                  <summary><a id="ds-tx-presence" name="ds-tx-presence"></a><a id="ds-tx-required-declarations" name="ds-tx-required-declarations"></a><a id="ds-tx-declarations-requirements" name="ds-tx-declarations-requirements"></a><a id="2112-requirements" name="2112-requirements"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements">2.1.1.2 Requirements</a></summary>
+                  <summary><a id="ds-tx-presence" name="ds-tx-presence"></a><a id="ds-tx-required-declarations" name="ds-tx-required-declarations"></a><a id="ds-tx-declarations-requirements" name="ds-tx-declarations-requirements"></a><a id="2112-requirements" name="2112-requirements"></a><a href="declarations.md#ds-tx-declarations-requirements">2.1.1.2 Requirements</a></summary>
                   <dl>
                     <dd>
                       <details>
-                        <summary><a id="ds-tx-presence-activity" name="ds-tx-presence-activity"></a><a id="ds-tx-presence-activity-scope" name="ds-tx-presence-activity-scope"></a><a id="ds-tx-presence-operations-scope" name="ds-tx-presence-operations-scope"></a><a id="ds-tx-presence-operations" name="ds-tx-presence-operations"></a><a id="ds-tx-required-declarations-operations" name="ds-tx-required-declarations-operations"></a><a id="ds-tx-declarations-requirements-operations" name="ds-tx-declarations-requirements-operations"></a><a id="21121-operations" name="21121-operations"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations">2.1.1.2.1 Operations</a></summary>
+                        <summary><a id="ds-tx-presence-activity" name="ds-tx-presence-activity"></a><a id="ds-tx-presence-activity-scope" name="ds-tx-presence-activity-scope"></a><a id="ds-tx-presence-operations-scope" name="ds-tx-presence-operations-scope"></a><a id="ds-tx-presence-operations" name="ds-tx-presence-operations"></a><a id="ds-tx-required-declarations-operations" name="ds-tx-required-declarations-operations"></a><a id="ds-tx-declarations-requirements-operations" name="ds-tx-declarations-requirements-operations"></a><a id="21121-operations" name="21121-operations"></a><a href="declarations.md#ds-tx-declarations-requirements-operations">2.1.1.2.1 Operations</a></summary>
                         <dl>
                           <dd>
-                            <a id="ds-tx-presence-activity-p01" name="ds-tx-presence-activity-p01"></a><a id="ds-tx-presence-operations-p01" name="ds-tx-presence-operations-p01"></a><a id="ds-tx-required-declarations-operations-p01" name="ds-tx-required-declarations-operations-p01"></a><a id="ds-tx-declarations-requirements-operations-p01" name="ds-tx-declarations-requirements-operations-p01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-p01">2.1.1.2.1.1 P01 - Every body requiring a Store operation declares</a><br>
+                            <a id="ds-tx-presence-activity-p01" name="ds-tx-presence-activity-p01"></a><a id="ds-tx-presence-operations-p01" name="ds-tx-presence-operations-p01"></a><a id="ds-tx-required-declarations-operations-p01" name="ds-tx-required-declarations-operations-p01"></a><a id="ds-tx-declarations-requirements-operations-p01" name="ds-tx-declarations-requirements-operations-p01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-p01">2.1.1.2.1.1 P01 - Every body requiring a Store operation declares</a><br>
                             <details>
-                              <summary><a id="ds-tx-presence-activity-creation" name="ds-tx-presence-activity-creation"></a><a id="ds-tx-presence-operations-allocation" name="ds-tx-presence-operations-allocation"></a><a id="ds-tx-required-declarations-operations-allocation" name="ds-tx-required-declarations-operations-allocation"></a><a id="ds-tx-declarations-requirements-operations-allocation" name="ds-tx-declarations-requirements-operations-allocation"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation">2.1.1.2.1.2 Allocation</a></summary>
+                              <summary><a id="ds-tx-presence-activity-creation" name="ds-tx-presence-activity-creation"></a><a id="ds-tx-presence-operations-allocation" name="ds-tx-presence-operations-allocation"></a><a id="ds-tx-required-declarations-operations-allocation" name="ds-tx-required-declarations-operations-allocation"></a><a id="ds-tx-declarations-requirements-operations-allocation" name="ds-tx-declarations-requirements-operations-allocation"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation">2.1.1.2.1.2 Allocation</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-activity-creation-n01" name="ds-tx-presence-activity-creation-n01"></a><a id="ds-tx-presence-operations-allocation-n01" name="ds-tx-presence-operations-allocation-n01"></a><a id="ds-tx-required-declarations-operations-allocation-n01" name="ds-tx-required-declarations-operations-allocation-n01"></a><a id="ds-tx-declarations-requirements-operations-allocation-n01" name="ds-tx-declarations-requirements-operations-allocation-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n01">2.1.1.2.1.2.1 N01 - Every explicit declaration satisfies allocation presence</a><br>
-                                  <a id="ds-tx-presence-activity-creation-n02" name="ds-tx-presence-activity-creation-n02"></a><a id="ds-tx-presence-operations-allocation-n02" name="ds-tx-presence-operations-allocation-n02"></a><a id="ds-tx-required-declarations-operations-allocation-n02" name="ds-tx-required-declarations-operations-allocation-n02"></a><a id="ds-tx-declarations-requirements-operations-allocation-n02" name="ds-tx-declarations-requirements-operations-allocation-n02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n02">2.1.1.2.1.2.2 N02 - Absence satisfies allocation presence for empty or implicit-only own outputs</a><br>
-                                  <a id="ds-tx-presence-activity-creation-f01" name="ds-tx-presence-activity-creation-f01"></a><a id="ds-tx-presence-operations-allocation-f01" name="ds-tx-presence-operations-allocation-f01"></a><a id="ds-tx-required-declarations-operations-allocation-f01" name="ds-tx-required-declarations-operations-allocation-f01"></a><a id="ds-tx-declarations-requirements-operations-allocation-f01" name="ds-tx-declarations-requirements-operations-allocation-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f01">2.1.1.2.1.2.3 F01 - Missing declaration fails allocation presence at every own-output position</a><br>
-                                  <a id="ds-tx-presence-activity-creation-n03" name="ds-tx-presence-activity-creation-n03"></a><a id="ds-tx-presence-operations-allocation-n03" name="ds-tx-presence-operations-allocation-n03"></a><a id="ds-tx-required-declarations-operations-allocation-n03" name="ds-tx-required-declarations-operations-allocation-n03"></a><a id="ds-tx-declarations-requirements-operations-allocation-n03" name="ds-tx-declarations-requirements-operations-allocation-n03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n03">2.1.1.2.1.2.4 N03 - accepts a TopTx creating only min-ADA outputs without a declaration</a><br>
-                                  <a id="ds-tx-presence-activity-creation-n04" name="ds-tx-presence-activity-creation-n04"></a><a id="ds-tx-presence-operations-allocation-n04" name="ds-tx-presence-operations-allocation-n04"></a><a id="ds-tx-required-declarations-operations-allocation-n04" name="ds-tx-required-declarations-operations-allocation-n04"></a><a id="ds-tx-declarations-requirements-operations-allocation-n04" name="ds-tx-declarations-requirements-operations-allocation-n04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n04">2.1.1.2.1.2.5 N04 - accepts a SubTx creating only min-ADA outputs without either body's declaration</a><br>
-                                  <a id="ds-tx-presence-activity-creation-n05" name="ds-tx-presence-activity-creation-n05"></a><a id="ds-tx-presence-operations-allocation-n05" name="ds-tx-presence-operations-allocation-n05"></a><a id="ds-tx-required-declarations-operations-allocation-n05" name="ds-tx-required-declarations-operations-allocation-n05"></a><a id="ds-tx-declarations-requirements-operations-allocation-n05" name="ds-tx-declarations-requirements-operations-allocation-n05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n05">2.1.1.2.1.2.6 N05 - Standalone TopTx, exact allocation declaration</a><br>
-                                  <a id="ds-tx-presence-activity-creation-f02" name="ds-tx-presence-activity-creation-f02"></a><a id="ds-tx-presence-operations-allocation-f02" name="ds-tx-presence-operations-allocation-f02"></a><a id="ds-tx-required-declarations-operations-allocation-f02" name="ds-tx-required-declarations-operations-allocation-f02"></a><a id="ds-tx-declarations-requirements-operations-allocation-f02" name="ds-tx-declarations-requirements-operations-allocation-f02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f02">2.1.1.2.1.2.7 F02 - Standalone TopTx, allocation without a declaration</a><br>
-                                  <a id="ds-tx-presence-activity-creation-f03" name="ds-tx-presence-activity-creation-f03"></a><a id="ds-tx-presence-operations-allocation-f03" name="ds-tx-presence-operations-allocation-f03"></a><a id="ds-tx-required-declarations-operations-allocation-f03" name="ds-tx-required-declarations-operations-allocation-f03"></a><a id="ds-tx-declarations-requirements-operations-allocation-f03" name="ds-tx-declarations-requirements-operations-allocation-f03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f03">2.1.1.2.1.2.8 F03 - rejects a SubTx creating a deposit-backed output without its own declaration</a><br>
-                                  <a id="ds-tx-presence-activity-creation-f04" name="ds-tx-presence-activity-creation-f04"></a><a id="ds-tx-presence-operations-allocation-f04" name="ds-tx-presence-operations-allocation-f04"></a><a id="ds-tx-required-declarations-operations-allocation-f04" name="ds-tx-required-declarations-operations-allocation-f04"></a><a id="ds-tx-declarations-requirements-operations-allocation-f04" name="ds-tx-declarations-requirements-operations-allocation-f04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f04">2.1.1.2.1.2.9 F04 - rejects a TopTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
-                                  <a id="ds-tx-presence-activity-creation-f05" name="ds-tx-presence-activity-creation-f05"></a><a id="ds-tx-presence-operations-allocation-f05" name="ds-tx-presence-operations-allocation-f05"></a><a id="ds-tx-required-declarations-operations-allocation-f05" name="ds-tx-required-declarations-operations-allocation-f05"></a><a id="ds-tx-declarations-requirements-operations-allocation-f05" name="ds-tx-declarations-requirements-operations-allocation-f05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f05">2.1.1.2.1.2.10 F05 - rejects a SubTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
-                                  <a id="ds-tx-presence-activity-creation-f06" name="ds-tx-presence-activity-creation-f06"></a><a id="ds-tx-presence-operations-allocation-f06" name="ds-tx-presence-operations-allocation-f06"></a><a id="ds-tx-required-declarations-operations-allocation-f06" name="ds-tx-required-declarations-operations-allocation-f06"></a><a id="ds-tx-declarations-requirements-operations-allocation-f06" name="ds-tx-declarations-requirements-operations-allocation-f06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f06">2.1.1.2.1.2.11 F06 - rejects a missing own declaration when spending a translated min-ADA output to create deposit-backed outputs</a><br>
-                                  <a id="ds-tx-presence-activity-scope-n01" name="ds-tx-presence-activity-scope-n01"></a><a id="ds-tx-presence-operations-scope-n01" name="ds-tx-presence-operations-scope-n01"></a><a id="ds-tx-presence-operations-allocation-n06" name="ds-tx-presence-operations-allocation-n06"></a><a id="ds-tx-required-declarations-operations-allocation-n06" name="ds-tx-required-declarations-operations-allocation-n06"></a><a id="ds-tx-declarations-requirements-operations-allocation-n06" name="ds-tx-declarations-requirements-operations-allocation-n06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n06">2.1.1.2.1.2.12 N06 - SubTx outputs do not trigger TopTx allocation presence</a><br>
-                                  <a id="ds-tx-presence-activity-scope-n02" name="ds-tx-presence-activity-scope-n02"></a><a id="ds-tx-presence-operations-scope-n02" name="ds-tx-presence-operations-scope-n02"></a><a id="ds-tx-presence-operations-allocation-n07" name="ds-tx-presence-operations-allocation-n07"></a><a id="ds-tx-required-declarations-operations-allocation-n07" name="ds-tx-required-declarations-operations-allocation-n07"></a><a id="ds-tx-declarations-requirements-operations-allocation-n07" name="ds-tx-declarations-requirements-operations-allocation-n07"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n07">2.1.1.2.1.2.13 N07 - Collateral return does not trigger allocation presence</a><br>
-                                  <a id="ds-tx-presence-activity-scope-n03" name="ds-tx-presence-activity-scope-n03"></a><a id="ds-tx-presence-operations-scope-n03" name="ds-tx-presence-operations-scope-n03"></a><a id="ds-tx-presence-operations-allocation-n08" name="ds-tx-presence-operations-allocation-n08"></a><a id="ds-tx-required-declarations-operations-allocation-n08" name="ds-tx-required-declarations-operations-allocation-n08"></a><a id="ds-tx-declarations-requirements-operations-allocation-n08" name="ds-tx-declarations-requirements-operations-allocation-n08"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n08">2.1.1.2.1.2.14 N08 - Reference and collateral input identifiers do not trigger allocation presence</a><br>
-                                  <a id="ds-tx-presence-activity-scope-f01" name="ds-tx-presence-activity-scope-f01"></a><a id="ds-tx-presence-operations-scope-f01" name="ds-tx-presence-operations-scope-f01"></a><a id="ds-tx-presence-operations-allocation-f07" name="ds-tx-presence-operations-allocation-f07"></a><a id="ds-tx-required-declarations-operations-allocation-f07" name="ds-tx-required-declarations-operations-allocation-f07"></a><a id="ds-tx-declarations-requirements-operations-allocation-f07" name="ds-tx-declarations-requirements-operations-allocation-f07"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f07">2.1.1.2.1.2.15 F07 - A SubTx declaration cannot satisfy TopTx allocation presence</a><br>
-                                  <a id="ds-tx-presence-activity-scope-f02" name="ds-tx-presence-activity-scope-f02"></a><a id="ds-tx-presence-operations-scope-f02" name="ds-tx-presence-operations-scope-f02"></a><a id="ds-tx-presence-operations-allocation-f08" name="ds-tx-presence-operations-allocation-f08"></a><a id="ds-tx-required-declarations-operations-allocation-f08" name="ds-tx-required-declarations-operations-allocation-f08"></a><a id="ds-tx-declarations-requirements-operations-allocation-f08" name="ds-tx-declarations-requirements-operations-allocation-f08"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f08">2.1.1.2.1.2.16 F08 - TopTx zero cannot satisfy its allocating SubTx's declaration requirement</a><br>
-                                  <a id="ds-tx-presence-activity-scope-n06" name="ds-tx-presence-activity-scope-n06"></a><a id="ds-tx-presence-operations-scope-n06" name="ds-tx-presence-operations-scope-n06"></a><a id="ds-tx-presence-operations-allocation-n09" name="ds-tx-presence-operations-allocation-n09"></a><a id="ds-tx-required-declarations-operations-allocation-n09" name="ds-tx-required-declarations-operations-allocation-n09"></a><a id="ds-tx-declarations-requirements-operations-allocation-n09" name="ds-tx-declarations-requirements-operations-allocation-n09"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n09">2.1.1.2.1.2.17 N09 - TopTx and SubTx allocate deposits, each with an exact declaration</a><br>
+                                  <a id="ds-tx-presence-activity-creation-n01" name="ds-tx-presence-activity-creation-n01"></a><a id="ds-tx-presence-operations-allocation-n01" name="ds-tx-presence-operations-allocation-n01"></a><a id="ds-tx-required-declarations-operations-allocation-n01" name="ds-tx-required-declarations-operations-allocation-n01"></a><a id="ds-tx-declarations-requirements-operations-allocation-n01" name="ds-tx-declarations-requirements-operations-allocation-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n01">2.1.1.2.1.2.1 N01 - Every explicit declaration satisfies allocation presence</a><br>
+                                  <a id="ds-tx-presence-activity-creation-n02" name="ds-tx-presence-activity-creation-n02"></a><a id="ds-tx-presence-operations-allocation-n02" name="ds-tx-presence-operations-allocation-n02"></a><a id="ds-tx-required-declarations-operations-allocation-n02" name="ds-tx-required-declarations-operations-allocation-n02"></a><a id="ds-tx-declarations-requirements-operations-allocation-n02" name="ds-tx-declarations-requirements-operations-allocation-n02"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n02">2.1.1.2.1.2.2 N02 - Absence satisfies allocation presence for empty or implicit-only own outputs</a><br>
+                                  <a id="ds-tx-presence-activity-creation-f01" name="ds-tx-presence-activity-creation-f01"></a><a id="ds-tx-presence-operations-allocation-f01" name="ds-tx-presence-operations-allocation-f01"></a><a id="ds-tx-required-declarations-operations-allocation-f01" name="ds-tx-required-declarations-operations-allocation-f01"></a><a id="ds-tx-declarations-requirements-operations-allocation-f01" name="ds-tx-declarations-requirements-operations-allocation-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f01">2.1.1.2.1.2.3 F01 - Missing declaration fails allocation presence at every own-output position</a><br>
+                                  <a id="ds-tx-presence-activity-creation-n03" name="ds-tx-presence-activity-creation-n03"></a><a id="ds-tx-presence-operations-allocation-n03" name="ds-tx-presence-operations-allocation-n03"></a><a id="ds-tx-required-declarations-operations-allocation-n03" name="ds-tx-required-declarations-operations-allocation-n03"></a><a id="ds-tx-declarations-requirements-operations-allocation-n03" name="ds-tx-declarations-requirements-operations-allocation-n03"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n03">2.1.1.2.1.2.4 N03 - accepts a TopTx creating only min-ADA outputs without a declaration</a><br>
+                                  <a id="ds-tx-presence-activity-creation-n04" name="ds-tx-presence-activity-creation-n04"></a><a id="ds-tx-presence-operations-allocation-n04" name="ds-tx-presence-operations-allocation-n04"></a><a id="ds-tx-required-declarations-operations-allocation-n04" name="ds-tx-required-declarations-operations-allocation-n04"></a><a id="ds-tx-declarations-requirements-operations-allocation-n04" name="ds-tx-declarations-requirements-operations-allocation-n04"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n04">2.1.1.2.1.2.5 N04 - accepts a SubTx creating only min-ADA outputs without either body's declaration</a><br>
+                                  <a id="ds-tx-presence-activity-creation-n05" name="ds-tx-presence-activity-creation-n05"></a><a id="ds-tx-presence-operations-allocation-n05" name="ds-tx-presence-operations-allocation-n05"></a><a id="ds-tx-required-declarations-operations-allocation-n05" name="ds-tx-required-declarations-operations-allocation-n05"></a><a id="ds-tx-declarations-requirements-operations-allocation-n05" name="ds-tx-declarations-requirements-operations-allocation-n05"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n05">2.1.1.2.1.2.6 N05 - Standalone TopTx, exact allocation declaration</a><br>
+                                  <a id="ds-tx-presence-activity-creation-f02" name="ds-tx-presence-activity-creation-f02"></a><a id="ds-tx-presence-operations-allocation-f02" name="ds-tx-presence-operations-allocation-f02"></a><a id="ds-tx-required-declarations-operations-allocation-f02" name="ds-tx-required-declarations-operations-allocation-f02"></a><a id="ds-tx-declarations-requirements-operations-allocation-f02" name="ds-tx-declarations-requirements-operations-allocation-f02"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f02">2.1.1.2.1.2.7 F02 - Standalone TopTx, allocation without a declaration</a><br>
+                                  <a id="ds-tx-presence-activity-creation-f03" name="ds-tx-presence-activity-creation-f03"></a><a id="ds-tx-presence-operations-allocation-f03" name="ds-tx-presence-operations-allocation-f03"></a><a id="ds-tx-required-declarations-operations-allocation-f03" name="ds-tx-required-declarations-operations-allocation-f03"></a><a id="ds-tx-declarations-requirements-operations-allocation-f03" name="ds-tx-declarations-requirements-operations-allocation-f03"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f03">2.1.1.2.1.2.8 F03 - rejects a SubTx creating a deposit-backed output without its own declaration</a><br>
+                                  <a id="ds-tx-presence-activity-creation-f04" name="ds-tx-presence-activity-creation-f04"></a><a id="ds-tx-presence-operations-allocation-f04" name="ds-tx-presence-operations-allocation-f04"></a><a id="ds-tx-required-declarations-operations-allocation-f04" name="ds-tx-required-declarations-operations-allocation-f04"></a><a id="ds-tx-declarations-requirements-operations-allocation-f04" name="ds-tx-declarations-requirements-operations-allocation-f04"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f04">2.1.1.2.1.2.9 F04 - rejects a TopTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
+                                  <a id="ds-tx-presence-activity-creation-f05" name="ds-tx-presence-activity-creation-f05"></a><a id="ds-tx-presence-operations-allocation-f05" name="ds-tx-presence-operations-allocation-f05"></a><a id="ds-tx-required-declarations-operations-allocation-f05" name="ds-tx-required-declarations-operations-allocation-f05"></a><a id="ds-tx-declarations-requirements-operations-allocation-f05" name="ds-tx-declarations-requirements-operations-allocation-f05"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f05">2.1.1.2.1.2.10 F05 - rejects a SubTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
+                                  <a id="ds-tx-presence-activity-creation-f06" name="ds-tx-presence-activity-creation-f06"></a><a id="ds-tx-presence-operations-allocation-f06" name="ds-tx-presence-operations-allocation-f06"></a><a id="ds-tx-required-declarations-operations-allocation-f06" name="ds-tx-required-declarations-operations-allocation-f06"></a><a id="ds-tx-declarations-requirements-operations-allocation-f06" name="ds-tx-declarations-requirements-operations-allocation-f06"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f06">2.1.1.2.1.2.11 F06 - rejects a missing own declaration when spending a translated min-ADA output to create deposit-backed outputs</a><br>
+                                  <a id="ds-tx-presence-activity-scope-n01" name="ds-tx-presence-activity-scope-n01"></a><a id="ds-tx-presence-operations-scope-n01" name="ds-tx-presence-operations-scope-n01"></a><a id="ds-tx-presence-operations-allocation-n06" name="ds-tx-presence-operations-allocation-n06"></a><a id="ds-tx-required-declarations-operations-allocation-n06" name="ds-tx-required-declarations-operations-allocation-n06"></a><a id="ds-tx-declarations-requirements-operations-allocation-n06" name="ds-tx-declarations-requirements-operations-allocation-n06"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n06">2.1.1.2.1.2.12 N06 - SubTx outputs do not trigger TopTx allocation presence</a><br>
+                                  <a id="ds-tx-presence-activity-scope-n02" name="ds-tx-presence-activity-scope-n02"></a><a id="ds-tx-presence-operations-scope-n02" name="ds-tx-presence-operations-scope-n02"></a><a id="ds-tx-presence-operations-allocation-n07" name="ds-tx-presence-operations-allocation-n07"></a><a id="ds-tx-required-declarations-operations-allocation-n07" name="ds-tx-required-declarations-operations-allocation-n07"></a><a id="ds-tx-declarations-requirements-operations-allocation-n07" name="ds-tx-declarations-requirements-operations-allocation-n07"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n07">2.1.1.2.1.2.13 N07 - Collateral return does not trigger allocation presence</a><br>
+                                  <a id="ds-tx-presence-activity-scope-n03" name="ds-tx-presence-activity-scope-n03"></a><a id="ds-tx-presence-operations-scope-n03" name="ds-tx-presence-operations-scope-n03"></a><a id="ds-tx-presence-operations-allocation-n08" name="ds-tx-presence-operations-allocation-n08"></a><a id="ds-tx-required-declarations-operations-allocation-n08" name="ds-tx-required-declarations-operations-allocation-n08"></a><a id="ds-tx-declarations-requirements-operations-allocation-n08" name="ds-tx-declarations-requirements-operations-allocation-n08"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n08">2.1.1.2.1.2.14 N08 - Reference and collateral input identifiers do not trigger allocation presence</a><br>
+                                  <a id="ds-tx-presence-activity-scope-f01" name="ds-tx-presence-activity-scope-f01"></a><a id="ds-tx-presence-operations-scope-f01" name="ds-tx-presence-operations-scope-f01"></a><a id="ds-tx-presence-operations-allocation-f07" name="ds-tx-presence-operations-allocation-f07"></a><a id="ds-tx-required-declarations-operations-allocation-f07" name="ds-tx-required-declarations-operations-allocation-f07"></a><a id="ds-tx-declarations-requirements-operations-allocation-f07" name="ds-tx-declarations-requirements-operations-allocation-f07"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f07">2.1.1.2.1.2.15 F07 - A SubTx declaration cannot satisfy TopTx allocation presence</a><br>
+                                  <a id="ds-tx-presence-activity-scope-f02" name="ds-tx-presence-activity-scope-f02"></a><a id="ds-tx-presence-operations-scope-f02" name="ds-tx-presence-operations-scope-f02"></a><a id="ds-tx-presence-operations-allocation-f08" name="ds-tx-presence-operations-allocation-f08"></a><a id="ds-tx-required-declarations-operations-allocation-f08" name="ds-tx-required-declarations-operations-allocation-f08"></a><a id="ds-tx-declarations-requirements-operations-allocation-f08" name="ds-tx-declarations-requirements-operations-allocation-f08"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-f08">2.1.1.2.1.2.16 F08 - TopTx zero cannot satisfy its allocating SubTx's declaration requirement</a><br>
+                                  <a id="ds-tx-presence-activity-scope-n06" name="ds-tx-presence-activity-scope-n06"></a><a id="ds-tx-presence-operations-scope-n06" name="ds-tx-presence-operations-scope-n06"></a><a id="ds-tx-presence-operations-allocation-n09" name="ds-tx-presence-operations-allocation-n09"></a><a id="ds-tx-required-declarations-operations-allocation-n09" name="ds-tx-required-declarations-operations-allocation-n09"></a><a id="ds-tx-declarations-requirements-operations-allocation-n09" name="ds-tx-declarations-requirements-operations-allocation-n09"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-allocation-n09">2.1.1.2.1.2.17 N09 - TopTx and SubTx allocate deposits, each with an exact declaration</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-presence-activity-spending" name="ds-tx-presence-activity-spending"></a><a id="ds-tx-presence-operations-release" name="ds-tx-presence-operations-release"></a><a id="ds-tx-required-declarations-operations-release" name="ds-tx-required-declarations-operations-release"></a><a id="ds-tx-declarations-requirements-operations-release" name="ds-tx-declarations-requirements-operations-release"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release">2.1.1.2.1.3 Release</a></summary>
+                              <summary><a id="ds-tx-presence-activity-spending" name="ds-tx-presence-activity-spending"></a><a id="ds-tx-presence-operations-release" name="ds-tx-presence-operations-release"></a><a id="ds-tx-required-declarations-operations-release" name="ds-tx-required-declarations-operations-release"></a><a id="ds-tx-declarations-requirements-operations-release" name="ds-tx-declarations-requirements-operations-release"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release">2.1.1.2.1.3 Release</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-activity-spending-n01" name="ds-tx-presence-activity-spending-n01"></a><a id="ds-tx-presence-operations-release-n01" name="ds-tx-presence-operations-release-n01"></a><a id="ds-tx-required-declarations-operations-release-n01" name="ds-tx-required-declarations-operations-release-n01"></a><a id="ds-tx-declarations-requirements-operations-release-n01" name="ds-tx-declarations-requirements-operations-release-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n01">2.1.1.2.1.3.1 N01 - Standalone TopTx, any output form</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n02" name="ds-tx-presence-activity-spending-n02"></a><a id="ds-tx-presence-operations-release-n02" name="ds-tx-presence-operations-release-n02"></a><a id="ds-tx-required-declarations-operations-release-n02" name="ds-tx-required-declarations-operations-release-n02"></a><a id="ds-tx-declarations-requirements-operations-release-n02" name="ds-tx-declarations-requirements-operations-release-n02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only min-ADA outputs</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n03" name="ds-tx-presence-activity-spending-n03"></a><a id="ds-tx-presence-operations-release-n03" name="ds-tx-presence-operations-release-n03"></a><a id="ds-tx-required-declarations-operations-release-n03" name="ds-tx-required-declarations-operations-release-n03"></a><a id="ds-tx-declarations-requirements-operations-release-n03" name="ds-tx-declarations-requirements-operations-release-n03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n03">2.1.1.2.1.3.3 N03 - One SubTx releases its deposit into its own output</a><br>
-                                  <a id="ds-tx-presence-activity-spending-f01" name="ds-tx-presence-activity-spending-f01"></a><a id="ds-tx-presence-operations-release-f01" name="ds-tx-presence-operations-release-f01"></a><a id="ds-tx-required-declarations-operations-release-f01" name="ds-tx-required-declarations-operations-release-f01"></a><a id="ds-tx-declarations-requirements-operations-release-f01" name="ds-tx-declarations-requirements-operations-release-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f01">2.1.1.2.1.3.4 F01 - Standalone TopTx, release without its own declaration</a><br>
-                                  <a id="ds-tx-presence-activity-spending-f02" name="ds-tx-presence-activity-spending-f02"></a><a id="ds-tx-presence-operations-release-f02" name="ds-tx-presence-operations-release-f02"></a><a id="ds-tx-required-declarations-operations-release-f02" name="ds-tx-required-declarations-operations-release-f02"></a><a id="ds-tx-declarations-requirements-operations-release-f02" name="ds-tx-declarations-requirements-operations-release-f02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f02">2.1.1.2.1.3.5 F02 - SubTx release without its own declaration, despite TopTx declaring</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n04" name="ds-tx-presence-activity-spending-n04"></a><a id="ds-tx-presence-operations-release-n04" name="ds-tx-presence-operations-release-n04"></a><a id="ds-tx-required-declarations-operations-release-n04" name="ds-tx-required-declarations-operations-release-n04"></a><a id="ds-tx-declarations-requirements-operations-release-n04" name="ds-tx-declarations-requirements-operations-release-n04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n04">2.1.1.2.1.3.6 N04 - Phase 2 fails with valid declarations</a><br>
-                                  <a id="ds-tx-presence-activity-spending-f03" name="ds-tx-presence-activity-spending-f03"></a><a id="ds-tx-presence-operations-release-f03" name="ds-tx-presence-operations-release-f03"></a><a id="ds-tx-required-declarations-operations-release-f03" name="ds-tx-required-declarations-operations-release-f03"></a><a id="ds-tx-declarations-requirements-operations-release-f03" name="ds-tx-declarations-requirements-operations-release-f03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f03">2.1.1.2.1.3.7 F03 - Missing release declaration in a phase-2-invalid proposal</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n05" name="ds-tx-presence-activity-spending-n05"></a><a id="ds-tx-presence-operations-release-n05" name="ds-tx-presence-operations-release-n05"></a><a id="ds-tx-required-declarations-operations-release-n05" name="ds-tx-required-declarations-operations-release-n05"></a><a id="ds-tx-declarations-requirements-operations-release-n05" name="ds-tx-declarations-requirements-operations-release-n05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n05">2.1.1.2.1.3.8 N05 - Several SubTxs release their deposits</a><br>
-                                  <a id="ds-tx-presence-activity-spending-f04" name="ds-tx-presence-activity-spending-f04"></a><a id="ds-tx-presence-operations-release-f04" name="ds-tx-presence-operations-release-f04"></a><a id="ds-tx-required-declarations-operations-release-f04" name="ds-tx-required-declarations-operations-release-f04"></a><a id="ds-tx-declarations-requirements-operations-release-f04" name="ds-tx-declarations-requirements-operations-release-f04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f04">2.1.1.2.1.3.9 F04 - One SubTx releasing deposits omits its declaration</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n06" name="ds-tx-presence-activity-spending-n06"></a><a id="ds-tx-presence-operations-release-n06" name="ds-tx-presence-operations-release-n06"></a><a id="ds-tx-required-declarations-operations-release-n06" name="ds-tx-required-declarations-operations-release-n06"></a><a id="ds-tx-declarations-requirements-operations-release-n06" name="ds-tx-declarations-requirements-operations-release-n06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n06">2.1.1.2.1.3.10 N06 - Only some SubTxs release Store deposits</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n07" name="ds-tx-presence-activity-spending-n07"></a><a id="ds-tx-presence-operations-release-n07" name="ds-tx-presence-operations-release-n07"></a><a id="ds-tx-required-declarations-operations-release-n07" name="ds-tx-required-declarations-operations-release-n07"></a><a id="ds-tx-declarations-requirements-operations-release-n07" name="ds-tx-declarations-requirements-operations-release-n07"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n07">2.1.1.2.1.3.11 N07 - TopTx and several SubTxs release deposits</a><br>
-                                  <a id="ds-tx-presence-activity-spending-n08" name="ds-tx-presence-activity-spending-n08"></a><a id="ds-tx-presence-operations-release-n08" name="ds-tx-presence-operations-release-n08"></a><a id="ds-tx-required-declarations-operations-release-n08" name="ds-tx-required-declarations-operations-release-n08"></a><a id="ds-tx-declarations-requirements-operations-release-n08" name="ds-tx-declarations-requirements-operations-release-n08"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n08">2.1.1.2.1.3.12 N08 - Phase 2 fails with several proposed SubTx releases</a><br>
-                                  <a id="ds-tx-presence-activity-spending-f05" name="ds-tx-presence-activity-spending-f05"></a><a id="ds-tx-presence-operations-release-f05" name="ds-tx-presence-operations-release-f05"></a><a id="ds-tx-required-declarations-operations-release-f05" name="ds-tx-required-declarations-operations-release-f05"></a><a id="ds-tx-declarations-requirements-operations-release-f05" name="ds-tx-declarations-requirements-operations-release-f05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f05">2.1.1.2.1.3.13 F05 - One SubTx declaration is missing in a phase-2-invalid proposal</a><br>
-                                  <a id="ds-tx-presence-activity-scope-n04" name="ds-tx-presence-activity-scope-n04"></a><a id="ds-tx-presence-operations-scope-n04" name="ds-tx-presence-operations-scope-n04"></a><a id="ds-tx-presence-operations-release-n09" name="ds-tx-presence-operations-release-n09"></a><a id="ds-tx-required-declarations-operations-release-n09" name="ds-tx-required-declarations-operations-release-n09"></a><a id="ds-tx-declarations-requirements-operations-release-n09" name="ds-tx-declarations-requirements-operations-release-n09"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n09">2.1.1.2.1.3.14 N09 - Standalone TopTx, reference-only Store access</a><br>
-                                  <a id="ds-tx-presence-activity-scope-n05" name="ds-tx-presence-activity-scope-n05"></a><a id="ds-tx-presence-operations-scope-n05" name="ds-tx-presence-operations-scope-n05"></a><a id="ds-tx-presence-operations-release-n10" name="ds-tx-presence-operations-release-n10"></a><a id="ds-tx-required-declarations-operations-release-n10" name="ds-tx-required-declarations-operations-release-n10"></a><a id="ds-tx-declarations-requirements-operations-release-n10" name="ds-tx-declarations-requirements-operations-release-n10"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n10">2.1.1.2.1.3.15 N10 - Standalone TopTx, collateral-only Store operations</a><br>
-                                  <a id="ds-tx-presence-activity-scope-f03" name="ds-tx-presence-activity-scope-f03"></a><a id="ds-tx-presence-operations-scope-f03" name="ds-tx-presence-operations-scope-f03"></a><a id="ds-tx-presence-operations-release-f06" name="ds-tx-presence-operations-release-f06"></a><a id="ds-tx-required-declarations-operations-release-f06" name="ds-tx-required-declarations-operations-release-f06"></a><a id="ds-tx-declarations-requirements-operations-release-f06" name="ds-tx-declarations-requirements-operations-release-f06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f06">2.1.1.2.1.3.16 F06 - A SubTx declaration cannot satisfy TopTx release presence</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n01" name="ds-tx-presence-activity-spending-n01"></a><a id="ds-tx-presence-operations-release-n01" name="ds-tx-presence-operations-release-n01"></a><a id="ds-tx-required-declarations-operations-release-n01" name="ds-tx-required-declarations-operations-release-n01"></a><a id="ds-tx-declarations-requirements-operations-release-n01" name="ds-tx-declarations-requirements-operations-release-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n01">2.1.1.2.1.3.1 N01 - Standalone TopTx, any output form</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n02" name="ds-tx-presence-activity-spending-n02"></a><a id="ds-tx-presence-operations-release-n02" name="ds-tx-presence-operations-release-n02"></a><a id="ds-tx-required-declarations-operations-release-n02" name="ds-tx-required-declarations-operations-release-n02"></a><a id="ds-tx-declarations-requirements-operations-release-n02" name="ds-tx-declarations-requirements-operations-release-n02"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only min-ADA outputs</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n03" name="ds-tx-presence-activity-spending-n03"></a><a id="ds-tx-presence-operations-release-n03" name="ds-tx-presence-operations-release-n03"></a><a id="ds-tx-required-declarations-operations-release-n03" name="ds-tx-required-declarations-operations-release-n03"></a><a id="ds-tx-declarations-requirements-operations-release-n03" name="ds-tx-declarations-requirements-operations-release-n03"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n03">2.1.1.2.1.3.3 N03 - One SubTx releases its deposit into its own output</a><br>
+                                  <a id="ds-tx-presence-activity-spending-f01" name="ds-tx-presence-activity-spending-f01"></a><a id="ds-tx-presence-operations-release-f01" name="ds-tx-presence-operations-release-f01"></a><a id="ds-tx-required-declarations-operations-release-f01" name="ds-tx-required-declarations-operations-release-f01"></a><a id="ds-tx-declarations-requirements-operations-release-f01" name="ds-tx-declarations-requirements-operations-release-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-f01">2.1.1.2.1.3.4 F01 - Standalone TopTx, release without its own declaration</a><br>
+                                  <a id="ds-tx-presence-activity-spending-f02" name="ds-tx-presence-activity-spending-f02"></a><a id="ds-tx-presence-operations-release-f02" name="ds-tx-presence-operations-release-f02"></a><a id="ds-tx-required-declarations-operations-release-f02" name="ds-tx-required-declarations-operations-release-f02"></a><a id="ds-tx-declarations-requirements-operations-release-f02" name="ds-tx-declarations-requirements-operations-release-f02"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-f02">2.1.1.2.1.3.5 F02 - SubTx release without its own declaration, despite TopTx declaring</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n04" name="ds-tx-presence-activity-spending-n04"></a><a id="ds-tx-presence-operations-release-n04" name="ds-tx-presence-operations-release-n04"></a><a id="ds-tx-required-declarations-operations-release-n04" name="ds-tx-required-declarations-operations-release-n04"></a><a id="ds-tx-declarations-requirements-operations-release-n04" name="ds-tx-declarations-requirements-operations-release-n04"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n04">2.1.1.2.1.3.6 N04 - Phase 2 fails with valid declarations</a><br>
+                                  <a id="ds-tx-presence-activity-spending-f03" name="ds-tx-presence-activity-spending-f03"></a><a id="ds-tx-presence-operations-release-f03" name="ds-tx-presence-operations-release-f03"></a><a id="ds-tx-required-declarations-operations-release-f03" name="ds-tx-required-declarations-operations-release-f03"></a><a id="ds-tx-declarations-requirements-operations-release-f03" name="ds-tx-declarations-requirements-operations-release-f03"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-f03">2.1.1.2.1.3.7 F03 - Missing release declaration in a phase-2-invalid proposal</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n05" name="ds-tx-presence-activity-spending-n05"></a><a id="ds-tx-presence-operations-release-n05" name="ds-tx-presence-operations-release-n05"></a><a id="ds-tx-required-declarations-operations-release-n05" name="ds-tx-required-declarations-operations-release-n05"></a><a id="ds-tx-declarations-requirements-operations-release-n05" name="ds-tx-declarations-requirements-operations-release-n05"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n05">2.1.1.2.1.3.8 N05 - Several SubTxs release their deposits</a><br>
+                                  <a id="ds-tx-presence-activity-spending-f04" name="ds-tx-presence-activity-spending-f04"></a><a id="ds-tx-presence-operations-release-f04" name="ds-tx-presence-operations-release-f04"></a><a id="ds-tx-required-declarations-operations-release-f04" name="ds-tx-required-declarations-operations-release-f04"></a><a id="ds-tx-declarations-requirements-operations-release-f04" name="ds-tx-declarations-requirements-operations-release-f04"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-f04">2.1.1.2.1.3.9 F04 - One SubTx releasing deposits omits its declaration</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n06" name="ds-tx-presence-activity-spending-n06"></a><a id="ds-tx-presence-operations-release-n06" name="ds-tx-presence-operations-release-n06"></a><a id="ds-tx-required-declarations-operations-release-n06" name="ds-tx-required-declarations-operations-release-n06"></a><a id="ds-tx-declarations-requirements-operations-release-n06" name="ds-tx-declarations-requirements-operations-release-n06"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n06">2.1.1.2.1.3.10 N06 - Only some SubTxs release Store deposits</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n07" name="ds-tx-presence-activity-spending-n07"></a><a id="ds-tx-presence-operations-release-n07" name="ds-tx-presence-operations-release-n07"></a><a id="ds-tx-required-declarations-operations-release-n07" name="ds-tx-required-declarations-operations-release-n07"></a><a id="ds-tx-declarations-requirements-operations-release-n07" name="ds-tx-declarations-requirements-operations-release-n07"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n07">2.1.1.2.1.3.11 N07 - TopTx and several SubTxs release deposits</a><br>
+                                  <a id="ds-tx-presence-activity-spending-n08" name="ds-tx-presence-activity-spending-n08"></a><a id="ds-tx-presence-operations-release-n08" name="ds-tx-presence-operations-release-n08"></a><a id="ds-tx-required-declarations-operations-release-n08" name="ds-tx-required-declarations-operations-release-n08"></a><a id="ds-tx-declarations-requirements-operations-release-n08" name="ds-tx-declarations-requirements-operations-release-n08"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n08">2.1.1.2.1.3.12 N08 - Phase 2 fails with several proposed SubTx releases</a><br>
+                                  <a id="ds-tx-presence-activity-spending-f05" name="ds-tx-presence-activity-spending-f05"></a><a id="ds-tx-presence-operations-release-f05" name="ds-tx-presence-operations-release-f05"></a><a id="ds-tx-required-declarations-operations-release-f05" name="ds-tx-required-declarations-operations-release-f05"></a><a id="ds-tx-declarations-requirements-operations-release-f05" name="ds-tx-declarations-requirements-operations-release-f05"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-f05">2.1.1.2.1.3.13 F05 - One SubTx declaration is missing in a phase-2-invalid proposal</a><br>
+                                  <a id="ds-tx-presence-activity-scope-n04" name="ds-tx-presence-activity-scope-n04"></a><a id="ds-tx-presence-operations-scope-n04" name="ds-tx-presence-operations-scope-n04"></a><a id="ds-tx-presence-operations-release-n09" name="ds-tx-presence-operations-release-n09"></a><a id="ds-tx-required-declarations-operations-release-n09" name="ds-tx-required-declarations-operations-release-n09"></a><a id="ds-tx-declarations-requirements-operations-release-n09" name="ds-tx-declarations-requirements-operations-release-n09"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n09">2.1.1.2.1.3.14 N09 - Standalone TopTx, reference-only Store access</a><br>
+                                  <a id="ds-tx-presence-activity-scope-n05" name="ds-tx-presence-activity-scope-n05"></a><a id="ds-tx-presence-operations-scope-n05" name="ds-tx-presence-operations-scope-n05"></a><a id="ds-tx-presence-operations-release-n10" name="ds-tx-presence-operations-release-n10"></a><a id="ds-tx-required-declarations-operations-release-n10" name="ds-tx-required-declarations-operations-release-n10"></a><a id="ds-tx-declarations-requirements-operations-release-n10" name="ds-tx-declarations-requirements-operations-release-n10"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-n10">2.1.1.2.1.3.15 N10 - Standalone TopTx, collateral-only Store operations</a><br>
+                                  <a id="ds-tx-presence-activity-scope-f03" name="ds-tx-presence-activity-scope-f03"></a><a id="ds-tx-presence-operations-scope-f03" name="ds-tx-presence-operations-scope-f03"></a><a id="ds-tx-presence-operations-release-f06" name="ds-tx-presence-operations-release-f06"></a><a id="ds-tx-required-declarations-operations-release-f06" name="ds-tx-required-declarations-operations-release-f06"></a><a id="ds-tx-declarations-requirements-operations-release-f06" name="ds-tx-declarations-requirements-operations-release-f06"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-release-f06">2.1.1.2.1.3.16 F06 - A SubTx declaration cannot satisfy TopTx release presence</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-presence-operations-zero-net-change" name="ds-tx-presence-operations-zero-net-change"></a><a id="ds-tx-required-declarations-operations-zero-net-change" name="ds-tx-required-declarations-operations-zero-net-change"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change" name="ds-tx-declarations-requirements-operations-zero-net-change"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change">2.1.1.2.1.4 Zero net change</a></summary>
+                              <summary><a id="ds-tx-presence-operations-zero-net-change" name="ds-tx-presence-operations-zero-net-change"></a><a id="ds-tx-required-declarations-operations-zero-net-change" name="ds-tx-required-declarations-operations-zero-net-change"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change" name="ds-tx-declarations-requirements-operations-zero-net-change"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change">2.1.1.2.1.4 Zero net change</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-operations-zero-net-change-n01" name="ds-tx-presence-operations-zero-net-change-n01"></a><a id="ds-tx-required-declarations-operations-zero-net-change-n01" name="ds-tx-required-declarations-operations-zero-net-change-n01"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n01" name="ds-tx-declarations-requirements-operations-zero-net-change-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n01">2.1.1.2.1.4.1 N01 - Standalone TopTx, equal allocations and releases with explicit zero</a><br>
-                                  <a id="ds-tx-presence-operations-zero-net-change-f01" name="ds-tx-presence-operations-zero-net-change-f01"></a><a id="ds-tx-required-declarations-operations-zero-net-change-f01" name="ds-tx-required-declarations-operations-zero-net-change-f01"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f01" name="ds-tx-declarations-requirements-operations-zero-net-change-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f01">2.1.1.2.1.4.2 F01 - Standalone TopTx, equal allocations and releases without a declaration</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n02" name="ds-tx-required-declarations-operations-zero-net-change-n02"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n02" name="ds-tx-declarations-requirements-operations-zero-net-change-n02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n02">2.1.1.2.1.4.3 N02 - One SubTx replaces its deposit with explicit zero</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f02" name="ds-tx-required-declarations-operations-zero-net-change-f02"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f02" name="ds-tx-declarations-requirements-operations-zero-net-change-f02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f02">2.1.1.2.1.4.4 F02 - One active SubTx omits its declaration</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f03" name="ds-tx-required-declarations-operations-zero-net-change-f03"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f03" name="ds-tx-declarations-requirements-operations-zero-net-change-f03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f03">2.1.1.2.1.4.5 F03 - TopTx omits the declaration required by its child</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n03" name="ds-tx-required-declarations-operations-zero-net-change-n03"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n03" name="ds-tx-declarations-requirements-operations-zero-net-change-n03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n03">2.1.1.2.1.4.6 N03 - Several SubTxs each replace their deposits</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f04" name="ds-tx-required-declarations-operations-zero-net-change-f04"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f04" name="ds-tx-declarations-requirements-operations-zero-net-change-f04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f04">2.1.1.2.1.4.7 F04 - One of several active SubTxs omits its declaration</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n04" name="ds-tx-required-declarations-operations-zero-net-change-n04"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n04" name="ds-tx-declarations-requirements-operations-zero-net-change-n04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n04">2.1.1.2.1.4.8 N04 - Only some SubTxs replace Store deposits</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f05" name="ds-tx-required-declarations-operations-zero-net-change-f05"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f05" name="ds-tx-declarations-requirements-operations-zero-net-change-f05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f05">2.1.1.2.1.4.9 F05 - One active SubTx omits its declaration among inactive siblings</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n05" name="ds-tx-required-declarations-operations-zero-net-change-n05"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n05" name="ds-tx-declarations-requirements-operations-zero-net-change-n05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n05">2.1.1.2.1.4.10 N05 - TopTx and several SubTxs each replace their deposits</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f06" name="ds-tx-required-declarations-operations-zero-net-change-f06"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f06" name="ds-tx-declarations-requirements-operations-zero-net-change-f06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f06">2.1.1.2.1.4.11 F06 - Active TopTx omits its own declaration</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n06" name="ds-tx-required-declarations-operations-zero-net-change-n06"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n06" name="ds-tx-declarations-requirements-operations-zero-net-change-n06"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n06">2.1.1.2.1.4.12 N06 - Phase 2 fails with explicit zero at every active body</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f07" name="ds-tx-required-declarations-operations-zero-net-change-f07"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f07" name="ds-tx-declarations-requirements-operations-zero-net-change-f07"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f07">2.1.1.2.1.4.13 F07 - One SubTx declaration is missing in a phase-2-invalid proposal</a><br>
-                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f08" name="ds-tx-required-declarations-operations-zero-net-change-f08"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f08" name="ds-tx-declarations-requirements-operations-zero-net-change-f08"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f08">2.1.1.2.1.4.14 F08 - TopTx's own declaration is missing in a phase-2-invalid proposal</a><br>
+                                  <a id="ds-tx-presence-operations-zero-net-change-n01" name="ds-tx-presence-operations-zero-net-change-n01"></a><a id="ds-tx-required-declarations-operations-zero-net-change-n01" name="ds-tx-required-declarations-operations-zero-net-change-n01"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n01" name="ds-tx-declarations-requirements-operations-zero-net-change-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n01">2.1.1.2.1.4.1 N01 - Standalone TopTx, equal allocations and releases with explicit zero</a><br>
+                                  <a id="ds-tx-presence-operations-zero-net-change-f01" name="ds-tx-presence-operations-zero-net-change-f01"></a><a id="ds-tx-required-declarations-operations-zero-net-change-f01" name="ds-tx-required-declarations-operations-zero-net-change-f01"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f01" name="ds-tx-declarations-requirements-operations-zero-net-change-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f01">2.1.1.2.1.4.2 F01 - Standalone TopTx, equal allocations and releases without a declaration</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n02" name="ds-tx-required-declarations-operations-zero-net-change-n02"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n02" name="ds-tx-declarations-requirements-operations-zero-net-change-n02"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n02">2.1.1.2.1.4.3 N02 - One SubTx replaces its deposit with explicit zero</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f02" name="ds-tx-required-declarations-operations-zero-net-change-f02"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f02" name="ds-tx-declarations-requirements-operations-zero-net-change-f02"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f02">2.1.1.2.1.4.4 F02 - One active SubTx omits its declaration</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f03" name="ds-tx-required-declarations-operations-zero-net-change-f03"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f03" name="ds-tx-declarations-requirements-operations-zero-net-change-f03"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f03">2.1.1.2.1.4.5 F03 - TopTx omits the declaration required by its child</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n03" name="ds-tx-required-declarations-operations-zero-net-change-n03"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n03" name="ds-tx-declarations-requirements-operations-zero-net-change-n03"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n03">2.1.1.2.1.4.6 N03 - Several SubTxs each replace their deposits</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f04" name="ds-tx-required-declarations-operations-zero-net-change-f04"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f04" name="ds-tx-declarations-requirements-operations-zero-net-change-f04"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f04">2.1.1.2.1.4.7 F04 - One of several active SubTxs omits its declaration</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n04" name="ds-tx-required-declarations-operations-zero-net-change-n04"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n04" name="ds-tx-declarations-requirements-operations-zero-net-change-n04"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n04">2.1.1.2.1.4.8 N04 - Only some SubTxs replace Store deposits</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f05" name="ds-tx-required-declarations-operations-zero-net-change-f05"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f05" name="ds-tx-declarations-requirements-operations-zero-net-change-f05"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f05">2.1.1.2.1.4.9 F05 - One active SubTx omits its declaration among inactive siblings</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n05" name="ds-tx-required-declarations-operations-zero-net-change-n05"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n05" name="ds-tx-declarations-requirements-operations-zero-net-change-n05"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n05">2.1.1.2.1.4.10 N05 - TopTx and several SubTxs each replace their deposits</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f06" name="ds-tx-required-declarations-operations-zero-net-change-f06"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f06" name="ds-tx-declarations-requirements-operations-zero-net-change-f06"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f06">2.1.1.2.1.4.11 F06 - Active TopTx omits its own declaration</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-n06" name="ds-tx-required-declarations-operations-zero-net-change-n06"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-n06" name="ds-tx-declarations-requirements-operations-zero-net-change-n06"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-n06">2.1.1.2.1.4.12 N06 - Phase 2 fails with explicit zero at every active body</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f07" name="ds-tx-required-declarations-operations-zero-net-change-f07"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f07" name="ds-tx-declarations-requirements-operations-zero-net-change-f07"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f07">2.1.1.2.1.4.13 F07 - One SubTx declaration is missing in a phase-2-invalid proposal</a><br>
+                                  <a id="ds-tx-required-declarations-operations-zero-net-change-f08" name="ds-tx-required-declarations-operations-zero-net-change-f08"></a><a id="ds-tx-declarations-requirements-operations-zero-net-change-f08" name="ds-tx-declarations-requirements-operations-zero-net-change-f08"></a><a href="declarations.md#ds-tx-declarations-requirements-operations-zero-net-change-f08">2.1.1.2.1.4.14 F08 - TopTx's own declaration is missing in a phase-2-invalid proposal</a><br>
                                 </dd>
                               </dl>
                             </details>
@@ -243,52 +245,52 @@ Appendices contain the open design questions and supporting references.
                         </dl>
                       </details>
                       <details>
-                        <summary><a id="ds-tx-presence-dependency" name="ds-tx-presence-dependency"></a><a id="ds-tx-presence-subtx-declarations" name="ds-tx-presence-subtx-declarations"></a><a id="ds-tx-required-declarations-subtx-declarations" name="ds-tx-required-declarations-subtx-declarations"></a><a id="ds-tx-declarations-requirements-subtx-declarations" name="ds-tx-declarations-requirements-subtx-declarations"></a><a id="21122-subtx-declarations" name="21122-subtx-declarations"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations">2.1.1.2.2 SubTx declarations</a></summary>
+                        <summary><a id="ds-tx-presence-dependency" name="ds-tx-presence-dependency"></a><a id="ds-tx-presence-subtx-declarations" name="ds-tx-presence-subtx-declarations"></a><a id="ds-tx-required-declarations-subtx-declarations" name="ds-tx-required-declarations-subtx-declarations"></a><a id="ds-tx-declarations-requirements-subtx-declarations" name="ds-tx-declarations-requirements-subtx-declarations"></a><a id="21122-subtx-declarations" name="21122-subtx-declarations"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations">2.1.1.2.2 SubTx declarations</a></summary>
                         <dl>
                           <dd>
                             <details>
-                              <summary><a id="ds-tx-presence-dependency-c01" name="ds-tx-presence-dependency-c01"></a><a id="ds-tx-presence-subtx-declarations-c01" name="ds-tx-presence-subtx-declarations-c01"></a><a id="ds-tx-required-declarations-subtx-declarations-c01" name="ds-tx-required-declarations-subtx-declarations-c01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c01" name="ds-tx-declarations-requirements-subtx-declarations-c01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c01">2.1.1.2.2.1 TopTx requirement</a></summary>
+                              <summary><a id="ds-tx-presence-dependency-c01" name="ds-tx-presence-dependency-c01"></a><a id="ds-tx-presence-subtx-declarations-c01" name="ds-tx-presence-subtx-declarations-c01"></a><a id="ds-tx-required-declarations-subtx-declarations-c01" name="ds-tx-required-declarations-subtx-declarations-c01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c01" name="ds-tx-declarations-requirements-subtx-declarations-c01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c01">2.1.1.2.2.1 TopTx requirement</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-dependency-c01-p01" name="ds-tx-presence-dependency-c01-p01"></a><a id="ds-tx-presence-subtx-declarations-c01-p01" name="ds-tx-presence-subtx-declarations-c01-p01"></a><a id="ds-tx-required-declarations-subtx-declarations-c01-p01" name="ds-tx-required-declarations-subtx-declarations-c01-p01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c01-p01" name="ds-tx-declarations-requirements-subtx-declarations-c01-p01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c01-p01">2.1.1.2.2.1.1 P01 - SubTx declarations require TopTx's declaration</a><br>
+                                  <a id="ds-tx-presence-dependency-c01-p01" name="ds-tx-presence-dependency-c01-p01"></a><a id="ds-tx-presence-subtx-declarations-c01-p01" name="ds-tx-presence-subtx-declarations-c01-p01"></a><a id="ds-tx-required-declarations-subtx-declarations-c01-p01" name="ds-tx-required-declarations-subtx-declarations-c01-p01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c01-p01" name="ds-tx-declarations-requirements-subtx-declarations-c01-p01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c01-p01">2.1.1.2.2.1.1 P01 - SubTx declarations require TopTx's declaration</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-presence-dependency-c02" name="ds-tx-presence-dependency-c02"></a><a id="ds-tx-presence-subtx-declarations-c02" name="ds-tx-presence-subtx-declarations-c02"></a><a id="ds-tx-required-declarations-subtx-declarations-c02" name="ds-tx-required-declarations-subtx-declarations-c02"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02" name="ds-tx-declarations-requirements-subtx-declarations-c02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02">2.1.1.2.2.2 Absence and explicit zero</a></summary>
+                              <summary><a id="ds-tx-presence-dependency-c02" name="ds-tx-presence-dependency-c02"></a><a id="ds-tx-presence-subtx-declarations-c02" name="ds-tx-presence-subtx-declarations-c02"></a><a id="ds-tx-required-declarations-subtx-declarations-c02" name="ds-tx-required-declarations-subtx-declarations-c02"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02" name="ds-tx-declarations-requirements-subtx-declarations-c02"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02">2.1.1.2.2.2 Absence and explicit zero</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-dependency-c02-n01" name="ds-tx-presence-dependency-c02-n01"></a><a id="ds-tx-presence-subtx-declarations-c02-n01" name="ds-tx-presence-subtx-declarations-c02-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-n01" name="ds-tx-required-declarations-subtx-declarations-c02-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-n01" name="ds-tx-declarations-requirements-subtx-declarations-c02-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n01">2.1.1.2.2.2.1 N01 - accepts absent declarations at both levels</a><br>
-                                  <a id="ds-tx-presence-dependency-c02-n02" name="ds-tx-presence-dependency-c02-n02"></a><a id="ds-tx-presence-subtx-declarations-c02-n02" name="ds-tx-presence-subtx-declarations-c02-n02"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-n02" name="ds-tx-required-declarations-subtx-declarations-c02-n02"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-n02" name="ds-tx-declarations-requirements-subtx-declarations-c02-n02"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n02">2.1.1.2.2.2.2 N02 - accepts explicit zero at both levels</a><br>
-                                  <a id="ds-tx-presence-dependency-c02-n03" name="ds-tx-presence-dependency-c02-n03"></a><a id="ds-tx-presence-subtx-declarations-c02-n03" name="ds-tx-presence-subtx-declarations-c02-n03"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-n03" name="ds-tx-required-declarations-subtx-declarations-c02-n03"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-n03" name="ds-tx-declarations-requirements-subtx-declarations-c02-n03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n03">2.1.1.2.2.2.3 N03 - accepts TopTx zero without a SubTx declaration</a><br>
-                                  <a id="ds-tx-presence-dependency-c02-f01" name="ds-tx-presence-dependency-c02-f01"></a><a id="ds-tx-presence-subtx-declarations-c02-f01" name="ds-tx-presence-subtx-declarations-c02-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-f01" name="ds-tx-required-declarations-subtx-declarations-c02-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-f01" name="ds-tx-declarations-requirements-subtx-declarations-c02-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-f01">2.1.1.2.2.2.4 F01 - rejects SubTx zero without a TopTx declaration</a><br>
+                                  <a id="ds-tx-presence-dependency-c02-n01" name="ds-tx-presence-dependency-c02-n01"></a><a id="ds-tx-presence-subtx-declarations-c02-n01" name="ds-tx-presence-subtx-declarations-c02-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-n01" name="ds-tx-required-declarations-subtx-declarations-c02-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-n01" name="ds-tx-declarations-requirements-subtx-declarations-c02-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n01">2.1.1.2.2.2.1 N01 - accepts absent declarations at both levels</a><br>
+                                  <a id="ds-tx-presence-dependency-c02-n02" name="ds-tx-presence-dependency-c02-n02"></a><a id="ds-tx-presence-subtx-declarations-c02-n02" name="ds-tx-presence-subtx-declarations-c02-n02"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-n02" name="ds-tx-required-declarations-subtx-declarations-c02-n02"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-n02" name="ds-tx-declarations-requirements-subtx-declarations-c02-n02"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n02">2.1.1.2.2.2.2 N02 - accepts explicit zero at both levels</a><br>
+                                  <a id="ds-tx-presence-dependency-c02-n03" name="ds-tx-presence-dependency-c02-n03"></a><a id="ds-tx-presence-subtx-declarations-c02-n03" name="ds-tx-presence-subtx-declarations-c02-n03"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-n03" name="ds-tx-required-declarations-subtx-declarations-c02-n03"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-n03" name="ds-tx-declarations-requirements-subtx-declarations-c02-n03"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n03">2.1.1.2.2.2.3 N03 - accepts TopTx zero without a SubTx declaration</a><br>
+                                  <a id="ds-tx-presence-dependency-c02-f01" name="ds-tx-presence-dependency-c02-f01"></a><a id="ds-tx-presence-subtx-declarations-c02-f01" name="ds-tx-presence-subtx-declarations-c02-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c02-f01" name="ds-tx-required-declarations-subtx-declarations-c02-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c02-f01" name="ds-tx-declarations-requirements-subtx-declarations-c02-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-f01">2.1.1.2.2.2.4 F01 - rejects SubTx zero without a TopTx declaration</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-presence-dependency-c03" name="ds-tx-presence-dependency-c03"></a><a id="ds-tx-presence-subtx-declarations-c03" name="ds-tx-presence-subtx-declarations-c03"></a><a id="ds-tx-required-declarations-subtx-declarations-c03" name="ds-tx-required-declarations-subtx-declarations-c03"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c03" name="ds-tx-declarations-requirements-subtx-declarations-c03"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03">2.1.1.2.2.3 Offsetting SubTx contributions</a></summary>
+                              <summary><a id="ds-tx-presence-dependency-c03" name="ds-tx-presence-dependency-c03"></a><a id="ds-tx-presence-subtx-declarations-c03" name="ds-tx-presence-subtx-declarations-c03"></a><a id="ds-tx-required-declarations-subtx-declarations-c03" name="ds-tx-required-declarations-subtx-declarations-c03"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c03" name="ds-tx-declarations-requirements-subtx-declarations-c03"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03">2.1.1.2.2.3 Offsetting SubTx contributions</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-dependency-c03-n01" name="ds-tx-presence-dependency-c03-n01"></a><a id="ds-tx-presence-subtx-declarations-c03-n01" name="ds-tx-presence-subtx-declarations-c03-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c03-n01" name="ds-tx-required-declarations-subtx-declarations-c03-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c03-n01" name="ds-tx-declarations-requirements-subtx-declarations-c03-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-n01">2.1.1.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a><br>
-                                  <a id="ds-tx-presence-dependency-c03-f01" name="ds-tx-presence-dependency-c03-f01"></a><a id="ds-tx-presence-subtx-declarations-c03-f01" name="ds-tx-presence-subtx-declarations-c03-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c03-f01" name="ds-tx-required-declarations-subtx-declarations-c03-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c03-f01" name="ds-tx-declarations-requirements-subtx-declarations-c03-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-f01">2.1.1.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a><br>
+                                  <a id="ds-tx-presence-dependency-c03-n01" name="ds-tx-presence-dependency-c03-n01"></a><a id="ds-tx-presence-subtx-declarations-c03-n01" name="ds-tx-presence-subtx-declarations-c03-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c03-n01" name="ds-tx-required-declarations-subtx-declarations-c03-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c03-n01" name="ds-tx-declarations-requirements-subtx-declarations-c03-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-n01">2.1.1.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a><br>
+                                  <a id="ds-tx-presence-dependency-c03-f01" name="ds-tx-presence-dependency-c03-f01"></a><a id="ds-tx-presence-subtx-declarations-c03-f01" name="ds-tx-presence-subtx-declarations-c03-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c03-f01" name="ds-tx-required-declarations-subtx-declarations-c03-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c03-f01" name="ds-tx-declarations-requirements-subtx-declarations-c03-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-f01">2.1.1.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-presence-dependency-c04" name="ds-tx-presence-dependency-c04"></a><a id="ds-tx-presence-subtx-declarations-c04" name="ds-tx-presence-subtx-declarations-c04"></a><a id="ds-tx-required-declarations-subtx-declarations-c04" name="ds-tx-required-declarations-subtx-declarations-c04"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c04" name="ds-tx-declarations-requirements-subtx-declarations-c04"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04">2.1.1.2.2.4 Local and delegated accounting</a></summary>
+                              <summary><a id="ds-tx-presence-dependency-c04" name="ds-tx-presence-dependency-c04"></a><a id="ds-tx-presence-subtx-declarations-c04" name="ds-tx-presence-subtx-declarations-c04"></a><a id="ds-tx-required-declarations-subtx-declarations-c04" name="ds-tx-required-declarations-subtx-declarations-c04"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c04" name="ds-tx-declarations-requirements-subtx-declarations-c04"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04">2.1.1.2.2.4 Local and delegated accounting</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-dependency-c04-n01" name="ds-tx-presence-dependency-c04-n01"></a><a id="ds-tx-presence-subtx-declarations-c04-n01" name="ds-tx-presence-subtx-declarations-c04-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c04-n01" name="ds-tx-required-declarations-subtx-declarations-c04-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c04-n01" name="ds-tx-declarations-requirements-subtx-declarations-c04-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-n01">2.1.1.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a><br>
-                                  <a id="ds-tx-presence-dependency-c04-f01" name="ds-tx-presence-dependency-c04-f01"></a><a id="ds-tx-presence-subtx-declarations-c04-f01" name="ds-tx-presence-subtx-declarations-c04-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c04-f01" name="ds-tx-required-declarations-subtx-declarations-c04-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c04-f01" name="ds-tx-declarations-requirements-subtx-declarations-c04-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-f01">2.1.1.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a><br>
+                                  <a id="ds-tx-presence-dependency-c04-n01" name="ds-tx-presence-dependency-c04-n01"></a><a id="ds-tx-presence-subtx-declarations-c04-n01" name="ds-tx-presence-subtx-declarations-c04-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c04-n01" name="ds-tx-required-declarations-subtx-declarations-c04-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c04-n01" name="ds-tx-declarations-requirements-subtx-declarations-c04-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-n01">2.1.1.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a><br>
+                                  <a id="ds-tx-presence-dependency-c04-f01" name="ds-tx-presence-dependency-c04-f01"></a><a id="ds-tx-presence-subtx-declarations-c04-f01" name="ds-tx-presence-subtx-declarations-c04-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c04-f01" name="ds-tx-required-declarations-subtx-declarations-c04-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c04-f01" name="ds-tx-declarations-requirements-subtx-declarations-c04-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-f01">2.1.1.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a><br>
                                 </dd>
                               </dl>
                             </details>
                             <details>
-                              <summary><a id="ds-tx-presence-dependency-c05" name="ds-tx-presence-dependency-c05"></a><a id="ds-tx-presence-subtx-declarations-c05" name="ds-tx-presence-subtx-declarations-c05"></a><a id="ds-tx-required-declarations-subtx-declarations-c05" name="ds-tx-required-declarations-subtx-declarations-c05"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c05" name="ds-tx-declarations-requirements-subtx-declarations-c05"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05">2.1.1.2.2.5 Phase-2 failure</a></summary>
+                              <summary><a id="ds-tx-presence-dependency-c05" name="ds-tx-presence-dependency-c05"></a><a id="ds-tx-presence-subtx-declarations-c05" name="ds-tx-presence-subtx-declarations-c05"></a><a id="ds-tx-required-declarations-subtx-declarations-c05" name="ds-tx-required-declarations-subtx-declarations-c05"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c05" name="ds-tx-declarations-requirements-subtx-declarations-c05"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05">2.1.1.2.2.5 Phase-2 failure</a></summary>
                               <dl>
                                 <dd>
-                                  <a id="ds-tx-presence-dependency-c05-n01" name="ds-tx-presence-dependency-c05-n01"></a><a id="ds-tx-presence-subtx-declarations-c05-n01" name="ds-tx-presence-subtx-declarations-c05-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c05-n01" name="ds-tx-required-declarations-subtx-declarations-c05-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c05-n01" name="ds-tx-declarations-requirements-subtx-declarations-c05-n01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-n01">2.1.1.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a><br>
-                                  <a id="ds-tx-presence-dependency-c05-f01" name="ds-tx-presence-dependency-c05-f01"></a><a id="ds-tx-presence-subtx-declarations-c05-f01" name="ds-tx-presence-subtx-declarations-c05-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c05-f01" name="ds-tx-required-declarations-subtx-declarations-c05-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c05-f01" name="ds-tx-declarations-requirements-subtx-declarations-c05-f01"></a><a href="dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-f01">2.1.1.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a><br>
+                                  <a id="ds-tx-presence-dependency-c05-n01" name="ds-tx-presence-dependency-c05-n01"></a><a id="ds-tx-presence-subtx-declarations-c05-n01" name="ds-tx-presence-subtx-declarations-c05-n01"></a><a id="ds-tx-required-declarations-subtx-declarations-c05-n01" name="ds-tx-required-declarations-subtx-declarations-c05-n01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c05-n01" name="ds-tx-declarations-requirements-subtx-declarations-c05-n01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-n01">2.1.1.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a><br>
+                                  <a id="ds-tx-presence-dependency-c05-f01" name="ds-tx-presence-dependency-c05-f01"></a><a id="ds-tx-presence-subtx-declarations-c05-f01" name="ds-tx-presence-subtx-declarations-c05-f01"></a><a id="ds-tx-required-declarations-subtx-declarations-c05-f01" name="ds-tx-required-declarations-subtx-declarations-c05-f01"></a><a id="ds-tx-declarations-requirements-subtx-declarations-c05-f01" name="ds-tx-declarations-requirements-subtx-declarations-c05-f01"></a><a href="declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-f01">2.1.1.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a><br>
                                 </dd>
                               </dl>
                             </details>
@@ -1107,7 +1109,7 @@ The historical reserve cap does not relax admission of a new output.
 
 | Responsibility | Question answered |
 | --- | --- |
-| [Declarations](dijkstra-deposit-store-declarations.md#ds-tx-declarations) | Which forms are valid, and which bodies must declare? |
+| [Declarations](declarations.md#ds-tx-declarations) | Which forms are valid, and which bodies must declare? |
 | [Accounting](#ds-tx-accounting) | Is the change exact, correctly attributed and funded? |
 | [Authorization](#ds-tx-authorization) | Who may release the deposit? |
 | [Settlement](#ds-tx-settlement) | Is the required output designated, in range and sufficiently funded? |
@@ -1136,8 +1138,8 @@ owns state application and rejection atomicity.
 
 #### 2.1.1 Declarations
 
-[Declaration grammar](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar) defines the valid forms.
-[Declaration requirements](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements) specify which bodies must declare.
+[Declaration grammar](declarations.md#ds-tx-declarations-grammar) defines the valid forms.
+[Declaration requirements](declarations.md#ds-tx-declarations-requirements) specify which bodies must declare.
 
 <a id="ds-tx-accounting" name="ds-tx-accounting"></a>
 
@@ -1195,7 +1197,7 @@ the same terms. Reference inputs and collateral have separate rules.
 
 These three ledger cases compare the signed declaration with the actual change
 in external ADA. Each case also rejects the external-only amount when declared
-by TopTx or SubTx. [Mixed-output regression tests](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/MixedBackingSpec.hs) and [verification results](dijkstra-deposit-store-verification.md#signed-backing-change-for-mixed-output-forms--24-november-2026).
+by TopTx or SubTx. [Mixed-output regression tests](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/MixedBackingSpec.hs) and [verification results](verification.md#signed-backing-change-for-mixed-output-forms--24-november-2026).
 
 | Consumed backing | Required output backing | Exact declaration | Change in Store ADA |
 | --- | --- | --- | ---: |
@@ -1295,7 +1297,7 @@ exactness within that valid range.
 <a id="ds-tx-accounting-subtx-p01" name="ds-tx-accounting-subtx-p01"></a>
 <a id="ds-tx-accounting-net-change-subtx-p01" name="ds-tx-accounting-net-change-subtx-p01"></a>
 
-**2.1.2.1.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L90) - Each SubTx declares its own exact change**
+**2.1.2.1.1.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L90) - Each SubTx declares its own exact change**
 
 ```math
 \begin{aligned}
@@ -1312,7 +1314,7 @@ Compare the isolated SubTx exactness result with independent input records and o
 <a id="ds-tx-accounting-subtx-n01" name="ds-tx-accounting-subtx-n01"></a>
 <a id="ds-tx-accounting-net-change-subtx-n01" name="ds-tx-accounting-net-change-subtx-n01"></a>
 
-**2.1.2.1.1.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L126) - Exact own change, with any allocation and release combination**
+**2.1.2.1.1.2 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L126) - Exact own change, with any allocation and release combination**
 
 ```math
 \begin{aligned}
@@ -1328,7 +1330,7 @@ Exercise positive allocation, negative release and explicit zero with local acco
 <a id="ds-tx-accounting-subtx-f01" name="ds-tx-accounting-subtx-f01"></a>
 <a id="ds-tx-accounting-net-change-subtx-f01" name="ds-tx-accounting-net-change-subtx-f01"></a>
 
-**2.1.2.1.1.3 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L148) - Net allocation understated by one lovelace**
+**2.1.2.1.1.3 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L148) - Net allocation understated by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1345,7 +1347,7 @@ The required allocation exceeds one lovelace so the mutated declaration remains 
 <a id="ds-tx-accounting-subtx-f02" name="ds-tx-accounting-subtx-f02"></a>
 <a id="ds-tx-accounting-net-change-subtx-f02" name="ds-tx-accounting-net-change-subtx-f02"></a>
 
-**2.1.2.1.1.4 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L166) - Net allocation overstated by one lovelace**
+**2.1.2.1.1.4 [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L166) - Net allocation overstated by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1362,7 +1364,7 @@ Keep the increased amount representable; this checks exactness rather than decod
 <a id="ds-tx-accounting-subtx-f03" name="ds-tx-accounting-subtx-f03"></a>
 <a id="ds-tx-accounting-net-change-subtx-f03" name="ds-tx-accounting-net-change-subtx-f03"></a>
 
-**2.1.2.1.1.5 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L184) - Net release understated by one lovelace**
+**2.1.2.1.1.5 [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L184) - Net release understated by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1379,7 +1381,7 @@ Reducing the positive release magnitude increases its signed declaration; the re
 <a id="ds-tx-accounting-subtx-f04" name="ds-tx-accounting-subtx-f04"></a>
 <a id="ds-tx-accounting-net-change-subtx-f04" name="ds-tx-accounting-net-change-subtx-f04"></a>
 
-**2.1.2.1.1.6 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L202) - Net release overstated by one lovelace**
+**2.1.2.1.1.6 [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L202) - Net release overstated by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1396,7 +1398,7 @@ Increasing the positive release magnitude decreases its signed declaration; keep
 <a id="ds-tx-accounting-subtx-f05" name="ds-tx-accounting-subtx-f05"></a>
 <a id="ds-tx-accounting-net-change-subtx-f05" name="ds-tx-accounting-net-change-subtx-f05"></a>
 
-**2.1.2.1.1.7 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L220) - Opposing SubTx errors cancel in the total**
+**2.1.2.1.1.7 [F05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L220) - Opposing SubTx errors cancel in the total**
 
 ```math
 \begin{aligned}
@@ -1413,7 +1415,7 @@ Both distinct SubTxs are in the transaction. Their errors cancel, but require a 
 <a id="ds-tx-accounting-subtx-n02" name="ds-tx-accounting-subtx-n02"></a>
 <a id="ds-tx-accounting-net-change-subtx-n02" name="ds-tx-accounting-net-change-subtx-n02"></a>
 
-**2.1.2.1.1.8 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L239) - Equal own allocations and releases, explicit zero**
+**2.1.2.1.1.8 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L239) - Equal own allocations and releases, explicit zero**
 
 ```math
 \begin{aligned}
@@ -1430,7 +1432,7 @@ Use an explicit-zero declaration, including both zero operations and nonzero all
 <a id="ds-tx-accounting-subtx-f06" name="ds-tx-accounting-subtx-f06"></a>
 <a id="ds-tx-accounting-net-change-subtx-f06" name="ds-tx-accounting-net-change-subtx-f06"></a>
 
-**2.1.2.1.1.9 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L248) - Explicit zero cannot replace a required allocation**
+**2.1.2.1.1.9 [F06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L248) - Explicit zero cannot replace a required allocation**
 
 ```math
 \begin{aligned}
@@ -1447,7 +1449,7 @@ The field is present as explicit zero; its amount is incorrect.
 <a id="ds-tx-accounting-subtx-n03" name="ds-tx-accounting-subtx-n03"></a>
 <a id="ds-tx-accounting-net-change-subtx-n03" name="ds-tx-accounting-net-change-subtx-n03"></a>
 
-**2.1.2.1.1.10 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L266) - Exact allocation requested from TopTx**
+**2.1.2.1.1.10 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L266) - Exact allocation requested from TopTx**
 
 ```math
 \begin{aligned}
@@ -1465,7 +1467,7 @@ The field is present as explicit zero; its amount is incorrect.
 <a id="ds-tx-accounting-subtx-n04" name="ds-tx-accounting-subtx-n04"></a>
 <a id="ds-tx-accounting-net-change-subtx-n04" name="ds-tx-accounting-net-change-subtx-n04"></a>
 
-**2.1.2.1.1.11 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L278) - Exact release delegated to TopTx**
+**2.1.2.1.1.11 [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L278) - Exact release delegated to TopTx**
 
 ```math
 \begin{aligned}
@@ -1483,7 +1485,7 @@ The release targets `DelegateToTopTx`; its magnitude remains exactly the origina
 <a id="ds-tx-accounting-subtx-n05" name="ds-tx-accounting-subtx-n05"></a>
 <a id="ds-tx-accounting-net-change-subtx-n05" name="ds-tx-accounting-net-change-subtx-n05"></a>
 
-**2.1.2.1.1.12 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L290) - Released deposits, only min-ADA outputs**
+**2.1.2.1.1.12 [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L290) - Released deposits, only min-ADA outputs**
 
 ```math
 \begin{aligned}
@@ -1502,7 +1504,7 @@ The signed release therefore equals the historical external deposits consumed.
 <a id="ds-tx-accounting-subtx-f07" name="ds-tx-accounting-subtx-f07"></a>
 <a id="ds-tx-accounting-net-change-subtx-f07" name="ds-tx-accounting-net-change-subtx-f07"></a>
 
-**2.1.2.1.1.13 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L302) - Explicit zero cannot replace a required release**
+**2.1.2.1.1.13 [F07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L302) - Explicit zero cannot replace a required release**
 
 ```math
 \begin{aligned}
@@ -1519,7 +1521,7 @@ The field is present as explicit zero; a negative own change still requires a re
 <a id="ds-tx-accounting-subtx-n06" name="ds-tx-accounting-subtx-n06"></a>
 <a id="ds-tx-accounting-net-change-subtx-n06" name="ds-tx-accounting-net-change-subtx-n06"></a>
 
-**2.1.2.1.1.14 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L320) - Another body offsets the SubTx release**
+**2.1.2.1.1.14 [N06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L320) - Another body offsets the SubTx release**
 
 ```math
 \begin{aligned}
@@ -1537,7 +1539,7 @@ The other body is TopTx or another SubTx. Cover partial, equal and greater offse
 <a id="ds-tx-accounting-subtx-n07" name="ds-tx-accounting-subtx-n07"></a>
 <a id="ds-tx-accounting-net-change-subtx-n07" name="ds-tx-accounting-net-change-subtx-n07"></a>
 
-**2.1.2.1.1.15 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L342) - An output without application assets still requires a deposit**
+**2.1.2.1.1.15 [N07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L342) - An output without application assets still requires a deposit**
 
 ```math
 \begin{aligned}
@@ -1556,7 +1558,7 @@ The formula charges its base even when the application value is empty. Use a pos
 <a id="ds-tx-accounting-subtx-n08" name="ds-tx-accounting-subtx-n08"></a>
 <a id="ds-tx-accounting-net-change-subtx-n08" name="ds-tx-accounting-net-change-subtx-n08"></a>
 
-**2.1.2.1.1.16 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L354) - A translated min-ADA input funds an exact allocation**
+**2.1.2.1.1.16 [N08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L354) - A translated min-ADA input funds an exact allocation**
 
 ```math
 \begin{aligned}
@@ -1576,7 +1578,7 @@ reserve cancels the reserve of the fixture's min-ADA change output.
 <a id="ds-tx-accounting-subtx-f08" name="ds-tx-accounting-subtx-f08"></a>
 <a id="ds-tx-accounting-net-change-subtx-f08" name="ds-tx-accounting-net-change-subtx-f08"></a>
 
-**2.1.2.1.1.17 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L366) - A translated min-ADA input does not excuse an inexact allocation**
+**2.1.2.1.1.17 [F08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L366) - A translated min-ADA input does not excuse an inexact allocation**
 
 ```math
 \begin{aligned}
@@ -1597,7 +1599,7 @@ Use the N08 allocation scenario, changing only the positive SubTx declaration to
 <a id="ds-tx-accounting-subtx-f09" name="ds-tx-accounting-subtx-f09"></a>
 <a id="ds-tx-accounting-net-change-subtx-f09" name="ds-tx-accounting-net-change-subtx-f09"></a>
 
-**2.1.2.1.1.18 [F09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L385) - Unspent outputs cannot increase a SubTx release**
+**2.1.2.1.1.18 [F09](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L385) - Unspent outputs cannot increase a SubTx release**
 
 ```math
 \begin{aligned}
@@ -1618,7 +1620,7 @@ by part of that amount fails exactness. The unchanged declaration remains accept
 <a id="ds-tx-accounting-subtx-f10" name="ds-tx-accounting-subtx-f10"></a>
 <a id="ds-tx-accounting-net-change-subtx-f10" name="ds-tx-accounting-net-change-subtx-f10"></a>
 
-**2.1.2.1.1.19 [F10](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L410) - A release cannot replace a required allocation**
+**2.1.2.1.1.19 [F10](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L410) - A release cannot replace a required allocation**
 
 ```math
 \begin{aligned}
@@ -1635,7 +1637,7 @@ Exercise valid local and delegated release forms; their sign contradicts the ind
 <a id="ds-tx-accounting-subtx-f11" name="ds-tx-accounting-subtx-f11"></a>
 <a id="ds-tx-accounting-net-change-subtx-f11" name="ds-tx-accounting-net-change-subtx-f11"></a>
 
-**2.1.2.1.1.20 [F11](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L429) - An allocation cannot replace a required release**
+**2.1.2.1.1.20 [F11](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L429) - An allocation cannot replace a required release**
 
 ```math
 \begin{aligned}
@@ -1652,7 +1654,7 @@ Exercise a local allocation and a funding request to TopTx; neither can represen
 <a id="ds-tx-accounting-subtx-n09" name="ds-tx-accounting-subtx-n09"></a>
 <a id="ds-tx-accounting-net-change-subtx-n09" name="ds-tx-accounting-net-change-subtx-n09"></a>
 
-**2.1.2.1.1.21 [N09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L449) - Exact SubTx declarations when phase 2 fails**
+**2.1.2.1.1.21 [N09](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L449) - Exact SubTx declarations when phase 2 fails**
 
 ```math
 \begin{aligned}
@@ -1672,7 +1674,7 @@ Use a real failing script with otherwise valid declarations and transaction term
 <a id="ds-tx-accounting-subtx-f12" name="ds-tx-accounting-subtx-f12"></a>
 <a id="ds-tx-accounting-net-change-subtx-f12" name="ds-tx-accounting-net-change-subtx-f12"></a>
 
-**2.1.2.1.1.22 [F12](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L471) - An inexact SubTx declaration still fails before the collateral outcome**
+**2.1.2.1.1.22 [F12](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs#L471) - An inexact SubTx declaration still fails before the collateral outcome**
 
 ```math
 \begin{aligned}
@@ -1717,14 +1719,14 @@ from the batch total, including any undeclared min-ADA-only children.
 
 On ordinary success, the Store receives external output deposits and pays out
 external input deposits. On accepted phase-2 failure, only collateral effects
-apply. [Requirements](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements) determines field presence.
+apply. [Requirements](declarations.md#ds-tx-declarations-requirements) determines field presence.
 
 <a id="ds-tx-exactness-netting-p01" name="ds-tx-exactness-netting-p01"></a>
 <a id="ds-tx-exactness-toptx-p01" name="ds-tx-exactness-toptx-p01"></a>
 <a id="ds-tx-accounting-toptx-p01" name="ds-tx-accounting-toptx-p01"></a>
 <a id="ds-tx-accounting-net-change-toptx-p01" name="ds-tx-accounting-net-change-toptx-p01"></a>
 
-**2.1.2.1.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L72) - TopTx declares the exact transaction total**
+**2.1.2.1.2.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L72) - TopTx declares the exact transaction total**
 
 ```math
 \begin{aligned}
@@ -1738,7 +1740,7 @@ Compare the isolated TopTx validator with independently computed deposits; this 
 <a id="ds-tx-attribution-n02" name="ds-tx-attribution-n02"></a>
 <a id="ds-tx-accounting-net-change-toptx-p02" name="ds-tx-accounting-net-change-toptx-p02"></a>
 
-**2.1.2.1.2.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L90) - Delegation preserves the transaction total**
+**2.1.2.1.2.2 [P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L90) - Delegation preserves the transaction total**
 
 ```math
 \begin{aligned}
@@ -1768,7 +1770,7 @@ which body assumes the signed contribution.
 <a id="ds-tx-accounting-toptx-n01" name="ds-tx-accounting-toptx-n01"></a>
 <a id="ds-tx-accounting-net-change-toptx-n01" name="ds-tx-accounting-net-change-toptx-n01"></a>
 
-**2.1.2.1.2.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L122) - TopTx and SubTxs contribute to the total**
+**2.1.2.1.2.3 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L122) - TopTx and SubTxs contribute to the total**
 
 ```math
 \begin{aligned}
@@ -1785,7 +1787,7 @@ Cover both zero and nonzero TopTx own changes alongside nonzero child changes. T
 <a id="ds-tx-accounting-toptx-n02" name="ds-tx-accounting-toptx-n02"></a>
 <a id="ds-tx-accounting-net-change-toptx-n02" name="ds-tx-accounting-net-change-toptx-n02"></a>
 
-**2.1.2.1.2.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L135) - TopTx's own change is derived from its total**
+**2.1.2.1.2.4 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L135) - TopTx's own change is derived from its total**
 
 ```math
 \begin{aligned}
@@ -1807,7 +1809,7 @@ the parent's own backing change.
 <a id="ds-tx-accounting-toptx-n03" name="ds-tx-accounting-toptx-n03"></a>
 <a id="ds-tx-accounting-net-change-toptx-n03" name="ds-tx-accounting-net-change-toptx-n03"></a>
 
-**2.1.2.1.2.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L148) - 5 ADA allocated, 3 ADA released**
+**2.1.2.1.2.5 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L148) - 5 ADA allocated, 3 ADA released**
 
 ```math
 \begin{aligned}
@@ -1825,7 +1827,7 @@ Both sums cover TopTx and all SubTxs; the transaction requires a net allocation 
 <a id="ds-tx-accounting-toptx-n04" name="ds-tx-accounting-toptx-n04"></a>
 <a id="ds-tx-accounting-net-change-toptx-n04" name="ds-tx-accounting-net-change-toptx-n04"></a>
 
-**2.1.2.1.2.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L159) - 3 ADA allocated, 5 ADA released**
+**2.1.2.1.2.6 [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L159) - 3 ADA allocated, 5 ADA released**
 
 ```math
 \begin{aligned}
@@ -1843,7 +1845,7 @@ Both sums cover TopTx and all SubTxs; the transaction releases 2 ADA net.
 <a id="ds-tx-accounting-toptx-n05" name="ds-tx-accounting-toptx-n05"></a>
 <a id="ds-tx-accounting-net-change-toptx-n05" name="ds-tx-accounting-net-change-toptx-n05"></a>
 
-**2.1.2.1.2.7 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L171) - Nonzero body changes produce a zero total**
+**2.1.2.1.2.7 [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L171) - Nonzero body changes produce a zero total**
 
 ```math
 \begin{aligned}
@@ -1861,7 +1863,7 @@ Allocating and releasing bodies offset each other. TopTx still supplies an expli
 <a id="ds-tx-accounting-toptx-f01" name="ds-tx-accounting-toptx-f01"></a>
 <a id="ds-tx-accounting-net-change-toptx-f01" name="ds-tx-accounting-net-change-toptx-f01"></a>
 
-**2.1.2.1.2.8 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L181) - Standalone TopTx understates its net allocation by one lovelace**
+**2.1.2.1.2.8 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L181) - Standalone TopTx understates its net allocation by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1879,7 +1881,7 @@ Create one more deposit-backed output than is consumed. Start from a valid contr
 <a id="ds-tx-accounting-toptx-f02" name="ds-tx-accounting-toptx-f02"></a>
 <a id="ds-tx-accounting-net-change-toptx-f02" name="ds-tx-accounting-net-change-toptx-f02"></a>
 
-**2.1.2.1.2.9 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L193) - Standalone TopTx overstates its net allocation by one lovelace**
+**2.1.2.1.2.9 [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L193) - Standalone TopTx overstates its net allocation by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1897,7 +1899,7 @@ Use the same net-allocation generator and increase only the declaration by one l
 <a id="ds-tx-accounting-toptx-f03" name="ds-tx-accounting-toptx-f03"></a>
 <a id="ds-tx-accounting-net-change-toptx-f03" name="ds-tx-accounting-net-change-toptx-f03"></a>
 
-**2.1.2.1.2.10 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L206) - Standalone TopTx understates its net release by one lovelace**
+**2.1.2.1.2.10 [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L206) - Standalone TopTx understates its net release by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1916,7 +1918,7 @@ Only min-ADA outputs are created. Adding one to the negative declaration reduces
 <a id="ds-tx-accounting-toptx-f04" name="ds-tx-accounting-toptx-f04"></a>
 <a id="ds-tx-accounting-net-change-toptx-f04" name="ds-tx-accounting-net-change-toptx-f04"></a>
 
-**2.1.2.1.2.11 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L219) - Standalone TopTx overstates its net release by one lovelace**
+**2.1.2.1.2.11 [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L219) - Standalone TopTx overstates its net release by one lovelace**
 
 ```math
 \begin{aligned}
@@ -1935,7 +1937,7 @@ Only min-ADA outputs are created. Subtracting one from the negative declaration 
 <a id="ds-tx-accounting-toptx-f05" name="ds-tx-accounting-toptx-f05"></a>
 <a id="ds-tx-accounting-net-change-toptx-f05" name="ds-tx-accounting-net-change-toptx-f05"></a>
 
-**2.1.2.1.2.12 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L231) - Explicit zero cannot replace a nonzero total**
+**2.1.2.1.2.12 [F05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L231) - Explicit zero cannot replace a nonzero total**
 
 ```math
 \begin{aligned}
@@ -1952,7 +1954,7 @@ Cover both a required net allocation and a required net release.
 <a id="ds-tx-accounting-toptx-f06" name="ds-tx-accounting-toptx-f06"></a>
 <a id="ds-tx-accounting-net-change-toptx-f06" name="ds-tx-accounting-net-change-toptx-f06"></a>
 
-**2.1.2.1.2.13 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L247) - A nonzero declaration cannot replace a zero total**
+**2.1.2.1.2.13 [F06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L247) - A nonzero declaration cannot replace a zero total**
 
 ```math
 \begin{aligned}
@@ -1969,7 +1971,7 @@ Cover both an allocation declaration and a release declaration when the transact
 <a id="ds-tx-accounting-toptx-f07" name="ds-tx-accounting-toptx-f07"></a>
 <a id="ds-tx-accounting-net-change-toptx-f07" name="ds-tx-accounting-net-change-toptx-f07"></a>
 
-**2.1.2.1.2.14 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L262) - TopTx declares the opposite direction**
+**2.1.2.1.2.14 [F07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L262) - TopTx declares the opposite direction**
 
 ```math
 \begin{aligned}
@@ -1985,7 +1987,7 @@ A required allocation cannot be declared as a release, or a required release as 
 <a id="ds-tx-accounting-toptx-n06" name="ds-tx-accounting-toptx-n06"></a>
 <a id="ds-tx-accounting-net-change-toptx-n06" name="ds-tx-accounting-net-change-toptx-n06"></a>
 
-**2.1.2.1.2.15 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L281) - TopTx releases while SubTxs allocate**
+**2.1.2.1.2.15 [N06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L281) - TopTx releases while SubTxs allocate**
 
 ```math
 \begin{aligned}
@@ -2004,7 +2006,7 @@ The child allocations exactly offset the parent release. TopTx declares the tran
 <a id="ds-tx-accounting-toptx-n07" name="ds-tx-accounting-toptx-n07"></a>
 <a id="ds-tx-accounting-net-change-toptx-n07" name="ds-tx-accounting-net-change-toptx-n07"></a>
 
-**2.1.2.1.2.16 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L291) - TopTx allocates while SubTxs release**
+**2.1.2.1.2.16 [N07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L291) - TopTx allocates while SubTxs release**
 
 ```math
 \begin{aligned}
@@ -2023,7 +2025,7 @@ The child releases exactly offset the parent allocation. TopTx declares the tran
 <a id="ds-tx-accounting-toptx-n08" name="ds-tx-accounting-toptx-n08"></a>
 <a id="ds-tx-accounting-net-change-toptx-n08" name="ds-tx-accounting-net-change-toptx-n08"></a>
 
-**2.1.2.1.2.17 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L301) - An exact total remains valid when phase 2 fails**
+**2.1.2.1.2.17 [N08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L301) - An exact total remains valid when phase 2 fails**
 
 ```math
 \begin{aligned}
@@ -2041,7 +2043,7 @@ The failing script matches the declared outcome. Net change still uses proposed 
 <a id="ds-tx-accounting-toptx-f08" name="ds-tx-accounting-toptx-f08"></a>
 <a id="ds-tx-accounting-net-change-toptx-f08" name="ds-tx-accounting-net-change-toptx-f08"></a>
 
-**2.1.2.1.2.18 [F08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L313) - An inexact total is rejected even when phase 2 fails**
+**2.1.2.1.2.18 [F08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L313) - An inexact total is rejected even when phase 2 fails**
 
 ```math
 \begin{aligned}
@@ -2059,7 +2061,7 @@ A failing script does not waive deposit exactness. The script matches the declar
 <a id="ds-tx-accounting-toptx-f09" name="ds-tx-accounting-toptx-f09"></a>
 <a id="ds-tx-accounting-net-change-toptx-f09" name="ds-tx-accounting-net-change-toptx-f09"></a>
 
-**2.1.2.1.2.19 [F09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L330) - A delegated change belongs in the total exactly once**
+**2.1.2.1.2.19 [F09](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L330) - A delegated change belongs in the total exactly once**
 
 ```math
 \begin{aligned}
@@ -2135,7 +2137,7 @@ Local accounting does not require independent SubTx financial balance.
 <a id="ds-tx-settlement-participation-p02" name="ds-tx-settlement-participation-p02"></a>
 <a id="ds-tx-accounting-attribution-p01" name="ds-tx-accounting-attribution-p01"></a>
 
-###### 2.1.2.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) - Local and delegated contributions determine TopTx's share
+###### 2.1.2.2.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) - Local and delegated contributions determine TopTx's share
 
 ```math
 \begin{aligned}
@@ -2159,7 +2161,7 @@ used by settlement; it does not assert that a selector or destination is valid.
 <a id="ds-tx-settlement-participation-p03" name="ds-tx-settlement-participation-p03"></a>
 <a id="ds-tx-accounting-attribution-p02" name="ds-tx-accounting-attribution-p02"></a>
 
-###### 2.1.2.2.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) - Delegation moves the signed contribution to TopTx
+###### 2.1.2.2.2 [P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) - Delegation moves the signed contribution to TopTx
 
 Keep the Store operations fixed and change one SubTx declaration from local to
 delegated accounting. Here $`\Delta`$ means **delegated result minus local result**.
@@ -2189,7 +2191,7 @@ may require a different settlement destination or greater coverage.
 <a id="ds-tx-settlement-participation-n10" name="ds-tx-settlement-participation-n10"></a>
 <a id="ds-tx-accounting-attribution-n01" name="ds-tx-accounting-attribution-n01"></a>
 
-###### 2.1.2.2.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) - Explicit zero adds no delegated contribution
+###### 2.1.2.2.3 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) - Explicit zero adds no delegated contribution
 
 ```math
 \begin{aligned}
@@ -2207,7 +2209,7 @@ may require a different settlement destination or greater coverage.
 Observe production accounting for both cases and submit otherwise valid transactions.
 Explicit zero neither requests funding nor delegates a release; TopTx's attributed
 amount remains its own contribution. Equal positive operations still require a
-declaration, as specified under [Zero net change](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change).
+declaration, as specified under [Zero net change](declarations.md#ds-tx-declarations-requirements-operations-zero-net-change).
 
 <a id="ds-tx-conservation" name="ds-tx-conservation"></a>
 <a id="ds-tx-accounting-balance" name="ds-tx-accounting-balance"></a>
@@ -2324,7 +2326,7 @@ vary between rows.
 <a id="ds-tx-conservation-p01" name="ds-tx-conservation-p01"></a>
 <a id="ds-tx-accounting-balance-p01" name="ds-tx-accounting-balance-p01"></a>
 
-###### 2.1.2.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L72) - The transaction conserves value when phase 2 is valid
+###### 2.1.2.3.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L72) - The transaction conserves value when phase 2 is valid
 
 ```math
 \begin{aligned}
@@ -2342,7 +2344,7 @@ The equation covers ADA and native assets while the Store term changes only ADA.
 <a id="ds-tx-conservation-p02" name="ds-tx-conservation-p02"></a>
 <a id="ds-tx-accounting-balance-p02" name="ds-tx-accounting-balance-p02"></a>
 
-###### 2.1.2.3.2 [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L96) - Complete balance determines acceptance
+###### 2.1.2.3.2 [P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L96) - Complete balance determines acceptance
 
 ```math
 \begin{aligned}
@@ -2364,7 +2366,7 @@ accepted despite the SubTxs' individual financial imbalances.
 <a id="ds-tx-conservation-n01" name="ds-tx-conservation-n01"></a>
 <a id="ds-tx-accounting-balance-n01" name="ds-tx-accounting-balance-n01"></a>
 
-###### 2.1.2.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L117) - Fund a net allocation once
+###### 2.1.2.3.3 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L117) - Fund a net allocation once
 
 ```math
 \begin{aligned}
@@ -2390,7 +2392,7 @@ equal to the external transfer. Neither mutation changes a deposit or a reserve.
 <a id="ds-tx-conservation-n02" name="ds-tx-conservation-n02"></a>
 <a id="ds-tx-accounting-balance-n02" name="ds-tx-accounting-balance-n02"></a>
 
-###### 2.1.2.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L137) - Use a net release once
+###### 2.1.2.3.4 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L137) - Use a net release once
 
 ```math
 \begin{aligned}
@@ -2415,7 +2417,7 @@ this fixture makes the declared release equal to the actual Store payout.
 <a id="ds-tx-conservation-n03" name="ds-tx-conservation-n03"></a>
 <a id="ds-tx-accounting-balance-n03" name="ds-tx-accounting-balance-n03"></a>
 
-###### 2.1.2.3.5 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L155) - One SubTx funds another
+###### 2.1.2.3.5 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L155) - One SubTx funds another
 
 ```math
 \begin{aligned}
@@ -2436,7 +2438,7 @@ declarations do not require independently balanced SubTx finances.
 <a id="ds-tx-conservation-n04" name="ds-tx-conservation-n04"></a>
 <a id="ds-tx-accounting-balance-n04" name="ds-tx-accounting-balance-n04"></a>
 
-###### 2.1.2.3.6 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L168) - A SubTx funds TopTx fees
+###### 2.1.2.3.6 [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L168) - A SubTx funds TopTx fees
 
 ```math
 \begin{aligned}
@@ -2456,7 +2458,7 @@ parent fee without changing either body's deposit declaration.
 <a id="ds-tx-conservation-f01" name="ds-tx-conservation-f01"></a>
 <a id="ds-tx-accounting-balance-f01" name="ds-tx-accounting-balance-f01"></a>
 
-###### 2.1.2.3.7 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L181) - One-lovelace deficit or surplus
+###### 2.1.2.3.7 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L181) - One-lovelace deficit or surplus
 
 ```math
 \Delta\text{outputCoins(topTx)}\in\{-1,1\}
@@ -2473,7 +2475,7 @@ Exact deposit declarations excuse neither mismatch.
 <a id="ds-tx-conservation-f02" name="ds-tx-conservation-f02"></a>
 <a id="ds-tx-accounting-balance-f02" name="ds-tx-accounting-balance-f02"></a>
 
-###### 2.1.2.3.8 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L199) - Native-asset quantity or identity mismatch
+###### 2.1.2.3.8 [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L199) - Native-asset quantity or identity mismatch
 
 ```math
 \text{adaBalance}=0\land\text{nativeAssetBalance}\ne0
@@ -2497,7 +2499,7 @@ compensate for a different native-asset identity or quantity.
 <a id="ds-tx-conservation-f03" name="ds-tx-conservation-f03"></a>
 <a id="ds-tx-accounting-balance-f03" name="ds-tx-accounting-balance-f03"></a>
 
-###### 2.1.2.3.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L219) - An exact delegated allocation lacks funding
+###### 2.1.2.3.9 [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L219) - An exact delegated allocation lacks funding
 
 ```math
 \begin{aligned}
@@ -2518,7 +2520,7 @@ Delegation assigns responsibility; it does not supply additional ADA.
 <a id="ds-tx-conservation-n05" name="ds-tx-conservation-n05"></a>
 <a id="ds-tx-accounting-balance-n05" name="ds-tx-accounting-balance-n05"></a>
 
-###### 2.1.2.3.10 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L234) - Equal delegated allocations and releases
+###### 2.1.2.3.10 [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L234) - Equal delegated allocations and releases
 
 ```math
 \begin{aligned}
@@ -2538,7 +2540,7 @@ transfer adds no ADA to either side of the transaction balance.
 <a id="ds-tx-conservation-n06" name="ds-tx-conservation-n06"></a>
 <a id="ds-tx-accounting-balance-n06" name="ds-tx-accounting-balance-n06"></a>
 
-###### 2.1.2.3.11 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L246) - Ten input ADA plus two released ADA
+###### 2.1.2.3.11 [N06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L246) - Ten input ADA plus two released ADA
 
 ```math
 \begin{aligned}
@@ -2563,7 +2565,7 @@ does not impose independent SubTx balance on the other cases.
 <a id="ds-tx-conservation-n07" name="ds-tx-conservation-n07"></a>
 <a id="ds-tx-accounting-balance-n07" name="ds-tx-accounting-balance-n07"></a>
 
-###### 2.1.2.3.12 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L255) - Released ADA contributes to TopTx fees
+###### 2.1.2.3.12 [N07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L255) - Released ADA contributes to TopTx fees
 
 ```math
 \begin{aligned}
@@ -2585,7 +2587,7 @@ child output and the explicit fee contribution. Both declarations remain zero.
 <a id="ds-tx-conservation-f04" name="ds-tx-conservation-f04"></a>
 <a id="ds-tx-accounting-balance-f04" name="ds-tx-accounting-balance-f04"></a>
 
-###### 2.1.2.3.13 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L265) - Released ADA cannot disappear
+###### 2.1.2.3.13 [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L265) - Released ADA cannot disappear
 
 ```math
 \begin{aligned}
@@ -2608,7 +2610,7 @@ this variant leaves the same $`2`$ ADA without a destination.
 <a id="ds-tx-conservation-n08" name="ds-tx-conservation-n08"></a>
 <a id="ds-tx-accounting-balance-n08" name="ds-tx-accounting-balance-n08"></a>
 
-###### 2.1.2.3.14 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L280) - Balanced proposal, failed phase 2
+###### 2.1.2.3.14 [N08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L280) - Balanced proposal, failed phase 2
 
 ```math
 \text{phase2Invalid}\land\text{transactionBalance}=0
@@ -2672,7 +2674,7 @@ belongs to the [shared collateral authorization rules](#ds-collateral-existing-r
 <a id="ds-tx-authorization-n02" name="ds-tx-authorization-n02"></a>
 <a id="ds-tx-authorization-n01" name="ds-tx-authorization-n01"></a>
 
-##### 2.1.3.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L51) - Bob spends an output funded by Alice
+##### 2.1.3.1 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L51) - Bob spends an output funded by Alice
 
 ```math
 \begin{aligned}
@@ -2692,7 +2694,7 @@ requirement.
 
 <a id="ds-tx-authorization-f01" name="ds-tx-authorization-f01"></a>
 
-##### 2.1.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L73) - Alice's signature cannot replace Bob's
+##### 2.1.3.2 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L73) - Alice's signature cannot replace Bob's
 
 ```math
 \begin{aligned}
@@ -2720,7 +2722,7 @@ changing the child witnesses so that the parent's signature remains valid.
 
 <a id="ds-tx-authorization-n03" name="ds-tx-authorization-n03"></a>
 
-**Related rule — reference-only access.** [Release N09](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n09)
+**Related rule — reference-only access.** [Release N09](declarations.md#ds-tx-declarations-requirements-operations-release-n09)
 already checks that referencing live deposit-backed outputs does not require a release
 declaration. A reference does not consume the output or release its deposit. Declaring
 an amount released from reference inputs would be an inexact [Accounting](#ds-tx-accounting-net-change)
@@ -2813,7 +2815,7 @@ failing script and valid collateral. These conditions isolate designation itself
 <a id="ds-tx-settlement-participation-p01" name="ds-tx-settlement-participation-p01"></a>
 <a id="ds-tx-settlement-designation-p01" name="ds-tx-settlement-designation-p01"></a>
 
-###### 2.1.4.1.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L47) - Designation follows TopTx's release share
+###### 2.1.4.1.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L47) - Designation follows TopTx's release share
 
 ```math
 \text{totalChange}<0
@@ -2825,7 +2827,7 @@ For each generated net-release proposal, check both designation choices and both
 <a id="ds-tx-settlement-participation-n01" name="ds-tx-settlement-participation-n01"></a>
 <a id="ds-tx-settlement-designation-n01" name="ds-tx-settlement-designation-n01"></a>
 
-###### 2.1.4.1.2 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L69) - SubTxs settle the entire release
+###### 2.1.4.1.2 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L69) - SubTxs settle the entire release
 
 ```math
 \text{totalChange}<0\land\text{topTxChange}=0\land\text{noTopTxOutput}
@@ -2837,7 +2839,7 @@ Every SubTx settles its release locally. TopTx has no remaining release share, s
 <a id="ds-tx-settlement-participation-n02" name="ds-tx-settlement-participation-n02"></a>
 <a id="ds-tx-settlement-designation-n02" name="ds-tx-settlement-designation-n02"></a>
 
-###### 2.1.4.1.3 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L82) - Standalone TopTx settles its release
+###### 2.1.4.1.3 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L82) - Standalone TopTx settles its release
 
 ```math
 \text{totalChange}<0\land\text{topTxChange}<0\land\text{hasTopTxOutput}
@@ -2849,7 +2851,7 @@ A standalone TopTx releases deposits and designates one of its outputs. With no 
 <a id="ds-tx-settlement-participation-n03" name="ds-tx-settlement-participation-n03"></a>
 <a id="ds-tx-settlement-designation-n03" name="ds-tx-settlement-designation-n03"></a>
 
-###### 2.1.4.1.4 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L93) - TopTx and SubTxs each settle a share
+###### 2.1.4.1.4 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L93) - TopTx and SubTxs each settle a share
 
 ```math
 \begin{aligned}
@@ -2865,7 +2867,7 @@ Generate releases in TopTx and several SubTxs. Each child designates its own out
 <a id="ds-tx-settlement-participation-n04" name="ds-tx-settlement-participation-n04"></a>
 <a id="ds-tx-settlement-designation-n04" name="ds-tx-settlement-designation-n04"></a>
 
-###### 2.1.4.1.5 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L106) - TopTx's share exceeds the transaction release
+###### 2.1.4.1.5 [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L106) - TopTx's share exceeds the transaction release
 
 ```math
 \begin{aligned}
@@ -2880,7 +2882,7 @@ A local child allocation reduces the transaction release without reducing TopTx�
 <a id="ds-tx-settlement-participation-f01" name="ds-tx-settlement-participation-f01"></a>
 <a id="ds-tx-settlement-designation-f01" name="ds-tx-settlement-designation-f01"></a>
 
-###### 2.1.4.1.6 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L120) - TopTx omits a required output
+###### 2.1.4.1.6 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L120) - TopTx omits a required output
 
 ```math
 \begin{aligned}
@@ -2894,7 +2896,7 @@ Keep the total exact and the transaction funded, but use `NoTopTxSettlement` des
 <a id="ds-tx-settlement-participation-f02" name="ds-tx-settlement-participation-f02"></a>
 <a id="ds-tx-settlement-designation-f02" name="ds-tx-settlement-designation-f02"></a>
 
-###### 2.1.4.1.7 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L131) - TopTx designates an unnecessary output
+###### 2.1.4.1.7 [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L131) - TopTx designates an unnecessary output
 
 ```math
 \begin{aligned}
@@ -2908,7 +2910,7 @@ All releases are settled locally by SubTxs. An additional TopTx designation is r
 <a id="ds-tx-settlement-participation-n05" name="ds-tx-settlement-participation-n05"></a>
 <a id="ds-tx-settlement-designation-n05" name="ds-tx-settlement-designation-n05"></a>
 
-###### 2.1.4.1.8 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L144) - Net allocation, even though TopTx releases
+###### 2.1.4.1.8 [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L144) - Net allocation, even though TopTx releases
 
 ```math
 \text{totalChange}>0\land\text{topTxChange}<0\land\text{noTopTxOutput}
@@ -2920,7 +2922,7 @@ Local SubTx allocations exceed TopTx’s release. The complete transaction decla
 <a id="ds-tx-settlement-participation-n06" name="ds-tx-settlement-participation-n06"></a>
 <a id="ds-tx-settlement-designation-n06" name="ds-tx-settlement-designation-n06"></a>
 
-###### 2.1.4.1.9 [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L157) - Explicit-zero total, even though TopTx releases
+###### 2.1.4.1.9 [N06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L157) - Explicit-zero total, even though TopTx releases
 
 ```math
 \text{totalChange}=0\land\text{topTxChange}<0\land\text{noTopTxOutput}
@@ -2932,7 +2934,7 @@ Local SubTx allocations exactly offset TopTx’s release. TopTx declares explici
 <a id="ds-tx-settlement-participation-n07" name="ds-tx-settlement-participation-n07"></a>
 <a id="ds-tx-settlement-designation-n07" name="ds-tx-settlement-designation-n07"></a>
 
-###### 2.1.4.1.10 [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L170) - Net release, while TopTx allocates
+###### 2.1.4.1.10 [N07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L170) - Net release, while TopTx allocates
 
 ```math
 \text{totalChange}<0\land\text{topTxChange}>0\land\text{noTopTxOutput}
@@ -2944,7 +2946,7 @@ Local SubTx releases exceed TopTx’s allocation. The complete transaction relea
 <a id="ds-tx-settlement-participation-n08" name="ds-tx-settlement-participation-n08"></a>
 <a id="ds-tx-settlement-designation-n08" name="ds-tx-settlement-designation-n08"></a>
 
-###### 2.1.4.1.11 [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L183) - Valid designation when phase 2 fails
+###### 2.1.4.1.11 [N08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L183) - Valid designation when phase 2 fails
 
 ```math
 \text{phase2Invalid}\land\text{totalChange}<0\land\text{designationValid}
@@ -2956,7 +2958,7 @@ Use both valid choices with an actual failing script: designate a TopTx output w
 <a id="ds-tx-settlement-participation-f03" name="ds-tx-settlement-participation-f03"></a>
 <a id="ds-tx-settlement-designation-f03" name="ds-tx-settlement-designation-f03"></a>
 
-###### 2.1.4.1.12 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L199) - Invalid designation when phase 2 fails
+###### 2.1.4.1.12 [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L199) - Invalid designation when phase 2 fails
 
 ```math
 \text{phase2Invalid}\land\text{totalChange}<0\land\neg\text{designationValid}
@@ -3002,13 +3004,13 @@ release to TopTx instead.
 **Test conditions:** Declarations and designations are correct, selected existing
 outputs have enough ADA, and transactions are funded. Negative cases change the
 index while preserving those conditions. The primitive index range belongs to
-[Grammar](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar); these tests check whether the indexed output
+[Grammar](declarations.md#ds-tx-declarations-grammar); these tests check whether the indexed output
 exists. [Output coin](#ds-tx-settlement-output-coin) checks the separate ADA bound.
 
 <a id="ds-tx-settlement-destination-p01" name="ds-tx-settlement-destination-p01"></a>
 <a id="ds-tx-settlement-output-index-p01" name="ds-tx-settlement-output-index-p01"></a>
 
-###### 2.1.4.2.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L60) - The index belongs to the declaring body
+###### 2.1.4.2.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L60) - The index belongs to the declaring body
 
 ```math
 \begin{aligned}
@@ -3022,7 +3024,7 @@ Generate ordinary output sequences, including an empty sequence. For TopTx and S
 <a id="ds-tx-settlement-destination-f01" name="ds-tx-settlement-destination-f01"></a>
 <a id="ds-tx-settlement-output-index-f01" name="ds-tx-settlement-output-index-f01"></a>
 
-###### 2.1.4.2.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L77) - The first missing own index is rejected
+###### 2.1.4.2.2 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L77) - The first missing own index is rejected
 
 ```math
 \text{index}=|\text{ownOutputs(body)}|
@@ -3034,7 +3036,7 @@ Starting from a valid proposal, select the index immediately after the final out
 <a id="ds-tx-settlement-destination-f02" name="ds-tx-settlement-destination-f02"></a>
 <a id="ds-tx-settlement-output-index-f02" name="ds-tx-settlement-output-index-f02"></a>
 
-###### 2.1.4.2.3 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L100) - A SubTx cannot select TopTx's output
+###### 2.1.4.2.3 [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L100) - A SubTx cannot select TopTx's output
 
 ```math
 \begin{aligned}
@@ -3048,7 +3050,7 @@ Give TopTx one more output than its SubTx. The child selects the index that exis
 <a id="ds-tx-settlement-destination-f03" name="ds-tx-settlement-destination-f03"></a>
 <a id="ds-tx-settlement-output-index-f03" name="ds-tx-settlement-output-index-f03"></a>
 
-###### 2.1.4.2.4 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L121) - Collateral return is outside the ordinary output sequence
+###### 2.1.4.2.4 [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L121) - Collateral return is outside the ordinary output sequence
 
 ```math
 \begin{aligned}
@@ -3063,7 +3065,7 @@ Use a genuinely phase-2-invalid transaction with collateral return. Select the i
 <a id="ds-tx-settlement-destination-f04" name="ds-tx-settlement-destination-f04"></a>
 <a id="ds-tx-settlement-output-index-f04" name="ds-tx-settlement-output-index-f04"></a>
 
-###### 2.1.4.2.5 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L142) - A SubTx without outputs cannot settle locally
+###### 2.1.4.2.5 [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L142) - A SubTx without outputs cannot settle locally
 
 ```math
 \begin{aligned}
@@ -3078,7 +3080,7 @@ Start with a valid delegated final release. Replace delegation with local output
 <a id="ds-tx-settlement-destination-n01" name="ds-tx-settlement-destination-n01"></a>
 <a id="ds-tx-settlement-output-index-n01" name="ds-tx-settlement-output-index-n01"></a>
 
-###### 2.1.4.2.6 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L161) - The first and last own outputs are valid
+###### 2.1.4.2.6 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L161) - The first and last own outputs are valid
 
 ```math
 \begin{aligned}
@@ -3093,7 +3095,7 @@ At both body levels, designate the first output and then the last output. Each c
 <a id="ds-tx-settlement-destination-f05" name="ds-tx-settlement-destination-f05"></a>
 <a id="ds-tx-settlement-output-index-f05" name="ds-tx-settlement-output-index-f05"></a>
 
-###### 2.1.4.2.7 [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L175) - TopTx cannot select a SubTx's output
+###### 2.1.4.2.7 [F05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L175) - TopTx cannot select a SubTx's output
 
 ```math
 \begin{aligned}
@@ -3107,7 +3109,7 @@ Give a nested SubTx one more output than TopTx. The index exists in the child bu
 <a id="ds-tx-settlement-destination-f06" name="ds-tx-settlement-destination-f06"></a>
 <a id="ds-tx-settlement-output-index-f06" name="ds-tx-settlement-output-index-f06"></a>
 
-###### 2.1.4.2.8 [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L194) - A SubTx cannot select a sibling's output
+###### 2.1.4.2.8 [F06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L194) - A SubTx cannot select a sibling's output
 
 ```math
 \begin{aligned}
@@ -3121,7 +3123,7 @@ Give the sibling one more output than the declaring SubTx. Both children release
 <a id="ds-tx-settlement-destination-n02" name="ds-tx-settlement-destination-n02"></a>
 <a id="ds-tx-settlement-output-index-n02" name="ds-tx-settlement-output-index-n02"></a>
 
-###### 2.1.4.2.9 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L215) - Valid output indices when phase 2 fails
+###### 2.1.4.2.9 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L215) - Valid output indices when phase 2 fails
 
 ```math
 \begin{aligned}
@@ -3136,7 +3138,7 @@ Use a real failing script and designate the final own regular output at both bod
 <a id="ds-tx-settlement-destination-f07" name="ds-tx-settlement-destination-f07"></a>
 <a id="ds-tx-settlement-output-index-f07" name="ds-tx-settlement-output-index-f07"></a>
 
-###### 2.1.4.2.10 [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L229) - An invalid output index still fails when phase 2 fails
+###### 2.1.4.2.10 [F07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L229) - An invalid output index still fails when phase 2 fails
 
 ```math
 \begin{aligned}
@@ -3151,7 +3153,7 @@ From a valid phase-2-invalid control, replace one index with the first out-of-ra
 <a id="ds-tx-settlement-participation-n09" name="ds-tx-settlement-participation-n09"></a>
 <a id="ds-tx-settlement-output-index-n03" name="ds-tx-settlement-output-index-n03"></a>
 
-###### 2.1.4.2.11 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) - A SubTx without outputs delegates its final release
+###### 2.1.4.2.11 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) - A SubTx without outputs delegates its final release
 
 ```math
 \begin{aligned}
@@ -3214,7 +3216,7 @@ comparison means one lovelace.
 <a id="ds-tx-settlement-coverage-p01" name="ds-tx-settlement-coverage-p01"></a>
 <a id="ds-tx-settlement-output-coin-p01" name="ds-tx-settlement-output-coin-p01"></a>
 
-###### 2.1.4.3.1 [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L43) - Output ADA must cover the required share
+###### 2.1.4.3.1 [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L43) - Output ADA must cover the required share
 
 ```math
 \text{passesOutputCoinValidation}
@@ -3226,7 +3228,7 @@ Compare the isolated output-coin validator with the independent lower-bound pred
 <a id="ds-tx-settlement-coverage-f01" name="ds-tx-settlement-coverage-f01"></a>
 <a id="ds-tx-settlement-output-coin-f01" name="ds-tx-settlement-output-coin-f01"></a>
 
-###### 2.1.4.3.2 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) - Min-ADA output, one lovelace short
+###### 2.1.4.3.2 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) - Min-ADA output, one lovelace short
 
 ```math
 \begin{aligned}
@@ -3241,7 +3243,7 @@ The index exists and all declarations are exact. Move one lovelace from the desi
 <a id="ds-tx-settlement-coverage-n01" name="ds-tx-settlement-coverage-n01"></a>
 <a id="ds-tx-settlement-output-coin-n01" name="ds-tx-settlement-output-coin-n01"></a>
 
-###### 2.1.4.3.3 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) - Min-ADA output, exact amount
+###### 2.1.4.3.3 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) - Min-ADA output, exact amount
 
 ```math
 \text{implicit(selectedOutput)}
@@ -3254,7 +3256,7 @@ Exact equality is sufficient. Test the boundary for TopTx and for a SubTx settli
 <a id="ds-tx-settlement-coverage-n02" name="ds-tx-settlement-coverage-n02"></a>
 <a id="ds-tx-settlement-output-coin-n02" name="ds-tx-settlement-output-coin-n02"></a>
 
-###### 2.1.4.3.4 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) - Min-ADA output, extra ADA
+###### 2.1.4.3.4 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) - Min-ADA output, extra ADA
 
 ```math
 \text{implicit(selectedOutput)}
@@ -3267,7 +3269,7 @@ The selected min-ADA output may contain additional ADA. Its coin value need not 
 <a id="ds-tx-settlement-coverage-f02" name="ds-tx-settlement-coverage-f02"></a>
 <a id="ds-tx-settlement-output-coin-f02" name="ds-tx-settlement-output-coin-f02"></a>
 
-###### 2.1.4.3.5 [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L117) - An external deposit cannot fill the ADA shortfall
+###### 2.1.4.3.5 [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L117) - An external deposit cannot fill the ADA shortfall
 
 ```math
 \begin{aligned}
@@ -3284,7 +3286,7 @@ Select a deposit-backed output whose application ADA is one lovelace short. Even
 <a id="ds-tx-settlement-coverage-n03" name="ds-tx-settlement-coverage-n03"></a>
 <a id="ds-tx-settlement-output-coin-n03" name="ds-tx-settlement-output-coin-n03"></a>
 
-###### 2.1.4.3.6 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) - Deposit-backed output, exact application ADA
+###### 2.1.4.3.6 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) - Deposit-backed output, exact application ADA
 
 ```math
 \text{depositBacked(selectedOutput)}
@@ -3297,7 +3299,7 @@ Allocate the external deposit independently and place exactly the required settl
 <a id="ds-tx-settlement-coverage-n04" name="ds-tx-settlement-coverage-n04"></a>
 <a id="ds-tx-settlement-output-coin-n04" name="ds-tx-settlement-output-coin-n04"></a>
 
-###### 2.1.4.3.7 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L161) - TopTx's share is smaller than the transaction release
+###### 2.1.4.3.7 [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L161) - TopTx's share is smaller than the transaction release
 
 ```math
 \begin{aligned}
@@ -3312,7 +3314,7 @@ For example, the transaction releases 5 ADA: a SubTx settles 3 ADA locally and T
 <a id="ds-tx-settlement-coverage-n05" name="ds-tx-settlement-coverage-n05"></a>
 <a id="ds-tx-settlement-output-coin-n05" name="ds-tx-settlement-output-coin-n05"></a>
 
-###### 2.1.4.3.8 [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L177) - Exact output ADA when phase 2 fails
+###### 2.1.4.3.8 [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L177) - Exact output ADA when phase 2 fails
 
 ```math
 \text{phase2Invalid}
@@ -3325,7 +3327,7 @@ Use a real failing script with exactly the required coin in the designated ordin
 <a id="ds-tx-settlement-coverage-f03" name="ds-tx-settlement-coverage-f03"></a>
 <a id="ds-tx-settlement-output-coin-f03" name="ds-tx-settlement-output-coin-f03"></a>
 
-###### 2.1.4.3.9 [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L197) - One lovelace short when phase 2 fails
+###### 2.1.4.3.9 [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L197) - One lovelace short when phase 2 fails
 
 ```math
 \begin{aligned}
@@ -3340,7 +3342,7 @@ From the valid phase-2-invalid controls, move one lovelace out of the selected o
 <a id="ds-tx-settlement-coverage-f04" name="ds-tx-settlement-coverage-f04"></a>
 <a id="ds-tx-settlement-output-coin-f04" name="ds-tx-settlement-output-coin-f04"></a>
 
-###### 2.1.4.3.10 [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L219) - The transaction release is smaller than TopTx's share
+###### 2.1.4.3.10 [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L219) - The transaction release is smaller than TopTx's share
 
 ```math
 \begin{aligned}
@@ -3379,7 +3381,7 @@ A newly proposed min-ADA output must satisfy $`\text{outputADA}(o)\geq F_S(o)`$.
 This requirement is **uncapped**. The capped historical reserve of an existing or
 migrated entry is a consumption query, not the test for admitting a new output.
 `DepositBackedTxOut` still requires its
-[allocation declaration](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation),
+[allocation declaration](declarations.md#ds-tx-declarations-requirements-operations-allocation),
 [exact deposit accounting](#ds-tx-accounting-net-change-subtx), and other output constraints.
 
 TopTx and SubTx validation read `currentFormula` from the Store, so the bound
@@ -3391,7 +3393,7 @@ cannot select V2 without Store history. Builders needing the active bound use:
 toCoin $ Formula.computeDeposit (Store.currentFormula store) proposedMinAdaOutput
 ```
 
-Here `Formula` is [`Dijkstra.UTxOs.Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs).
+Here `Formula` is [`Dijkstra.UTxOs.Deposit.Formula`](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs).
 Earlier eras retain their existing minimum-coin rules.
 
 **Common premises:** valid addresses, nonnegative assets, exact declarations and fully
@@ -3403,7 +3405,7 @@ are checked but not created.
 <a id="ds-tx-application-assets-n01" name="ds-tx-application-assets-n01"></a>
 <a id="ds-tx-minimum-coin-n01" name="ds-tx-minimum-coin-n01"></a>
 
-##### 2.1.5.1 [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L47) - Native assets without ADA
+##### 2.1.5.1 [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L47) - Native assets without ADA
 
 ```math
 \begin{aligned}
@@ -3420,7 +3422,7 @@ so it needs no application ADA to pay for storage.
 <a id="ds-tx-application-assets-n02" name="ds-tx-application-assets-n02"></a>
 <a id="ds-tx-minimum-coin-n02" name="ds-tx-minimum-coin-n02"></a>
 
-##### 2.1.5.2 [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L61) - Datum or reference script without assets
+##### 2.1.5.2 [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L61) - Datum or reference script without assets
 
 ```math
 \begin{aligned}
@@ -3436,7 +3438,7 @@ the datum or script bytes still contribute to its fully funded external deposit.
 <a id="ds-tx-application-assets-n03" name="ds-tx-application-assets-n03"></a>
 <a id="ds-tx-minimum-coin-n03" name="ds-tx-minimum-coin-n03"></a>
 
-##### 2.1.5.3 [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) - Address-only output
+##### 2.1.5.3 [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) - Address-only output
 
 ```math
 \text{depositBacked(output)}\land\text{addressOnly(output)}
@@ -3458,7 +3460,7 @@ storage and requires its full deposit; mandatory fields are not removed.
 <a id="ds-tx-application-assets-n04" name="ds-tx-application-assets-n04"></a>
 <a id="ds-tx-minimum-coin-n04" name="ds-tx-minimum-coin-n04"></a>
 
-##### 2.1.5.4 [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) - Exact minimum for a min-ADA output
+##### 2.1.5.4 [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) - Exact minimum for a min-ADA output
 
 ```math
 \begin{aligned}
@@ -3475,7 +3477,7 @@ control for F01.
 <a id="ds-tx-application-assets-f01" name="ds-tx-application-assets-f01"></a>
 <a id="ds-tx-minimum-coin-f01" name="ds-tx-minimum-coin-f01"></a>
 
-##### 2.1.5.5 [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L99) - Min-ADA output one lovelace short
+##### 2.1.5.5 [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L99) - Min-ADA output one lovelace short
 
 ```math
 \begin{aligned}
@@ -3528,27 +3530,27 @@ Applied allocation records and balances belong to [Ledger effects](#ds-state).
 
 **Existing collateral rules**
 
-The [Dijkstra Imp suite](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp.hs#L38)
-inherits the [Conway](../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Imp.hs#L55),
-[Babbage](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp.hs#L36)
-and [Alonzo](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp.hs#L31)
+The [Dijkstra Imp suite](../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp.hs#L38)
+inherits the [Conway](../../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Imp.hs#L55),
+[Babbage](../../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp.hs#L36)
+and [Alonzo](../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp.hs#L31)
 suites. These are shared tests executed with Dijkstra, not tests to duplicate under
 DepositStore. Their collateral fixtures use min-ADA outputs; Deposit-backed
 integration remains a separate coverage obligation.
 
 | Contract | Existing executable reference | Scope of that evidence |
 | --- | --- | --- |
-| Every collateral input resolves to an unspent output | Alonzo UTXO: [unknown input](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L47), [already spent](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L57) | Rejects bad references in Dijkstra too. |
-| Collateral covers the fee percentage, even if scripts succeed | Alonzo UTXO: [insufficient collateral](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L92) | Existing percentage and ceiling rule; no external deposits. |
-| Each collateral payment key supplies its witness | Alonzo UTXOW: [missing collateral witness](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxowSpec/Invalid.hs#L205) | Missing witness for a min-ADA input. |
-| A supplied total equals input coins minus return coins | Babbage UTXOS: [incorrect collateral total](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155) | Mismatch rejected with successful scripts; min-ADA return. |
-| Phase-2 failure can return collateral without a supplied total | Babbage UTXOW: [use a collateral output](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxowSpec/Invalid.hs#L125) | Accepted failure-path min-ADA return; omission is incidental coverage. |
-| Return-output validity is checked without redeemers | Dijkstra UTXO: [pointer address in collateral return](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp/UtxoSpec.hs#L54) | Rejects an invalid address; does not cover the minimum-coin or input-count boundaries. |
+| Every collateral input resolves to an unspent output | Alonzo UTXO: [unknown input](../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L47), [already spent](../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L57) | Rejects bad references in Dijkstra too. |
+| Collateral covers the fee percentage, even if scripts succeed | Alonzo UTXO: [insufficient collateral](../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxoSpec.hs#L92) | Existing percentage and ceiling rule; no external deposits. |
+| Each collateral payment key supplies its witness | Alonzo UTXOW: [missing collateral witness](../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Imp/UtxowSpec/Invalid.hs#L205) | Missing witness for a min-ADA input. |
+| A supplied total equals input coins minus return coins | Babbage UTXOS: [incorrect collateral total](../../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155) | Mismatch rejected with successful scripts; min-ADA return. |
+| Phase-2 failure can return collateral without a supplied total | Babbage UTXOW: [use a collateral output](../../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxowSpec/Invalid.hs#L125) | Accepted failure-path min-ADA return; omission is incidental coverage. |
+| Return-output validity is checked without redeemers | Dijkstra UTXO: [pointer address in collateral return](../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Imp/UtxoSpec.hs#L54) | Rejects an invalid address; does not cover the minimum-coin or input-count boundaries. |
 
 These links establish test ownership and registration, not a new passing run.
 `disableInConformanceIt` retains the implementation check while disabling its
-[conformance comparison](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/ImpTest.hs#L852).
-Recorded executions remain in the [verification record](dijkstra-deposit-store-verification.md).
+[conformance comparison](../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/ImpTest.hs#L852).
+Recorded executions remain in the [verification record](verification.md).
 
 The shared trigger is (`subTxRedeemers` is the union of all children’s redeemers):
 
@@ -3581,13 +3583,13 @@ valid, and includes an accepted control.
 
 <a id="ds-collateral-scope-n01" name="ds-collateral-scope-n01"></a><a id="2214-n01---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore" name="2214-n01---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore"></a><a id="ds-collateral-funding-n09" name="ds-collateral-funding-n09"></a><a id="22116-n09---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore" name="22116-n09---does-not-require-collateral-merely-because-a-transaction-uses-the-depositstore"></a><a id="ds-collateral-store-activity-control" name="ds-collateral-store-activity-control"></a>
 
-The successful path of [Minimum coin N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75)
+The successful path of [Minimum coin N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75)
 already accepts an address-only Deposit-backed output with its allocation declared.
 It is the existing control for Store activity without redeemers. **Remaining
 extension:** explicitly assert empty redeemers and empty collateral inputs in that
 prepared transaction; acceptance alone does not prove both fields are absent.
 Deposit-backed fixture extensions should reuse the shared rule cases. The existing Babbage
-[return fixup](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/ImpTest.hs#L92)
+[return fixup](../../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/ImpTest.hs#L92)
 currently rejects `DepositBackedTxOut`, so inherited implicit fixtures do not supply
 that extension automatically.
 
@@ -3646,10 +3648,10 @@ independently funded minimum. [Fees](#ds-state-fees) owns that surplus destinati
 
 | Case | Scenario | Expected result |
 | --- | --- | --- |
-| <a id="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold" name="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold"></a><a id="ds-collateral-funding-n01" name="ds-collateral-funding-n01"></a><a id="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed" name="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed"></a><a id="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="ds-collateral-funding-n02" name="ds-collateral-funding-n02"></a><a id="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="ds-collateral-funding-n03" name="ds-collateral-funding-n03"></a><a id="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="ds-collateral-funding-n04" name="ds-collateral-funding-n04"></a><a id="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="2237-p01---collateral-coins-cover-the-minimum" name="2237-p01---collateral-coins-cover-the-minimum"></a><a id="ds-collateral-funding-p01" name="ds-collateral-funding-p01"></a><a id="2217-p01---collateral-coins-cover-the-minimum" name="2217-p01---collateral-coins-cover-the-minimum"></a><a id="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="ds-collateral-funding-n05" name="ds-collateral-funding-n05"></a><a id="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="ds-collateral-funding-n06" name="ds-collateral-funding-n06"></a><a id="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="ds-collateral-funding-n07" name="ds-collateral-funding-n07"></a><a id="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee" name="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-n08" name="ds-collateral-funding-n08"></a><a id="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit" name="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit"></a><a id="ds-collateral-settlement-n01" name="ds-collateral-settlement-n01"></a><a id="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration" name="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-funding-n10" name="ds-collateral-funding-n10"></a><a id="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration" name="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-settlement-n02" name="ds-collateral-settlement-n02"></a><a id="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return" name="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return"></a><a id="ds-collateral-funding-n11" name="ds-collateral-funding-n11"></a><a id="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return" name="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L56)** | **Funded collateral.** Cover the return, any positive deposit shortfall and the rounded-up minimum; include exact equality. | Accept with successful scripts or an accepted phase-2 failure. |
-| <a id="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed" name="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-funding-f01" name="ds-collateral-funding-f01"></a><a id="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed" name="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed"></a><a id="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="ds-collateral-funding-f02" name="ds-collateral-funding-f02"></a><a id="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f03" name="ds-collateral-funding-f03"></a><a id="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f04" name="ds-collateral-funding-f04"></a><a id="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-f05" name="ds-collateral-funding-f05"></a><a id="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent" name="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent"></a><a id="ds-collateral-funding-f06" name="ds-collateral-funding-f06"></a><a id="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent" name="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L78)** | **Underfunded collateral.** Set the coin fee below the minimum, including one lovelace below the ceiling, an absent total, an oversized return and no-return Store inputs carrying zero application ADA. | Reject only with `InsufficientCollateral`; funded controls accept. |
-| <a id="ds-collateral-settlement-p01" name="ds-collateral-settlement-p01"></a><a id="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations" name="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations"></a><a id="ds-collateral-funding-p02" name="ds-collateral-funding-p02"></a><a id="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding" name="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding"></a>**3.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L128)** | **Independent ordinary declarations.** Keep collateral inputs, return, fee and prices fixed; vary ordinary declaration forms in the isolated calculation. | The released deposits, return deposit and additional funding stay unchanged. |
-| <a id="ds-collateral-funding-p03" name="ds-collateral-funding-p03"></a>**4.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L152)** | **Min-ADA return at the active minimum.** Activate V1 or V2 after funding the collateral input. Vary the return's inline datum size; preserve the input's historical release and re-sign each proposal. | Exact current-formula ADA accepts; one lovelace below rejects only with `BabbageOutputTooSmallUTxO`. |
+| <a id="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold" name="2232-n01---accepts-a-batch-whose-scripts-succeed-when-its-required-collateral-is-fully-funded-and-all-other-rules-hold"></a><a id="ds-collateral-funding-n01" name="ds-collateral-funding-n01"></a><a id="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed" name="2212-n01---accepts-a-fully-funded-store-backed-return-when-all-scripts-succeed"></a><a id="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2233-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="ds-collateral-funding-n02" name="ds-collateral-funding-n02"></a><a id="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns" name="2213-n02---accepts-funded-collateral-with-implicit-or-store-backed-inputs-and-returns"></a><a id="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2234-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="ds-collateral-funding-n03" name="ds-collateral-funding-n03"></a><a id="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount" name="2214-n03---reuses-released-utxo-capacity-deposits-when-the-collateral-return-requires-the-same-amount"></a><a id="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2235-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="ds-collateral-funding-n04" name="ds-collateral-funding-n04"></a><a id="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins" name="2215-n04---funds-additional-return-utxo-capacity-deposits-from-collateral-coins"></a><a id="2237-p01---collateral-coins-cover-the-minimum" name="2237-p01---collateral-coins-cover-the-minimum"></a><a id="ds-collateral-funding-p01" name="ds-collateral-funding-p01"></a><a id="2217-p01---collateral-coins-cover-the-minimum" name="2217-p01---collateral-coins-cover-the-minimum"></a><a id="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22311-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="ds-collateral-funding-n05" name="ds-collateral-funding-n05"></a><a id="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs" name="22111-n05---counts-implicit-collateral-inputs-full-ada-as-coins-and-zero-released-store-deposits-when-mixed-with-store-backed-inputs"></a><a id="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22312-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="ds-collateral-funding-n06" name="ds-collateral-funding-n06"></a><a id="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs" name="22112-n06---requires-zero-store-deposit-for-an-implicit-collateral-return-even-with-store-backed-collateral-inputs"></a><a id="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22313-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="ds-collateral-funding-n07" name="ds-collateral-funding-n07"></a><a id="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded" name="22113-n07---accepts-a-store-backed-collateral-return-with-zero-application-ada-when-its-deposit-and-the-minimum-fee-are-funded"></a><a id="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee" name="22315-n08---accepts-collateral-funding-exactly-at-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-n08" name="ds-collateral-funding-n08"></a><a id="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit" name="22115-n08---accepts-the-exact-rounded-up-minimum-fee-after-funding-the-returns-additional-deposit"></a><a id="ds-collateral-settlement-n01" name="ds-collateral-settlement-n01"></a><a id="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration" name="2261-n01---derives-store-changes-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-funding-n10" name="ds-collateral-funding-n10"></a><a id="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration" name="22117-n10---derives-deposit-funding-from-collateral-inputs-and-return-without-a-separate-declaration"></a><a id="ds-collateral-settlement-n02" name="ds-collateral-settlement-n02"></a><a id="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return" name="2263-n02---derives-the-released-store-amount-from-multiple-ada-only-collateral-inputs-with-no-return"></a><a id="ds-collateral-funding-n11" name="ds-collateral-funding-n11"></a><a id="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return" name="22119-n11---derives-released-deposits-from-mixed-ada-only-collateral-inputs-with-no-return"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L56)** | **Funded collateral.** Cover the return, any positive deposit shortfall and the rounded-up minimum; include exact equality. | Accept with successful scripts or an accepted phase-2 failure. |
+| <a id="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed" name="2231-f01---rejects-insufficient-collateral-funding-when-redeemers-trigger-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-funding-f01" name="ds-collateral-funding-f01"></a><a id="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed" name="2211-f01---rejects-an-underfunded-store-backed-return-even-when-all-scripts-succeed"></a><a id="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2236-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="ds-collateral-funding-f02" name="ds-collateral-funding-f02"></a><a id="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits" name="2216-f02---rejects-collateral-coins-below-the-minimum-fee-after-funding-the-return-and-additional-utxo-capacity-deposits"></a><a id="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2238-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f03" name="ds-collateral-funding-f03"></a><a id="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus" name="2218-f03---rejects-collateral-whose-minimum-fee-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2239-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="ds-collateral-funding-f04" name="ds-collateral-funding-f04"></a><a id="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus" name="2219-f04---rejects-a-collateral-return-whose-funding-depends-on-released-utxo-capacity-deposit-surplus"></a><a id="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22310-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="ds-collateral-funding-f05" name="ds-collateral-funding-f05"></a><a id="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee" name="22110-f05---rejects-collateral-funding-one-lovelace-below-a-rounded-up-minimum-fee"></a><a id="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent" name="22314-f06---rejects-underfunded-collateral-when-the-optional-total-is-absent"></a><a id="ds-collateral-funding-f06" name="ds-collateral-funding-f06"></a><a id="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent" name="22114-f06---rejects-an-underfunded-store-backed-return-when-the-optional-total-is-absent"></a>**2.&nbsp;[F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L78)** | **Underfunded collateral.** Set the coin fee below the minimum, including one lovelace below the ceiling, an absent total, an oversized return and no-return Store inputs carrying zero application ADA. | Reject only with `InsufficientCollateral`; funded controls accept. |
+| <a id="ds-collateral-settlement-p01" name="ds-collateral-settlement-p01"></a><a id="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations" name="2262-p01---derived-collateral-store-change-is-independent-of-ordinary-store-declarations"></a><a id="ds-collateral-funding-p02" name="ds-collateral-funding-p02"></a><a id="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding" name="22118-p02---ordinary-declarations-do-not-change-collateral-deposit-funding"></a>**3.&nbsp;[P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L128)** | **Independent ordinary declarations.** Keep collateral inputs, return, fee and prices fixed; vary ordinary declaration forms in the isolated calculation. | The released deposits, return deposit and additional funding stay unchanged. |
+| <a id="ds-collateral-funding-p03" name="ds-collateral-funding-p03"></a>**4.&nbsp;[P03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs#L152)** | **Min-ADA return at the active minimum.** Activate V1 or V2 after funding the collateral input. Vary the return's inline datum size; preserve the input's historical release and re-sign each proposal. | Exact current-formula ADA accepts; one lovelace below rejects only with `BabbageOutputTooSmallUTxO`. |
 
 P02 observes only the collateral calculation; its arbitrary ordinary declarations
 are not submitted as ledger transactions.
@@ -3694,7 +3696,7 @@ a governance, epoch-processing or historical-repricing policy.
 >
 > It includes coins funding an additional deposit and excludes deposits released from the Store.
 
-The inherited [incorrect-total test](../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155)
+The inherited [incorrect-total test](../../eras/babbage/impl/testlib/Test/Cardano/Ledger/Babbage/Imp/UtxosSpec.hs#L155)
 owns the generic comparison. These generated cases exercise it with Store
 allocations or releases, keeping funding and other rules valid:
 
@@ -3715,8 +3717,8 @@ increase the eventual fee credit without changing this declared total.
 
 | Case | Scenario | Expected result |
 | --- | --- | --- |
-| <a id="2251-n01---accepts-a-declared-total-equal-to-collateral-input-coins-minus-return-coins" name="2251-n01---accepts-a-declared-total-equal-to-collateral-input-coins-minus-return-coins"></a><a id="ds-collateral-total-n01" name="ds-collateral-total-n01"></a><a id="2221-n01---accepts-input-coins-minus-return-coins-as-the-total-with-store-allocations-or-releases" name="2221-n01---accepts-input-coins-minus-return-coins-as-the-total-with-store-allocations-or-releases"></a><a id="2254-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total" name="2254-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total"></a><a id="ds-collateral-total-n02" name="ds-collateral-total-n02"></a><a id="2224-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total" name="2224-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total"></a><a id="2255-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total" name="2255-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total"></a><a id="ds-collateral-total-n03" name="ds-collateral-total-n03"></a><a id="2225-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total" name="2225-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total"></a><a id="2256-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold" name="2256-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold"></a><a id="ds-collateral-total-n04" name="ds-collateral-total-n04"></a><a id="2226-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold" name="2226-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L31)** | **Absent or exact total.** Omit the field or supply input coins minus return coins, with additional deposit funding, released surplus or no return. | Accept for either script outcome; absence skips only the comparison. |
-| <a id="2252-f01---rejects-a-declared-total-differing-by-one-lovelace-when-collateral-validation-applies" name="2252-f01---rejects-a-declared-total-differing-by-one-lovelace-when-collateral-validation-applies"></a><a id="ds-collateral-total-f01" name="ds-collateral-total-f01"></a><a id="2222-f01---rejects-a-total-differing-by-one-lovelace-with-store-allocations-or-releases" name="2222-f01---rejects-a-total-differing-by-one-lovelace-with-store-allocations-or-releases"></a><a id="2253-f02---rejects-an-incorrect-supplied-total-when-redeemers-trigger-collateral-validation-even-if-all-scripts-succeed" name="2253-f02---rejects-an-incorrect-supplied-total-when-redeemers-trigger-collateral-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-total-f02" name="ds-collateral-total-f02"></a><a id="2223-f02---rejects-an-incorrect-total-with-store-allocations-or-releases-even-when-all-scripts-succeed" name="2223-f02---rejects-an-incorrect-total-with-store-allocations-or-releases-even-when-all-scripts-succeed"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L43)** | **Incorrect total.** Supply a total one lovelace above or below the expected value while keeping Store funding correct. | Reject only with `IncorrectTotalCollateralField`, even when scripts succeed; the exact-total control accepts. |
+| <a id="2251-n01---accepts-a-declared-total-equal-to-collateral-input-coins-minus-return-coins" name="2251-n01---accepts-a-declared-total-equal-to-collateral-input-coins-minus-return-coins"></a><a id="ds-collateral-total-n01" name="ds-collateral-total-n01"></a><a id="2221-n01---accepts-input-coins-minus-return-coins-as-the-total-with-store-allocations-or-releases" name="2221-n01---accepts-input-coins-minus-return-coins-as-the-total-with-store-allocations-or-releases"></a><a id="2254-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total" name="2254-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total"></a><a id="ds-collateral-total-n02" name="ds-collateral-total-n02"></a><a id="2224-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total" name="2224-n02---includes-coins-funding-additional-utxo-capacity-deposits-in-the-declared-total"></a><a id="2255-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total" name="2255-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total"></a><a id="ds-collateral-total-n03" name="ds-collateral-total-n03"></a><a id="2225-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total" name="2225-n03---excludes-utxo-capacity-deposits-released-from-the-store-from-the-declared-total"></a><a id="2256-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold" name="2256-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold"></a><a id="ds-collateral-total-n04" name="ds-collateral-total-n04"></a><a id="2226-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold" name="2226-n04---accepts-an-absent-optional-total-when-collateral-validation-applies-and-all-collateral-rules-hold"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L31)** | **Absent or exact total.** Omit the field or supply input coins minus return coins, with additional deposit funding, released surplus or no return. | Accept for either script outcome; absence skips only the comparison. |
+| <a id="2252-f01---rejects-a-declared-total-differing-by-one-lovelace-when-collateral-validation-applies" name="2252-f01---rejects-a-declared-total-differing-by-one-lovelace-when-collateral-validation-applies"></a><a id="ds-collateral-total-f01" name="ds-collateral-total-f01"></a><a id="2222-f01---rejects-a-total-differing-by-one-lovelace-with-store-allocations-or-releases" name="2222-f01---rejects-a-total-differing-by-one-lovelace-with-store-allocations-or-releases"></a><a id="2253-f02---rejects-an-incorrect-supplied-total-when-redeemers-trigger-collateral-validation-even-if-all-scripts-succeed" name="2253-f02---rejects-an-incorrect-supplied-total-when-redeemers-trigger-collateral-validation-even-if-all-scripts-succeed"></a><a id="ds-collateral-total-f02" name="ds-collateral-total-f02"></a><a id="2223-f02---rejects-an-incorrect-total-with-store-allocations-or-releases-even-when-all-scripts-succeed" name="2223-f02---rejects-an-incorrect-total-with-store-allocations-or-releases-even-when-all-scripts-succeed"></a>**2.&nbsp;[F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs#L43)** | **Incorrect total.** Supply a total one lovelace above or below the expected value while keeping Store funding correct. | Reject only with `IncorrectTotalCollateralField`, even when scripts succeed; the exact-total control accepts. |
 
 Absence is distinct from a supplied zero: zero is valid only when it equals the expected total. [Funding F01](#ds-collateral-funding-f01) independently rejects a funding deficit when the field is absent.
 
@@ -3737,7 +3739,7 @@ When the [redeemer trigger](#ds-collateral-existing-rules) is active:
 ```
 
 An absent return contributes the empty asset map. These cases exercise
-[`validateCollateralAssets`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Collateral.hs)
+[`validateCollateralAssets`](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Collateral.hs)
 with a Deposit-backed input or return, including mixed inputs and both return forms.
 Funding, output validity, witnesses and optional totals remain correct. Exercise
 successful scripts and genuine phase-2 failure. The current generator mints one
@@ -3746,8 +3748,8 @@ inputs. Mixed-policy or distinct-token input maps remain an extension.
 
 | Case | Scenario | Expected result |
 | --- | --- | --- |
-| <a id="ds-collateral-conservation-n02" name="ds-collateral-conservation-n02"></a><a id="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity" name="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity"></a><a id="ds-collateral-assets-n01" name="ds-collateral-assets-n01"></a><a id="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L35)** | **Exact asset map.** Return every input policy, asset name and quantity; include a funded Deposit-backed return with zero application ADA. | Accept for both output forms and script outcomes. |
-| <a id="ds-collateral-conservation-f01" name="ds-collateral-conservation-f01"></a><a id="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return" name="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return"></a><a id="ds-collateral-assets-f01" name="ds-collateral-assets-f01"></a><a id="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed"></a><a id="ds-collateral-conservation-f02" name="ds-collateral-conservation-f02"></a><a id="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified" name="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified"></a><a id="ds-collateral-assets-f02" name="ds-collateral-assets-f02"></a><a id="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified" name="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified"></a>**2.&nbsp;[F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L48)** | **Missing or altered assets.** Remove an asset, add an absent asset, alter a quantity, or omit the return for token-bearing collateral. | Reject only with `CollateralContainsNonADA`; the unchanged asset-map control accepts. |
+| <a id="ds-collateral-conservation-n02" name="ds-collateral-conservation-n02"></a><a id="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity" name="2274-n02---accepts-native-asset-collateral-when-its-return-preserves-every-asset-and-quantity"></a><a id="ds-collateral-assets-n01" name="ds-collateral-assets-n01"></a><a id="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2232-n01---accepts-matching-native-assets-when-collateral-inputs-or-return-are-store-backed"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L35)** | **Exact asset map.** Return every input policy, asset name and quantity; include a funded Deposit-backed return with zero application ADA. | Accept for both output forms and script outcomes. |
+| <a id="ds-collateral-conservation-f01" name="ds-collateral-conservation-f01"></a><a id="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return" name="2273-f01---rejects-missing-added-or-changed-native-assets-in-the-collateral-return"></a><a id="ds-collateral-assets-f01" name="ds-collateral-assets-f01"></a><a id="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed" name="2231-f01---rejects-missing-added-or-changed-native-assets-when-collateral-inputs-or-return-are-store-backed"></a><a id="ds-collateral-conservation-f02" name="ds-collateral-conservation-f02"></a><a id="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified" name="2275-f02---rejects-token-bearing-collateral-when-no-return-is-specified"></a><a id="ds-collateral-assets-f02" name="ds-collateral-assets-f02"></a><a id="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified" name="2233-f02---rejects-token-bearing-store-backed-collateral-when-no-return-is-specified"></a>**2.&nbsp;[F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs#L48)** | **Missing or altered assets.** Remove an asset, add an absent asset, alter a quantity, or omit the return for token-bearing collateral. | Reject only with `CollateralContainsNonADA`; the unchanged asset-map control accepts. |
 
 [Funding N01](#ds-collateral-funding-n01) supplies the ADA-only no-return acceptance
 control. Ordinary outputs and unapplied minting cannot supply missing collateral assets.
@@ -3782,7 +3784,7 @@ The accepted outcome selects the inputs and outputs used by all these observatio
 Settlement ADA is already included in the signed output. Reference-only and
 unrelated inputs remain unchanged; an input used in both consuming roles is
 consumed once through the selected path. Tests assert acceptance before checking
-these effects. Executed counts and timings belong to the [verification record](dijkstra-deposit-store-verification.md).
+these effects. Executed counts and timings belong to the [verification record](verification.md).
 
 <a id="ds-state-execution" name="ds-state-execution"></a><a id="ds-state-utxo" name="ds-state-utxo"></a>
 
@@ -3801,11 +3803,11 @@ selected outputs without changing their payloads.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-utxo-n01" name="ds-state-utxo-n01"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L34)** | **Ordinary execution.** Standalone and multi-SubTx transactions allocate, release or replace deposits. Compare the entire resulting UTxO with the ordinary-input/output equation. |
-| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L48)** | **Successful scripts leave collateral inactive.** Generate collateral proposals with absent, implicit or Deposit-backed returns. Only ordinary outputs are created; collateral-only and reference-only inputs survive. |
-| <a id="ds-state-utxo-n03" name="ds-state-utxo-n03"></a>**3.&nbsp;[N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L62)** | **Failed scripts select collateral.** Submit a genuine phase-2 failure. Only collateral inputs disappear and only the collateral return is created; ordinary and reference-only inputs survive. |
-| <a id="ds-state-utxo-n04" name="ds-state-utxo-n04"></a>**4.&nbsp;[N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L77)** | **Failed TopTx, inactive SubTxs.** A real failing TopTx script selects collateral even when several children propose allocations and releases. Compare the complete UTxO: none of those ordinary effects is applied. |
-| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L95)** | **One input, two consuming roles.** A Deposit-backed input belongs to both ordinary and collateral sets. Exercise both actual script outcomes and compare the complete UTxO against the selected path; consume the shared input once. |
+| <a id="ds-state-utxo-n01" name="ds-state-utxo-n01"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L34)** | **Ordinary execution.** Standalone and multi-SubTx transactions allocate, release or replace deposits. Compare the entire resulting UTxO with the ordinary-input/output equation. |
+| <a id="ds-state-utxo-n02" name="ds-state-utxo-n02"></a>**2.&nbsp;[N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L48)** | **Successful scripts leave collateral inactive.** Generate collateral proposals with absent, implicit or Deposit-backed returns. Only ordinary outputs are created; collateral-only and reference-only inputs survive. |
+| <a id="ds-state-utxo-n03" name="ds-state-utxo-n03"></a>**3.&nbsp;[N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L62)** | **Failed scripts select collateral.** Submit a genuine phase-2 failure. Only collateral inputs disappear and only the collateral return is created; ordinary and reference-only inputs survive. |
+| <a id="ds-state-utxo-n04" name="ds-state-utxo-n04"></a>**4.&nbsp;[N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L77)** | **Failed TopTx, inactive SubTxs.** A real failing TopTx script selects collateral even when several children propose allocations and releases. Compare the complete UTxO: none of those ordinary effects is applied. |
+| <a id="ds-state-utxo-n05" name="ds-state-utxo-n05"></a>**5.&nbsp;[N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs#L95)** | **One input, two consuming roles.** A Deposit-backed input belongs to both ordinary and collateral sets. Exercise both actual script outcomes and compare the complete UTxO against the selected path; consume the shared input once. |
 
 <a id="ds-state-execution-f01" name="ds-state-execution-f01"></a>
 
@@ -3861,11 +3863,11 @@ calculated allocations and retained releases.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L75)** | **Ordinary records.** Derive records from signed Deposit-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
-| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L96)** | **Collateral records.** Generate mixed input forms and absent, implicit or Deposit-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Deposit-backed return; reference-only records survive. |
-| <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L121)** | **Restore the historical deposit.** Submit a noncanonical CBOR output whose accepted encoding is one byte longer than its canonical encoding. Restore the serialized state, activate V2 and double the byte price, then reference the output: its payload, allocation origin and V1 deposit are unchanged. Spending it removes precisely that record. |
-| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L166)** | **Zero-priced allocations still have records.** Spend translated min-ADA sources and create Deposit-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; min-ADA sources never acquire allocation records. |
-| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L190)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
+| <a id="ds-state-allocations-p01" name="ds-state-allocations-p01"></a>**1.&nbsp;[P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L75)** | **Ordinary records.** Derive records from signed Deposit-backed outputs, remove consumed references, then compare the complete map and its domain with the resulting UTxO. Cover local and delegated multi-SubTx activity and equal-valued outputs at distinct references. |
+| <a id="ds-state-allocations-p02" name="ds-state-allocations-p02"></a>**2.&nbsp;[P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L96)** | **Collateral records.** Generate mixed input forms and absent, implicit or Deposit-backed returns. Real script success removes only ordinary records, including shared ordinary/collateral inputs. Real failure removes only collateral records and adds the Deposit-backed return; reference-only records survive. |
+| <a id="ds-state-allocations-p03" name="ds-state-allocations-p03"></a>**3.&nbsp;[P03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L121)** | **Restore the historical deposit.** Submit a noncanonical CBOR output whose accepted encoding is one byte longer than its canonical encoding. Restore the serialized state, activate V2 and double the byte price, then reference the output: its payload, allocation origin and V1 deposit are unchanged. Spending it removes precisely that record. |
+| <a id="ds-state-allocations-n01" name="ds-state-allocations-n01"></a>**4.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L166)** | **Zero-priced allocations still have records.** Spend translated min-ADA sources and create Deposit-backed outputs in TopTx and SubTx at a zero byte price. Record each new reference with amount zero; min-ADA sources never acquire allocation records. |
+| <a id="ds-state-allocations-p04" name="ds-state-allocations-p04"></a>**5.&nbsp;[P04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs#L190)** | **No ordinary records on failure.** A real failing TopTx script has several children proposing Store allocations and releases. With implicit-only collateral, the entire allocation map remains unchanged. |
 
 Historical release **amounts** are checked separately by [Balance P03](#ds-state-balance-p03).
 
@@ -3909,14 +3911,14 @@ asset count, datum and script, using the version and rate selected by its origin
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L61)** | **Ordinary transfer.** Measure new deposits from signed outputs and releases from the consumed records. The sum of the resulting records changes by their difference, including multi-SubTx local/delegated funding and zero net replacement. |
-| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L82)** | **Collateral transfer.** Successful scripts release only ordinary records, including inputs shared with collateral. Failed scripts apply only the return deposit minus recorded collateral releases; deposits of all unspent outputs remain recorded. |
-| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L103)** | **Historical release after restoration.** Create an allocation from genuinely noncanonical accepted bytes, restore the state and change the price. Spending the output reduces the Store by the original allocation, not a newly calculated deposit. |
-| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L127)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
-| <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L141)** | **Mixed historical prices.** Accept two noncanonical outputs at different prices, restore their state and consume both while creating a replacement at a third price. The balance changes by the current new deposit minus both historical deposits. Retained metadata and cache totals are checked independently. |
-| <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L175)** | **Child output history.** Accept a noncanonical SubTx output, restore its allocation and change the price. A later spend of the child's own reference releases exactly its original contribution. |
-| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** Accept a real script failure with a noncanonical Deposit-backed return. Restore that applied allocation, change the price and spend the return; its contents and allocation-time formula determine the refund. |
-| <a id="ds-state-balance-p08" name="ds-state-balance-p08"></a>**8.&nbsp;[P08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L227)** | **Across formula versions.** Accept identical two-asset outputs before and after V2 activation, restore the state and spend both together. Each refunds its allocation-time formula: $`\text{refund}=F_{1,p}(o)+F_{2,p}(o)`$. |
+| <a id="ds-state-balance-p01" name="ds-state-balance-p01"></a>**1.&nbsp;[P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L61)** | **Ordinary transfer.** Measure new deposits from signed outputs and releases from the consumed records. The sum of the resulting records changes by their difference, including multi-SubTx local/delegated funding and zero net replacement. |
+| <a id="ds-state-balance-p02" name="ds-state-balance-p02"></a>**2.&nbsp;[P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L82)** | **Collateral transfer.** Successful scripts release only ordinary records, including inputs shared with collateral. Failed scripts apply only the return deposit minus recorded collateral releases; deposits of all unspent outputs remain recorded. |
+| <a id="ds-state-balance-p03" name="ds-state-balance-p03"></a>**3.&nbsp;[P03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L103)** | **Historical release after restoration.** Create an allocation from genuinely noncanonical accepted bytes, restore the state and change the price. Spending the output reduces the Store by the original allocation, not a newly calculated deposit. |
+| <a id="ds-state-balance-p04" name="ds-state-balance-p04"></a>**4.&nbsp;[P04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L127)** | **No ordinary transfer on failure.** The same failing-parent, multi-SubTx scenarios use implicit-only collateral. The Store balance remains unchanged despite their ordinary declarations. |
+| <a id="ds-state-balance-p05" name="ds-state-balance-p05"></a>**5.&nbsp;[P05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L141)** | **Mixed historical prices.** Accept two noncanonical outputs at different prices, restore their state and consume both while creating a replacement at a third price. The balance changes by the current new deposit minus both historical deposits. Retained metadata and cache totals are checked independently. |
+| <a id="ds-state-balance-p06" name="ds-state-balance-p06"></a>**6.&nbsp;[P06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L175)** | **Child output history.** Accept a noncanonical SubTx output, restore its allocation and change the price. A later spend of the child's own reference releases exactly its original contribution. |
+| <a id="ds-state-balance-p07" name="ds-state-balance-p07"></a>**7.&nbsp;[P07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L198)** | **Collateral-return history.** Accept a real script failure with a noncanonical Deposit-backed return. Restore that applied allocation, change the price and spend the return; its contents and allocation-time formula determine the refund. |
+| <a id="ds-state-balance-p08" name="ds-state-balance-p08"></a>**8.&nbsp;[P08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs#L227)** | **Across formula versions.** Accept identical two-asset outputs before and after V2 activation, restore the state and spend both together. Each refunds its allocation-time formula: $`\text{refund}=F_{1,p}(o)+F_{2,p}(o)`$. |
 
 <a id="ds-state-solvency" name="ds-state-solvency"></a><a id="34-solvency" name="34-solvency"></a><a id="ds-state-solvency-p01" name="ds-state-solvency-p01"></a><a id="341-p01---keep-every-accepted-state-solvent" name="341-p01---keep-every-accepted-state-solvent"></a><a id="ds-state-solvency-n02" name="ds-state-solvency-n02"></a><a id="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions" name="344-n02---observes-store-backing-in-the-completed-batch-result-with-local-and-delegated-contributions"></a>
 **Exact cache invariant.** The former solvency comparison is replaced by equality:
@@ -3957,8 +3959,8 @@ $`\mathit{treasuryAfter}=\mathit{treasuryBefore}`$.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-fees-p01" name="ds-state-fees-p01"></a>**1.&nbsp;[P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L29)** | **Ordinary fee.** Local and delegated ordinary Store operations, plus real successful scripts with collateral proposals, credit only the declared transaction fee. |
-| <a id="ds-state-fees-p02" name="ds-state-fees-p02"></a>**2.&nbsp;[P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L53)** | **Collateral fee.** Real failing scripts credit the application-coin fee plus unused recorded deposits. Cover absent returns, mixed inputs, deposit shortfall/equality/surplus and a changed byte price. |
+| <a id="ds-state-fees-p01" name="ds-state-fees-p01"></a>**1.&nbsp;[P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L29)** | **Ordinary fee.** Local and delegated ordinary Store operations, plus real successful scripts with collateral proposals, credit only the declared transaction fee. |
+| <a id="ds-state-fees-p02" name="ds-state-fees-p02"></a>**2.&nbsp;[P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs#L53)** | **Collateral fee.** Real failing scripts credit the application-coin fee plus unused recorded deposits. Cover absent returns, mixed inputs, deposit shortfall/equality/surplus and a changed byte price. |
 
 The input/return funding constraints belong to [Funding](#ds-collateral-funding).
 [Allocations](#ds-state-allocations) and [Balance](#ds-state-balance) observe the
@@ -3994,7 +3996,7 @@ Sum allocation records once as `storeBalance`; do not add their total a second t
 \end{aligned}
 ```
 
-The second equation checks the [production total](../eras/shelley/impl/src/Cardano/Ledger/Shelley/AdaPots.hs#L99)
+The second equation checks the [production total](../../eras/shelley/impl/src/Cardano/Ledger/Shelley/AdaPots.hs#L99)
 against the independent sum: `totalAdaES` includes Store balance but excludes the
 donation pot. Its certificate/governance obligation projection agrees with the
 deposited pot in a consistent valid state. Use positive recorded deposits so the
@@ -4005,9 +4007,9 @@ donations so that pot cannot be silently omitted.
 
 | Case | Scenario and observation |
 | --- | --- |
-| <a id="ds-state-conservation-n01" name="ds-state-conservation-n01"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L38)** | **Count actual ADA once.** Use positive allocation records and nonzero donations. Before and after an accepted transaction, compare the production total plus donations with the independent sum of actual pots. |
-| <a id="ds-state-conservation-n02" name="ds-state-conservation-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L60)** | **Ordinary conservation.** Compare independent actual-ADA sums immediately before and after accepted standalone and multi-SubTx transactions, with local or delegated funding. |
-| <a id="ds-state-conservation-n03" name="ds-state-conservation-n03"></a>**3.&nbsp;[N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L72)** | **Collateral conservation.** Repeat that comparison around real accepted phase-2 failures: mixed inputs, absent returns, and return deposits smaller than, equal to or greater than the recorded releases. |
+| <a id="ds-state-conservation-n01" name="ds-state-conservation-n01"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L38)** | **Count actual ADA once.** Use positive allocation records and nonzero donations. Before and after an accepted transaction, compare the production total plus donations with the independent sum of actual pots. |
+| <a id="ds-state-conservation-n02" name="ds-state-conservation-n02"></a>**2.&nbsp;[N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L60)** | **Ordinary conservation.** Compare independent actual-ADA sums immediately before and after accepted standalone and multi-SubTx transactions, with local or delegated funding. |
+| <a id="ds-state-conservation-n03" name="ds-state-conservation-n03"></a>**3.&nbsp;[N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs#L72)** | **Collateral conservation.** Repeat that comparison around real accepted phase-2 failures: mixed inputs, absent returns, and return deposits smaller than, equal to or greater than the recorded releases. |
 
 For collateral, the same accounting projects to
 $`\mathit{collateralInputCoins}+\mathit{releasedDeposits} =\mathit{returnCoins}+\mathit{returnDeposit}+\mathit{collateralFee}`$.
@@ -4053,7 +4055,7 @@ field across two different era types.
 
 | Case | Contract | Scenario axes |
 | --- | --- | --- |
-| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L38)** | **Introduce legacy allocations.** Apply the real era translation; compare the listed fields independently with their source values, require one legacy allocation per output and assert a zero cached total and empty external-deposit view. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
+| <a id="ds-state-translation-n01" name="ds-state-translation-n01"></a><a id="ds-state-initialization-n01" name="ds-state-initialization-n01"></a><a id="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit" name="361-n01---preserves-existing-output-references-addresses-values-datums-and-reference-scripts-and-keeps-those-outputs-implicit"></a><a id="ds-state-initialization-n02" name="ds-state-initialization-n02"></a><a id="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero" name="362-n02---initializes-store-balance-and-utxo-capacity-deposit-obligations-to-zero"></a><a id="ds-state-initialization-n03" name="ds-state-initialization-n03"></a><a id="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization" name="363-n03---does-not-transfer-funds-from-another-ledger-pot-during-initialization"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs#L38)** | **Introduce legacy allocations.** Apply the real era translation; compare the listed fields independently with their source values, require one legacy allocation per output and assert a zero cached total and empty external-deposit view. | Each generated pair has zero and distinct positive pots. Ten outputs cover absent/hash/inline datums × absent/native/Plutus reference scripts, plus identical payloads at distinct indices. Compare full asset values, datum semantics and script identity. |
 
 <a id="ds-state-epoch" name="ds-state-epoch"></a>
 
@@ -4068,8 +4070,8 @@ field across two different era types.
 
 | Case | Contract | Scenario axes |
 | --- | --- | --- |
-| <a id="ds-state-epoch-n01" name="ds-state-epoch-n01"></a><a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a><a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>**1.&nbsp;[N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L37)** | **Retain the populated Store.** Cross actual epoch boundaries and compare the complete allocation map. | Fund one to five live allocations through an accepted transaction and cross two successive boundaries. Verify each epoch advanced and protocol parameters stayed unchanged; the cached balance and all historical metadata are preserved. |
-| <a id="ds-state-epoch-n02" name="ds-state-epoch-n02"></a>**2.&nbsp;[N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L59)** | **Activate the effective price.** A scheduled parameter update changes the current rate without repricing live entries. | Cross real epoch boundaries with V1 and V2 selected. Compare the effective parameters, current formula, complete allocation map and cached total. |
+| <a id="ds-state-epoch-n01" name="ds-state-epoch-n01"></a><a id="ds-state-solvency-n03" name="ds-state-solvency-n03"></a><a id="345-n03---preserve-solvency-across-epochs" name="345-n03---preserve-solvency-across-epochs"></a>**1.&nbsp;[N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L37)** | **Retain the populated Store.** Cross actual epoch boundaries and compare the complete allocation map. | Fund one to five live allocations through an accepted transaction and cross two successive boundaries. Verify each epoch advanced and protocol parameters stayed unchanged; the cached balance and all historical metadata are preserved. |
+| <a id="ds-state-epoch-n02" name="ds-state-epoch-n02"></a>**2.&nbsp;[N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs#L59)** | **Activate the effective price.** A scheduled parameter update changes the current rate without repricing live entries. | Cross real epoch boundaries with V1 and V2 selected. Compare the effective parameters, current formula, complete allocation map and cached total. |
 
 For N02, $`V`$ is the selected formula version, $`r'`$ the newly effective byte price,
 and $`s'`$ the first slot of the epoch where the update becomes effective. Append
@@ -4084,12 +4086,12 @@ $`(s',V(r'))`$ to history; entries allocated earlier retain their earlier formul
 ```
 
 <a id="ds-state-recovery" name="ds-state-recovery"></a><a id="37-recovery" name="37-recovery"></a><a id="ds-state-recovery-n01" name="ds-state-recovery-n01"></a><a id="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus" name="371-n01---preserves-the-complete-ledger-state-through-serialization-and-restoration-including-outputs-allocated-records-and-store-surplus"></a>
-**Existing codec coverage.** Dijkstra's [test entry point](../eras/dijkstra/impl/test/Main.hs#L51)
-registers the [Conway common](../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Binary/RoundTrip.hs#L27)
-→ [Alonzo](../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Binary/RoundTrip.hs#L35)
-→ [Shelley state round trips](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L66),
-including `AccountingState`, `LedgerState`, `EpochState` and `NewEpochState`. The [state generator](../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Arbitrary.hs#L205)
-includes an arbitrary Dijkstra Store, and the [output generator](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Arbitrary.hs#L68)
+**Existing codec coverage.** Dijkstra's [test entry point](../../eras/dijkstra/impl/test/Main.hs#L51)
+registers the [Conway common](../../eras/conway/impl/testlib/Test/Cardano/Ledger/Conway/Binary/RoundTrip.hs#L27)
+→ [Alonzo](../../eras/alonzo/impl/testlib/Test/Cardano/Ledger/Alonzo/Binary/RoundTrip.hs#L35)
+→ [Shelley state round trips](../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Binary/RoundTrip.hs#L66),
+including `AccountingState`, `LedgerState`, `EpochState` and `NewEpochState`. The [state generator](../../eras/shelley/impl/testlib/Test/Cardano/Ledger/Shelley/Arbitrary.hs#L205)
+includes an arbitrary Dijkstra Store, and the [output generator](../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Arbitrary.hs#L68)
 includes both output forms. This existing serialization coverage stays in the
 binary suite. [Allocations P03](#ds-state-allocations-p03) additionally submits an
 output whose accepted CBOR is one byte longer than its canonical encoding, then
@@ -4435,24 +4437,24 @@ cannot recover historical deposit parameters or establish which outputs remain u
 
 | Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
 | --- | --- |
-| [`Store`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and formula activation. |
-| [`Store.Internals`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
-| [`IndexedUTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
-| [`Unspent`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output and allocation origin; `toTxOut`, historical formula selection, `computeExternalDeposit` and entry codecs. |
-| [`Deposit`](../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | Versioned formula arithmetic over `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`; `DepositAmount`, history and half-open formula periods. |
+| [`Store`](../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and formula activation. |
+| [`Store.Internals`](../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
+| [`IndexedUTxOs`](../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
+| [`Unspent`](../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output and allocation origin; `toTxOut`, historical formula selection, `computeExternalDeposit` and entry codecs. |
+| [`Deposit`](../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | Versioned formula arithmetic over `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`; `DepositAmount`, history and half-open formula periods. |
 
 Dijkstra owns output measurement and the migrated-output reserve view:
 
 | Module under `Cardano.Ledger.Dijkstra.UTxOs` | Responsibility |
 | --- | --- |
-| [`Deposit.Formula`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Extract the three typed measures from a `TxOut` and call the core `computeDeposit`; return `DepositAmount`. |
-| [`Unspent`](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated min-ADA reserve at its output ADA. |
+| [`Deposit.Formula`](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Extract the three typed measures from a `TxOut` and call the core `computeDeposit`; return `DepositAmount`. |
+| [`Unspent`](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated min-ADA reserve at its output ADA. |
 
 The shared Store calls `getDepositTxOut` only for `DepositBackedTxOut`. Min-ADA entries
 contribute zero to its external total. Earlier eras have no `DepositBackedTxOut` values and
 need no implementation of Dijkstra's pricing rule.
 
-[`Cardano.Ledger.TxOut.IndexedTxOs`](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
+[`Cardano.Ledger.TxOut.IndexedTxOs`](../../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
 owns construction, indexing and selection of sized outputs. Each collection has its own
 map operations; callers do not unwrap maps for ordinary lookups or selections.
 
@@ -4632,8 +4634,8 @@ Declarations groups syntax and contextual obligations under one domain:
 
 | Previous prefix | Current prefix |
 | --- | --- |
-| `DS-TX-GRAMMAR` | [DS-TX-DECLARATIONS-GRAMMAR](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar) |
-| `DS-TX-REQUIRED-DECLARATIONS` | [DS-TX-DECLARATIONS-REQUIREMENTS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements) |
+| `DS-TX-GRAMMAR` | [DS-TX-DECLARATIONS-GRAMMAR](declarations.md#ds-tx-declarations-grammar) |
+| `DS-TX-REQUIRED-DECLARATIONS` | [DS-TX-DECLARATIONS-REQUIREMENTS](declarations.md#ds-tx-declarations-requirements) |
 
 Every category and case suffix is preserved. Previous Grammar and Required declarations
 anchors remain valid; the new Declarations parent does not add or remove test cases.
@@ -4642,13 +4644,13 @@ The Requirements category and its Store-operation and SubTx-declaration groups u
 
 | Previous prefix | Current prefix |
 | --- | --- |
-| `DS-TX-PRESENCE` | [DS-TX-DECLARATIONS-REQUIREMENTS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements) |
-| `DS-TX-PRESENCE-OPERATIONS`, `DS-TX-PRESENCE-ACTIVITY` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations) |
-| `DS-TX-PRESENCE-OPERATIONS-ALLOCATION`, `DS-TX-PRESENCE-ACTIVITY-CREATION` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation) |
-| `DS-TX-PRESENCE-OPERATIONS-RELEASE`, `DS-TX-PRESENCE-ACTIVITY-SPENDING` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release) |
-| `DS-TX-PRESENCE-OPERATIONS-ZERO-NET-CHANGE` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change) |
-| `DS-TX-PRESENCE-ACTIVITY-SCOPE`, `DS-TX-PRESENCE-OPERATIONS-SCOPE` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations), with cases assigned to Allocation or Release below. |
-| `DS-TX-PRESENCE-SUBTX-DECLARATIONS`, `DS-TX-PRESENCE-DEPENDENCY` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations), preserving C01–C05 and every case suffix. |
+| `DS-TX-PRESENCE` | [DS-TX-DECLARATIONS-REQUIREMENTS](declarations.md#ds-tx-declarations-requirements) |
+| `DS-TX-PRESENCE-OPERATIONS`, `DS-TX-PRESENCE-ACTIVITY` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](declarations.md#ds-tx-declarations-requirements-operations) |
+| `DS-TX-PRESENCE-OPERATIONS-ALLOCATION`, `DS-TX-PRESENCE-ACTIVITY-CREATION` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](declarations.md#ds-tx-declarations-requirements-operations-allocation) |
+| `DS-TX-PRESENCE-OPERATIONS-RELEASE`, `DS-TX-PRESENCE-ACTIVITY-SPENDING` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](declarations.md#ds-tx-declarations-requirements-operations-release) |
+| `DS-TX-PRESENCE-OPERATIONS-ZERO-NET-CHANGE` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](declarations.md#ds-tx-declarations-requirements-operations-zero-net-change) |
+| `DS-TX-PRESENCE-ACTIVITY-SCOPE`, `DS-TX-PRESENCE-OPERATIONS-SCOPE` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](declarations.md#ds-tx-declarations-requirements-operations), with cases assigned to Allocation or Release below. |
+| `DS-TX-PRESENCE-SUBTX-DECLARATIONS`, `DS-TX-PRESENCE-DEPENDENCY` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](declarations.md#ds-tx-declarations-requirements-subtx-declarations), preserving C01–C05 and every case suffix. |
 
 Every previous `DS-TX-PRESENCE` rule and case anchor still resolves to the corresponding
 Requirements section. Case order is unchanged within the new Declarations parent. The former
@@ -4658,15 +4660,15 @@ this mapping:
 
 | Previous Scope case | Current case |
 | --- | --- |
-| `N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N06](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n06) |
-| `N02` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N07](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n07) |
-| `N03` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N08](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n08) |
-| `F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F07](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f07) |
-| `F02` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F08](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-f08) |
-| `N06` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N09](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation-n09) |
-| `N04` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N09](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n09) |
-| `N05` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N10](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n10) |
-| `F03` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F06](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-f06) |
+| `N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N06](declarations.md#ds-tx-declarations-requirements-operations-allocation-n06) |
+| `N02` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N07](declarations.md#ds-tx-declarations-requirements-operations-allocation-n07) |
+| `N03` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N08](declarations.md#ds-tx-declarations-requirements-operations-allocation-n08) |
+| `F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F07](declarations.md#ds-tx-declarations-requirements-operations-allocation-f07) |
+| `F02` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-F08](declarations.md#ds-tx-declarations-requirements-operations-allocation-f08) |
+| `N06` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION-N09](declarations.md#ds-tx-declarations-requirements-operations-allocation-n09) |
+| `N04` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N09](declarations.md#ds-tx-declarations-requirements-operations-release-n09) |
+| `N05` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-N10](declarations.md#ds-tx-declarations-requirements-operations-release-n10) |
+| `F03` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE-F06](declarations.md#ds-tx-declarations-requirements-operations-release-f06) |
 
 Allocation and release identify gross Store operations; neither implies the
 declaration's net sign. The former Scope N06 is now Allocation N09: both bodies
@@ -4675,15 +4677,15 @@ ledger scenario prices each body's outputs independently and requires acceptance
 
 | Previous rule | Current responsibilities |
 | --- | --- |
-| `DS-TX-001` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-zero-net-change), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations) |
+| `DS-TX-001` | [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](declarations.md#ds-tx-declarations-requirements-operations-release), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](declarations.md#ds-tx-declarations-requirements-operations-allocation), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](declarations.md#ds-tx-declarations-requirements-operations-zero-net-change), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](declarations.md#ds-tx-declarations-requirements-operations) |
 | `DS-TX-002` | [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](#ds-tx-accounting-net-change-toptx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-SETTLEMENT-DESIGNATION](#ds-tx-settlement-designation) |
 | `DS-TX-003` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](#ds-tx-accounting-net-change-toptx) |
 | `DS-TX-004` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
 | `DS-TX-005` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index) |
 | `DS-TX-006` | [DS-TX-SETTLEMENT-DESIGNATION](#ds-tx-settlement-designation) |
 | `DS-TX-007` | [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance), [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index), [DS-TX-SETTLEMENT-OUTPUT-COIN](#ds-tx-settlement-output-coin), [DS-STATE-UTXO](#ds-state-utxo) |
-| `DS-TX-008` | [DS-TX-DECLARATIONS-GRAMMAR](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar), [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx) |
-| `DS-TX-009` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations) |
+| `DS-TX-008` | [DS-TX-DECLARATIONS-GRAMMAR](declarations.md#ds-tx-declarations-grammar), [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx) |
+| `DS-TX-009` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](declarations.md#ds-tx-declarations-requirements-subtx-declarations) |
 | `DS-TX-010` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-ACCOUNTING-ATTRIBUTION](#ds-tx-accounting-attribution), [DS-TX-ACCOUNTING-BALANCE](#ds-tx-accounting-balance) |
 | `DS-TX-011` | [DS-TX-AUTHORIZATION](#ds-tx-authorization) |
 | `DS-TX-012` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-MINIMUM-COIN](#ds-tx-minimum-coin) |
@@ -4695,7 +4697,7 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-STORE-001` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-BALANCE](#ds-state-balance) |
 | `DS-STORE-002` | [DS-PRICING-HISTORY](#ds-pricing-history) |
 | `DS-STORE-003` | [DS-PRICING](#ds-pricing), [DS-STATE-ALLOCATIONS](#ds-state-allocations) |
-| `DS-STORE-004` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-allocation), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-TRANSLATION](#ds-state-translation) |
+| `DS-STORE-004` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](#ds-tx-accounting-net-change-subtx), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](declarations.md#ds-tx-declarations-requirements-operations-allocation), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-TRANSLATION](#ds-state-translation) |
 | `DS-STORE-005` | [DS-STATE-UTXO](#ds-state-utxo), [DS-STATE-ALLOCATIONS](#ds-state-allocations), [DS-STATE-RECOVERY](#ds-state-recovery) |
 | `DS-PLUTUS-001` | [DS-PLUTUS-COMPATIBILITY](#ds-plutus-compatibility) |
 | `DS-STAKE-001` | [DS-STATE-CONSERVATION](#ds-state-conservation), [DS-STAKE](#ds-stake), [DS-VOTING](#ds-voting) |
@@ -4717,7 +4719,7 @@ Authorization now has one accepted control and its witness-only rejection:
 | --- | --- |
 | `N01`, `N02` | [Authorization N01](#ds-tx-authorization-n01): Bob signs; original funder Alice does not |
 | `F01` | [Authorization F01](#ds-tx-authorization-f01): Alice cannot replace Bob's required witness |
-| `N03` | [Release N09](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-operations-release-n09): existing reference-only declaration case; an attempted release amount is an Accounting concern |
+| `N03` | [Release N09](declarations.md#ds-tx-declarations-requirements-operations-release-n09): existing reference-only declaration case; an attempted release amount is an Accounting concern |
 
 Settlement now names each check directly:
 
@@ -4761,18 +4763,18 @@ The accounting observation formerly registered as `DS-TX-GRAMMAR-N01` now lives 
 the primitive boundary check formerly registered as `DS-TX-GRAMMAR-N02` now belongs
 to ledger-core's `StrictlyPositiveCoinSpec`. Grammar nominal identifiers therefore
 begin at N03; neither retired identity is reassigned.
-The former combined invalid-amount check keeps [F01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f01) for TopTx
-zero. Its remaining TopTx assertions use [F12](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f12) for negative
-amounts and [F13](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f13) for overflowing amounts.
-Its SubTx assertions are split into [F07](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f07) for zero,
-[F08](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f08) for negative amounts and [F09](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f09) for
+The former combined invalid-amount check keeps [F01](declarations.md#ds-tx-declarations-grammar-f01) for TopTx
+zero. Its remaining TopTx assertions use [F12](declarations.md#ds-tx-declarations-grammar-f12) for negative
+amounts and [F13](declarations.md#ds-tx-declarations-grammar-f13) for overflowing amounts.
+Its SubTx assertions are split into [F07](declarations.md#ds-tx-declarations-grammar-f07) for zero,
+[F08](declarations.md#ds-tx-declarations-grammar-f08) for negative amounts and [F09](declarations.md#ds-tx-declarations-grammar-f09) for
 overflowing amounts; F07 retains the zero case from the former combined SubTx check.
-The former combined SubTx target check keeps [F05](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f05) for invalid
+The former combined SubTx target check keeps [F05](declarations.md#ds-tx-declarations-grammar-f05) for invalid
 structure. Its index range assertions now have separate tags:
-[F10](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f10) for negative indices and [F11](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f11) for
+[F10](declarations.md#ds-tx-declarations-grammar-f10) for negative indices and [F11](declarations.md#ds-tx-declarations-grammar-f11) for
 indices above 65535. Similarly, the former combined TopTx settlement check keeps
-[F04](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f04) for invalid structure; [F14](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f14) covers
-negative indices and [F15](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar-f15) covers indices above 65535.
+[F04](declarations.md#ds-tx-declarations-grammar-f04) for invalid structure; [F14](declarations.md#ds-tx-declarations-grammar-f14) covers
+negative indices and [F15](declarations.md#ds-tx-declarations-grammar-f15) covers indices above 65535.
 These checks concern decoding; output existence remains under
 [DS-TX-SETTLEMENT-OUTPUT-INDEX](#ds-tx-settlement-output-index).
 
@@ -4780,18 +4782,18 @@ The previously individually tagged declaration-dependency cases map as follows:
 
 | Previous case | Current case |
 | --- | --- |
-| `DS-TX-009-C01-P01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C01-P01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c01-p01) |
-| `DS-TX-009-C02-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-N01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n01) |
-| `DS-TX-009-C02-N02` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-N02](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n02) |
-| `DS-TX-009-C02-N03` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-N03](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n03) |
-| `DS-TX-009-C02-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-F01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-f01) |
-| `DS-TX-009-C03-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C03-N01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-n01) |
-| `DS-TX-009-C03-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C03-F01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-f01) |
-| `DS-TX-009-C04-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C04-N01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-n01) |
-| `DS-TX-009-C04-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C04-F01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-f01) |
-| `DS-TX-009-C05-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C05-N01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-n01) |
-| `DS-TX-009-C05-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C05-F01](dijkstra-deposit-store-declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-f01) |
-| `DS-TX-009-C06-P01` | [Technical fixture property](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/DepositStoreFixtureSpec.hs), outside the business specification |
+| `DS-TX-009-C01-P01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C01-P01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c01-p01) |
+| `DS-TX-009-C02-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-N01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n01) |
+| `DS-TX-009-C02-N02` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-N02](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n02) |
+| `DS-TX-009-C02-N03` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-N03](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-n03) |
+| `DS-TX-009-C02-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C02-F01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c02-f01) |
+| `DS-TX-009-C03-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C03-N01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-n01) |
+| `DS-TX-009-C03-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C03-F01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c03-f01) |
+| `DS-TX-009-C04-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C04-N01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-n01) |
+| `DS-TX-009-C04-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C04-F01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c04-f01) |
+| `DS-TX-009-C05-N01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C05-N01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-n01) |
+| `DS-TX-009-C05-F01` | [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS-C05-F01](declarations.md#ds-tx-declarations-requirements-subtx-declarations-c05-f01) |
+| `DS-TX-009-C06-P01` | [Technical fixture property](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/DepositStoreFixtureSpec.hs), outside the business specification |
 
 <a id="section-10" name="section-10"></a>
 
@@ -4805,38 +4807,38 @@ The executable suite mirrors the rule chapters:
 
 | Chapter | Test modules under `DepositStore/` |
 | --- | --- |
-| Transaction rules | [`TransactionRulesSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRulesSpec.hs) composes `TransactionRules/Tx/` and `TransactionRules/Collateral/`. |
-| Ledger effects | [`LedgerEffectsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffectsSpec.hs) composes `UTxOSpec`, `Store/`, `FeesSpec`, `ConservationSpec` and `Lifecycle/`. |
+| Transaction rules | [`TransactionRulesSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRulesSpec.hs) composes `TransactionRules/Tx/` and `TransactionRules/Collateral/`. |
+| Ledger effects | [`LedgerEffectsSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffectsSpec.hs) composes `UTxOSpec`, `Store/`, `FeesSpec`, `ConservationSpec` and `Lifecycle/`. |
 
-[`DeclarationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/DeclarationsSpec.hs)
-composes [`GrammarSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs)
-and [`RequirementsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/RequirementsSpec.hs).
+[`DeclarationsSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/DeclarationsSpec.hs)
+composes [`GrammarSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs)
+and [`RequirementsSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/RequirementsSpec.hs).
 Grammar checks valid representations; Requirements checks which bodies must declare.
 Within `TransactionRules/Tx/Declarations/Requirements/Operations/`,
-[`AllocationSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs)
-and [`ReleaseSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs)
+[`AllocationSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs)
+and [`ReleaseSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs)
 cover each gross operation and identify which operations belong to each body.
-[`OperationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs)
+[`OperationsSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs)
 checks the shared declaration requirement independently of deposit price: generated
 Deposit-backed input and output forms still require declarations when their priced
 amounts are zero. Accepted controls and one-field omissions exercise both body
 levels, ordinary success and real phase-2 failure.
-[`ZeroNetChangeSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs)
+[`ZeroNetChangeSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs)
 checks equal positive allocations and releases independently for each active
 TopTx or SubTx, including mixed active/inactive children and proposals on the
 phase-2 failure path. Its six nominal and eight rejection properties require
 explicit zero at each active body and the parent declaration required by children.
-[`SubTxDeclarationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/SubTxDeclarationsSpec.hs)
+[`SubTxDeclarationsSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/SubTxDeclarationsSpec.hs)
 checks the TopTx field required by any explicit SubTx declaration, including
 zero and offsetting contributions from two SubTxs.
 
-[`AccountingSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AccountingSpec.hs)
-composes [`NetChangeSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChangeSpec.hs)
-and [`BalanceSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs).
+[`AccountingSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AccountingSpec.hs)
+composes [`NetChangeSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChangeSpec.hs)
+and [`BalanceSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs).
 Net change checks each SubTx's own amount and TopTx's complete transaction total.
 Balance checks the complete transaction's financial conservation when phase 2 is valid.
 
-[`CollateralSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/CollateralSpec.hs)
+[`CollateralSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/CollateralSpec.hs)
 composes `FundingSpec`, `TotalSpec` and `AssetsSpec`. Existing input resolution,
 witnesses, fee percentages and total-field checks are linked in
 [Existing collateral rules](#ds-collateral-existing-rules).
@@ -4855,21 +4857,21 @@ LedgerEffects/
     └── EpochSpec.hs
 ```
 
-[`UTxOSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs)
+[`UTxOSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs)
 owns the exact UTxO transition selected by the accepted outcome.
-[`AllocationsSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs)
-owns retained records; [`BalanceSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs)
-checks the change in the sum of records. [`FeesSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs)
+[`AllocationsSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs)
+owns retained records; [`BalanceSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs)
+checks the change in the sum of records. [`FeesSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs)
 checks ordinary and collateral fee credits and unchanged treasury. The map and
-Store assertions formerly embedded there now belong to UTxO and Store specs. [`ConservationSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs)
+Store assertions formerly embedded there now belong to UTxO and Store specs. [`ConservationSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs)
 compares independent actual-pot sums with the production total including donations.
 
-[`TranslationSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs)
-corresponds to [full-state translation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L103),
-[UTxO/Store translation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L217)
-and [min-ADA output upgrade](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs#L216).
-[`EpochSpec`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs)
-observes the Store preserved by [ordinary epoch processing](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Epoch.hs#L218).
+[`TranslationSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs)
+corresponds to [full-state translation](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L103),
+[UTxO/Store translation](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Translation.hs#L217)
+and [min-ADA output upgrade](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs#L216).
+[`EpochSpec`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs)
+observes the Store preserved by [ordinary epoch processing](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Epoch.hs#L218).
 Existing codec coverage and the rollback integration gap are linked under
 [Lifecycle](#ds-state-recovery).
 
@@ -4986,16 +4988,16 @@ Production domain types remain in the ledger modules. A pure helper may move the
 when it acquires a protocol responsibility; generators and independent test
 expectations remain specification support.
 
-- [TopTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/TopTx.hs)
-- [SubTx declaration domain API](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/SubTx.hs)
-- [Transaction fields, operations and lenses](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
-- [Output variants and shared interfaces](../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut.hs)
-- [Dijkstra output representations](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
-- [Dijkstra active-formula minimum-coin validation](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/MinimumCoin.hs)
-- [Earlier-era byte-based minimum-coin rule](../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs)
-- [Serialized size measurement for proposed outputs](../libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Decoding/Sized.hs)
-- [TopTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
-- [SubTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/SubUtxo.hs)
+- [TopTx declaration domain API](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/TopTx.hs)
+- [SubTx declaration domain API](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/SubTx.hs)
+- [Transaction fields, operations and lenses](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxBody.hs)
+- [Output variants and shared interfaces](../../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut.hs)
+- [Dijkstra output representations](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxOut.hs)
+- [Dijkstra active-formula minimum-coin validation](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/MinimumCoin.hs)
+- [Earlier-era byte-based minimum-coin rule](../../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxOut.hs)
+- [Serialized size measurement for proposed outputs](../../libs/cardano-ledger-binary/src/Cardano/Ledger/Binary/Decoding/Sized.hs)
+- [TopTx UTXO rule](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
+- [SubTx UTXO rule](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/SubUtxo.hs)
 
 <a id="declaration-api" name="declaration-api"></a>
 
@@ -5030,7 +5032,7 @@ the appropriate body level:
 | SubTx settlement destination | `SubTxSettlementOutput index` or `DelegateToTopTx` |
 
 Nonzero amounts use the abstract `StrictlyPositiveCoin` type from
-[`Cardano.Ledger.StrictlyPositiveCoin`](../libs/cardano-ledger-core/src/Cardano/Ledger/StrictlyPositiveCoin.hs).
+[`Cardano.Ledger.StrictlyPositiveCoin`](../../libs/cardano-ledger-core/src/Cardano/Ledger/StrictlyPositiveCoin.hs).
 `mkStrictlyPositiveCoin :: Coin -> Maybe StrictlyPositiveCoin` accepts exactly
 $`1 \le \mathit{amount} \le 2^{64}-1`$ lovelace; `unStrictlyPositiveCoin` returns the
 underlying `Coin`. The constructor stays private, and CBOR/JSON encode the amount
@@ -5100,17 +5102,17 @@ carries a settlement choice: `[0]` for `NoTopTxSettlement`, or `[1, index]` for
 JSON uses a `settlement` object with `kind` `noTopTxSettlement` or
 `topTxSettlementOutput` and its `outputIndex`.
 
-[Grammar](dijkstra-deposit-store-declarations.md#ds-tx-declarations-grammar) owns declaration forms and declaration decoder rejection,
+[Grammar](declarations.md#ds-tx-declarations-grammar) owns declaration forms and declaration decoder rejection,
 including enforcement of `StrictlyPositiveCoin` amounts. The type's construction
 and scalar codecs belong to ledger-core's `StrictlyPositiveCoinSpec`.
-The [declaration codec specification](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Binary/Golden.hs)
+The [declaration codec specification](../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Binary/Golden.hs)
 retains independent exact-byte/JSON goldens, historical field omission and malformed
 payload checks through both transaction-body decoders.
 These representation checks establish which forms can be expressed. Requirements,
 exactness and conservation determine whether an expressed declaration is valid in its transaction.
 
-[`Declaration/TopTx.hs`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/Tx/Declaration/TopTx.hs)
-and [`Declaration/SubTx.hs`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/Tx/Declaration/SubTx.hs)
+[`Declaration/TopTx.hs`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/Tx/Declaration/TopTx.hs)
+and [`Declaration/SubTx.hs`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/Tx/Declaration/SubTx.hs)
 provide typed declarations, paired bodies and independent raw decoder inputs for
 the same declaration domain. `allDeclarationsWithAmount` and
 `allDeclarationInputsWithAmount` retain every operation form and both index bounds
@@ -5122,7 +5124,7 @@ requests. Structural input generators cover every defect category in each draw.
 These modules also construct raw local destinations for the generated index
 properties and their shrunk counterexamples.
 
-[`OutputIndex.hs`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/OutputIndex.hs)
+[`OutputIndex.hs`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Specs/OutputIndex.hs)
 provides shared negative and overflowing index generators. The specs preserve
-those ranges while shrinking. [`Encoding.hs`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding.hs)
+those ranges while shrinking. [`Encoding.hs`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding.hs)
 combines CBOR and JSON observations; each format has its own implementation.

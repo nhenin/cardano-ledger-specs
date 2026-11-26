@@ -1,6 +1,6 @@
-# Dijkstra DepositStore verification record
+# Verification record for the Dijkstra UTxO deposit rules
 
-**Updated:** 10 November 2026
+**Latest recorded tests:** [24 November 2026](#signed-backing-change-for-mixed-output-forms--24-november-2026)
 
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
@@ -10,8 +10,9 @@
 
 **Retained historical evidence:** recorded 9 October 2026 at code checkpoint `c8760684f`.
 
-This record separates implementation progress and executed-test evidence from the
-[DepositStore business specification](dijkstra-deposit-store-rules.md). Current rule
+This record documents implementation progress and test runs for
+[Dijkstra ledger rules for minimum-ADA and deposit-backed outputs](README.md), including the
+[TopTx and SubTx declaration rules](declarations.md). Current rule
 references use semantic tags matching the executable hierarchy. Numeric tags below
 identify historical runs only; their original observations and dates remain distinct
 from the new structural verification.
@@ -252,7 +253,7 @@ V1 was operational and V2 was reserved and rejected. The integration revision ch
 experimental Dijkstra snapshot schema; earlier-era bytes remain unchanged.
 Its executed checks are recorded separately below.
 
-The [executable outline](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
+The [executable outline](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStoreSpec.hs)
 registers **211 implemented business contracts**, with no pending LedgerEffects
 entry: 80 Declarations (21 Grammar and 59 Requirements), 58 Accounting
 (41 NetChange, three Attribution and 14 Balance), two Authorization, 33 Settlement,
@@ -318,37 +319,37 @@ have been replaced by real ledger submissions.
 
 | Semantic responsibility and executable spec | Current implementation or verification |
 | --- | --- |
-| [DS-PRICING](dijkstra-deposit-store-rules.md#ds-pricing) | The full pricing matrix remains deferred; focused formula, codec and ledger lifecycle checks cover typed output measures, historical pricing, formula evolution and zero pricing. |
-| [DS-TX-DECLARATIONS-GRAMMAR](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs) | Twenty-one declaration checks are implemented in separate TopTx and SubTx modules: typed amount integration, absent versus zero, legal forms and malformed payloads. Both levels have separate zero, negative and overflowing amount cases, generated structural inputs, and properties for generated negative or overflowing release indices. The former zero-delegation accounting case is implemented as Accounting Attribution N01, covering active and inactive explicit-zero children. |
-| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs) | P01 generates independent input/output deposit forms for TopTx and zero to four SubTxs at zero deposit price. It checks each active body's omitted declaration against its own ledger failure, then accepts the declared control, on ordinary success and real phase-2 failure paths. Activity is derived from actual input/output forms, independently of production predicates and amounts. |
-| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs) | All 17 checks pass. N05/F02 cover standalone allocation and omission; N06–N08/F07–F08 retain the own-output scope checks. F06 uses production Conway-to-Dijkstra output conversion followed by real funding, then rejects omission and accepts its declared control. N09 accepts independent parent/child allocations with exact local and aggregate declarations. |
-| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs) | All 16 properties pass 100 generated scenarios each. N09 adds real Deposit-backed reference inputs; N10 exercises all three collateral Store placements with actual script success and failure; F06 requires TopTx's own missing-declaration failure despite its children's declarations. Other cases cover standalone and multi-child releases, inactive children, TopTx's release and phase-2 failure. Assertions check submission outcomes; Store effects belong to Ledger effects. |
-| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs) | All 14 ledger properties pass 100 generated cases each. Positive recorded releases equal independently priced allocations for each active body. Coverage includes standalone TopTx, one or several SubTxs, inactive siblings, both body levels and phase-2-invalid transactions. Each omission variant requires the responsible body's failure; the original fully declared control is accepted. |
-| [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/SubTxDeclarationsSpec.hs) | All 11 protocol examples have implemented checks. Fixture cardinality is verified separately under test infrastructure. |
-| [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs) | All 22 properties pass 100 generated scenarios each. Each SubTx declares its own allocations minus recorded releases. Coverage includes local/delegated operations, cancelling errors, translated min-ADA inputs, empty application assets, attempted release of unspent outputs’ deposits, wrong signs and real phase-2 failure. Every rejection checks the specific child failure and then accepts its valid control. |
-| [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs) | All 19 properties pass 100 generated scenarios each. TopTx declares the complete transaction total, counting every child once. P02 adds local/delegated total invariance with both allocation and release in every sample, followed by accepted ledger submissions for both modes. Coverage includes the derived own-change identity, measured 5/3 ADA examples, inter-body offsets, one-lovelace errors, wrong signs, delegated omission/double counting and real phase-2 failure. Every rejection is followed by its accepted control. |
-| [DS-TX-ACCOUNTING-ATTRIBUTION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs) | All three generated properties pass. Independent originating changes establish each local or delegated share, delegation transfers the signed responsibility, and active/inactive explicit zero contributes zero. |
-| [DS-TX-ACCOUNTING-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs) | All 14 properties pass 100 generated scenarios each. Real ledger submissions cover the complete value equation, Store transfer counted once, cross-child funding, fee contributions, delegated operations, one-lovelace and native-asset mismatches, and the 10 + 2 ADA examples. N08 accepts a balanced proposal with genuine phase-2 failure; it does not impose ordinary balance on that path. |
-| [DS-TX-AUTHORIZATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs) | Both generated properties pass. Alice alone funds Bob’s Deposit-backed output; Bob later spends it with no Alice signature. Replacing Bob’s witness with a valid Alice witness produces exactly the consuming body’s missing-key-witness failure, followed by acceptance of the valid control. Every sample covers standalone TopTx, local SubTx settlement and delegated SubTx settlement. |
-| [DS-TX-SETTLEMENT-DESIGNATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | All 12 generated properties pass. Exact net releases require a TopTx output precisely when its attributed change is negative. Allocation and explicit-zero totals have no designation field. Both correct and incorrect designation branches are exercised with genuine phase-2 failure. |
-| [DS-TX-SETTLEMENT-OUTPUT-INDEX](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | All 11 generated properties pass. Indices resolve only within the declaring body’s regular outputs, including first/last boundaries, empty child outputs, foreign parent/child/sibling sequences and collateral return. Ledger rejections require exactly the intended failure and then accept the unchanged control. |
-| [DS-TX-SETTLEMENT-OUTPUT-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. Application ADA must cover the required share; external Store deposits cannot satisfy this bound. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. Stronger refund-provenance guarantees remain open in A.3. |
-| [DS-TX-MINIMUM-COIN](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | Generated properties cover both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Proposed min-ADA outputs must fund the independently computed active-formula minimum; the one-lovelace-below case isolates the owner's minimum-coin failure and includes the exact-minimum control. Executed evidence below retains its revision scope. |
-| [Inherited collateral rules](dijkstra-deposit-store-rules.md#ds-collateral-existing-rules) | Existing UTXO/UTXOW checks are linked individually. Five generic scope requirements and two authorization requirements remain explicit coverage gaps or incomplete Deposit-backed extensions; they are no longer counted as DepositStore executable placeholders. |
-| [DS-COLLATERAL-FUNDING](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | All three generated contracts pass: accept sufficient application-coin funding, reject deficits despite excess released deposits, and derive collateral funding independently of ordinary declarations. Each sample covers nine input/return configurations on both real script outcomes. F01 also rejects zero application coins without a return, despite ample released deposits. P02 is an isolated calculation, not ledger acceptance. |
-| [DS-COLLATERAL-TOTAL](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Both generated contracts pass: an absent or exact input-minus-return total accepts; either one-lovelace mismatch rejects with exactly IncorrectTotalCollateralField. Store funding, excess-release and absent-return cases run with both script outcomes. |
-| [DS-COLLATERAL-ASSETS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Both generated contracts pass: preserve the exact native-asset map across min-ADA and deposit-backed output forms; reject missing, extra, changed or unreturned assets. Funded Store returns also accept tokens with zero application ADA. Rejected variants retain sufficient deposit and fee funding. |
-| [DS-STATE-UTXO](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs) | Five generated checks observe exact ordinary and collateral UTxO maps, successful and failing real scripts, reference-only inputs, inactive multi-SubTx operations on failure and overlapping ordinary/collateral input roles. |
-| [DS-STATE-ALLOCATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, deposits independent of outer CBOR encoding after state restoration and price changes, zero-price records from translated min-ADA sources, and inactive ordinary records on phase-2 failure. |
-| [DS-STATE-BALANCE](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Seven generated checks preserve the original four contracts and add mixed-rate inputs with current-price replacement, a noncanonical child output and a noncanonical collateral return. Each historical output is snapshotted, restored and refunded after a price change. Independent metadata sums check the cached total. |
-| [DS-STATE-FEES](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
-| [DS-STATE-SOLVENCY](dijkstra-deposit-store-rules.md#ds-state-solvency) | Retired business solvency states remain invalid. `mkUTxOStore` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
-| [DS-STATE-CONSERVATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
-| [DS-STATE-TRANSLATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
-| [DS-STATE-EPOCH](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | Two generated properties cross real epoch boundaries with live records. N01 preserves the complete Store with unchanged parameters. N02 activates a scheduled byte-price update for V1 and V2 while preserving historical allocations, the formula version and the independently checked total. |
-| [DS-STATE-RECOVERY](dijkstra-deposit-store-rules.md#ds-state-recovery) | Binary round trips cover Dijkstra AccountingState, LedgerState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore reachable accounting state and spend a restored output at its allocation-time price. Consensus rollback remains outside this ledger API. |
-| [DS-STAKE](dijkstra-deposit-store-rules.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
-| [DS-VOTING](dijkstra-deposit-store-rules.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
+| [DS-PRICING](README.md#ds-pricing) | The full pricing matrix remains deferred; focused formula, codec and ledger lifecycle checks cover typed output measures, historical pricing, formula evolution and zero pricing. |
+| [DS-TX-DECLARATIONS-GRAMMAR](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/GrammarSpec.hs) | Twenty-one declaration checks are implemented in separate TopTx and SubTx modules: typed amount integration, absent versus zero, legal forms and malformed payloads. Both levels have separate zero, negative and overflowing amount cases, generated structural inputs, and properties for generated negative or overflowing release indices. The former zero-delegation accounting case is implemented as Accounting Attribution N01, covering active and inactive explicit-zero children. |
+| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/OperationsSpec.hs) | P01 generates independent input/output deposit forms for TopTx and zero to four SubTxs at zero deposit price. It checks each active body's omitted declaration against its own ledger failure, then accepts the declared control, on ordinary success and real phase-2 failure paths. Activity is derived from actual input/output forms, independently of production predicates and amounts. |
+| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs) | All 17 checks pass. N05/F02 cover standalone allocation and omission; N06–N08/F07–F08 retain the own-output scope checks. F06 uses production Conway-to-Dijkstra output conversion followed by real funding, then rejects omission and accepts its declared control. N09 accepts independent parent/child allocations with exact local and aggregate declarations. |
+| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-RELEASE](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs) | All 16 properties pass 100 generated scenarios each. N09 adds real Deposit-backed reference inputs; N10 exercises all three collateral Store placements with actual script success and failure; F06 requires TopTx's own missing-declaration failure despite its children's declarations. Other cases cover standalone and multi-child releases, inactive children, TopTx's release and phase-2 failure. Assertions check submission outcomes; Store effects belong to Ledger effects. |
+| [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ZERO-NET-CHANGE](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ZeroNetChangeSpec.hs) | All 14 ledger properties pass 100 generated cases each. Positive recorded releases equal independently priced allocations for each active body. Coverage includes standalone TopTx, one or several SubTxs, inactive siblings, both body levels and phase-2-invalid transactions. Each omission variant requires the responsible body's failure; the original fully declared control is accepted. |
+| [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/SubTxDeclarationsSpec.hs) | All 11 protocol examples have implemented checks. Fixture cardinality is verified separately under test infrastructure. |
+| [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/SubTxSpec.hs) | All 22 properties pass 100 generated scenarios each. Each SubTx declares its own allocations minus recorded releases. Coverage includes local/delegated operations, cancelling errors, translated min-ADA inputs, empty application assets, attempted release of unspent outputs’ deposits, wrong signs and real phase-2 failure. Every rejection checks the specific child failure and then accepts its valid control. |
+| [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs) | All 19 properties pass 100 generated scenarios each. TopTx declares the complete transaction total, counting every child once. P02 adds local/delegated total invariance with both allocation and release in every sample, followed by accepted ledger submissions for both modes. Coverage includes the derived own-change identity, measured 5/3 ADA examples, inter-body offsets, one-lovelace errors, wrong signs, delegated omission/double counting and real phase-2 failure. Every rejection is followed by its accepted control. |
+| [DS-TX-ACCOUNTING-ATTRIBUTION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs) | All three generated properties pass. Independent originating changes establish each local or delegated share, delegation transfers the signed responsibility, and active/inactive explicit zero contributes zero. |
+| [DS-TX-ACCOUNTING-BALANCE](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs) | All 14 properties pass 100 generated scenarios each. Real ledger submissions cover the complete value equation, Store transfer counted once, cross-child funding, fee contributions, delegated operations, one-lovelace and native-asset mismatches, and the 10 + 2 ADA examples. N08 accepts a balanced proposal with genuine phase-2 failure; it does not impose ordinary balance on that path. |
+| [DS-TX-AUTHORIZATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs) | Both generated properties pass. Alice alone funds Bob’s Deposit-backed output; Bob later spends it with no Alice signature. Replacing Bob’s witness with a valid Alice witness produces exactly the consuming body’s missing-key-witness failure, followed by acceptance of the valid control. Every sample covers standalone TopTx, local SubTx settlement and delegated SubTx settlement. |
+| [DS-TX-SETTLEMENT-DESIGNATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | All 12 generated properties pass. Exact net releases require a TopTx output precisely when its attributed change is negative. Allocation and explicit-zero totals have no designation field. Both correct and incorrect designation branches are exercised with genuine phase-2 failure. |
+| [DS-TX-SETTLEMENT-OUTPUT-INDEX](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | All 11 generated properties pass. Indices resolve only within the declaring body’s regular outputs, including first/last boundaries, empty child outputs, foreign parent/child/sibling sequences and collateral return. Ledger rejections require exactly the intended failure and then accept the unchanged control. |
+| [DS-TX-SETTLEMENT-OUTPUT-COIN](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. Application ADA must cover the required share; external Store deposits cannot satisfy this bound. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. Stronger refund-provenance guarantees remain open in A.3. |
+| [DS-TX-MINIMUM-COIN](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | Generated properties cover both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Proposed min-ADA outputs must fund the independently computed active-formula minimum; the one-lovelace-below case isolates the owner's minimum-coin failure and includes the exact-minimum control. Executed evidence below retains its revision scope. |
+| [Inherited collateral rules](README.md#ds-collateral-existing-rules) | Existing UTXO/UTXOW checks are linked individually. Five generic scope requirements and two authorization requirements remain explicit coverage gaps or incomplete Deposit-backed extensions; they are no longer counted as DepositStore executable placeholders. |
+| [DS-COLLATERAL-FUNDING](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | All three generated contracts pass: accept sufficient application-coin funding, reject deficits despite excess released deposits, and derive collateral funding independently of ordinary declarations. Each sample covers nine input/return configurations on both real script outcomes. F01 also rejects zero application coins without a return, despite ample released deposits. P02 is an isolated calculation, not ledger acceptance. |
+| [DS-COLLATERAL-TOTAL](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Both generated contracts pass: an absent or exact input-minus-return total accepts; either one-lovelace mismatch rejects with exactly IncorrectTotalCollateralField. Store funding, excess-release and absent-return cases run with both script outcomes. |
+| [DS-COLLATERAL-ASSETS](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Both generated contracts pass: preserve the exact native-asset map across min-ADA and deposit-backed output forms; reject missing, extra, changed or unreturned assets. Funded Store returns also accept tokens with zero application ADA. Rejected variants retain sufficient deposit and fee funding. |
+| [DS-STATE-UTXO](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/UTxOSpec.hs) | Five generated checks observe exact ordinary and collateral UTxO maps, successful and failing real scripts, reference-only inputs, inactive multi-SubTx operations on failure and overlapping ordinary/collateral input roles. |
+| [DS-STATE-ALLOCATIONS](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/AllocationsSpec.hs) | Five generated checks observe complete ordinary/collateral allocation maps and their UTxO domains, deposits independent of outer CBOR encoding after state restoration and price changes, zero-price records from translated min-ADA sources, and inactive ordinary records on phase-2 failure. |
+| [DS-STATE-BALANCE](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Store/BalanceSpec.hs) | Seven generated checks preserve the original four contracts and add mixed-rate inputs with current-price replacement, a noncanonical child output and a noncanonical collateral return. Each historical output is snapshotted, restored and refunded after a price change. Independent metadata sums check the cached total. |
+| [DS-STATE-FEES](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | Two properties observe ordinary transaction fees and collateral coin fees plus released-deposit surplus, with unchanged treasury. The original Store and UTxO assertions now belong to their dedicated effects specs. |
+| [DS-STATE-SOLVENCY](README.md#ds-state-solvency) | Retired business solvency states remain invalid. `mkUTxOStore` establishes exact cached equality; `allocate` and `release` preserve it for a valid store; direct record updates must preserve the same equality. The snapshot codec rejects a mismatch. No surplus or standalone solvency validator is introduced. |
+| [DS-STATE-CONSERVATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Three independent-pot properties check correct counting (positive records and donations), ordinary conservation with local/delegated SubTxs, and collateral conservation after genuine script failure. |
+| [DS-STATE-TRANSLATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/TranslationSpec.hs) | One generated property runs full Conway NewEpochState translation. It compares exact output references and semantic fields, existing monetary pots and account balances/deposits, and verifies a legacy allocation per output, zero cached total and no external-deposit records. It does not claim complete NewEpochState equality. |
+| [DS-STATE-EPOCH](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/Lifecycle/EpochSpec.hs) | Two generated properties cross real epoch boundaries with live records. N01 preserves the complete Store with unchanged parameters. N02 activates a scheduled byte-price update for V1 and V2 while preserving historical allocations, the formula version and the independently checked total. |
+| [DS-STATE-RECOVERY](README.md#ds-state-recovery) | Binary round trips cover Dijkstra AccountingState, LedgerState, EpochState and NewEpochState. Allocations P03 and Balance P03 additionally restore reachable accounting state and spend a restored output at its allocation-time price. Consensus rollback remains outside this ledger API. |
+| [DS-STAKE](README.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
+| [DS-VOTING](README.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
 
 Explicit repricing, Plutus context projection and the unresolved stronger settlement
 guarantee remain deferred. Historical V1 pricing survives ordinary parameter changes;
@@ -919,7 +920,7 @@ The `UTxO` type, `txouts` contract and `LegacyUTxOMap` module remain. Inherited
 validator, script-context and stake APIs still require output-only representations;
 full projections remain local to explicit output APIs, initialization and test
 oracles. Retiring those interfaces is tracked in
-[State representation](dijkstra-deposit-store-rules.md#ds-state-representation).
+[State representation](README.md#ds-state-representation).
 This pass does not change the agreed deferred output-construction API.
 
 All 13 build targets passed (the Shelley benchmark was built separately):
@@ -998,7 +999,7 @@ Verified the working-tree migration based on `2bafe7223`. Shared state now owns
 initialization, updates and translations retain min-ADA output formats; Dijkstra
 retains complete historical allocations. The `UTxO` type name remains unchanged.
 The proposed `txouts` / `Allocations` API revision is deferred in
-[State representation](dijkstra-deposit-store-rules.md#ds-state-representation).
+[State representation](README.md#ds-state-representation).
 
 All 12 build targets passed:
 
@@ -1513,7 +1514,7 @@ creation rates together. Its fixtures obtain historical metadata from accepted
 transactions, preserving the original business amounts. They never derive old
 accepted sizes by canonical re-encoding or reprice old outputs at current parameters.
 
-The [codec group, now UTxOStore historical metadata](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Binary/UTxOStoreSpec.hs) exercises actual noncanonical body bytes through both store
+The [codec group, now UTxOStore historical metadata](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Binary/UTxOStoreSpec.hs) exercises actual noncanonical body bytes through both store
 encoders, historical mixed-rate refunds, cached totals after deltas and replacement,
 legacy and zero-priced allocations, rejected reconstruction from bare Deposit-backed
 outputs, negative sizes, reserved V2, cached-total mismatches, variant mismatches,
@@ -1835,12 +1836,12 @@ collateral declaration or production rule is introduced.
 
 | Responsibility | Current owner | Coverage |
 | --- | --- | --- |
-| Existing collateral rules | [Inherited tests and gaps](dijkstra-deposit-store-rules.md#ds-collateral-existing-rules) | Direct source links distinguish inherited implementation tests from missing generic cases and Deposit-backed fixture extensions. |
-| Deposit funding | [FundingSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | 19 examples: four implemented, 15 placeholders. Includes derivation from inputs/return and the no-redeemer Store control. |
-| Optional total | [TotalSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Six placeholders covering the existing input-minus-return equality in the presence of Store allocations/releases. |
-| Native assets | [AssetsSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Three placeholders for the asset projection over Deposit-backed outputs. |
-| Fee effects | [FeesSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | One existing implemented scenario, two placeholders moved from Surplus. |
-| ADA conservation | [ConservationSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Existing state contract includes the former mixed-collateral shortfall scenario and the collateral conservation equation. Still unimplemented. |
+| Existing collateral rules | [Inherited tests and gaps](README.md#ds-collateral-existing-rules) | Direct source links distinguish inherited implementation tests from missing generic cases and Deposit-backed fixture extensions. |
+| Deposit funding | [FundingSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | 19 examples: four implemented, 15 placeholders. Includes derivation from inputs/return and the no-redeemer Store control. |
+| Optional total | [TotalSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/TotalSpec.hs) | Six placeholders covering the existing input-minus-return equality in the presence of Store allocations/releases. |
+| Native assets | [AssetsSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/AssetsSpec.hs) | Three placeholders for the asset projection over Deposit-backed outputs. |
+| Fee effects | [FeesSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/FeesSpec.hs) | One existing implemented scenario, two placeholders moved from Surplus. |
+| ADA conservation | [ConservationSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/LedgerEffects/ConservationSpec.hs) | Existing state contract includes the former mixed-collateral shortfall scenario and the collateral conservation equation. Still unimplemented. |
 
 The registered count changes from **253 to 244**, with **183 implemented checks
 unchanged** and **70 → 61 placeholders**. Seven generic requirements move to the
@@ -1878,11 +1879,11 @@ replaces `ApplicationAssetsSpec`; the five case suffixes stay unchanged under
 
 | Case | Contract | Generated samples | Time |
 | --- | --- | --- | --- |
-| [DS-TX-MINIMUM-COIN-N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L47) | Native assets without ADA | Pass · 100 | 804 ms |
-| [DS-TX-MINIMUM-COIN-N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L61) | Datum-only and reference-script-only outputs without assets | Pass · 100 | 1063 ms |
-| [DS-TX-MINIMUM-COIN-N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) | Address-only Store output | Pass · 100 | 548 ms |
-| [DS-TX-MINIMUM-COIN-N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) | Min-ADA output at its exact minimum | Pass · 100 | 506 ms |
-| [DS-TX-MINIMUM-COIN-F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L98) | Min-ADA output one lovelace below its minimum | Pass · 100 | 645 ms |
+| [DS-TX-MINIMUM-COIN-N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L47) | Native assets without ADA | Pass · 100 | 804 ms |
+| [DS-TX-MINIMUM-COIN-N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L61) | Datum-only and reference-script-only outputs without assets | Pass · 100 | 1063 ms |
+| [DS-TX-MINIMUM-COIN-N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L75) | Address-only Store output | Pass · 100 | 548 ms |
+| [DS-TX-MINIMUM-COIN-N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L89) | Min-ADA output at its exact minimum | Pass · 100 | 506 ms |
+| [DS-TX-MINIMUM-COIN-F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs#L98) | Min-ADA output one lovelace below its minimum | Pass · 100 | 645 ms |
 
 Every sample covers **TopTx and SubTx × ordinary success and actual phase-2 failure**:
 400 scenarios per property. N02 separately covers datum-only and reference-script-only
@@ -1928,8 +1929,8 @@ The proposal has exact declarations, valid settlement and complete financial bal
 
 | Case | Contract | Generated samples | Time |
 | --- | --- | --- | --- |
-| [DS-TX-AUTHORIZATION-N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L51) | Bob spends without any Alice signature | Pass · 100 | 599 ms |
-| [DS-TX-AUTHORIZATION-F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L73) | Alice’s valid signature cannot replace Bob’s; the original control is accepted | Pass · 100 | 497 ms |
+| [DS-TX-AUTHORIZATION-N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L51) | Bob spends without any Alice signature | Pass · 100 | 599 ms |
+| [DS-TX-AUTHORIZATION-F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs#L73) | Alice’s valid signature cannot replace Bob’s; the original control is accepted | Pass · 100 | 497 ms |
 
 Each sample exercises **all three forms**: standalone TopTx, a SubTx settling into
 its own output, and a SubTx delegating its release to TopTx. That is **300 scenarios
@@ -1971,10 +1972,10 @@ Baseline: `1d2aa2e3ff62cd7e0fd60c403811287f98335773` plus the current working tr
 
 | Module | Passing properties | Wall time | CPU time |
 | --- | ---: | ---: | ---: |
-| [Settlement/DesignationSpec.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | 12 / 12 | 2.3546 s | 3.3907 s |
-| [Settlement/OutputIndexSpec.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | 11 / 11 | 2.9831 s | 4.2280 s |
-| [Settlement/OutputCoinSpec.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | 10 / 10 | 1.8218 s | 2.6074 s |
-| [Accounting/AttributionSpec.hs](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs) | 3 / 3 | 0.5676 s | 0.8908 s |
+| [Settlement/DesignationSpec.hs](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | 12 / 12 | 2.3546 s | 3.3907 s |
+| [Settlement/OutputIndexSpec.hs](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | 11 / 11 | 2.9831 s | 4.2280 s |
+| [Settlement/OutputCoinSpec.hs](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | 10 / 10 | 1.8218 s | 2.6074 s |
+| [Accounting/AttributionSpec.hs](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs) | 3 / 3 | 0.5676 s | 0.8908 s |
 
 The properties use real funding and ledger submissions, except the isolated
 Designation P01, OutputIndex P01 and OutputCoin P01 boundary oracles and the two
@@ -1997,42 +1998,42 @@ Seed: `739231514`.
 
 | Module | Case | Contract | Time |
 | --- | --- | --- | ---: |
-| Designation | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L47) | Designation follows TopTx's release share | 278 ms |
-| Designation | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L69) | SubTxs settle the entire release | 150 ms |
-| Designation | [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L82) | Standalone TopTx settles its release | 113 ms |
-| Designation | [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L93) | TopTx and SubTxs each settle a share | 156 ms |
-| Designation | [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L106) | TopTx's share exceeds the transaction release | 139 ms |
-| Designation | [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L120) | TopTx omits a required output | 108 ms |
-| Designation | [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L131) | TopTx designates an unnecessary output | 149 ms |
-| Designation | [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L144) | Net allocation, even though TopTx releases | 136 ms |
-| Designation | [N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L157) | Explicit-zero total, even though TopTx releases | 139 ms |
-| Designation | [N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L170) | Net release, while TopTx allocates | 140 ms |
-| Designation | [N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L183) | Valid designation when phase 2 fails | 420 ms |
-| Designation | [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L199) | Invalid designation when phase 2 fails | 420 ms |
-| OutputIndex | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L60) | The index belongs to the declaring body | 217 ms |
-| OutputIndex | [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L77) | The first missing own index is rejected | 325 ms |
-| OutputIndex | [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L100) | A SubTx cannot select TopTx's output | 237 ms |
-| OutputIndex | [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L121) | Collateral return is outside the ordinary output sequence | 336 ms |
-| OutputIndex | [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L142) | A SubTx without outputs cannot settle locally | 172 ms |
-| OutputIndex | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L161) | The first and last own outputs are valid | 347 ms |
-| OutputIndex | [F05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L175) | TopTx cannot select a SubTx's output | 234 ms |
-| OutputIndex | [F06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L194) | A SubTx cannot select a sibling's output | 236 ms |
-| OutputIndex | [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L215) | Valid output indices when phase 2 fails | 293 ms |
-| OutputIndex | [F07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L229) | An invalid output index still fails when phase 2 fails | 450 ms |
-| OutputIndex | [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) | A SubTx without outputs delegates its final release | 129 ms |
-| OutputCoin | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L43) | Output ADA must cover the required share | 266 ms |
-| OutputCoin | [F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) | Min-ADA output, one lovelace short | 143 ms |
-| OutputCoin | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) | Min-ADA output, exact amount | 148 ms |
-| OutputCoin | [N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) | Min-ADA output, extra ADA | 145 ms |
-| OutputCoin | [F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L117) | An external deposit cannot fill the ADA shortfall | 156 ms |
-| OutputCoin | [N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) | Deposit-backed output, exact application ADA | 156 ms |
-| OutputCoin | [N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L161) | TopTx's share is smaller than the transaction release | 165 ms |
-| OutputCoin | [N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L177) | Exact output ADA when phase 2 fails | 248 ms |
-| OutputCoin | [F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L197) | One lovelace short when phase 2 fails | 233 ms |
-| OutputCoin | [F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L219) | The transaction release is smaller than TopTx's share | 158 ms |
-| Attribution | [P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) | Local and delegated contributions determine TopTx's share | 284 ms |
-| Attribution | [P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) | Delegation moves the signed contribution to TopTx | 121 ms |
-| Attribution | [N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) | Explicit zero adds no delegated contribution | 161 ms |
+| Designation | [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L47) | Designation follows TopTx's release share | 278 ms |
+| Designation | [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L69) | SubTxs settle the entire release | 150 ms |
+| Designation | [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L82) | Standalone TopTx settles its release | 113 ms |
+| Designation | [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L93) | TopTx and SubTxs each settle a share | 156 ms |
+| Designation | [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L106) | TopTx's share exceeds the transaction release | 139 ms |
+| Designation | [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L120) | TopTx omits a required output | 108 ms |
+| Designation | [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L131) | TopTx designates an unnecessary output | 149 ms |
+| Designation | [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L144) | Net allocation, even though TopTx releases | 136 ms |
+| Designation | [N06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L157) | Explicit-zero total, even though TopTx releases | 139 ms |
+| Designation | [N07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L170) | Net release, while TopTx allocates | 140 ms |
+| Designation | [N08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L183) | Valid designation when phase 2 fails | 420 ms |
+| Designation | [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs#L199) | Invalid designation when phase 2 fails | 420 ms |
+| OutputIndex | [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L60) | The index belongs to the declaring body | 217 ms |
+| OutputIndex | [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L77) | The first missing own index is rejected | 325 ms |
+| OutputIndex | [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L100) | A SubTx cannot select TopTx's output | 237 ms |
+| OutputIndex | [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L121) | Collateral return is outside the ordinary output sequence | 336 ms |
+| OutputIndex | [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L142) | A SubTx without outputs cannot settle locally | 172 ms |
+| OutputIndex | [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L161) | The first and last own outputs are valid | 347 ms |
+| OutputIndex | [F05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L175) | TopTx cannot select a SubTx's output | 234 ms |
+| OutputIndex | [F06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L194) | A SubTx cannot select a sibling's output | 236 ms |
+| OutputIndex | [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L215) | Valid output indices when phase 2 fails | 293 ms |
+| OutputIndex | [F07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L229) | An invalid output index still fails when phase 2 fails | 450 ms |
+| OutputIndex | [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) | A SubTx without outputs delegates its final release | 129 ms |
+| OutputCoin | [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L43) | Output ADA must cover the required share | 266 ms |
+| OutputCoin | [F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L56) | Min-ADA output, one lovelace short | 143 ms |
+| OutputCoin | [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L77) | Min-ADA output, exact amount | 148 ms |
+| OutputCoin | [N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L97) | Min-ADA output, extra ADA | 145 ms |
+| OutputCoin | [F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L117) | An external deposit cannot fill the ADA shortfall | 156 ms |
+| OutputCoin | [N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L140) | Deposit-backed output, exact application ADA | 156 ms |
+| OutputCoin | [N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L161) | TopTx's share is smaller than the transaction release | 165 ms |
+| OutputCoin | [N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L177) | Exact output ADA when phase 2 fails | 248 ms |
+| OutputCoin | [F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L197) | One lovelace short when phase 2 fails | 233 ms |
+| OutputCoin | [F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs#L219) | The transaction release is smaller than TopTx's share | 158 ms |
+| Attribution | [P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) | Local and delegated contributions determine TopTx's share | 284 ms |
+| Attribution | [P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) | Delegation moves the signed contribution to TopTx | 121 ms |
+| Attribution | [N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) | Explicit zero adds no delegated contribution | 161 ms |
 
 **Full DepositStore regression:** 255 examples in 23.8771 s wall time /
 33.9850 s CPU time. **176 implemented checks pass; 79 deliberate
@@ -2059,11 +2060,11 @@ baseline is `1d2aa2e3ff62cd7e0fd60c403811287f98335773` plus this working-tree ch
 
 | Current test | Previous contract | Check | Result · scenarios | Time |
 | --- | --- | --- | --- | ---: |
-| [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX-P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L90) | Attribution P02 (total), N02 | Delegation preserves the required total; allocation and release, both modes accepted | Pass · 100 | 0.6703 s |
-| [DS-TX-SETTLEMENT-PARTICIPATION-P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) | Attribution P01, N01 | Every declaration form has the independently expected local and TopTx shares | Pass · 100 | 0.2908 s |
-| [DS-TX-SETTLEMENT-PARTICIPATION-P03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) | Attribution P02 (responsibility) | Local → delegated moves each signed contribution from SubTx to TopTx | Pass · 100 | 0.3038 s |
-| [DS-TX-SETTLEMENT-PARTICIPATION-N09](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) | Attribution N03 | A SubTx creates no outputs and delegates its final Store release; accepted | Pass · 100 | 0.3255 s |
-| [DS-TX-SETTLEMENT-PARTICIPATION-N10](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) | Attribution N04 | Active and inactive explicit zero contribute zero locally and to TopTx; accepted | Pass · 100 | 0.3633 s |
+| [DS-TX-ACCOUNTING-NET-CHANGE-TOPTX-P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/NetChange/TopTxSpec.hs#L90) | Attribution P02 (total), N02 | Delegation preserves the required total; allocation and release, both modes accepted | Pass · 100 | 0.6703 s |
+| [DS-TX-SETTLEMENT-PARTICIPATION-P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L39) | Attribution P01, N01 | Every declaration form has the independently expected local and TopTx shares | Pass · 100 | 0.2908 s |
+| [DS-TX-SETTLEMENT-PARTICIPATION-P03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L67) | Attribution P02 (responsibility) | Local → delegated moves each signed contribution from SubTx to TopTx | Pass · 100 | 0.3038 s |
+| [DS-TX-SETTLEMENT-PARTICIPATION-N09](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs#L253) | Attribution N03 | A SubTx creates no outputs and delegates its final Store release; accepted | Pass · 100 | 0.3255 s |
+| [DS-TX-SETTLEMENT-PARTICIPATION-N10](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/AttributionSpec.hs#L98) | Attribution N04 | Active and inactive explicit zero contribute zero locally and to TopTx; accepted | Pass · 100 | 0.3633 s |
 
 Each time is the complete property run, including funding and its 100 scenarios.
 Seed: `739231514`. The two delegation properties exercise allocation and release in
@@ -2110,20 +2111,20 @@ without another balancing fixup.
 
 | Test | Contract exercised | Result · generated scenarios | Time |
 | --- | --- | --- | ---: |
-| [DS-TX-ACCOUNTING-BALANCE-P01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L72) | Complete equation, including real native assets | Pass · 100 | 435 ms |
-| [DS-TX-ACCOUNTING-BALANCE-P02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L96) | Acceptance follows complete balance despite child imbalances | Pass · 100 | 276 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L117) | Net allocation funded exactly once | Pass · 100 | 217 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L137) | Net release available exactly once | Pass · 100 | 207 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L155) | One SubTx funds another | Pass · 100 | 176 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L168) | A SubTx contributes application ADA to TopTx fees | Pass · 100 | 157 ms |
-| [DS-TX-ACCOUNTING-BALANCE-F01](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L181) | One-lovelace surplus and deficit rejected | Pass · 100 | 218 ms |
-| [DS-TX-ACCOUNTING-BALANCE-F02](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L199) | Missing, extra and renamed native assets rejected | Pass · 100 | 336 ms |
-| [DS-TX-ACCOUNTING-BALANCE-F03](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L219) | Exact delegated request without financial funding rejected | Pass · 100 | 181 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N05](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L234) | Equal delegated allocation and release accepted | Pass · 100 | 168 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N06](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L246) | 10 application ADA + 2 released ADA → 12 ADA output | Pass · 100 | 127 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N07](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L255) | 10 ADA output + 2 ADA fee contribution accepted | Pass · 100 | 139 ms |
-| [DS-TX-ACCOUNTING-BALANCE-F04](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L265) | 10 ADA output without accounting for the 2 ADA release rejected | Pass · 100 | 156 ms |
-| [DS-TX-ACCOUNTING-BALANCE-N08](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L280) | Balanced proposal with actual phase-2 failure accepted | Pass · 100 | 236 ms |
+| [DS-TX-ACCOUNTING-BALANCE-P01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L72) | Complete equation, including real native assets | Pass · 100 | 435 ms |
+| [DS-TX-ACCOUNTING-BALANCE-P02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L96) | Acceptance follows complete balance despite child imbalances | Pass · 100 | 276 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L117) | Net allocation funded exactly once | Pass · 100 | 217 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L137) | Net release available exactly once | Pass · 100 | 207 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L155) | One SubTx funds another | Pass · 100 | 176 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L168) | A SubTx contributes application ADA to TopTx fees | Pass · 100 | 157 ms |
+| [DS-TX-ACCOUNTING-BALANCE-F01](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L181) | One-lovelace surplus and deficit rejected | Pass · 100 | 218 ms |
+| [DS-TX-ACCOUNTING-BALANCE-F02](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L199) | Missing, extra and renamed native assets rejected | Pass · 100 | 336 ms |
+| [DS-TX-ACCOUNTING-BALANCE-F03](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L219) | Exact delegated request without financial funding rejected | Pass · 100 | 181 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N05](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L234) | Equal delegated allocation and release accepted | Pass · 100 | 168 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N06](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L246) | 10 application ADA + 2 released ADA → 12 ADA output | Pass · 100 | 127 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N07](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L255) | 10 ADA output + 2 ADA fee contribution accepted | Pass · 100 | 139 ms |
+| [DS-TX-ACCOUNTING-BALANCE-F04](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L265) | 10 ADA output without accounting for the 2 ADA release rejected | Pass · 100 | 156 ms |
+| [DS-TX-ACCOUNTING-BALANCE-N08](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/BalanceSpec.hs#L280) | Balanced proposal with actual phase-2 failure accepted | Pass · 100 | 236 ms |
 
 **Targeted run:** 3.0401 s wall time / 4.2442 s CPU time, seed `739231514`.
 Times in the table cover all 100 scenarios of each property, including funding,
@@ -2261,51 +2262,51 @@ All rows below passed 100 scenarios. Times are for the whole property, not one s
 
 | Case | Contract | Time |
 | --- | --- | ---: |
-| [P01](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-p01) | Each SubTx declares its own exact change | 280 ms |
-| [N01](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n01) | Exact own change, with any allocation and release combination | 186 ms |
-| [F01](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f01) | Net allocation understated by one lovelace | 177 ms |
-| [F02](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f02) | Net allocation overstated by one lovelace | 181 ms |
-| [F03](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f03) | Net release understated by one lovelace | 180 ms |
-| [F04](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f04) | Net release overstated by one lovelace | 181 ms |
-| [F05](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f05) | Opposing SubTx errors cancel in the total | 244 ms |
-| [N02](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n02) | Equal own allocations and releases, explicit zero | 132 ms |
-| [F06](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f06) | Explicit zero cannot replace a required allocation | 179 ms |
-| [N03](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n03) | Exact allocation requested from TopTx | 140 ms |
-| [N04](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n04) | Exact release delegated to TopTx | 139 ms |
-| [N05](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n05) | Released deposits, only min-ADA outputs | 125 ms |
-| [F07](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f07) | Explicit zero cannot replace a required release | 189 ms |
-| [N06](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n06) | Another body offsets the SubTx release | 148 ms |
-| [N07](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n07) | An output without application assets still requires a deposit | 129 ms |
-| [N08](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n08) | A translated min-ADA input funds an exact allocation | 138 ms |
-| [F08](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f08) | A translated min-ADA input does not excuse an inexact allocation | 158 ms |
-| [F09](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f09) | Store surplus cannot increase a SubTx release | 179 ms |
-| [F10](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f10) | A release cannot replace a required allocation | 182 ms |
-| [F11](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f11) | An allocation cannot replace a required release | 179 ms |
-| [N09](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-n09) | Exact SubTx declarations when phase 2 fails | 267 ms |
-| [F12](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-subtx-f12) | An inexact SubTx declaration still fails before the collateral outcome | 443 ms |
+| [P01](README.md#ds-tx-accounting-net-change-subtx-p01) | Each SubTx declares its own exact change | 280 ms |
+| [N01](README.md#ds-tx-accounting-net-change-subtx-n01) | Exact own change, with any allocation and release combination | 186 ms |
+| [F01](README.md#ds-tx-accounting-net-change-subtx-f01) | Net allocation understated by one lovelace | 177 ms |
+| [F02](README.md#ds-tx-accounting-net-change-subtx-f02) | Net allocation overstated by one lovelace | 181 ms |
+| [F03](README.md#ds-tx-accounting-net-change-subtx-f03) | Net release understated by one lovelace | 180 ms |
+| [F04](README.md#ds-tx-accounting-net-change-subtx-f04) | Net release overstated by one lovelace | 181 ms |
+| [F05](README.md#ds-tx-accounting-net-change-subtx-f05) | Opposing SubTx errors cancel in the total | 244 ms |
+| [N02](README.md#ds-tx-accounting-net-change-subtx-n02) | Equal own allocations and releases, explicit zero | 132 ms |
+| [F06](README.md#ds-tx-accounting-net-change-subtx-f06) | Explicit zero cannot replace a required allocation | 179 ms |
+| [N03](README.md#ds-tx-accounting-net-change-subtx-n03) | Exact allocation requested from TopTx | 140 ms |
+| [N04](README.md#ds-tx-accounting-net-change-subtx-n04) | Exact release delegated to TopTx | 139 ms |
+| [N05](README.md#ds-tx-accounting-net-change-subtx-n05) | Released deposits, only min-ADA outputs | 125 ms |
+| [F07](README.md#ds-tx-accounting-net-change-subtx-f07) | Explicit zero cannot replace a required release | 189 ms |
+| [N06](README.md#ds-tx-accounting-net-change-subtx-n06) | Another body offsets the SubTx release | 148 ms |
+| [N07](README.md#ds-tx-accounting-net-change-subtx-n07) | An output without application assets still requires a deposit | 129 ms |
+| [N08](README.md#ds-tx-accounting-net-change-subtx-n08) | A translated min-ADA input funds an exact allocation | 138 ms |
+| [F08](README.md#ds-tx-accounting-net-change-subtx-f08) | A translated min-ADA input does not excuse an inexact allocation | 158 ms |
+| [F09](README.md#ds-tx-accounting-net-change-subtx-f09) | Store surplus cannot increase a SubTx release | 179 ms |
+| [F10](README.md#ds-tx-accounting-net-change-subtx-f10) | A release cannot replace a required allocation | 182 ms |
+| [F11](README.md#ds-tx-accounting-net-change-subtx-f11) | An allocation cannot replace a required release | 179 ms |
+| [N09](README.md#ds-tx-accounting-net-change-subtx-n09) | Exact SubTx declarations when phase 2 fails | 267 ms |
+| [F12](README.md#ds-tx-accounting-net-change-subtx-f12) | An inexact SubTx declaration still fails before the collateral outcome | 443 ms |
 
 ### TopTx
 
 | Case | Contract | Time |
 | --- | --- | ---: |
-| [P01](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-p01) | TopTx declares the exact transaction total | 95 ms |
-| [N01](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n01) | TopTx and SubTxs contribute to the total | 151 ms |
-| [N02](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n02) | TopTx's own change is derived from its total | 257 ms |
-| [N03](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n03) | 5 ADA allocated, 3 ADA released | 166 ms |
-| [N04](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n04) | 3 ADA allocated, 5 ADA released | 159 ms |
-| [N05](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n05) | Nonzero body changes produce a zero total | 157 ms |
-| [F01](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f01) | Standalone TopTx understates its net allocation by one lovelace | 136 ms |
-| [F02](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f02) | Standalone TopTx overstates its net allocation by one lovelace | 140 ms |
-| [F03](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f03) | Standalone TopTx understates its net release by one lovelace | 141 ms |
-| [F04](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f04) | Standalone TopTx overstates its net release by one lovelace | 127 ms |
-| [F05](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f05) | Explicit zero cannot replace a nonzero total | 152 ms |
-| [F06](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f06) | A nonzero declaration cannot replace a zero total | 235 ms |
-| [F07](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f07) | TopTx declares the opposite direction | 158 ms |
-| [N06](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n06) | TopTx releases while SubTxs allocate | 167 ms |
-| [N07](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n07) | TopTx allocates while SubTxs release | 168 ms |
-| [N08](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-n08) | An exact total remains valid when phase 2 fails | 207 ms |
-| [F08](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f08) | An inexact total is rejected even when phase 2 fails | 244 ms |
-| [F09](dijkstra-deposit-store-rules.md#ds-tx-accounting-net-change-toptx-f09) | A delegated change belongs in the total exactly once | 192 ms |
+| [P01](README.md#ds-tx-accounting-net-change-toptx-p01) | TopTx declares the exact transaction total | 95 ms |
+| [N01](README.md#ds-tx-accounting-net-change-toptx-n01) | TopTx and SubTxs contribute to the total | 151 ms |
+| [N02](README.md#ds-tx-accounting-net-change-toptx-n02) | TopTx's own change is derived from its total | 257 ms |
+| [N03](README.md#ds-tx-accounting-net-change-toptx-n03) | 5 ADA allocated, 3 ADA released | 166 ms |
+| [N04](README.md#ds-tx-accounting-net-change-toptx-n04) | 3 ADA allocated, 5 ADA released | 159 ms |
+| [N05](README.md#ds-tx-accounting-net-change-toptx-n05) | Nonzero body changes produce a zero total | 157 ms |
+| [F01](README.md#ds-tx-accounting-net-change-toptx-f01) | Standalone TopTx understates its net allocation by one lovelace | 136 ms |
+| [F02](README.md#ds-tx-accounting-net-change-toptx-f02) | Standalone TopTx overstates its net allocation by one lovelace | 140 ms |
+| [F03](README.md#ds-tx-accounting-net-change-toptx-f03) | Standalone TopTx understates its net release by one lovelace | 141 ms |
+| [F04](README.md#ds-tx-accounting-net-change-toptx-f04) | Standalone TopTx overstates its net release by one lovelace | 127 ms |
+| [F05](README.md#ds-tx-accounting-net-change-toptx-f05) | Explicit zero cannot replace a nonzero total | 152 ms |
+| [F06](README.md#ds-tx-accounting-net-change-toptx-f06) | A nonzero declaration cannot replace a zero total | 235 ms |
+| [F07](README.md#ds-tx-accounting-net-change-toptx-f07) | TopTx declares the opposite direction | 158 ms |
+| [N06](README.md#ds-tx-accounting-net-change-toptx-n06) | TopTx releases while SubTxs allocate | 167 ms |
+| [N07](README.md#ds-tx-accounting-net-change-toptx-n07) | TopTx allocates while SubTxs release | 168 ms |
+| [N08](README.md#ds-tx-accounting-net-change-toptx-n08) | An exact total remains valid when phase 2 fails | 207 ms |
+| [F08](README.md#ds-tx-accounting-net-change-toptx-f08) | An inexact total is rejected even when phase 2 fails | 244 ms |
+| [F09](README.md#ds-tx-accounting-net-change-toptx-f09) | A delegated change belongs in the total exactly once | 192 ms |
 
 ### Regression
 
@@ -2707,7 +2708,7 @@ CPU time: **2.5868 seconds**, excluding compilation. N01, N02 and the six new mu
 passed **100 generated cases**.
 
 All case identifiers below use the `DS-TX-REQUIRED-DECLARATIONS-OPERATIONS-RELEASE-` prefix and follow
-[ReleaseSpec's registration order](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs).
+[ReleaseSpec's registration order](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs).
 The rules document uses concise human-readable headings; traceability follows the case
 identifiers, reading order and source links, rather than literal equality with test titles.
 
@@ -2864,7 +2865,7 @@ original identifiers and scope.
 
 ## Earlier release-presence run on 13 October 2026
 
-The initial six [ReleaseSpec cases](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs)
+The initial six [ReleaseSpec cases](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/ReleaseSpec.hs)
 executed against the ledger before N01 was strengthened. Both phase-2 cases exercise TopTx and SubTx,
 giving eight spending paths across six registered examples.
 
@@ -3021,9 +3022,9 @@ Local evidence: `/private/tmp/ds-subtx-grammar-generators-build.log` and
 
 ## Combined codec checks verified on 12 October 2026
 
-[`Core.Encoding`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding.hs)
-combines the results of [`Encoding.CBOR`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding/CBOR.hs)
-and [`Encoding.JSON`](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding/JSON.hs).
+[`Core.Encoding`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding.hs)
+combines the results of [`Encoding.CBOR`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding/CBOR.hs)
+and [`Encoding.JSON`](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding/JSON.hs).
 Each shared assertion checks both formats in one call. The separate implementations
 retain CBOR coverage at every supported Dijkstra version and annotated decoding for
 transaction bodies. Checks specific to one format still name that format directly.
@@ -3063,9 +3064,9 @@ Local evidence: `/private/tmp/ds-subtx-amount-cases-build.log` and
 ## TopTx and SubTx Grammar split verified on 12 October 2026
 
 `GrammarSpec` now aggregates
-[TopTxSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Grammar/TopTxSpec.hs)
+[TopTxSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Grammar/TopTxSpec.hs)
 followed by
-[SubTxSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Grammar/SubTxSpec.hs).
+[SubTxSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Grammar/SubTxSpec.hs).
 Both follow Amounts, Absence, Forms, Structure and Destinations, matching the document.
 Assertions remain inline. The former combined F01 now checks TopTx; its existing
 SubTx assertions live in F07. All other case identifiers are preserved.
@@ -3101,14 +3102,14 @@ Local evidence: `/private/tmp/ds-grammar-rejections-build.log`,
 ## StrictlyPositiveCoin extraction and test ownership verified on 12 October 2026
 
 The abstract type and its checked construction, accessor and codec instances now
-live in [Cardano.Ledger.StrictlyPositiveCoin](../libs/cardano-ledger-core/src/Cardano/Ledger/StrictlyPositiveCoin.hs).
+live in [Cardano.Ledger.StrictlyPositiveCoin](../../libs/cardano-ledger-core/src/Cardano/Ledger/StrictlyPositiveCoin.hs).
 The constructor stays private. Construction accepts exactly 1 through 2⁶⁴ − 1
 lovelace, and CBOR/JSON keep the numeric representation. Core and Dijkstra test
 targets and the ledger API library build successfully.
 
 | Responsibility | Executed result |
 | --- | --- |
-| [StrictlyPositiveCoinSpec](../libs/cardano-ledger-core/test/Test/Cardano/Ledger/StrictlyPositiveCoinSpec.hs), outside DepositStore | 5 passed: valid bounds, generated valid integers, invalid boundaries, generated nonpositive integers and generated overflow. The three properties each passed 100 cases. |
+| [StrictlyPositiveCoinSpec](../../libs/cardano-ledger-core/test/Test/Cardano/Ledger/StrictlyPositiveCoinSpec.hs), outside DepositStore | 5 passed: valid bounds, generated valid integers, invalid boundaries, generated nonpositive integers and generated overflow. The three properties each passed 100 cases. |
 | Grammar | 11 passed. P01 preserves a generated typed amount through every declaration form; F01 rejects invalid raw amounts through both declaration codecs. Direct type assertions have moved to core. |
 | Existing Presence checks | 25 passed: nine Allocation, five Scope and eleven Dependency checks. |
 | Declaration codec and Huddle checks | 90 passed, preserving the inline CBOR/JSON expectations and transaction-body integration checks. |
@@ -3379,7 +3380,7 @@ protocol requirements.
 
 ### Fixture cardinality
 
-The [technical property](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/DepositStoreFixtureSpec.hs)
+The [technical property](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/DepositStoreFixtureSpec.hs)
 constructs transaction bodies from generated declarations. SubTxs are occurrences in a
 sequence, so two equal declarations must remain separate entries:
 
@@ -3419,7 +3420,7 @@ placeholder assertions deliberately fail.
 
 **Historical rule identifier:** `DS-TX-001`.
 
-These checks now live in [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs)
+These checks now live in [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/Operations/AllocationSpec.hs)
 including its cases for own outputs and required declaration fields.
 
 Seven properties each passed 100 generated cases, and seven ledger scenarios passed.
@@ -3429,7 +3430,7 @@ own regular outputs. The ledger scenarios use implicit-only acceptance controls 
 reject missing TopTx or SubTx declarations on both phase-2 outcomes, checking the exact
 failure and unchanged state after rejection.
 
-The [declaration validators](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Declaration.hs)
+The [declaration validators](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/DepositStore/Declaration.hs)
 are `validateTopTxAllocationDeclarationPresence` and
 `validateSubTxAllocationDeclarationPresence`. Their domain failure is
 `MissingBodyUTxODepositDeclaration` in `DepositStoreOutputDeclarationFailure`.
@@ -3445,8 +3446,8 @@ an explicit zero is not evidence that a Store allocation is funded.
 
 **Historical rule identifier:** `DS-TX-009`.
 
-The 11 protocol checks now live in [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/SubTxDeclarationsSpec.hs);
-the separate fixture property now lives in [DepositStoreFixtureSpec](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/DepositStoreFixtureSpec.hs).
+The 11 protocol checks now live in [DS-TX-DECLARATIONS-REQUIREMENTS-SUBTX-DECLARATIONS](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Declarations/Requirements/SubTxDeclarationsSpec.hs);
+the separate fixture property now lives in [DepositStoreFixtureSpec](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/DepositStoreFixtureSpec.hs).
 
 Six ledger scenarios, five isolated-validator properties and one fixture-construction
 property passed; each property passed 100 generated cases. The ledger scenarios use
@@ -3457,12 +3458,12 @@ unchanged. The isolated properties cover all declaration forms, including nonzer
 operations; the fixture property checks that body construction retains the SubTx count.
 
 `validateTopTxNetUTxODepositDeclaration` reports the domain failure
-`MissingTopTxDeclaration`. The [TopTx UTXO rule](../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
+`MissingTopTxDeclaration`. The [TopTx UTXO rule](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Utxo.hs)
 maps it to `MissingTopTxUTxODepositDeclaration`. The corresponding
-[codec golden](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/GoldenSpec.hs)
+[codec golden](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/GoldenSpec.hs)
 also passed. This evidence establishes presence, not amount or settlement validity.
 
-The existing [construction and codec tests](../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Binary/Golden.hs)
+The existing [construction and codec tests](../../eras/dijkstra/impl/testlib/Test/Cardano/Ledger/Dijkstra/Binary/Golden.hs)
 exercise declaration representations and positive amount bounds. That evidence is
 separate from enforcement of the remaining transaction rules.
 
@@ -3704,7 +3705,7 @@ Evidence: `/private/tmp/deposit-ci-consumed-values-seed1.log`,
 
 ## Signed backing change for mixed output forms — 24 November 2026
 
-The [builder tests](../libs/cardano-ledger-api/test/Test/Cardano/Ledger/Api/Tx/Body/DepositBalance/Spec.hs) check the declaration and the serialized ADA balance for both a standalone TopTx and a batch with a SubTx. The [ledger tests](../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/MixedBackingSpec.hs) submit the transactions, check the change in the Store and compare total ADA before and after. For each conversion they also submit an incorrect declaration at each transaction level and check the corresponding exactness failure.
+The [builder tests](../../libs/cardano-ledger-api/test/Test/Cardano/Ledger/Api/Tx/Body/DepositBalance/Spec.hs) check the declaration and the serialized ADA balance for both a standalone TopTx and a batch with a SubTx. The [ledger tests](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Accounting/MixedBackingSpec.hs) submit the transactions, check the change in the Store and compare total ADA before and after. For each conversion they also submit an incorrect declaration at each transaction level and check the corresponding exactness failure.
 
 | Conversion | Signed backing change | External Store change |
 | --- | --- | ---: |
