@@ -478,7 +478,7 @@ have been replaced by real ledger submissions.
 | [DS-TX-AUTHORIZATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/AuthorizationSpec.hs) | Both generated properties pass. Alice alone funds Bob’s Deposit-backed output; Bob later spends it with no Alice signature. Replacing Bob’s witness with a valid Alice witness produces exactly the consuming body’s missing-key-witness failure, followed by acceptance of the valid control. Every sample covers standalone TopTx, local SubTx settlement and delegated SubTx settlement. |
 | [DS-TX-SETTLEMENT-DESIGNATION](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/DesignationSpec.hs) | All 12 generated properties pass. Exact net releases require a TopTx output precisely when its attributed change is negative. Allocation and explicit-zero totals have no designation field. Both correct and incorrect designation branches are exercised with genuine phase-2 failure. |
 | [DS-TX-SETTLEMENT-OUTPUT-INDEX](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputIndexSpec.hs) | All 11 generated properties pass. Indices resolve only within the declaring body’s regular outputs, including first/last boundaries, empty child outputs, foreign parent/child/sibling sequences and collateral return. Ledger rejections require exactly the intended failure and then accept the unchanged control. |
-| [DS-TX-SETTLEMENT-OUTPUT-COIN](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. Application ADA must cover the required share; external Store deposits cannot satisfy this bound. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. Stronger refund-provenance guarantees remain open in A.3. |
+| [DS-TX-SETTLEMENT-OUTPUT-COIN](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/Settlement/OutputCoinSpec.hs) | All ten generated properties pass. The serialized ADA in the designated output must cover the required share. Boundary mutations preserve global balance and Store pricing. Both body levels, output forms and phase-2 outcomes are covered. [Settlement rule](chapters/transaction-rules.md#ds-tx-settlement-output-coin) |
 | [DS-TX-MINIMUM-COIN](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Tx/MinimumCoinSpec.hs) | Generated properties cover both body levels and ordinary success or actual phase-2 failure. Fully funded Store outputs accept native assets with zero ADA, datum-only, reference-script-only and address-only content. Proposed min-ADA outputs must fund the independently computed active-formula minimum; the one-lovelace-below case isolates the owner's minimum-coin failure and includes the exact-minimum control. Executed evidence below retains its revision scope. |
 | [Inherited collateral rules](chapters/transaction-rules.md#ds-collateral-existing-rules) | Existing UTXO/UTXOW checks are linked individually. Five generic scope requirements and two authorization requirements remain explicit coverage gaps or incomplete Deposit-backed extensions; they are no longer counted as DepositStore executable placeholders. |
 | [DS-COLLATERAL-FUNDING](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/TransactionRules/Collateral/FundingSpec.hs) | All three generated contracts pass: accept sufficient application-coin funding, reject deficits despite excess released deposits, and derive collateral funding independently of ordinary declarations. Each sample covers nine input/return configurations on both real script outcomes. F01 also rejects zero application coins without a return, despite ample released deposits. P02 is an isolated calculation, not ledger acceptance. |
@@ -496,12 +496,11 @@ have been replaced by real ledger submissions.
 | [DS-STAKE](chapters/derived-distributions.md#ds-stake) | Stake tests are deferred; the rules and eight examples remain documented. |
 | [DS-VOTING](chapters/derived-distributions.md#ds-voting) | Voting tests are deferred; the rule and one example remain documented. |
 
-Explicit repricing, Plutus context projection and the unresolved stronger settlement
-guarantee remain deferred. Historical V1 pricing survives ordinary parameter changes;
-V2 changes the base and per-asset coefficients. The experiment activates V2 explicitly. An agreed
-rule awaiting an executable ledger check is distinct from a business question whose
-semantics are still open. Representation and codec checks do not establish enforcement
-of deposit accounting.
+Historical V1 allocations retain their price across ordinary parameter changes.
+The V2 experiment activates new base and per-asset coefficients for subsequent
+allocations. Repricing existing entries would require a separate proposal.
+The script-context contract for each supported version remains open.
+[Historical pricing](chapters/domain-model.md#ds-pricing-history) · [Plutus compatibility](chapters/appendices.md#ds-plutus-compatibility)
 
 ## Deposit formula history on 6 November 2026
 
@@ -3504,9 +3503,9 @@ wire decoders for positive-operation bounds, including zero, negative and overfl
 rejections.
 
 Include valid lifecycle sequences and enforce acceptance coverage so an implementation
-that rejects everything cannot satisfy accepted-state invariants vacuously. Keep Conway
-initialization, fixed-policy epoch transitions and agreed collateral behavior in scope;
-repricing, Plutus projection and stronger local-settlement semantics remain deferred.
+that rejects everything cannot satisfy accepted-state invariants vacuously. Cover Conway
+initialization, fixed-policy epoch transitions, collateral and the signed settlement output.
+The per-version Plutus projection has a separate verification scope.
 Shrinking must preserve dependencies, preconditions and the intended invalid condition.
 Report the random seed and minimized counterexample to make failures reproducible.
 

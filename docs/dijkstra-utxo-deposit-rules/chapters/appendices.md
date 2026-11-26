@@ -13,10 +13,7 @@
   <summary><a href="#section-8">A. Remaining design work</a></summary>
   <dl>
     <dd>
-      <a href="#ds-pricing-history">A.1 Historical pricing</a><br>
-      <a href="#ds-plutus-compatibility">A.2 Plutus compatibility</a><br>
-      <a href="#ds-tx-settlement-refinement">A.3 Local settlement</a><br>
-      <a href="#ds-state-representation">A.4 State representation</a><br>
+      <a href="#ds-plutus-compatibility">A.1 Plutus compatibility</a><br>
     </dd>
   </dl>
 </details>
@@ -28,6 +25,7 @@
       <a href="#declaration-api">C.1 Declaration API</a><br>
       <a href="#transaction-body-fields">C.2 Transaction body fields</a><br>
       <a href="#declaration-encoding">C.3 Declaration encoding</a><br>
+      <a href="#ds-state-representation">C.4 State representation</a><br>
     </dd>
   </dl>
 </details>
@@ -46,339 +44,23 @@
 
 ## A. Remaining design work
 
-> **Distinguish agreed requirements from unresolved design and implementation work.**
->
-> The sections below identify what remains open without treating it as an implemented guarantee.
-
-<a id="ds-pricing-history" name="ds-pricing-history"></a>
-
-### A.1 Historical pricing
-
-> **A recorded allocation keeps its original pricing interval after later activations.**
-
-`DepositFormulaHistory` contains the fork's initial formula and ordered activations.
-Each `Unspent` holds its output and allocation origin. The history is shared across
-entries and persists even when the Store is empty.
-
-| Allocation | Formula on refund | Reserve |
-| --- | --- | --- |
-| Imported min-ADA output | `initialFormula` | Capped by its ADA and held inside the output. |
-| Dated min-ADA output | Formula active at its allocation slot | Capped by its ADA and held inside the output. |
-| Dated deposit-backed output | Formula active at its allocation slot | Full calculated amount held in the Store. |
-
-A parameter change records the current version with its new rate at the effective
-epoch boundary. Activating experimental V2 records a new version and effective
-slot. Both are prospective. The [two-output example](domain-model.md#ds-pricing) gives the exact
-refunds before and at the activation slot.
-
-A distinct future proposal to reprice existing entries would need to specify how
-to fund or release the difference for each live output.
-
+<a id="a2-plutus-compatibility" name="a2-plutus-compatibility"></a>
 <a id="ds-plutus-compatibility" name="ds-plutus-compatibility"></a>
 
-### A.2 Plutus compatibility
+### A.1 Plutus compatibility
 
-> **Define how deposit-backed outputs appear to each supported Plutus version.**
->
-> Compatibility is the target; context projection and translation still require design and tests.
+The target is to support deposit-backed outputs with Plutus V1, V2, V3 and V4,
+subject to each version's existing feature restrictions.
 
-**Decision:** Target compatibility with all supported Plutus versions; context projection
-and translation remain deferred.
-
-The intended design supports deposit-backed outputs with Plutus V1, V2, V3 and V4, subject
-to each version's existing feature restrictions. Store UTxO capacity deposits alone should
-not impose a V4-only restriction.
-
-The context translation and any exposure of DepositStore information remain to be
-designed and tested. The current legacy translation paths contain `unexpected
-DepositBackedTxOut` errors that must be addressed in that work. No context-value
-projection or translation change is selected here.
-
-<a id="ds-tx-settlement-refinement" name="ds-tx-settlement-refinement"></a>
-
-### A.3 Local settlement
-
-> **Determine any stronger guarantee needed beyond the destination’s minimum amount.**
->
-> $`\text{Settlement output ADA} \ge \text{release amount}`$ does not establish the origin of its coins. SubTx fee contributions must remain possible.
-
-**Decision:** Output-index and output-coin checks are agreed, as is existing SubTx
-imbalance. The stronger settlement guarantee remains open.
-
-A SubTx consuming 10 ADA of serialized value plus a 2 ADA external deposit can
-create a 12 ADA min-ADA output. If the new embedded minimum is 2 ADA, the child
-declares zero. It can also create a 10 ADA output and contribute 2 ADA to TopTx
-fees. With every other flow fixed and no fee contribution, a 10 ADA output
-leaves 2 ADA unaccounted for. [Balance N06–F04](transaction-rules.md#ds-tx-accounting-balance-n06)
-
-SubTx ADA surplus must remain available to fund TopTx fees or other bodies, including
-when the SubTx settles a net Store release locally. Choosing
-`SubTx.DeclaresNetUTxODepositRelease amount (SubTxSettlementOutput index)` must not
-impose independent SubTx balance or prohibit net ADA exports. The proposed no-export
-inequality $`\text{ordinaryProducedADA} \ge \text{ordinaryConsumedADA} + \text{amount}`$ is therefore not
-adopted.
-
-Using the body's actual signed external Store change, its ADA export is
-
-```math
-\text{netADAExport}
-= \text{ordinaryConsumedADA} - \text{storeChange(body)} - \text{ordinaryProducedADA}
-```
-
-Positive values contribute ADA to the rest of the batch; negative values receive
-funding. This is a derived accounting quantity, not a new field or an additional balance
-constraint. For example, 10 application ADA plus a 2 ADA release can fund an output of
-10 ADA and contribute 2 ADA to TopTx fees. With no such export or other ADA terms, the
-output must contain 12 ADA.
-
-Both ordinary amounts exclude DepositStore transfers. Consumed ADA includes the body's
-regular input coins, account withdrawals and applicable refunds. Produced ADA includes
-its regular output coins, certificate and proposal deposits, treasury donations and
-direct account deposits. Certificate effects must be attributed using their actual batch
-processing order. TopTx fees are not a SubTx charge in this calculation.
-
-The open question is what additional settlement guarantee is required beyond exact
-UTxO capacity deposit changes, the destination bound and batch conservation. Existing fields
-do not specify an output's amount before release or an independent export allowance.
-Deriving the export from final outputs cannot distinguish an intended fee contribution
-from a release redirected elsewhere in the batch. No additional signed allocation
-information or restriction is agreed here.
-
-This open question does not change the agreed destination bound or the existing ability of a SubTx to contribute ADA to TopTx fees. No additional signed allocation field, export restriction or independent SubTx balance rule is selected here.
-
-<a id="ds-state-representation" name="ds-state-representation"></a>
-
-### A.4 State representation
-
-> **Keep accepted outputs and allocation origins together; retain formula history in the Store.**
-
-```text
-LedgerState
-├── lsAccountingState :: AccountingState
-│   ├── asUTxOStore :: UTxOStore
-│   │   ├── depositFormulaHistory :: DepositFormulaHistory
-│   │   ├── totalDepositAmount :: DepositAmount
-│   │   └── allocations :: IndexedUTxOs
-│   │       └── TxIn → Unspent TxOut
-│   │           ├── output
-│   │           └── allocatedAt :: AllocatedAt
-│   ├── asDeposited  — certificate and governance deposit pot
-│   ├── asFees
-│   ├── asInstantStake
-│   └── asDonation
-├── lsCertState :: CertState
-└── lsGovState :: GovState
-```
-
-| Domain | Question answered |
+| Script version | Current output value in the prototype |
 | --- | --- |
-| `AccountingState` | Which outputs, ADA pots and derived stake does the ledger hold? |
-| `CertState` | Which accounts, delegations and registrations exist? |
-| `GovState` | Which proposals, votes and protocol parameters govern the ledger? |
+| V1 | The [Alonzo context translator](../../../eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Plutus/TxInfo.hs#L354) raises an error on a deposit-backed output. |
+| V2 and V3 | The [Babbage output translator](../../../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxInfo.hs#L143) raises the same error. |
+| V4 | The [Dijkstra output translator](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs#L661) exposes the full value of a minimum-ADA output and the application assets of a deposit-backed output. The Store holds its external deposit separately. |
 
-Certificate and governance records determine deposit obligations; accounting holds
-those funds. The separately held output deposits remain inside `UTxOStore`.
-
-```math
-\text{asDeposited}
-= \text{certificateObligations}(\text{lsCertState})
-+ \text{governanceObligations}(\text{lsGovState})
-```
-
-Transaction rules thread `LedgerState` while updating the relevant domain.
-The original certificate snapshot remains available when calculating refunds;
-processing a certificate does not erase the information needed to account for it.
-A phase-2 failure applies collateral effects without ordinary certificate or
-governance effects. Existing nested CBOR and JSON ledger formats are preserved at
-the serialization boundary; the in-memory model has three sibling states.
-
-The shared modules follow those domains:
-
-```text
-Cardano.Ledger.State
-├── Accounting              AccountingState and its field lenses
-│   ├── InstantStake        Current output stake and its resolution against accounts
-│   └── UTxOs               Store access
-│       ├── Store
-│       ├── IndexedUTxOs
-│       ├── Unspent
-│       └── Deposit
-├── Certificates            EraCertState and registration state
-│   ├── Account
-│   └── StakePool
-├── Governance              EraGov and protocol-parameter transitions
-├── Epoch
-│   ├── ChainAccount        Treasury and reserves
-│   ├── SnapShots
-│   ├── PoolDistr
-│   └── LeiosCommittee      Consensus committee
-└── Stake                   Shared stake value types
-```
-
-Era-specific certificate and instant-stake implementations use the same domain
-names inside their era packages. Transaction queries (`EraUTxO`, consumed and
-produced value, required scripts and witnesses) live in `Cardano.Ledger.UTxO`.
-
-The collection types distinguish output inspection from recorded unspent entries:
-
-| Type | Contents | Scope |
-| --- | --- | --- |
-| `IndexedTxOs` | `TxIn → Sized TxOut` | Proposed transaction outputs with their supplied sizes. |
-| `IndexedUTxOs` | `TxIn → Unspent TxOut` | Recorded output payloads and allocation origins. Pricing resolves the formula from history. |
-
-`allocations store` supplies the complete allocation state of that Store; selections
-remain `IndexedUTxOs`. There is no additional `Allocations` wrapper. A body alone
-cannot recover historical deposit parameters or establish which outputs remain unspent.
-
-| Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
-| --- | --- |
-| [`Store`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and formula activation. |
-| [`Store.Internals`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
-| [`IndexedUTxOs`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
-| [`Unspent`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output and allocation origin; `toTxOut`, historical formula selection, `computeExternalDeposit` and entry codecs. |
-| [`Deposit`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | Versioned formula arithmetic over `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`; `DepositAmount`, history and half-open formula periods. |
-
-Dijkstra owns output measurement and the migrated-output reserve view:
-
-| Module under `Cardano.Ledger.Dijkstra.UTxOs` | Responsibility |
-| --- | --- |
-| [`Deposit.Formula`](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Extract the three typed measures from a `TxOut` and call the core `computeDeposit`; return `DepositAmount`. |
-| [`Unspent`](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated min-ADA reserve at its output ADA. |
-
-The shared Store calls `getDepositTxOut` only for `DepositBackedTxOut`. Min-ADA entries
-contribute zero to its external total. Earlier eras have no `DepositBackedTxOut` values and
-need no implementation of Dijkstra's pricing rule.
-
-[`Cardano.Ledger.TxOut.IndexedTxOs`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
-owns construction, indexing and selection of sized outputs. Each collection has its own
-map operations; callers do not unwrap maps for ordinary lookups or selections.
-
-**Queries retain complete entries.** Map operations belong to `IndexedUTxOs`:
-
-```haskell
-IndexedUTxOs.lookupUTxO input entries
-IndexedUTxOs.restrictToInputs inputs entries
-IndexedUTxOs.withoutInputs inputs entries
-IndexedUTxOs.filterByTxOut predicate entries
-IndexedUTxOs.sumDepositAmounts history entries
-```
-
-Selections preserve each entry's output payload and allocation origin.
-`extractInputs` returns the remaining and extracted entries in one traversal.
-`txOuts` supplies payloads for output-only arithmetic; `mapTxOuts` projects payloads
-at external boundaries such as Plutus contexts, diagnostic maps and the formal model.
-The block reference-script check reads the scripts on selected input payloads and
-outputs proposed earlier in the block. It measures the scripts themselves.
-
-`AccountingState`, `LedgerState`, `EpochState` and `NewEpochState` expose the complete
-Store through `CanGetUTxOStore.utxoStoreG` and `CanSetUTxOStore.utxoStoreL`.
-`EraUTxO`, validators and transaction annotations consume `IndexedUTxOs` directly.
-They retain the original batch entries when validation needs inputs already consumed
-by an earlier body. Current ledger state still determines whether an input is spendable.
-
-Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and
-`getIndexedUTxOsSubset` return complete entries. Imp tests use `getUTxOStore`,
-`getIndexedUTxOs` or `impGetUTxO` for one output.
-
-**Body indexing and Store allocation are separate operations.**
-
-```haskell
-outputsTxBody :: EraTxBody era => TxBody l era -> IndexedTxOs era
-
-data TxProjected era = TxProjected
-  { updatedStore :: !(UTxOStore era)
-  , consumedOutputs :: !(IndexedUTxOs era)
-  , producedOutputs :: !(IndexedUTxOs era)
-  }
-
-projectTx :: EraTx era => SlotNo -> Tx TopTx era -> UTxOStore era -> TxProjected era
-
-allocate ::
-  EraTxOut era =>
-  SlotNo -> IndexedTxOs era -> UTxOStore era -> UTxOStore era
-
-activateNewFormula :: SlotNo -> DepositFormula -> UTxOStore era -> UTxOStore era
-```
-
-The body builder preserves bounded output-index enumeration and excludes collateral return.
-Babbage, Conway and Dijkstra retain the body's original `Sized` values; earlier eras
-construct canonical legacy sizes. No deposit formula is selected while inspecting a body.
-`producedTxOuts` selects regular outputs or collateral return according to the phase-2 outcome,
-without claiming ledger acceptance.
-
-`allocate slot` records `AtSlot slot` when new outputs enter the Dijkstra Store.
-Existing inputs retain their allocation origin; history resolves the original
-formula for their refund. Migrated entries continue to use the baseline.
-The transition is explicit:
-
-```haskell
-TxProjected {updatedStore, consumedOutputs, producedOutputs} =
-  Store.projectTx slot tx previousStore
-
-updatedInstantStake =
-  updateInstantStake consumedOutputs producedOutputs previousInstantStake
-```
-
-`projectTx` selects the TopTx's regular or collateral effects. Each internal body
-projection returns the same `TxProjected` record: consumed entries come from the
-previous Store; produced entries come from the updated Store and exclude retained
-colliding references. `updateInstantStake` belongs to `State.Accounting.InstantStake`
-and uses these actual changes. The accounting rule installs both results and emits
-`TxUTxODiff consumedOutputs producedOutputs`. The result's complete Store is not
-included in that event. Its entries preserve the output payload and allocation origin.
-
-`Store.Internals.projectValidTxBody` releases the body's regular inputs and allocates its regular outputs.
-It neither validates the body nor traverses nested SubTxs. The ledger selects the
-execution path; `Store.Internals.projectInvalidTxBody` releases only collateral inputs
-and allocates only the collateral return on phase-2 failure. Initialization and other operations
-without a body explicitly import `Store.Internals` to call `allocate` or `release`.
-
-These operations maintain the invariant for a valid Store:
-
-```math
-\text{totalDepositAmount}(S)
-= \sum_{u\in\text{allocations}(S)} \text{computeExternalDeposit}(\text{depositFormulaHistory}(S),u)
-```
-
-The `allocate` primitive preserves an existing entry and its historical deposit
-when a proposal uses the same reference. Only new entries increase the cached total.
-Releasing an absent input has no effect. Unaffected entries retain their metadata.
-For both valid and collateral projections in every era, a retained entry takes
-precedence over a proposed output with the same key, preserving the original
-map-union behavior. References released by the projection may be allocated again.
-
-**Legacy boundaries retain their formats.**
-
-- Before Dijkstra, `IndexedUTxOs` retains the ordinary payload-map CBOR used by queries.
-  `UTxOStore` uses MemPack inputs and output payloads, preserving ledger snapshot bytes
-  and credential sharing. Decoding reconstructs canonical min-ADA entries marked
-  `AtStoreMigration` with zero external deposits. These bytes contain no Store
-  history: ordinary decoding supplies the default V1/4310 baseline; the optional
-  `decodeUTxOStoreWithFormula` decoder accepts a different caller-supplied one.
-  Neither recovers each output's original creation-era pricing.
-- Dijkstra collections encode complete entries as `TxIn → [output, allocatedAt]`.
-  The Store encodes `[depositFormulaHistory, cachedTotal, allocationMap]`; history is
-  `[initialFormula, formulaChanges]`. Decoding validates change order and the
-  external total.
-  Its `EncCBOR` instance retains MemPack inputs and output payloads plus explicit metadata.
-  Standalone Store encoding now uses this same snapshot format.
-- The retired standalone Dijkstra `TxOutMap` payload encoding cannot represent complete
-  entries. Its replacement has the complete-entry format. The previous two-field Store
-  snapshot is rejected: its history cannot be recovered from individual entries,
-  especially when the Store is empty. The former formula-bearing entry format
-  is also distinct from the new `AllocatedAt` encoding.
-- Before Dijkstra, legacy import builds `AtStoreMigration` entries with
-  `IndexedUTxOs.fromMinAdaTxOuts`; Store construction receives either default or
-  caller-supplied history. Earlier-era Store translations preserve source history; Conway
-  canonical import retains the destination state's supplied history because its
-  namespace contains outputs only. The Dijkstra fork initializes its baseline from
-  the effective translated protocol parameters, with no dated changes. Future changes
-  retain their actual activation slots. `mkUTxOStore history entries` restores complete entries
-  with their payloads and allocation origins. No migration
-  operation extracts reserve ADA from a min-ADA payload or creates an external credit.
-
-Stake updates still fold output payloads directly. Address inspection and witness verification
-remain in `Address` and `Keys.WitVKey`; neither belongs to the indexed collection.
+Specify what each version exposes about output backing and transaction-level deposit
+declarations. Complete the V1–V3 translation paths and verify the effects on
+contracts that check exact output ADA.
 
 <a id="section-9" name="section-9"></a>
 
@@ -490,7 +172,7 @@ ledger scenario prices each body's outputs independently and requires acceptance
 | `DS-COLL-003` | [DS-COLLATERAL-FUNDING](transaction-rules.md#ds-collateral-funding), [DS-COLLATERAL-TOTAL](transaction-rules.md#ds-collateral-total) |
 | `DS-COLL-004` | [DS-COLLATERAL-FUNDING](transaction-rules.md#ds-collateral-funding), [DS-STATE-UTXO](ledger-effects.md#ds-state-utxo), [DS-STATE-ALLOCATIONS](ledger-effects.md#ds-state-allocations), [DS-STATE-BALANCE](ledger-effects.md#ds-state-balance) |
 | `DS-STORE-001` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](transaction-rules.md#ds-tx-accounting-net-change-subtx), [DS-STATE-ALLOCATIONS](ledger-effects.md#ds-state-allocations), [DS-STATE-BALANCE](ledger-effects.md#ds-state-balance) |
-| `DS-STORE-002` | [DS-PRICING-HISTORY](#ds-pricing-history) |
+| `DS-STORE-002` | <a id="a1-historical-pricing" name="a1-historical-pricing"></a><a id="ds-pricing-history" name="ds-pricing-history"></a>[DS-PRICING-HISTORY](domain-model.md#ds-pricing-history) |
 | `DS-STORE-003` | [DS-PRICING](domain-model.md#ds-pricing), [DS-STATE-ALLOCATIONS](ledger-effects.md#ds-state-allocations) |
 | `DS-STORE-004` | [DS-TX-ACCOUNTING-NET-CHANGE-SUBTX](transaction-rules.md#ds-tx-accounting-net-change-subtx), [DS-TX-DECLARATIONS-REQUIREMENTS-OPERATIONS-ALLOCATION](transaction-rules.md#ds-tx-declarations-requirements-operations-allocation), [DS-STATE-ALLOCATIONS](ledger-effects.md#ds-state-allocations), [DS-STATE-TRANSLATION](ledger-effects.md#ds-state-translation) |
 | `DS-STORE-005` | [DS-STATE-UTXO](ledger-effects.md#ds-state-utxo), [DS-STATE-ALLOCATIONS](ledger-effects.md#ds-state-allocations), [DS-STATE-RECOVERY](ledger-effects.md#ds-state-recovery) |
@@ -522,7 +204,7 @@ Settlement now names each check directly:
 | --- | --- |
 | `DS-TX-SETTLEMENT-PARTICIPATION` | [Designation](transaction-rules.md#ds-tx-settlement-designation), retaining P01, N01–N08 and F01–F03 |
 | `DS-TX-SETTLEMENT-DESTINATION` | [Output index](transaction-rules.md#ds-tx-settlement-output-index), retaining every suffix |
-| `DS-TX-SETTLEMENT-COVERAGE` | [Output coin](transaction-rules.md#ds-tx-settlement-output-coin), retaining every suffix |
+| `DS-TX-SETTLEMENT-COVERAGE` | <a id="a3-local-settlement" name="a3-local-settlement"></a><a id="ds-tx-settlement-refinement" name="ds-tx-settlement-refinement"></a>[Output coin](transaction-rules.md#ds-tx-settlement-output-coin), retaining every suffix |
 
 The intermediate Participation P02/P03/N10 cases now belong to Accounting Attribution
 P01/P02/N01. Participation N09 is Output index N03. Their former anchors remain valid.
@@ -923,6 +605,241 @@ properties and their shrunk counterexamples.
 provides shared negative and overflowing index generators. The specs preserve
 those ranges while shrinking. [`Encoding.hs`](../../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Encoding.hs)
 combines CBOR and JSON observations; each format has its own implementation.
+
+<a id="a4-state-representation" name="a4-state-representation"></a>
+<a id="ds-state-representation" name="ds-state-representation"></a>
+
+### C.4 State representation
+
+> **Keep accepted outputs and allocation origins together; retain formula history in the Store.**
+
+```text
+LedgerState
+├── lsAccountingState :: AccountingState
+│   ├── asUTxOStore :: UTxOStore
+│   │   ├── depositFormulaHistory :: DepositFormulaHistory
+│   │   ├── totalDepositAmount :: DepositAmount
+│   │   └── allocations :: IndexedUTxOs
+│   │       └── TxIn → Unspent TxOut
+│   │           ├── output
+│   │           └── allocatedAt :: AllocatedAt
+│   ├── asDeposited  — certificate and governance deposit pot
+│   ├── asFees
+│   ├── asInstantStake
+│   └── asDonation
+├── lsCertState :: CertState
+└── lsGovState :: GovState
+```
+
+| Domain | Question answered |
+| --- | --- |
+| `AccountingState` | Which outputs, ADA pots and derived stake does the ledger hold? |
+| `CertState` | Which accounts, delegations and registrations exist? |
+| `GovState` | Which proposals, votes and protocol parameters govern the ledger? |
+
+Certificate and governance records determine deposit obligations; accounting holds
+those funds. The separately held output deposits remain inside `UTxOStore`.
+
+```math
+\text{asDeposited}
+= \text{certificateObligations}(\text{lsCertState})
++ \text{governanceObligations}(\text{lsGovState})
+```
+
+Transaction rules thread `LedgerState` while updating the relevant domain.
+The original certificate snapshot remains available when calculating refunds;
+processing a certificate does not erase the information needed to account for it.
+A phase-2 failure applies collateral effects without ordinary certificate or
+governance effects. Existing nested CBOR and JSON ledger formats are preserved at
+the serialization boundary; the in-memory model has three sibling states.
+
+The shared modules follow those domains:
+
+```text
+Cardano.Ledger.State
+├── Accounting              AccountingState and its field lenses
+│   ├── InstantStake        Current output stake and its resolution against accounts
+│   └── UTxOs               Store access
+│       ├── Store
+│       ├── IndexedUTxOs
+│       ├── Unspent
+│       └── Deposit
+├── Certificates            EraCertState and registration state
+│   ├── Account
+│   └── StakePool
+├── Governance              EraGov and protocol-parameter transitions
+├── Epoch
+│   ├── ChainAccount        Treasury and reserves
+│   ├── SnapShots
+│   ├── PoolDistr
+│   └── LeiosCommittee      Consensus committee
+└── Stake                   Shared stake value types
+```
+
+Era-specific certificate and instant-stake implementations use the same domain
+names inside their era packages. Transaction queries (`EraUTxO`, consumed and
+produced value, required scripts and witnesses) live in `Cardano.Ledger.UTxO`.
+
+The collection types distinguish output inspection from recorded unspent entries:
+
+| Type | Contents | Scope |
+| --- | --- | --- |
+| `IndexedTxOs` | `TxIn → Sized TxOut` | Proposed transaction outputs with their supplied sizes. |
+| `IndexedUTxOs` | `TxIn → Unspent TxOut` | Recorded output payloads and allocation origins. Pricing resolves the formula from history. |
+
+`allocations store` supplies the complete allocation state of that Store; selections
+remain `IndexedUTxOs`. There is no additional `Allocations` wrapper. A body alone
+cannot recover historical deposit parameters or establish which outputs remain unspent.
+
+| Module under `Cardano.Ledger.State.Accounting.UTxOs` | Responsibility |
+| --- | --- |
+| [`Store`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store.hs) | Public transaction projection (`projectTx` returning `TxProjected`), construction, record queries and formula activation. |
+| [`Store.Internals`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Store/Internals.hs) | `projectValidTxBody`, `projectInvalidTxBody`, `allocate` and `release`; implementation used by ledger transitions and focused tests. |
+| [`IndexedUTxOs`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/IndexedUTxOs.hs) | Input lookup, selection, filtering, entry traversal and deposit totals. |
+| [`Unspent`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Unspent.hs) | One entry's accepted output and allocation origin; `toTxOut`, historical formula selection, `computeExternalDeposit` and entry codecs. |
+| [`Deposit`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/UTxOs/Deposit.hs) | Versioned formula arithmetic over `NativeAssetCount`, `DatumBytes` and `ReferenceScriptBytes`; `DepositAmount`, history and half-open formula periods. |
+
+Dijkstra owns output measurement and the migrated-output reserve view:
+
+| Module under `Cardano.Ledger.Dijkstra.UTxOs` | Responsibility |
+| --- | --- |
+| [`Deposit.Formula`](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Deposit/Formula.hs) | Extract the three typed measures from a `TxOut` and call the core `computeDeposit`; return `DepositAmount`. |
+| [`Unspent`](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/UTxOs/Unspent.hs) | `computeDeposit` and `computeApplicationAssets` select the allocation-time formula and cap a migrated min-ADA reserve at its output ADA. |
+
+The shared Store calls `getDepositTxOut` only for `DepositBackedTxOut`. Min-ADA entries
+contribute zero to its external total. Earlier eras have no `DepositBackedTxOut` values and
+need no implementation of Dijkstra's pricing rule.
+
+[`Cardano.Ledger.TxOut.IndexedTxOs`](../../../libs/cardano-ledger-core/src/Cardano/Ledger/TxOut/IndexedTxOs.hs)
+owns construction, indexing and selection of sized outputs. Each collection has its own
+map operations; callers do not unwrap maps for ordinary lookups or selections.
+
+**Queries retain complete entries.** Map operations belong to `IndexedUTxOs`:
+
+```haskell
+IndexedUTxOs.lookupUTxO input entries
+IndexedUTxOs.restrictToInputs inputs entries
+IndexedUTxOs.withoutInputs inputs entries
+IndexedUTxOs.filterByTxOut predicate entries
+IndexedUTxOs.sumDepositAmounts history entries
+```
+
+Selections preserve each entry's output payload and allocation origin.
+`extractInputs` returns the remaining and extracted entries in one traversal.
+`txOuts` supplies payloads for output-only arithmetic; `mapTxOuts` projects payloads
+at external boundaries such as Plutus contexts, diagnostic maps and the formal model.
+The block reference-script check reads the scripts on selected input payloads and
+outputs proposed earlier in the block. It measures the scripts themselves.
+
+`AccountingState`, `LedgerState`, `EpochState` and `NewEpochState` expose the complete
+Store through `CanGetUTxOStore.utxoStoreG` and `CanSetUTxOStore.utxoStoreL`.
+`EraUTxO`, validators and transaction annotations consume `IndexedUTxOs` directly.
+They retain the original batch entries when validation needs inputs already consumed
+by an earlier body. Current ledger state still determines whether an input is spendable.
+
+Wallet queries `getIndexedUTxOs`, `getFilteredIndexedUTxOs` and
+`getIndexedUTxOsSubset` return complete entries. Imp tests use `getUTxOStore`,
+`getIndexedUTxOs` or `impGetUTxO` for one output.
+
+**Body indexing and Store allocation are separate operations.**
+
+```haskell
+outputsTxBody :: EraTxBody era => TxBody l era -> IndexedTxOs era
+
+data TxProjected era = TxProjected
+  { updatedStore :: !(UTxOStore era)
+  , consumedOutputs :: !(IndexedUTxOs era)
+  , producedOutputs :: !(IndexedUTxOs era)
+  }
+
+projectTx :: EraTx era => SlotNo -> Tx TopTx era -> UTxOStore era -> TxProjected era
+
+allocate ::
+  EraTxOut era =>
+  SlotNo -> IndexedTxOs era -> UTxOStore era -> UTxOStore era
+
+activateNewFormula :: SlotNo -> DepositFormula -> UTxOStore era -> UTxOStore era
+```
+
+The body builder preserves bounded output-index enumeration and excludes collateral return.
+Babbage, Conway and Dijkstra retain the body's original `Sized` values; earlier eras
+construct canonical legacy sizes. No deposit formula is selected while inspecting a body.
+`producedTxOuts` selects regular outputs or collateral return according to the phase-2 outcome,
+without claiming ledger acceptance.
+
+`allocate slot` records `AtSlot slot` when new outputs enter the Dijkstra Store.
+Existing inputs retain their allocation origin; history resolves the original
+formula for their refund. Migrated entries continue to use the baseline.
+The transition is explicit:
+
+```haskell
+TxProjected {updatedStore, consumedOutputs, producedOutputs} =
+  Store.projectTx slot tx previousStore
+
+updatedInstantStake =
+  updateInstantStake consumedOutputs producedOutputs previousInstantStake
+```
+
+`projectTx` selects the TopTx's regular or collateral effects. Each internal body
+projection returns the same `TxProjected` record: consumed entries come from the
+previous Store; produced entries come from the updated Store and exclude retained
+colliding references. `updateInstantStake` belongs to `State.Accounting.InstantStake`
+and uses these actual changes. The accounting rule installs both results and emits
+`TxUTxODiff consumedOutputs producedOutputs`. The result's complete Store is not
+included in that event. Its entries preserve the output payload and allocation origin.
+
+`Store.Internals.projectValidTxBody` releases the body's regular inputs and allocates its regular outputs.
+It neither validates the body nor traverses nested SubTxs. The ledger selects the
+execution path; `Store.Internals.projectInvalidTxBody` releases only collateral inputs
+and allocates only the collateral return on phase-2 failure. Initialization and other operations
+without a body explicitly import `Store.Internals` to call `allocate` or `release`.
+
+These operations maintain the invariant for a valid Store:
+
+```math
+\text{totalDepositAmount}(S)
+= \sum_{u\in\text{allocations}(S)} \text{computeExternalDeposit}(\text{depositFormulaHistory}(S),u)
+```
+
+The `allocate` primitive preserves an existing entry and its historical deposit
+when a proposal uses the same reference. Only new entries increase the cached total.
+Releasing an absent input has no effect. Unaffected entries retain their metadata.
+For both valid and collateral projections in every era, a retained entry takes
+precedence over a proposed output with the same key, preserving the original
+map-union behavior. References released by the projection may be allocated again.
+
+**Legacy boundaries retain their formats.**
+
+- Before Dijkstra, `IndexedUTxOs` retains the ordinary payload-map CBOR used by queries.
+  `UTxOStore` uses MemPack inputs and output payloads, preserving ledger snapshot bytes
+  and credential sharing. Decoding reconstructs canonical min-ADA entries marked
+  `AtStoreMigration` with zero external deposits. These bytes contain no Store
+  history: ordinary decoding supplies the default V1/4310 baseline; the optional
+  `decodeUTxOStoreWithFormula` decoder accepts a different caller-supplied one.
+  Neither recovers each output's original creation-era pricing.
+- Dijkstra collections encode complete entries as `TxIn → [output, allocatedAt]`.
+  The Store encodes `[depositFormulaHistory, cachedTotal, allocationMap]`; history is
+  `[initialFormula, formulaChanges]`. Decoding validates change order and the
+  external total.
+  Its `EncCBOR` instance retains MemPack inputs and output payloads plus explicit metadata.
+  Standalone Store encoding now uses this same snapshot format.
+- The retired standalone Dijkstra `TxOutMap` payload encoding cannot represent complete
+  entries. Its replacement has the complete-entry format. The previous two-field Store
+  snapshot is rejected: its history cannot be recovered from individual entries,
+  especially when the Store is empty. The former formula-bearing entry format
+  is also distinct from the new `AllocatedAt` encoding.
+- Before Dijkstra, legacy import builds `AtStoreMigration` entries with
+  `IndexedUTxOs.fromMinAdaTxOuts`; Store construction receives either default or
+  caller-supplied history. Earlier-era Store translations preserve source history; Conway
+  canonical import retains the destination state's supplied history because its
+  namespace contains outputs only. The Dijkstra fork initializes its baseline from
+  the effective translated protocol parameters, with no dated changes. Future changes
+  retain their actual activation slots. `mkUTxOStore history entries` restores complete entries
+  with their payloads and allocation origins. No migration
+  operation extracts reserve ADA from a min-ADA payload or creates an external credit.
+
+Stake updates still fold output payloads directly. Address inspection and witness verification
+remain in `Address` and `Keys.WitVKey`; neither belongs to the indexed collection.
 
 <a id="net-change-test-cases" name="net-change-test-cases"></a>
 

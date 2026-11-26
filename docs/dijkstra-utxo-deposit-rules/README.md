@@ -18,7 +18,7 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
 | [2. Transaction rules](#2-transaction-rules) | TopTx and SubTx declarations, accounting, authorization, settlement, minimum coin and collateral |
 | [3. Ledger effects](#3-ledger-effects) | Changes to UTxOs, Store allocations and fees on success or phase-2 failure |
 | [4. Derived distributions](#4-derived-distributions) | Stake and voting power |
-| [Appendices](#appendices) | Open design questions, tag migration, code references and net-change test cases |
+| [Appendices](#appendices) | Plutus compatibility, tag migration, code and state references, and net-change test cases |
 | [Verification record](#verification-record) | Test coverage and results by date |
 
 <a id="1-domain-model" name="1-domain-model"></a>
@@ -41,6 +41,7 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
         <div><a href="chapters/domain-model.md#ds-pricing-n06">1.4.7 N06 - Keep a min-ADA reserve inside its output</a></div>
       </dd></dl>
     </details>
+    <div><a href="chapters/domain-model.md#ds-pricing-history">1.5 Historical pricing</a></div>
   </dd></dl>
 </details>
 
@@ -541,10 +542,7 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
     <details>
       <summary><a href="chapters/appendices.md#section-8">A. Remaining design work</a></summary>
       <dl><dd>
-        <div><a href="chapters/appendices.md#ds-pricing-history">A.1 Historical pricing</a></div>
-        <div><a href="chapters/appendices.md#ds-plutus-compatibility">A.2 Plutus compatibility</a></div>
-        <div><a href="chapters/appendices.md#ds-tx-settlement-refinement">A.3 Local settlement</a></div>
-        <div><a href="chapters/appendices.md#ds-state-representation">A.4 State representation</a></div>
+        <div><a href="chapters/appendices.md#ds-plutus-compatibility">A.1 Plutus compatibility</a></div>
       </dd></dl>
     </details>
     <div><a href="chapters/appendices.md#section-9">B. Tag migration</a></div>
@@ -554,6 +552,7 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
         <div><a href="chapters/appendices.md#declaration-api">C.1 Declaration API</a></div>
         <div><a href="chapters/appendices.md#transaction-body-fields">C.2 Transaction body fields</a></div>
         <div><a href="chapters/appendices.md#declaration-encoding">C.3 Declaration encoding</a></div>
+        <div><a href="chapters/appendices.md#ds-state-representation">C.4 State representation</a></div>
       </dd></dl>
     </details>
     <details>

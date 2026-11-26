@@ -245,7 +245,7 @@ For every Store, its cached balance must equal the sum calculated from its histo
 The transfer assertion compares the observed amount with independently calculated
 allocations and releases. Separate assertions recompute the total from each output’s
 asset count, datum and script, using the version and rate selected by its origin.
-[Historical pricing](appendices.md#ds-pricing-history) keeps the original refund for each allocation.
+[Historical pricing](domain-model.md#ds-pricing-history) keeps the original refund for each allocation.
 
 <a id="ds-state-balance-n01" name="ds-state-balance-n01"></a><a id="ds-state-balance-n03" name="ds-state-balance-n03"></a>
 

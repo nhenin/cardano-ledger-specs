@@ -26,6 +26,7 @@
     </dd>
   </dl>
 </details>
+<a href="#ds-pricing-history">1.5 Historical pricing</a><br>
 </div>
 
 <a id="section-1" name="section-1"></a>
@@ -89,47 +90,8 @@ An accepted output enters the Store as `Unspent output (AtSlot slot)`.
 The fork imports each translated min-ADA output as `Unspent output AtStoreMigration`.
 The output provides the asset, datum and script measurements for [Deposit calculation](#ds-pricing).
 
-**History always has a baseline.** `mkDepositFormulaHistory baseline` starts with no dated
-changes. The default is V1 at **4310 lovelace per byte**, with no dated changes;
-`Default UTxOStore` uses this history and empty allocations. `initialFormula`
-prices imported entries permanently and all dated entries preceding the first change.
-Each subsequent change retains its formula and parameters over $`[s_i,s_{i+1})`$; the final interval has no upper bound.
-
-**Prototype migration uses one initial formula.** Imported outputs and new outputs
-allocated before the first change use the same baseline. This history records
-changes introduced after the fork; it does not reconstruct pre-fork pricing or
-require a migration slot. Later activations affect newly allocated outputs while
-existing entries retain their allocation-time formula.
-
-| Allocation | Formula retained |
-| --- | --- |
-| Imported at migration | `initialFormula = DepositFormulaV1 rateA` |
-| New, before the first change | `DepositFormulaV1 rateA` |
-| New, after a parameter change | `DepositFormulaV1 rateB` |
-| New, after a formula-version change | `DepositFormulaV2 rateC` |
-
-V1 prices a base of 250 bytes plus 74 bytes per distinct native asset. The experimental
-V2 changes these coefficients to 260 and 80. Both add the datum and reference script
-payload lengths and multiply by their recorded rate.
-
-Let $`f_b`$ be the baseline formula and $`(s_i,f_i)`$ the ordered changes:
-
-```math
-H(s)=
-\begin{cases}
-f_b & \text{if no change starts at or before }s \\
-f_j & j=\max\{i\mid s_i\leq s\}
-\end{cases}
-```
-
-| Allocation origin | Formula $`F_H(u)`$ |
-| --- | --- |
-| `AtStoreMigration` | The baseline $`f_b`$, including after later changes. |
-| `AtSlot slot` | $`H(\text{slot})`$: the latest applicable change, otherwise the baseline. |
-
-`formulaAt`, `latestFormula` and the Store's derived `currentFormula`
-return a formula directly. `periods` includes the baseline interval with
-`fromInclusive = Nothing`; the last interval has `untilExclusive = Nothing`.
+[Historical pricing](#ds-pricing-history) defines the formula $`F_H(u)`$ selected by each entry's allocation origin.
+The Store shares this history across entries and retains it when its allocations are empty.
 
 **The output variant determines where the reserve is held.** Let $`C(u)`$ be the
 output ADA and $`P(u)=F_H(u)(\text{output}(u))`$ its calculated deposit.
@@ -188,18 +150,6 @@ use `toCoin` explicitly for Coin arithmetic.
 | `appendFormula slot formula` | Add the first dated change or one strictly after the latest; reject replacement or insertion into existing periods. |
 | `activateNewFormula slot formula` | Append without repricing existing entries; reject V2 → V1. Rates may increase or decrease within either version. Reapplying the latest formula is a no-op. |
 
-Activation preserves existing entries and the cached total. Effective parameter
-changes use the **actual epoch boundary slot**, even when the first transaction
-arrives later. TopTx, its SubTxs and any collateral return record their ledger slot.
-
-Formula activation only moves forward in version:
-
-```math
-\mathrm{version}(F_{\mathrm{next}}) \geq \mathrm{version}(F_{\mathrm{active}})
-```
-
-Existing V1 allocations still use V1 for their refunds after V2 becomes active.
-
 ```haskell
 Store.projectTx slot tx previousStore
 Store.Internals.projectValidTxBody slot body previousStore
@@ -225,7 +175,7 @@ with V1 at its effective genesis rate and no dated changes.
 **Persistence preserves the pricing inputs.** History encodes
 `[initialFormula, formulaChanges]`; Dijkstra entries encode
 `[output, allocatedAt]`; the Store encodes
-`[depositFormulaHistory, cachedTotal, allocationMap]`. Decoding validates entry shape, activation order, formula versions and the cached total. Prior
+`[depositFormulaHistory, cachedTotal, allocationMap]`. Decoding checks entry shape, recognized formula tags, slot order and the cached total. The forward-version check applies on activation. Prior
 per-entry formula and nullable/history-map schemas are not this format.
 
 Before Dijkstra, existing payload-only formats remain unchanged. They preserve no
@@ -237,7 +187,9 @@ not recovery of each output's original minimum deposit.
 
 Empty Stores retain their baseline and dated changes. Zero-priced new outputs still receive allocation records.
 
-[Ledger effects](ledger-effects.md#ds-state) specifies the resulting allocations and exact cached total.
+[Ledger effects](ledger-effects.md#ds-state) specifies the resulting allocations
+and exact cached total. [State representation](appendices.md#ds-state-representation)
+gives the Haskell types, module responsibilities and snapshot formats.
 
 <a id="section-1-4" name="section-1-4"></a>
 
@@ -316,6 +268,7 @@ The [body-field reference](appendices.md#transaction-body-fields) maps these con
 ## 1.4 Deposit calculation
 
 **At the Dijkstra fork and at direct Dijkstra genesis, V1 is the initial formula.**
+V2 is an experimental formula used to exercise the version transition.
 Dijkstra evaluates both output forms, including migrated `MinAdaTxOut`s. Earlier-era
 pricing rules stay unchanged; they do not implement this formula.
 The rate $`p`$ is the effective `coinsPerUTxOByte`, in lovelace per byte. For an output $`o`$:
@@ -358,19 +311,8 @@ still retain their `Sized` outputs for serialization; neither Dijkstra deposit
 pricing nor its [minimum-coin check](transaction-rules.md#ds-tx-minimum-coin) uses that total size.
 
 The Store holds the full computed amount externally for each created `DepositBackedTxOut`.
-For a `MinAdaTxOut`, its embedded reserve is capped at the output's ADA.
-The [allocation origin](#section-1-1) selects the formula and rate on refund.
-
-**Experiment.** Two otherwise identical Deposit-backed outputs contain two distinct
-native assets, no datum and no reference script. At $`p=4310`$, their deposits depend
-on which side of the V2 activation slot $`s`$ they were allocated.
-
-| Allocation slot | Price at allocation | Refund when spent after $`s`$ |
-| --- | ---: | ---: |
-| Before $`s`$ (V1) | $`4310(250+74\cdot2)=1{,}715{,}380`$ lovelace | 1,715,380 lovelace |
-| At $`s`$ (V2) | $`4310(260+80\cdot2)=1{,}810{,}200`$ lovelace | 1,810,200 lovelace |
-
-The [live-ledger experiment](ledger-effects.md#ds-state-balance-p08) accepts these outputs, restores their snapshot and spends both under V2. The refund remains the sum of their historical deposits.
+A newly created `MinAdaTxOut` must carry the full active minimum in its own ADA.
+The [allocation origin](#ds-pricing-history) selects the formula and rate on refund.
 
 The following cases describe the pricing contract across ordinary outputs and collateral.
 
@@ -431,3 +373,70 @@ Its reserve is $`\min(C,F_{v,p}(o))`$, selected from its allocation history, and
 application ADA is the remainder. A newly proposed `MinAdaTxOut` is also allowed,
 but must contain at least the full deposit under the Store's **current** formula.
 The historical reserve cap does not relax admission of a new output.
+
+<a id="ds-pricing-history" name="ds-pricing-history"></a>
+
+## 1.5 Historical pricing
+
+> **Each spent input contributes the reserve determined by its allocation origin and output form.**
+
+`mkDepositFormulaHistory baseline` starts with no dated changes. The Dijkstra fork
+supplies V1 at its effective protocol rate. The default Store starts with empty
+allocations and V1 at **4310 lovelace per byte**.
+
+The migration marker selects `initialFormula` directly. New outputs use that
+same baseline until the first dated change. Each change sets the formula and
+parameters for $`[s_i,s_{i+1})`$. The final interval has no upper bound.
+
+| Allocation | Formula retained |
+| --- | --- |
+| Imported at migration | `initialFormula = DepositFormulaV1 rateA` |
+| New, before the first change | `DepositFormulaV1 rateA` |
+| New, after a parameter change | `DepositFormulaV1 rateB` |
+| New, after a formula-version change | `DepositFormulaV2 rateC` |
+
+For baseline $`f_b`$ and ordered changes $`(s_i,f_i)`$, the formula active at slot
+$`s`$ is
+
+```math
+H(s)=
+\begin{cases}
+f_b & \text{if no change starts at or before }s \\
+f_j & j=\max\{i\mid s_i\leq s\}
+\end{cases}
+```
+
+| Allocation | Formula on spend $`F_H(u)`$ | Reserve available on spend |
+| --- | --- | --- |
+| Imported minimum-ADA output | Baseline $`f_b`$ | The smaller of the historical requirement and the ADA in the output. |
+| Dated minimum-ADA output | $`H(\text{slot})`$ | The same cap applies to its embedded reserve. |
+| Dated deposit-backed output | $`H(\text{slot})`$ | The full historical requirement, held externally in the Store. |
+
+`formulaAt`, `latestFormula` and the Store's derived `currentFormula`
+return a formula directly. The first interval in `periods` has
+`fromInclusive = Nothing` and the last has `untilExclusive = Nothing`.
+
+Activation preserves existing entries and the cached total. Effective parameter
+changes use the **actual epoch boundary slot**, even when the first transaction
+arrives later. TopTx, its SubTxs and any collateral return record their ledger slot.
+
+Each activation satisfies
+
+```math
+\mathrm{version}(F_{\mathrm{next}}) \geq \mathrm{version}(F_{\mathrm{active}})
+```
+
+Existing V1 allocations still use V1 for their refunds after V2 becomes active.
+A proposal to reprice live entries would need its own rule for funding or
+releasing the difference at each output.
+
+**Experiment.** Two otherwise identical Deposit-backed outputs contain two distinct
+native assets, no datum and no reference script. At $`p=4310`$, their deposits depend
+on which side of the V2 activation slot $`s`$ they were allocated.
+
+| Allocation slot | Price at allocation | Refund when spent after $`s`$ |
+| --- | ---: | ---: |
+| Before $`s`$ (V1) | $`4310(250+74\cdot2)=1{,}715{,}380`$ lovelace | 1,715,380 lovelace |
+| At $`s`$ (V2) | $`4310(260+80\cdot2)=1{,}810{,}200`$ lovelace | 1,810,200 lovelace |
+
+The [live-ledger experiment](ledger-effects.md#ds-state-balance-p08) accepts these outputs, restores their snapshot and spends both under V2. The refund remains the sum of their historical deposits.

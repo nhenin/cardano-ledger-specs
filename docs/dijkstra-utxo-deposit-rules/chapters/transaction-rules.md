@@ -3045,7 +3045,7 @@ are assumed. Accepted controls satisfy the other transaction rules. Rejection mu
 include the targeted exactness failure; a [Balance](#ds-tx-accounting-balance) failure alone is insufficient.
 The same required ordinary amounts apply on both phase-2 outcomes. The generated
 net-change cases below match embedded input and output backing when isolating
-external operations. See [Execution](ledger-effects.md#ds-state-execution) and [Historical pricing](appendices.md#ds-pricing-history).
+external operations. See [Execution](ledger-effects.md#ds-state-execution) and [Historical pricing](domain-model.md#ds-pricing-history).
 
 <a id="ds-tx-exactness-contribution" name="ds-tx-exactness-contribution"></a>
 <a id="ds-tx-exactness-subtx" name="ds-tx-exactness-subtx"></a>
@@ -3323,6 +3323,22 @@ Each body contributes its actual external movement once. Embedded reserves alrea
 travel in the input and output values. A batch can therefore have an explicit zero
 declaration and a nonzero Store transfer.
 
+The ADA a SubTx contributes to the rest of a successful batch can be derived from
+its signed body and the ledger state. Here $`\text{storeChange(subTx)}`$ is the
+change in external deposits for that SubTx alone.
+
+```math
+\text{netADAExport(subTx)}
+= \text{ordinaryConsumedADA} - \text{storeChange(subTx)} - \text{ordinaryProducedADA}
+```
+
+Ordinary consumed ADA includes regular input coins, withdrawals and certificate
+refunds. Ordinary produced ADA includes regular output coins, certificate and
+proposal deposits, treasury donations and direct account deposits. Attribute
+certificate effects in batch processing order. The separate Store term accounts
+for external deposits. TopTx pays the batch fee. A positive result leaves ADA for
+that fee or another body. A negative result draws ADA from the batch.
+
 [Net change](#ds-tx-accounting-net-change) separately establishes that declarations
 match the required deposit changes on both phase-2 outcomes. The balance equation
 here applies only when phase 2 is valid. On phase-2 failure, the ordinary proposal
@@ -3357,7 +3373,7 @@ changed output cannot alter the Store allocation. Rejection must include
 `ValueNotConservedUTxO` with the independently computed consumed and produced
 values, and each rejection scenario also submits its balanced acceptance control.
 
-**The concrete release example.** N06, N07 and F04 hold every other batch flow
+**An external release with zero net backing change.** N06, N07 and F04 hold every other batch flow
 fixed. TopTx funds its base fee separately; the child has one input, one min-ADA
 output requiring 2 ADA of embedded backing and no other financial flow. For these cases, the
 transaction equation reduces to:
@@ -3379,7 +3395,8 @@ requirement that all SubTxs balance independently.
 The $`2`$ ADA release is the deposit recorded for the actual deposit-backed input.
 The replacement min-ADA output requires 2 ADA of embedded backing, so TopTx and
 SubTx both declare zero. Only the serialized output ADA and the fee contribution
-vary between rows.
+vary between rows. For the destination check on a declared release, see
+[Local settlement](#ds-tx-settlement-output-coin).
 
 <a id="ds-tx-conservation-p01" name="ds-tx-conservation-p01"></a>
 <a id="ds-tx-accounting-balance-p01" name="ds-tx-accounting-balance-p01"></a>
@@ -4225,6 +4242,7 @@ From a valid phase-2-invalid control, replace one index with the first out-of-ra
 The SubTx spends its final deposit-backed inputs and creates no replacement output. Its exact release declaration uses `DelegateToTopTx`; there is no local index to resolve. TopTx declares the exact total and designates a sufficiently funded output of its own. The signed transaction is accepted, and its SubTx output sequence is checked to remain empty.
 
 <a id="ds-tx-settlement-coverage" name="ds-tx-settlement-coverage"></a>
+<a id="ds-tx-settlement-refinement" name="ds-tx-settlement-refinement"></a>
 <a id="ds-tx-settlement-output-coin" name="ds-tx-settlement-output-coin"></a>
 
 #### 2.1.4.3 Output coin
@@ -4261,9 +4279,19 @@ The last row still lacks one application ADA. The external deposit cannot fill t
 shortfall. TopTx's required share may be smaller or larger than the transaction's
 net backing release. The selected output must cover the **share**.
 
-This is a lower bound on the final output coin. It does not identify where those
-coins came from, require independent SubTx balance or prevent SubTx fee exports.
-The stronger local-settlement guarantee remains open in [A.3](appendices.md#ds-tx-settlement-refinement).
+For a local release, the SubTx author signs the destination output and its final
+value. The ledger verifies that the declared release equals the SubTx's net
+release and that the selected output contains at least that amount in ADA.
+The signed output already includes the refund. The [batch balance](#ds-tx-accounting-balance)
+allows the author to contribute any remaining surplus to TopTx fees or another body.
+
+For example, a SubTx spends two deposit-backed inputs carrying 10 ADA in total
+application value and 4 ADA in total external deposits. It creates one
+deposit-backed output requiring 2 ADA of external deposit. With no other SubTx
+flows, it declares a 2 ADA release to that output. Signing an output of 12 ADA
+returns all available application ADA to the recipient. Signing an output of
+10 ADA leaves 2 ADA available to the batch. Both outputs satisfy the 2 ADA
+settlement bound.
 
 **Test conditions:** Declarations, designations and indices are valid. Ledger cases
 preserve complete transaction balance, including rejection cases; a shortfall in
