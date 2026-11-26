@@ -30,14 +30,23 @@ module Cardano.Ledger.Core (
 
   -- * Era-changing types
   EraTx (..),
+  IsPhase2Valid (..),
   txIdTx,
+  TxOut (..),
+  IndexedUTxOs (..),
+  IndexedTxOs (..),
+  NoDepositBackedTxOut,
   EraTxOut (..),
+  EraMinAdaTxOut (..),
+  EraDepositBackedTxOut (..),
+  mkBasicTxOutWithMinAda,
+  mkBasicTxOutWithDeposit,
   bootAddrTxOutF,
-  coinTxOutL,
-  compactCoinTxOutL,
-  isAdaOnlyTxOutF,
   EraTxBody (..),
   txIdTxBody,
+  outputsTxBody,
+  collateralOutputsTxBody,
+  mkCollateralTxIn,
   EraTxAuxData (..),
   modifyTxAuxData,
   hashTxAuxData,
@@ -48,6 +57,8 @@ module Cardano.Ledger.Core (
   hashScriptTxWitsL,
   keyHashWitnessesTxWits,
   Value,
+  Assets (..),
+  ApplicationAssets (..),
   EraPParams (..),
   mkCoinTxOut,
   wireSizeTxF,
@@ -79,60 +90,55 @@ import Cardano.Ledger.Address (
   AccountAddress (..),
   AccountId (..),
   Addr (..),
-  BootstrapAddress,
-  CompactAddr,
   Withdrawals (..),
-  compactAddr,
-  decompactAddr,
-  isBootstrapCompactAddr,
  )
-import Cardano.Ledger.BaseTypes (ProtVer (..), integralToBounded)
+import Cardano.Ledger.BaseTypes (ProtVer (..), TxIx (..), integralToBounded, txIxFromIntegral)
 import Cardano.Ledger.Binary (
   Annotator,
   DecCBOR,
-  DecShareCBOR (Share),
   DecoderError,
   EncCBOR (..),
-  Interns,
-  Sized (sizedValue),
+  Sized,
   ToCBOR,
-  mkSized,
   serialize,
   translateViaCBORAnnotator,
  )
 import Cardano.Ledger.Coin (Coin)
-import Cardano.Ledger.Compactible (Compactible (..))
 import Cardano.Ledger.Core.Era
 import Cardano.Ledger.Core.PParams
 import Cardano.Ledger.Core.Translation
 import Cardano.Ledger.Core.TxCert
 import Cardano.Ledger.Core.TxLevel
+import Cardano.Ledger.Core.TxValidity (IsPhase2Valid (..))
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Hashes hiding (GenDelegPair (..), GenDelegs (..), unsafeMakeSafeHash)
 import Cardano.Ledger.Keys.Bootstrap (BootstrapWitness, bootstrapWitKeyHash)
 import Cardano.Ledger.Keys.WitVKey (WitVKey, witVKeyHash)
 import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Metadata
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
-import Cardano.Ledger.Val (Val (..), inject)
+import Cardano.Ledger.TxOut
+import Cardano.Ledger.TxOut.IndexedTxOs (IndexedTxOs (..))
+import qualified Cardano.Ledger.TxOut.IndexedTxOs as IndexedTxOs
 import Control.DeepSeq (NFData)
 import Control.Monad.Except (Except)
 import Control.Monad.Trans.Fail.String (errorFail)
 import Data.Aeson (FromJSON, ToJSON)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
+import Data.Foldable (toList)
 import Data.Kind (Constraint, Type)
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import Data.Maybe.Strict (
-  StrictMaybe (SJust),
+  StrictMaybe (..),
   fromSMaybe,
   maybeToStrictMaybe,
   strictMaybe,
   strictMaybeToMaybe,
  )
-import Data.MemPack
 import Data.OMap.Strict (HasOKey (..))
 import Data.Sequence.Strict (StrictSeq)
 import Data.Set (Set)
@@ -140,7 +146,7 @@ import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Typeable
-import Data.Word (Word32, Word64)
+import Data.Word (Word16, Word32, Word64)
 import GHC.Stack (HasCallStack)
 import Lens.Micro
 import NoThunks.Class (NoThunks)
@@ -191,6 +197,11 @@ class
   mkBasicTx :: TxBody l era -> Tx l era
 
   bodyTxL :: Lens' (Tx l era) (TxBody l era)
+
+  -- | Read the phase-2 validity tag. Eras before Alonzo have no phase-2 failure path.
+  isPhase2ValidTxG :: SimpleGetter (Tx TopTx era) IsPhase2Valid
+  default isPhase2ValidTxG :: AtMostEra "Mary" era => SimpleGetter (Tx TopTx era) IsPhase2Valid
+  isPhase2ValidTxG = atMostEra @"Mary" @era `seq` to (const Phase2Valid)
 
   witsTxL :: Lens' (Tx l era) (TxWits era)
 
@@ -256,6 +267,25 @@ class
 
   outputsTxBodyL :: Lens' (TxBody l era) (StrictSeq (TxOut era))
 
+  -- | Proposed outputs retaining the byte counts supplied with the transaction body.
+  -- Each era specifies its representation: legacy-only bodies reconstruct the
+  -- canonical count, while bodies with stored sizes expose those sizes directly.
+  sizedOutputsTxBodyG :: SimpleGetter (TxBody l era) (StrictSeq (Sized (TxOut era)))
+
+  -- | Inputs consumed on phase-2 failure, including any overlap with regular inputs.
+  -- Eras before Alonzo have no collateral inputs.
+  collateralInputsTxBodyG :: SimpleGetter (TxBody TopTx era) (Set TxIn)
+  default collateralInputsTxBodyG ::
+    AtMostEra "Mary" era => SimpleGetter (TxBody TopTx era) (Set TxIn)
+  collateralInputsTxBodyG = atMostEra @"Mary" @era `seq` to (const mempty)
+
+  -- | The collateral return with its supplied byte count. Eras before Babbage
+  -- have no collateral return.
+  sizedCollateralReturnTxBodyG :: SimpleGetter (TxBody TopTx era) (StrictMaybe (Sized (TxOut era)))
+  default sizedCollateralReturnTxBodyG ::
+    AtMostEra "Alonzo" era => SimpleGetter (TxBody TopTx era) (StrictMaybe (Sized (TxOut era)))
+  sizedCollateralReturnTxBodyG = atMostEra @"Alonzo" @era `seq` to (const SNothing)
+
   feeTxBodyL :: Lens' (TxBody TopTx era) Coin
 
   withdrawalsTxBodyL :: Lens' (TxBody l era) Withdrawals
@@ -297,178 +327,6 @@ class
   -- tooling to figure out how many witnesses should be supplied for Genesis keys.
   getGenesisKeyHashCountTxBody :: TxBody TopTx era -> Int
   getGenesisKeyHashCountTxBody _ = 0
-
--- | Abstract interface into specific fields of a `TxOut`
-class
-  ( Val (Value era)
-  , FromJSON (TxOut era)
-  , ToJSON (TxOut era)
-  , DecCBOR (Value era)
-  , DecCBOR (CompactForm (Value era))
-  , MemPack (CompactForm (Value era))
-  , EncCBOR (Value era)
-  , EncCBOR (TxOut era)
-  , DecCBOR (TxOut era)
-  , DecShareCBOR (TxOut era)
-  , Share (TxOut era) ~ Interns (Credential Staking)
-  , NoThunks (TxOut era)
-  , NFData (TxOut era)
-  , Show (TxOut era)
-  , Eq (TxOut era)
-  , Ord (TxOut era)
-  , MemPack (TxOut era)
-  , EraPParams era
-  ) =>
-  EraTxOut era
-  where
-  -- | The output of a UTxO for a particular era
-  type TxOut era = (r :: Type) | r -> era
-
-  {-# MINIMAL
-    mkBasicTxOut
-    , upgradeTxOut
-    , valueEitherTxOutL
-    , addrEitherTxOutL
-    , (getMinCoinSizedTxOut | getMinCoinTxOut)
-    #-}
-
-  mkBasicTxOut :: HasCallStack => Addr -> Value era -> TxOut era
-
-  -- | Every era, except Shelley, must be able to upgrade a `TxOut` from a previous era.
-  upgradeTxOut :: EraTxOut (PreviousEra era) => TxOut (PreviousEra era) -> TxOut era
-
-  valueTxOutL :: Lens' (TxOut era) (Value era)
-  valueTxOutL =
-    lens
-      ( \txOut -> case txOut ^. valueEitherTxOutL of
-          Left value -> value
-          Right cValue -> fromCompact cValue
-      )
-      (\txOut value -> txOut & valueEitherTxOutL .~ Left value)
-  {-# INLINE valueTxOutL #-}
-
-  compactValueTxOutL :: HasCallStack => Lens' (TxOut era) (CompactForm (Value era))
-  compactValueTxOutL =
-    lens
-      ( \txOut -> case txOut ^. valueEitherTxOutL of
-          Left value -> toCompactPartial value
-          Right cValue -> cValue
-      )
-      (\txOut cValue -> txOut & valueEitherTxOutL .~ Right cValue)
-  {-# INLINE compactValueTxOutL #-}
-
-  -- | Lens for getting and setting in TxOut either an address or its compact
-  -- version by doing the least amount of work.
-  valueEitherTxOutL :: Lens' (TxOut era) (Either (Value era) (CompactForm (Value era)))
-
-  addrTxOutL :: Lens' (TxOut era) Addr
-  addrTxOutL =
-    lens
-      ( \txOut -> case txOut ^. addrEitherTxOutL of
-          Left addr -> addr
-          Right cAddr -> decompactAddr cAddr
-      )
-      (\txOut addr -> txOut & addrEitherTxOutL .~ Left addr)
-  {-# INLINE addrTxOutL #-}
-
-  compactAddrTxOutL :: Lens' (TxOut era) CompactAddr
-  compactAddrTxOutL =
-    lens
-      ( \txOut -> case txOut ^. addrEitherTxOutL of
-          Left addr -> compactAddr addr
-          Right cAddr -> cAddr
-      )
-      (\txOut cAddr -> txOut & addrEitherTxOutL .~ Right cAddr)
-  {-# INLINE compactAddrTxOutL #-}
-
-  -- | Lens for getting and setting in TxOut either an address or its compact
-  -- version by doing the least amount of work.
-  --
-  -- The utility of this function comes from the fact that TxOut usually stores
-  -- the address in either one of two forms: compacted or unpacked. In order to
-  -- avoid extroneous conversions in `getTxOutAddr` and `getTxOutCompactAddr` we
-  -- can define just this functionality. Also sometimes it is crucial to know at
-  -- the callsite which form of address we have readily available without any
-  -- conversions (eg. searching millions of TxOuts for a particular address)
-  addrEitherTxOutL :: Lens' (TxOut era) (Either Addr CompactAddr)
-
-  -- | Produce the minimum lovelace that a given transaction output must
-  -- contain. Information about the size of the TxOut is required in some eras.
-  -- Use `getMinCoinTxOut` if you don't have the size readily available to you.
-  getMinCoinSizedTxOut :: PParams era -> Sized (TxOut era) -> Coin
-  getMinCoinSizedTxOut pp = getMinCoinTxOut pp . sizedValue
-
-  -- | Same as `getMinCoinSizedTxOut`, except information about the size of
-  -- TxOut will be computed by serializing the TxOut. If the size turns out to
-  -- be not needed, then serialization will have no overhead, since it is
-  -- computed lazily.
-  getMinCoinTxOut :: PParams era -> TxOut era -> Coin
-  getMinCoinTxOut pp txOut =
-    let ProtVer version _ = pp ^. ppProtocolVersionL
-     in getMinCoinSizedTxOut pp (mkSized version txOut)
-
-bootAddrTxOutF ::
-  EraTxOut era => SimpleGetter (TxOut era) (Maybe BootstrapAddress)
-bootAddrTxOutF = to $ \txOut ->
-  case txOut ^. addrEitherTxOutL of
-    Left (AddrBootstrap bootstrapAddr) -> Just bootstrapAddr
-    Right cAddr
-      | isBootstrapCompactAddr cAddr -> do
-          AddrBootstrap bootstrapAddr <- Just (decompactAddr cAddr)
-          Just bootstrapAddr
-    _ -> Nothing
-{-# INLINE bootAddrTxOutF #-}
-
-coinTxOutL :: (HasCallStack, EraTxOut era) => Lens' (TxOut era) Coin
-coinTxOutL =
-  lens
-    ( \txOut ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> coin val
-          Right cVal -> fromCompact (coinCompact cVal)
-    )
-    ( \txOut c ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> txOut & valueTxOutL .~ modifyCoin (const c) val
-          Right cVal ->
-            txOut & compactValueTxOutL .~ modifyCompactCoin (const (toCompactPartial c)) cVal
-    )
-{-# INLINE coinTxOutL #-}
-
-compactCoinTxOutL :: (HasCallStack, EraTxOut era) => Lens' (TxOut era) (CompactForm Coin)
-compactCoinTxOutL =
-  lens
-    ( \txOut ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> toCompactPartial (coin val)
-          Right cVal -> coinCompact cVal
-    )
-    ( \txOut cCoin ->
-        case txOut ^. valueEitherTxOutL of
-          Left val -> txOut & valueTxOutL .~ modifyCoin (const (fromCompact cCoin)) val
-          Right cVal ->
-            txOut & compactValueTxOutL .~ modifyCompactCoin (const cCoin) cVal
-    )
-{-# INLINE compactCoinTxOutL #-}
-
--- | This is a getter that implements an efficient way to check whether 'TxOut'
--- contains ADA only.
-isAdaOnlyTxOutF :: EraTxOut era => SimpleGetter (TxOut era) Bool
-isAdaOnlyTxOutF = to $ \txOut ->
-  case txOut ^. valueEitherTxOutL of
-    Left val -> isAdaOnly val
-    Right cVal -> isAdaOnlyCompact cVal
-
-toCompactPartial :: (HasCallStack, Val a) => a -> CompactForm a
-toCompactPartial v =
-  fromMaybe (error $ "Illegal value in TxOut: " <> show v) $ toCompact v
-
--- A version of mkBasicTxOut, which has only a Coin (no multiAssets) for every EraTxOut era.
-mkCoinTxOut :: EraTxOut era => Addr -> Coin -> TxOut era
-mkCoinTxOut addr = mkBasicTxOut addr . inject
-
--- | A value is something which quantifies a transaction output.
-type family Value era :: Type
 
 -- | TxAuxData which may be attached to a transaction
 class
@@ -673,6 +531,36 @@ txIdTx tx = txIdTxBody (tx ^. bodyTxL)
 
 txIdTxBody :: EraTxBody era => TxBody l era -> TxId
 txIdTxBody = TxId . hashAnnotated
+
+-- | Index proposed regular outputs, retaining the body's supplied sizes.
+-- This assigns output references without recording an allocation origin.
+-- The bounded indices retain the existing @TxIx@ limit; collateral returns
+-- are indexed separately by 'collateralOutputsTxBody'.
+outputsTxBody :: forall era l. EraTxBody era => TxBody l era -> IndexedTxOs era
+outputsTxBody txBody =
+  IndexedTxOs.fromList
+    [ (TxIn transId idx, output)
+    | (output, idx) <- zip (toList $ txBody ^. sizedOutputsTxBodyG) [minBound ..]
+    ]
+  where
+    transId = txIdTxBody txBody
+
+-- | Index the proposed collateral return, preserving its supplied size.
+-- No deposit calculation is assigned until the Store allocates it.
+collateralOutputsTxBody :: EraTxBody era => TxBody TopTx era -> IndexedTxOs era
+collateralOutputsTxBody txBody =
+  case txBody ^. sizedCollateralReturnTxBodyG of
+    SNothing -> mempty
+    SJust output -> IndexedTxOs.singleton (mkCollateralTxIn txBody) output
+
+-- | The collateral return follows this body's regular outputs. Preserve the
+-- existing maximum-index fallback when their count does not fit in Word16.
+mkCollateralTxIn :: EraTxBody era => TxBody l era -> TxIn
+mkCollateralTxIn txBody =
+  TxIn (txIdTxBody txBody) $
+    case txIxFromIntegral (length $ txBody ^. outputsTxBodyL) of
+      Just index -> index
+      Nothing -> TxIx (maxBound :: Word16)
 
 -- | txsize computes the length of the serialised bytes (actual size)
 wireSizeTxF :: forall era l. EraTx era => SimpleGetter (Tx l era) Word32

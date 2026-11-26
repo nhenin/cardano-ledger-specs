@@ -63,9 +63,14 @@ import Cardano.Ledger.Dijkstra.TxBody (DijkstraEraTxBody (..))
 import Cardano.Ledger.Dijkstra.UTxO (DijkstraEraUTxO (..))
 import Cardano.Ledger.Keys (VKey)
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
-import Cardano.Ledger.State (EraUTxO (..), ScriptsProvided (..))
+import Cardano.Ledger.State (
+  EraUTxO (..),
+  ScriptsProvided (..),
+  allocations,
+ )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Control.DeepSeq (NFData)
 import Control.State.Transition.Extended (
@@ -228,20 +233,24 @@ dijkstraUtxowTransition ::
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   ) =>
   TransitionRule (EraRule "UTXOW" era)
 dijkstraUtxowTransition = do
-  TRC (UtxoEnv slot pp pState originalCertState originalUtxo, u, stAnnTx) <- judgmentContext
+  TRC (UtxoEnv slot pp pState originalCertState previousUTxOStore, u, stAnnTx) <-
+    judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
 
   let txBody = tx ^. bodyTxL
+      -- Preserve pre-batch inputs for inherited datum, script and witness checks.
+      originalAllocations =
+        IndexedUTxOs.restrictToInputs (txBody ^. allInputsTxBodyF) . allocations $ previousUTxOStore
       subTxs = OMap.elems $ txBody ^. subTransactionsTxBodyL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
 
-  -- All lookups use originalUtxo.
+  -- All lookups use originalAllocations.
   -- A subtx may consume a txout that the top-level tx references, so the UTXO threaded in the state may not contain it.
 
   -- scriptsNeeded for the top-level tx
@@ -273,13 +282,13 @@ dijkstraUtxowTransition = do
                   <> subTx ^. bodyTxL . inputsTxBodyL
             )
             subTxs
-      refScripts = Map.keysSet $ getReferenceScripts originalUtxo allRefScriptInputs
+      refScripts = Map.keysSet $ getReferenceScripts originalAllocations allRefScriptInputs
   runTest $ Babbage.babbageMissingScripts pp allScriptHashesNeeded refScripts witnessScripts
 
   {-  inputHashes ⊆  dom(txdats txw) ⊆  allowed -}
   -- Per-level: datum check for top-level tx's own spend inputs
   runTest $
-    Alonzo.missingRequiredDatums scriptsProvided originalUtxo $
+    Alonzo.missingRequiredDatums scriptsProvided originalAllocations $
       if stAnnTx ^. plutusLegacyModeStAnnTxG
         then tx & bodyTxL . subTransactionsTxBodyL .~ mempty
         else tx
@@ -294,7 +303,7 @@ dijkstraUtxowTransition = do
   runTestOnSignal $ Shelley.validateVerifiedWits tx
 
   {- witsVKeyNeeded utxo tx genDelegs ⊆ witsKeyHashes -}
-  runTest $ Shelley.validateNeededWitnesses witsKeyHashes originalCertState originalUtxo txBody
+  runTest $ Shelley.validateNeededWitnesses witsKeyHashes originalCertState originalAllocations txBody
 
   -- check metadata hash
   {- ((adh = ◇) ∧ (ad= ◇)) ∨ (adh = hashAD ad) -}
@@ -320,9 +329,9 @@ dijkstraUtxowTransition = do
   {- TODO: Fill in from the formal spec -}
   runTest $ validateGuardDatums scriptsProvided txBody
 
-  -- Pass through to UTXO sub-rule, carrying the original UTxO
+  -- Pass through to UTXO sub-rule, carrying the previous store.
   trans @(EraRule "UTXO" era) $
-    TRC (UtxoEnv slot pp pState originalCertState originalUtxo, u, stAnnTx)
+    TRC (UtxoEnv slot pp pState originalCertState previousUTxOStore, u, stAnnTx)
 
 instance
   forall era.
@@ -340,14 +349,14 @@ instance
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , Eq (PredicateFailure (EraRule "UTXOS" era))
   , Show (PredicateFailure (EraRule "UTXOS" era))
   ) =>
   STS (UTXOW era)
   where
-  type State (UTXOW era) = UTxOState era
+  type State (UTXOW era) = LedgerState era
   type Signal (UTXOW era) = StAnnTx TopTx era
   type Environment (UTXOW era) = UtxoEnv era
   type BaseM (UTXOW era) = ShelleyBase

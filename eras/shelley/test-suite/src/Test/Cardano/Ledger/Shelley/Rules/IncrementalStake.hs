@@ -7,6 +7,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Test.Cardano.Ledger.Shelley.Rules.IncrementalStake (
   incrStakeComputationTest,
@@ -26,14 +27,17 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   curPParamsEpochStateL,
  )
 import Cardano.Ledger.Shelley.Rules (LedgerEnv)
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as Unspent
 import Control.Monad.Reader (ReaderT)
 import Control.State.Transition (STS (..))
 import Data.Foldable (fold)
+import qualified Data.Foldable as F (foldl')
 import Data.Functor.Identity (Identity)
 import Data.Map (Map)
 import qualified Data.Map.Strict as Map
@@ -113,9 +117,23 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
     checkIncrStakeComp :: SourceSignalTarget (EraRule "LEDGER" era) -> Property
     checkIncrStakeComp
       SourceSignalTarget
-        { source = LedgerState UTxOState {utxosUtxo = u, utxosInstantStake = is} dp
+        { source =
+          LedgerState
+            AccountingState
+              { asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u)
+              , asInstantStake = is
+              }
+            dp
+            _
         , signal = stAnnTx
-        , target = LedgerState UTxOState {utxosUtxo = u', utxosInstantStake = is'} dp'
+        , target =
+          LedgerState
+            AccountingState
+              { asUTxOStore = (IndexedUTxOs.unIndexedUTxOs . Store.allocations -> u')
+              , asInstantStake = is'
+              }
+            dp'
+            _
         } =
         let tx = stAnnTx ^. txStAnnTxG
          in counterexample
@@ -124,7 +142,7 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
                   , "\ntx"
                   , show tx
                   , "size original utxo"
-                  , show (Map.size $ unUTxO u)
+                  , show (Map.size u)
                   , "original utxo"
                   , show u
                   , "original instantStake"
@@ -141,7 +159,7 @@ incrStakeComp SourceSignalTarget {source = chainSt, signal = block} =
               )
               $ utxoBalanace === fromCompact instantStakeBalanace
         where
-          utxoBalanace = sumCoinUTxO u'
+          utxoBalanace = foldMap ((^. coinTxOutL) . Unspent.toTxOut) u'
           instantStakeBalanace = fold (sisCredentialStake is') <> fold (sisPtrStake is')
           ptrs = dp ^. certDStateL . accountsL . accountsPtrsMapG
           ptrs' = dp' ^. certDStateL . accountsL . accountsPtrsMapG
@@ -174,7 +192,13 @@ checkIncrementalStake ::
   Property
 checkIncrementalStake es =
   let
-    LedgerState (UTxOState utxo _ _ _ instantStake _) certState = esLState es
+    LedgerState
+      AccountingState
+        { asUTxOStore = (Store.allocations -> utxo)
+        , asInstantStake = instantStake
+        }
+      certState
+      _ = esLState es
     dstate = certState ^. certDStateL
     pstate = certState ^. certPStateL
     stake = stakeDistr @era utxo dstate pstate
@@ -201,7 +225,7 @@ tersediffincremental message (ActiveStake a) (ActiveStake c) =
 stakeDistr ::
   forall era.
   (EraTxOut era, ShelleyEraAccounts era) =>
-  UTxO era ->
+  IndexedUTxOs era ->
   DState era ->
   PState era ->
   SnapShot
@@ -227,11 +251,11 @@ aggregateUtxoCoinByCredential ::
   forall era.
   EraTxOut era =>
   Map Ptr (Credential Staking) ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Map (Credential Staking) (CompactForm Coin) ->
   Map (Credential Staking) (CompactForm Coin)
-aggregateUtxoCoinByCredential ptrs (UTxO u) initial =
-  Map.foldl' accum (Map.filter (/= mempty) initial) u
+aggregateUtxoCoinByCredential ptrs u initial =
+  F.foldl' accum (Map.filter (/= mempty) initial) (IndexedUTxOs.txOuts u)
   where
     accum ans out =
       let c = out ^. compactCoinTxOutL

@@ -1,5 +1,10 @@
 # Version history for `cardano-ledger-alonzo`
 
+## 1.18.0.1
+
+* Use `IndexedUTxOs` for stored entries, era translation and script contexts. Both `TxUTxODiff` arguments contain complete `IndexedUTxOs` from the previous and updated Stores. `Cardano.Ledger.Alonzo.Tx` reexports `outputsTxBody` instead of `txouts`, preserving supplied output sizes without attaching pricing history.
+* Translate existing Store allocations and preserve their formula history; legacy outputs contribute zero separately held deposit.
+
 ## 1.18.0.0
 
 *

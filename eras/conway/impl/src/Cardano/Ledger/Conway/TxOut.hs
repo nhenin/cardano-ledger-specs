@@ -1,11 +1,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -25,44 +27,106 @@ import Cardano.Ledger.Babbage.TxOut (
   referenceScriptBabbageTxOutL,
   valueEitherBabbageTxOutL,
  )
+import Cardano.Ledger.Binary (DecCBOR (..), DecShareCBOR (..), EncCBOR (..), Interns)
 import Cardano.Ledger.Conway.Era (ConwayEra)
 import Cardano.Ledger.Conway.PParams ()
 import Cardano.Ledger.Conway.Scripts ()
+import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Plutus.Data (Datum (..), translateDatum)
+import Control.DeepSeq (NFData (..))
+import Data.Aeson (FromJSON (..), ToJSON (..))
 import Data.Coerce (coerce)
+import Data.Function (on)
 import Data.Maybe.Strict (StrictMaybe (..))
+import Data.MemPack (MemPack (..))
 import Lens.Micro
+import NoThunks.Class (InspectHeapNamed (..), NoThunks)
 
 instance EraTxOut ConwayEra where
-  type TxOut ConwayEra = BabbageTxOut ConwayEra
+  type MinAdaTxOut ConwayEra = BabbageTxOut ConwayEra
+  type DepositBackedTxOut ConwayEra = NoDepositBackedTxOut ConwayEra
 
-  mkBasicTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
+  upgradeTxOut (MinAdaTxOut output) =
+    MinAdaTxOut $ upgradeBabbageTxOut output
 
-  upgradeTxOut = upgradeBabbageTxOut
-
-  addrEitherTxOutL = addrEitherBabbageTxOutL
+  addrEitherTxOutL =
+    lens conwayTxOut (const MinAdaTxOut) . addrEitherBabbageTxOutL
   {-# INLINE addrEitherTxOutL #-}
+
+instance EraMinAdaTxOut ConwayEra where
+  mkBasicMinAdaTxOut addr vl = BabbageTxOut addr vl NoDatum SNothing
 
   valueEitherTxOutL = valueEitherBabbageTxOutL
   {-# INLINE valueEitherTxOutL #-}
 
   getMinCoinSizedTxOut = babbageMinUTxOValue
 
+instance EraDepositBackedTxOut ConwayEra where
+  mkBasicDepositBackedTxOut = notSupportedInThisEra
+
+  applicationAssetsTxOutL _ unavailable = case unavailable of {}
+
+-- | Private: recover the historical representation from Conway's only supported variant.
+conwayTxOut :: TxOut ConwayEra -> BabbageTxOut ConwayEra
+conwayTxOut (MinAdaTxOut output) = output
+{-# INLINE conwayTxOut #-}
+
+-- The wrapper retains the historical instances and encodings without a variant tag.
+instance Eq (TxOut ConwayEra) where
+  (==) = (==) `on` conwayTxOut
+
+instance Ord (TxOut ConwayEra) where
+  compare = compare `on` conwayTxOut
+
+instance Show (TxOut ConwayEra) where
+  showsPrec precedence = showsPrec precedence . conwayTxOut
+
+instance NFData (TxOut ConwayEra) where
+  rnf = rnf . conwayTxOut
+
+deriving via InspectHeapNamed "TxOut" (TxOut ConwayEra) instance NoThunks (TxOut ConwayEra)
+
+instance EncCBOR (TxOut ConwayEra) where
+  encCBOR = encCBOR . conwayTxOut
+
+instance DecCBOR (TxOut ConwayEra) where
+  decCBOR = MinAdaTxOut <$> decCBOR
+
+instance DecShareCBOR (TxOut ConwayEra) where
+  type Share (TxOut ConwayEra) = Interns (Credential Staking)
+  decShareCBOR = fmap MinAdaTxOut . decShareCBOR
+
+instance MemPack (TxOut ConwayEra) where
+  packedByteCount = packedByteCount . conwayTxOut
+  packM = packM . conwayTxOut
+  unpackM = MinAdaTxOut <$> unpackM
+
+instance ToJSON (TxOut ConwayEra) where
+  toJSON = toJSON . conwayTxOut
+  toEncoding = toEncoding . conwayTxOut
+
+instance FromJSON (TxOut ConwayEra) where
+  parseJSON = fmap MinAdaTxOut . parseJSON
+
 instance AlonzoEraTxOut ConwayEra where
-  dataHashTxOutL = dataHashBabbageTxOutL
+  dataHashTxOutL =
+    lens conwayTxOut (const MinAdaTxOut) . dataHashBabbageTxOutL
   {-# INLINE dataHashTxOutL #-}
 
-  datumTxOutF = to getDatumBabbageTxOut
+  datumTxOutF = to $ getDatumBabbageTxOut . conwayTxOut
   {-# INLINE datumTxOutF #-}
 
 instance BabbageEraTxOut ConwayEra where
-  dataTxOutL = dataBabbageTxOutL
+  dataTxOutL =
+    lens conwayTxOut (const MinAdaTxOut) . dataBabbageTxOutL
   {-# INLINE dataTxOutL #-}
 
-  datumTxOutL = datumBabbageTxOutL
+  datumTxOutL =
+    lens conwayTxOut (const MinAdaTxOut) . datumBabbageTxOutL
   {-# INLINE datumTxOutL #-}
 
-  referenceScriptTxOutL = referenceScriptBabbageTxOutL
+  referenceScriptTxOutL =
+    lens conwayTxOut (const MinAdaTxOut) . referenceScriptBabbageTxOutL
   {-# INLINE referenceScriptTxOutL #-}
 
 upgradeBabbageTxOut ::

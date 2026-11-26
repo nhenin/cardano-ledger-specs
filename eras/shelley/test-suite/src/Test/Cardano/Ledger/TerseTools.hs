@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | This module suppies tools to tersely describe the differences between 2 values of the same type.
 module Test.Cardano.Ledger.TerseTools where
@@ -12,7 +13,7 @@ import Cardano.Ledger.Credential (
   Ptr (..),
   StakeReference (..),
  )
-import Cardano.Ledger.State (UTxO (..))
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import qualified Data.Map.Strict as Map
 
@@ -96,5 +97,5 @@ instance Terse Coin where
 instance Terse (CompactForm Coin) where
   terse (CompactCoin n) = show n
 
-terseutxo :: Terse (TxOut era) => String -> UTxO era -> String
-terseutxo message (UTxO mp) = terselist message (Map.toList mp)
+terseutxo :: Terse (TxOut era) => String -> IndexedUTxOs era -> String
+terseutxo message (IndexedUTxOs.mapTxOuts id -> mp) = terselist message (Map.toList mp)

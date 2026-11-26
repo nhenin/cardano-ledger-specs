@@ -36,6 +36,10 @@ instance ToExpr (NativeScript era) => ToExpr (AllegraTxAuxDataRaw era)
 
 instance ToExpr (NativeScript era) => ToExpr (AllegraTxAuxData era)
 
+-- TxOut
+instance ToExpr (TxOut AllegraEra) where
+  toExpr (MinAdaTxOut output) = App "MinAdaTxOut" [toExpr output]
+
 -- TxBody
 instance
   ( ToExpr ma

@@ -70,7 +70,7 @@ unknownCostModelsSpec =
       costModels <- getsPParams ppCostModelsL
       newCostModels <- arbitrary
       hotCommitteeCs <- registerInitialCommittee
-      (drepC, _, _) <- setupSingleDRep 1_000_000
+      (drepC, _, _) <- setupSingleDRep 2_000_000
       gai <-
         submitParameterChange SNothing $
           emptyPParamsUpdate
@@ -510,7 +510,7 @@ proposalsSpec = do
                          ]
       it "Subtrees are pruned when competing proposals are enacted over multiple rounds" $ whenPostBootstrap $ do
         committeeMembers' <- registerInitialCommittee
-        (drepC, _, _) <- setupSingleDRep 1_000_000
+        (drepC, _, _) <- setupSingleDRep 2_000_000
         a@[ c
             , Node
                 p2
@@ -602,7 +602,7 @@ proposalsSpec = do
       -- TODO: Re-enable after issues are resolved, by removing this override
       disableInConformanceIt "Subtrees are pruned for both enactment and expiry over multiple rounds" $ whenPostBootstrap $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         modifyPParams $ ppGovActionLifetimeL .~ EpochInterval 4
         [ a@( Node
                 p1
@@ -689,7 +689,7 @@ proposalsSpec = do
         modifyPParams $ ppGovActionLifetimeL .~ EpochInterval 4
 
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         [Node p1 []] <-
           submitConstitutionForest
             SNothing
@@ -790,7 +790,7 @@ votingSpec =
     disableInConformanceIt "expired gov-actions" $ do
       -- Voting for expired actions should fail
       modifyPParams $ ppGovActionLifetimeL .~ EpochInterval 2
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       govActionId <- mkProposal InfoAction >>= submitProposal
       passNEpochs 3
       submitFailingVote
@@ -799,7 +799,7 @@ votingSpec =
         [ injectFailure $ VotingOnExpiredGovAction [(DRepVoter drep, govActionId)]
         ]
     it "non-existent gov-actions" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       govActionId <- mkProposal InfoAction >>= submitProposal
       let dummyGaid = govActionId {gaidGovActionIx = GovActionIx 99} -- non-existent `GovActionId`
       submitFailingVote
@@ -837,7 +837,7 @@ votingSpec =
         pp
           & ppGovActionLifetimeL .~ EpochInterval 3
           & ppCommitteeMinSizeL .~ 2
-      (dRepCred, _, _) <- setupSingleDRep 1_000_000
+      (dRepCred, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
       ccColdCred0 <- KeyHashObj <$> freshKeyHash
       ccColdCred1 <- KeyHashObj <$> freshKeyHash
@@ -877,8 +877,7 @@ votingSpec =
         getsNES $
           nesEsL
             . esLStateL
-            . lsUTxOStateL
-            . utxosGovStateL
+            . lsGovStateL
             . constitutionGovStateL
             . constitutionAnchorL
       expectNoCurrentProposals
@@ -908,7 +907,7 @@ constitutionSpec =
         void $ submitConstitutionFailingBootstrap SNothing
       it "valid GovPurposeId" $ whenPostBootstrap $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         constitution <- arbitrary
         gaidConstitutionProp <- enactConstitution SNothing constitution dRep committeeMembers'
         constitution1 <- arbitrary
@@ -922,7 +921,7 @@ constitutionSpec =
     describe "rejected for" $ do
       it "empty PrevGovId after the first constitution was enacted" $ do
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         mbGovActionId <- submitConstitutionFailingBootstrap SNothing
         forM_ mbGovActionId $ \govActionId -> do
           submitYesVote_ (DRepVoter dRep) govActionId
@@ -982,7 +981,7 @@ policySpec =
   describe "Policy" $ do
     it "policy is respected by proposals" $ whenPostBootstrap $ do
       committeeMembers' <- registerInitialCommittee
-      (dRep, _, _) <- setupSingleDRep 1_000_000
+      (dRep, _, _) <- setupSingleDRep 2_000_000
       keyHash <- freshKeyHash
       scriptHash <- impAddNativeScript $ RequireAllOf (SSeq.singleton (RequireSignature keyHash))
       anchor <- arbitrary
@@ -1248,7 +1247,7 @@ ccVoteOnConstitutionFailsWithMultipleVotes ::
   ImpTestM era ()
 ccVoteOnConstitutionFailsWithMultipleVotes = do
   (ccCred :| _) <- registerInitialCommittee
-  (drepCred, _, _) <- setupSingleDRep 1_000_000
+  (drepCred, _, _) <- setupSingleDRep 2_000_000
   drepCred2 <- KeyHashObj <$> registerDRep
   newCommitteeMember <- KeyHashObj <$> freshKeyHash
   committeeProposal <-
@@ -1290,7 +1289,7 @@ bootstrapPhaseSpec =
     it "Parameter change" $ do
       gid <- mkMinFeeUpdateGovAction SNothing >>= submitGovAction
       (committee :| _) <- registerInitialCommittee
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spo, _, _) <- setupPoolWithStake $ Coin 42_000_000
       checkVotingFailure (DRepVoter drep) gid
       submitYesVote_ (StakePoolVoter spo) gid
@@ -1302,7 +1301,7 @@ bootstrapPhaseSpec =
         submitGovAction $
           HardForkInitiation SNothing (curProtVer {pvMajor = nextMajorVersion})
       (committee :| _) <- registerInitialCommittee
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spo, _, _) <- setupPoolWithStake $ Coin 42_000_000
       checkVotingFailure (DRepVoter drep) gid
       submitYesVote_ (StakePoolVoter spo) gid
@@ -1310,7 +1309,7 @@ bootstrapPhaseSpec =
     it "Info action" $ do
       gid <- submitGovAction InfoAction
       (committee :| _) <- registerInitialCommittee
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       (spo, _, _) <- setupPoolWithStake $ Coin 42_000_000
       submitYesVote_ (DRepVoter drep) gid
       submitYesVote_ (StakePoolVoter spo) gid

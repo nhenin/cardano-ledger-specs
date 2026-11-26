@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="312" viewBox="0 0 900 312"
+     role="img" aria-labelledby="title desc">
+  <title id="title">From an embedded reserve to an external deposit</title>
+  <desc id="desc">Spend a minimum-ADA output worth 10 ADA, including a 1.6 ADA reserve.
+    Of the remaining 8.4 ADA, 8 ADA go to the new output and 0.4 ADA tops up the reserve.
+    The transaction declares Allocate 0.4 ADA. The full 2 ADA is now held externally.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #182d3b; }
+    .heading { font-size: 18px; font-weight: 600; }
+    .amount { font-size: 30px; font-weight: 700; }
+    .detail { fill: #445c6b; font-size: 16px; }
+    .route { font-size: 17px; font-weight: 600; }
+    .accent { fill: #92402d; }
+    .arrow { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+  <rect width="900" height="312" fill="#fff"/>
+
+  <text x="16" y="31" class="heading">Spend a minimum-ADA output</text>
+  <text x="615" y="31" class="heading">Create a deposit-backed output</text>
+
+  <!-- Both amounts on the left are inside the same serialized output value. -->
+  <rect x="16" y="50" width="260" height="183" rx="6" fill="#fff" stroke="#b5c7d1"/>
+  <text x="34" y="87" class="amount">10 ADA</text>
+  <text x="154" y="85" class="detail">output value</text>
+  <path d="M16 107h260" stroke="#ccd7dd"/>
+  <text x="34" y="136" class="heading">8.4 ADA</text>
+  <text x="34" y="157" class="detail">above the minimum</text>
+  <text x="34" y="197" class="heading">1.6 ADA</text>
+  <text x="34" y="218" class="detail">embedded reserve</text>
+
+  <!-- 8.4 splits between the payment and the top-up. The old reserve funds the rest. -->
+  <g class="arrow" stroke="#77909f">
+    <path d="M276 138h20q11 0 22-15l15-20q9-12 22-12h248m-8-5 8 5-8 5"/>
+    <path d="M276 200h327m-8-5 8 5-8 5"/>
+  </g>
+  <path class="arrow" stroke="#a9553e"
+        d="M296 138q11 0 23 12l13 13q8 8 20 8h251m-8-5 8 5-8 5"/>
+  <text x="361" y="82" class="route">8 ADA to the output</text>
+  <text x="361" y="162" class="route accent">0.4 ADA top-up</text>
+  <text x="361" y="222" class="detail">1.6 ADA from the old reserve</text>
+
+  <rect x="615" y="50" width="269" height="79" rx="6" fill="#f0f5f7" stroke="#b5c7d1"/>
+  <text x="634" y="80" class="detail">Output value</text>
+  <text x="634" y="112" class="amount">8 ADA</text>
+  <rect x="615" y="146" width="269" height="87" rx="6" fill="#fcf3ee" stroke="#dbc1b5"/>
+  <text x="634" y="176" class="detail">External deposit</text>
+  <text x="634" y="212" class="amount">2 ADA</text>
+
+  <path d="M16 257h868" stroke="#c8d3da"/>
+  <text x="16" y="289" class="detail">Transaction declares</text>
+  <text x="183" y="290" class="heading accent">Allocate 0.4 ADA</text>
+  <text x="615" y="289" class="detail">Store balance</text>
+  <text x="749" y="290" class="heading">+2 ADA</text>
+</svg>

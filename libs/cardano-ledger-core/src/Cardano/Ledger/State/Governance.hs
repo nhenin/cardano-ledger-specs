@@ -31,7 +31,7 @@ import Cardano.Ledger.Binary (
 import Cardano.Ledger.Binary.Coders (Decode (..), Encode (..), decode, encode, (!>), (<!))
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential)
-import Cardano.Ledger.State.CertState (Obligations)
+import Cardano.Ledger.State.Certificates (Obligations)
 import Control.DeepSeq (NFData (..))
 import Data.Aeson (ToJSON (..))
 import Data.Default (Default (..))

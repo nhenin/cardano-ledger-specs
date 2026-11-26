@@ -24,11 +24,11 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.PParams (ProposedPPUpdates (..), Update (..))
-import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut)
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Data.Coerce (coerce)
 import qualified Data.Map.Strict as Map
 
@@ -116,8 +116,9 @@ instance TranslateEra MaryEra LedgerState where
   translateEra ctxt ls =
     return
       LedgerState
-        { lsUTxOState = translateEra' ctxt $ lsUTxOState ls
+        { lsAccountingState = translateEra' ctxt $ lsAccountingState ls
         , lsCertState = translateEra' ctxt $ lsCertState ls
+        , lsGovState = translateEra' ctxt . lsGovState $ ls
         }
 
 instance TranslateEra MaryEra ProposedPPUpdates where
@@ -135,27 +136,36 @@ instance TranslateEra MaryEra ShelleyGovState where
         , sgsFuturePParams = translateEra' ctxt $ sgsFuturePParams ps
         }
 
-instance TranslateEra MaryEra UTxOState where
-  translateEra ctxt us =
+instance TranslateEra MaryEra Store.UTxOStore where
+  translateEra ctxt store =
+    fmap (Store.mkUTxOStore $ Store.depositFormulaHistory store)
+      . translateEra ctxt
+      . Store.allocations
+      $ store
+
+instance TranslateEra MaryEra AccountingState where
+  translateEra ctxt accountingState =
     return
-      UTxOState
-        { utxosUtxo = translateEra' ctxt $ utxosUtxo us
-        , utxosDeposited = utxosDeposited us
-        , utxosFees = utxosFees us
-        , utxosGovState = translateEra' ctxt $ utxosGovState us
-        , utxosInstantStake = translateEra' ctxt $ utxosInstantStake us
-        , utxosDonation = utxosDonation us
+      AccountingState
+        { asUTxOStore = translateEra' ctxt . asUTxOStore $ accountingState
+        , asDeposited = asDeposited accountingState
+        , asFees = asFees accountingState
+        , asInstantStake = translateEra' ctxt . asInstantStake $ accountingState
+        , asDonation = asDonation accountingState
         }
 
 instance TranslateEra MaryEra ShelleyInstantStake where
   translateEra _ = pure . coerce
 
-instance TranslateEra MaryEra ShelleyTxOut where
+instance TranslateEra MaryEra TxOut where
   translateEra NoGenesis = pure . upgradeTxOut
 
-instance TranslateEra MaryEra UTxO where
-  translateEra ctxt utxo =
-    return $ UTxO (translateEra' ctxt `Map.map` unUTxO utxo)
+instance TranslateEra MaryEra IndexedUTxOs where
+  translateEra ctxt = pure . IndexedUTxOs.translateLegacyOutputs translateOutput
+    where
+      translateOutput :: TxOut (PreviousEra MaryEra) -> MinAdaTxOut MaryEra
+      translateOutput output = case translateEra' ctxt output of
+        MinAdaTxOut translated -> translated
 
 instance TranslateEra MaryEra ShelleyTxWits where
   type TranslationError MaryEra ShelleyTxWits = DecoderError

@@ -8,11 +8,12 @@
 module Test.Cardano.Ledger.Shelley.UnitTests.InstantStakeTest (spec) where
 
 import Cardano.Ledger.BaseTypes
-import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Compactible (CompactForm, fromCompact)
+import Cardano.Ledger.Coin (Coin (..), CompactForm (..))
+import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Core
 import Cardano.Ledger.Credential (Credential, StakeReference (..))
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxIn)
 import Data.Default (def)
 import Data.Map.Strict (Map)
@@ -24,6 +25,7 @@ import Lens.Micro
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Era
 import Test.Cardano.Ledger.Shelley.ImpTest
 
@@ -86,8 +88,9 @@ instantStakeIncludesRewards = do
     -- Each wallet (except mary) has one or more UTxO entries
     -- Since tom uses a StakeRefNull those entries will not be distributed
     utxo1 =
-      UTxO @era
-        ( Map.fromList
+      legacyIndexedUTxOs @era $
+        MinAdaTxOut
+          <$> Map.fromList
             [ (tomTxIn1, mkCoinTxOut tomAddr $ fromCompact tomCoin1) -- Not distrubuted, see tomAddr
             , (tomTxIn2, mkCoinTxOut tomAddr $ fromCompact tomCoin2) -- Not distributed, see tomAddr
             , (annTxIn, mkCoinTxOut annAddr $ fromCompact annCoin)
@@ -95,8 +98,7 @@ instantStakeIncludesRewards = do
             , (johnTxIn, mkCoinTxOut johnAddr $ fromCompact johnCoin)
             -- Note Mary does not have a UTxO entry, but her rewards are still counted
             ]
-        )
-    instantStake = addInstantStake utxo1 mempty
+    instantStake = addInstantStake (IndexedUTxOs.txOuts utxo1) mempty
   let snapShot =
         snapShotFromInstantStake instantStake (certState ^. certDStateL) (certState ^. certPStateL)
       computedStakeDistr = Map.map (unNonZero . swdStake) $ VMap.toMap $ unActiveStake $ ssActiveStake snapShot
@@ -119,5 +121,47 @@ instantStakeIncludesRewards = do
 
   pure (computedStakeDistr === expectedStakeDistr)
 
+instantStakeFoldable :: forall era. ShelleyEraImp era => Gen Property
+instantStakeFoldable = do
+  payment <- arbitrary @(Credential Payment)
+  staking <- arbitrary @(Credential Staking)
+  seed <- arbitrary @(TxOut era)
+  let address = mkAddr payment staking
+      generatedOutput = seed & addrTxOutL .~ address & coinTxOutL .~ Coin 7
+      legacyOutput = MinAdaTxOut $ mkCoinTxOut address (Coin 7)
+      outputVariant = case seed of
+        MinAdaTxOut _ -> "MinAdaTxOut"
+        DepositBackedTxOut _ -> "DepositBackedTxOut"
+      expected amount =
+        (mempty :: InstantStake era)
+          & instantStakeCredentialsL .~ Map.singleton staking (CompactCoin amount)
+      check :: Foldable f => ([TxOut era] -> f (TxOut era)) -> TxOut era -> Property
+      check container out =
+        let zero = out & coinTxOutL .~ Coin 0
+            withoutStake = out & addrTxOutL .~ mkAddr payment StakeRefNull
+            ignored = container [zero, withoutStake]
+            outputs = container [out, out, zero, withoutStake]
+            added = addInstantStake outputs mempty
+         in conjoin
+              [ added === expected (7 + 7)
+              , deleteInstantStake (container [out]) added === expected 7
+              , deleteInstantStake outputs added === mempty
+              , addInstantStake ignored mempty === mempty
+              , deleteInstantStake ignored added === expected (7 + 7)
+              ]
+      checkContainers out =
+        conjoin
+          [ counterexample "list" $ check id out
+          , counterexample "map" $ check (Map.fromList . zip [0 :: Int ..]) out
+          ]
+  pure $
+    tabulate "Output variant" [outputVariant] $
+      conjoin
+        [ counterexample "generated output" $ checkContainers generatedOutput
+        , counterexample "matching min-ADA output" $ checkContainers legacyOutput
+        ]
+
 spec :: forall era. ShelleyEraImp era => Spec
-spec = prop "InstantStakeIncludesRewards" (instantStakeIncludesRewards @era)
+spec = do
+  prop "InstantStakeIncludesRewards" (instantStakeIncludesRewards @era)
+  prop "InstantStakeFoldable" (instantStakeFoldable @era)

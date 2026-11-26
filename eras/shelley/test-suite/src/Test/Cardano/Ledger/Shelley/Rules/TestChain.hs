@@ -36,13 +36,14 @@ import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
   NewEpochState (..),
-  UTxOState (..),
   curPParamsEpochStateL,
   lsCertStateL,
-  lsUTxOStateL,
  )
 import Cardano.Ledger.Shelley.Rules
 import Cardano.Ledger.Shelley.State
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
 import Cardano.Protocol.TPraos.BlockHeader (
   BHeader (..),
   bhbody,
@@ -52,10 +53,8 @@ import Control.Monad.Trans.Reader (ReaderT)
 import Control.State.Transition
 import Data.Foldable (toList)
 import Data.Functor.Identity (Identity)
-import qualified Data.Map.Strict as Map
 import Data.Maybe (mapMaybe)
 import Data.Proxy
-import qualified Data.Set as Set
 import Data.Word (Word64)
 import Lens.Micro ((^.))
 import Lens.Micro.Extras (view)
@@ -143,13 +142,16 @@ ledgerTraceFromBlock chainSt block =
       Trace.closureWith @(EraRule "LEDGER" era)
         ledgerEnv
         ledgerSt0
-        ( \ls ->
+        ( \ls tx ->
             mkStAnnTx
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              (ls ^. lsUTxOStateL . utxoG)
+              ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+                  ls ^. Store.utxoStoreG
+              )
               mempty
+              tx
         )
         txs
   )
@@ -171,30 +173,41 @@ ledgerTraceFromBlockWithRestrictedUTxO ::
   ) =>
   ChainState era ->
   Block (BHeader MockCrypto) era ->
-  (UTxO era, Trace (EraRule "LEDGER" era))
+  (IndexedUTxOs era, Trace (EraRule "LEDGER" era))
 ledgerTraceFromBlockWithRestrictedUTxO chainSt block =
-  ( UTxO irrelevantUTxO
+  ( irrelevantUTxO
   , runShelleyBase $
       Trace.closureWith @(EraRule "LEDGER" era)
         ledgerEnv
         restrictedSt0
-        ( \ls ->
+        ( \ls tx ->
             mkStAnnTx
               (epochInfo testGlobals)
               (systemStart testGlobals)
               (ledgerEnv ^. ledgerPpL)
-              (ls ^. lsUTxOStateL . utxoG)
+              ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF) . Store.allocations $
+                  ls ^. Store.utxoStoreG
+              )
               mempty
+              tx
         )
         txs
   )
   where
     (_tickedChainSt, ledgerEnv, ledgerSt0, txs) = ledgerTraceBase chainSt block
     txIns = neededTxInsForBlock block
-    LedgerState utxoSt delegationSt = ledgerSt0
-    utxo = unUTxO . utxosUtxo $ utxoSt
-    (relevantUTxO, irrelevantUTxO) = Map.partitionWithKey (const . (`Set.member` txIns)) utxo
-    restrictedSt0 = LedgerState (utxoSt {utxosUtxo = UTxO relevantUTxO}) delegationSt
+    LedgerState utxoSt delegationSt govState = ledgerSt0
+    previousStore = asUTxOStore utxoSt
+    irrelevantUTxO = IndexedUTxOs.withoutInputs txIns . Store.allocations $ previousStore
+    restrictedSt0 =
+      LedgerState
+        ( utxoSt
+            { asUTxOStore =
+                StoreInternals.release (IndexedUTxOs.inputIds $ irrelevantUTxO) previousStore
+            }
+        )
+        delegationSt
+        govState
 
 -- | Reconstruct a POOL trace from the transactions in a Block and ChainState
 poolTraceFromBlock ::

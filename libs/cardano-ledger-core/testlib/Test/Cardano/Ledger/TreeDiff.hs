@@ -35,6 +35,7 @@ import Cardano.Ledger.Keys
 import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Plutus
 import Cardano.Ledger.State
+import Cardano.Ledger.StrictlyPositiveCoin (StrictlyPositiveCoin, unStrictlyPositiveCoin)
 import Cardano.Ledger.TxIn
 import Cardano.Slotting.Slot (SlotInterval (..))
 import Data.Functor.Identity
@@ -49,6 +50,37 @@ import Type.Reflection (Typeable, typeRep)
 
 -- Coin
 instance ToExpr Coin
+
+instance ToExpr DepositFormula
+
+instance ToExpr DepositFormulaHistory
+
+instance ToExpr DepositPeriod
+
+instance ToExpr DepositAmount where
+  toExpr = toExpr . toCoin
+
+instance ToExpr (TxOut era) => ToExpr (IndexedTxOs era) where
+  toExpr = toExpr . unIndexedTxOs
+
+instance ToExpr a => ToExpr (Unspent a)
+
+instance ToExpr AllocatedAt
+
+instance ToExpr (TxOut era) => ToExpr (IndexedUTxOs era) where
+  toExpr = toExpr . unIndexedUTxOs
+
+instance ToExpr (TxOut era) => ToExpr (UTxOStore era) where
+  toExpr store =
+    App
+      "UTxOStore"
+      [ toExpr $ depositFormulaHistory store
+      , toExpr $ totalDepositAmount store
+      , toExpr $ allocations store
+      ]
+
+instance ToExpr StrictlyPositiveCoin where
+  toExpr coin = App "StrictlyPositiveCoin" [toExpr $ unStrictlyPositiveCoin coin]
 
 instance ToExpr DeltaCoin
 
@@ -337,10 +369,8 @@ instance ToExpr CommitteeAuthorization
 
 instance ToExpr (CommitteeState era)
 
--- UTxO
+-- IndexedUTxOs
 deriving instance (Era era, ToExpr (Script era)) => ToExpr (ScriptsProvided era)
-
-instance ToExpr (TxOut era) => ToExpr (UTxO era)
 
 instance ToExpr TxOutSource
 

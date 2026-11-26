@@ -27,11 +27,11 @@ import Cardano.Ledger.Shelley.UTxO (
 import Cardano.Ledger.State (
   EraUTxO (..),
   ScriptsProvided (..),
-  UTxO,
-  sumUTxO,
-  txInsFilter,
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import Cardano.Ledger.TxOut (sumAllAssets)
 import Cardano.Ledger.Val (inject)
+import Data.Coerce (coerce)
 import Data.Foldable (fold)
 import qualified Data.Set as Set
 import Lens.Micro
@@ -66,16 +66,21 @@ getConsumedMaryValue ::
   (MaryEraTxBody era, Value era ~ MaryValue) =>
   PParams era ->
   (Credential Staking -> Maybe Coin) ->
-  UTxO era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   MaryValue
-getConsumedMaryValue pp lookupStakingDeposit utxo txBody =
+getConsumedMaryValue pp lookupStakingDeposit inputAllocations txBody =
   consumedValue <> MaryValue mempty mintedMultiAsset
   where
     mintedMultiAsset = filterMultiAsset (\_ _ -> (> 0)) $ txBody ^. mintTxBodyL
     {- balance (txins tx ◁ u) + wbalance (txwdrls tx) + keyRefunds pp tx -}
     consumedValue =
-      sumUTxO (txInsFilter utxo (txBody ^. inputsTxBodyL))
+      ( coerce
+          . sumAllAssets
+          . IndexedUTxOs.txOuts
+          . IndexedUTxOs.restrictToInputs (txBody ^. inputsTxBodyL)
+          $ inputAllocations
+      )
         <> inject (refunds <> withdrawals)
     refunds = getTotalRefundsTxBody pp lookupStakingDeposit txBody
     withdrawals = fold . unWithdrawals $ txBody ^. withdrawalsTxBodyL
@@ -101,11 +106,11 @@ burnedMultiAssets txBody =
 -- for minting multi-assets in the transaction.
 getMaryScriptsNeeded ::
   (ShelleyEraTxBody era, MaryEraTxBody era) =>
-  UTxO era ->
+  IndexedUTxOs era ->
   TxBody l era ->
   ShelleyScriptsNeeded era
-getMaryScriptsNeeded u txBody =
-  case getShelleyScriptsNeeded u txBody of
+getMaryScriptsNeeded inputAllocations txBody =
+  case getShelleyScriptsNeeded inputAllocations txBody of
     ShelleyScriptsNeeded shelleyScriptsNeeded ->
       ShelleyScriptsNeeded $
         shelleyScriptsNeeded `Set.union` Set.map policyID (txBody ^. mintedTxBodyF)

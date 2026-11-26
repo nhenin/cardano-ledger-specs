@@ -26,6 +26,8 @@ import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Slotting.EpochInfo.Extend (unsafeLinearExtendEpochInfo)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (asks)
@@ -124,9 +126,13 @@ alonzoLedgersTransition = do
   (finalLedgerState, _) <-
     foldM -- cache is lazy on purpose, since it is unused when validation is off
       ( \(!curLedgerState, stAnnTxCache) (ix, tx) -> do
-          let utxo = curLedgerState ^. utxoL
+          let inputAllocations =
+                IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                  . Store.allocations
+                  . (^. utxoStoreG)
+                  $ curLedgerState
               stAnnTx =
-                mkStAnnTx (unsafeLinearExtendEpochInfo slot ei) sysStart pp utxo stAnnTxCache tx
+                mkStAnnTx (unsafeLinearExtendEpochInfo slot ei) sysStart pp inputAllocations stAnnTxCache tx
           newLedgerState <-
             trans @(EraRule "LEDGER" era) $
               TRC (Shelley.LedgerEnv slot (Just epochNo) ix pp account, curLedgerState, stAnnTx)

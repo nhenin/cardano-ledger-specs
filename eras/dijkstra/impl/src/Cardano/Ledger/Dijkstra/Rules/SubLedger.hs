@@ -101,7 +101,7 @@ data SubLedgerEnv era = SubLedgerEnv
   , sleEpochNo :: Maybe EpochNo
   , slePParams :: PParams era
   , sleAccount :: ChainAccountState
-  , sleOriginalUtxo :: UTxO era
+  , sleOriginalAllocations :: IndexedUTxOs era
   , sleOriginalAccounts :: Accounts era
   , sleTopTxIsPhase2Valid :: IsPhase2Valid
   }
@@ -244,8 +244,15 @@ dijkstraSubLedgersTransition ::
   TransitionRule (EraRule "SUBLEDGER" era)
 dijkstraSubLedgersTransition = do
   TRC
-    ( SubLedgerEnv slot mbCurEpochNo pp chainAccountState originalUtxo originalAccounts topIsPhase2Valid
-      , LedgerState utxoState certState
+    ( SubLedgerEnv
+        slot
+        mbCurEpochNo
+        pp
+        chainAccountState
+        originalAllocations
+        originalAccounts
+        topIsPhase2Valid
+      , ledgerState@LedgerState {lsCertState = certState}
       , stAnnTx
       ) <-
     judgmentContext
@@ -253,13 +260,13 @@ dijkstraSubLedgersTransition = do
   let tx = stAnnTx ^. txStAnnTxG
   curEpochNo <- maybe (liftSTS $ epochFromSlot slot) pure mbCurEpochNo
   let txBody = tx ^. bodyTxL
-  let govState = utxoState ^. utxosGovStateL
+  let govState = ledgerState ^. lsGovStateL
   let committee = govState ^. committeeGovStateL
   let proposals = govState ^. proposalsGovStateL
 
   runTest $ Conway.validateTreasuryValue txBody (chainAccountState ^. casTreasuryL)
 
-  (utxoStateBeforeSubUtxow, certStateFinal) <-
+  (ledgerStateBeforeSubUtxow, certStateFinal) <-
     if topIsPhase2Valid == Phase2Valid
       then do
         certStateAfterSubEntities <-
@@ -296,19 +303,19 @@ dijkstraSubLedgersTransition = do
               , govSignal
               )
         pure
-          ( utxoState & utxosGovStateL . proposalsGovStateL .~ proposalsState
+          ( ledgerState & lsGovStateL . proposalsGovStateL .~ proposalsState
           , certStateAfterSubEntities
           )
-      else pure (utxoState, certState)
+      else pure (ledgerState, certState)
 
-  utxoStateAfterSubUtxow <-
+  ledgerStateAfterSubUtxow <-
     trans @(EraRule "SUBUTXOW" era) $
       TRC
-        ( SubUtxoEnv slot pp certState originalUtxo topIsPhase2Valid
-        , utxoStateBeforeSubUtxow
+        ( SubUtxoEnv slot pp certState originalAllocations topIsPhase2Valid
+        , ledgerStateBeforeSubUtxow
         , stAnnTx
         )
-  pure $ LedgerState utxoStateAfterSubUtxow certStateFinal
+  pure $ ledgerStateAfterSubUtxow {lsCertState = certStateFinal}
 
 instance
   ( STS (SUBGOV era)

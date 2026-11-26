@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -25,7 +26,6 @@ module Test.Cardano.Ledger.Babbage.ImpTest (
 
 import Cardano.Ledger.Alonzo.Plutus.Context (EraPlutusContext (..))
 import Cardano.Ledger.Babbage (BabbageEra)
-import Cardano.Ledger.Babbage.Collateral (collOuts)
 import Cardano.Ledger.Babbage.Core
 import Cardano.Ledger.Babbage.Rules (BabbageUtxoPredFailure, BabbageUtxowPredFailure)
 import Cardano.Ledger.Babbage.TxInfo (BabbageContextError)
@@ -33,17 +33,15 @@ import Cardano.Ledger.BaseTypes (Inject, StrictMaybe (..))
 import Cardano.Ledger.Plutus.CostModels (CostModelsUpdate (..), updateCostModels)
 import Cardano.Ledger.Plutus.Language (Language (..), SLanguage (..))
 import Cardano.Ledger.Shelley.LedgerState (
-  UTxO (..),
   curPParamsEpochStateL,
   nesEsL,
-  utxoL,
  )
 import Cardano.Ledger.Tools (ensureMinCoinTxOut, setMinCoinTxOut)
 import Cardano.Ledger.TxIn (TxIn, mkTxInPartial)
 import Control.Monad (forM, (>=>))
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
 import Data.Maybe (isNothing)
 import qualified Data.Sequence.Strict as SSeq
 import qualified Data.Set as Set
@@ -100,7 +98,14 @@ fixupCollateralReturn ::
   ImpTestM era (Tx TopTx era)
 fixupCollateralReturn tx = do
   pp <- getsNES $ nesEsL . curPParamsEpochStateL
-  pure $ tx & bodyTxL . collateralReturnTxBodyL %~ fmap (ensureMinCoinTxOut pp)
+  pure $
+    tx
+      & bodyTxL . collateralReturnTxBodyL
+        %~ fmap
+          ( \case
+              MinAdaTxOut output -> MinAdaTxOut $ ensureMinCoinTxOut pp output
+              DepositBackedTxOut _ -> error "fixupCollateralReturn: unexpected DepositBackedTxOut"
+          )
 
 impBabbageExpectTxSuccess ::
   ( HasCallStack
@@ -111,15 +116,18 @@ impBabbageExpectTxSuccess ::
 impBabbageExpectTxSuccess tx = do
   impAlonzoExpectTxSuccess tx
   -- Check that the balance of the collateral was returned
-  let returns = Map.toList . unUTxO . collOuts $ tx ^. bodyTxL
-  utxo <- getsNES utxoL
+  let returns =
+        [ (mkTxInPartial (txIdTx tx) (fromIntegral . length $ tx ^. bodyTxL . outputsTxBodyL), output)
+        | output <- toList $ tx ^. bodyTxL . collateralReturnTxBodyL
+        ]
+  currentAllocations <- getIndexedUTxOs
   if tx ^. isPhase2ValidTxL == Phase2Valid
     then do
       impAnn "Collateral return should not be in UTxO" $
-        expectUTxOContent utxo [(txIn, isNothing) | (txIn, _txOut) <- returns]
+        expectUTxOContent currentAllocations [(txIn, isNothing) | (txIn, _txOut) <- returns]
     else do
       impAnn "Collateral return should be in UTxO" $
-        expectUTxOContent utxo [(txIn, (== Just txOut)) | (txIn, txOut) <- returns]
+        expectUTxOContent currentAllocations [(txIn, (== Just txOut)) | (txIn, txOut) <- returns]
 
 instance AllegraEraImp BabbageEra
 
@@ -153,8 +161,10 @@ produceRefScriptsTx scripts = do
   txOuts <- forM scripts $ \script -> do
     addr <- freshKeyAddr_
     let txOutZero =
-          mkBasicTxOut addr mempty & referenceScriptTxOutL .~ SJust script
-    pure $ setMinCoinTxOut pp txOutZero
+          mkBasicTxOutWithMinAda addr mempty & referenceScriptTxOutL .~ SJust script
+    pure $ case txOutZero of
+      MinAdaTxOut output -> MinAdaTxOut $ setMinCoinTxOut pp output
+      DepositBackedTxOut _ -> error "produceRefScriptsTx: unexpected DepositBackedTxOut"
   let txBody = mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (NE.toList txOuts)
   submitTx (mkBasicTx txBody)
 

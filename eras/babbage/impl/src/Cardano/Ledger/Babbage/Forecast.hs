@@ -14,8 +14,8 @@ module Cardano.Ledger.Babbage.Forecast (
 
 import Cardano.Ledger.Babbage.Era (BabbageEra)
 import Cardano.Ledger.Babbage.PParams ()
-import Cardano.Ledger.Babbage.State.CertState ()
-import Cardano.Ledger.Babbage.State.Stake ()
+import Cardano.Ledger.Babbage.State.Accounting.InstantStake ()
+import Cardano.Ledger.Babbage.State.Certificates ()
 import Cardano.Ledger.Babbage.TxOut ()
 import Cardano.Ledger.BaseTypes (ProtVer)
 import Cardano.Ledger.Core

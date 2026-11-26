@@ -46,7 +46,7 @@ import Cardano.Ledger.Allegra.Scripts (ValidityInterval (..))
 import Cardano.Ledger.Allegra.TxCert ()
 import Cardano.Ledger.Allegra.TxOut ()
 import Cardano.Ledger.BaseTypes (StrictMaybe (SJust, SNothing), ToKeyValuePairs (toKeyValuePairs))
-import Cardano.Ledger.Binary (Annotator, DecCBOR (..), EncCBOR (..), ToCBOR)
+import Cardano.Ledger.Binary (Annotator, DecCBOR (..), EncCBOR (..), ToCBOR, mkSized)
 import Cardano.Ledger.Binary.Coders (
   Decode (..),
   Encode (..),
@@ -345,6 +345,9 @@ instance EraTxBody AllegraEra where
     lensMemoRawType @AllegraEra (\AllegraTxBodyRaw {atbrInputs} -> atbrInputs) $
       \txBodyRaw@AllegraTxBodyRaw {} inputs -> txBodyRaw {atbrInputs = inputs}
   {-# INLINEABLE inputsTxBodyL #-}
+
+  sizedOutputsTxBodyG = outputsTxBodyL . to (fmap (mkSized $ eraProtVerLow @AllegraEra))
+  {-# INLINE sizedOutputsTxBodyG #-}
 
   outputsTxBodyL =
     lensMemoRawType @AllegraEra (\AllegraTxBodyRaw {atbrOutputs} -> atbrOutputs) $

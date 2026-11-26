@@ -130,7 +130,8 @@ genTimeToLive currentSlot = do
 
 instance MinGenTxout ShelleyEra where
   calcEraMinUTxO _txout = view ppMinUTxOValueL
-  addValToTxOut v = valueTxOutL %~ (v <+>)
+  addValToTxOut v (MinAdaTxOut output) =
+    MinAdaTxOut $ output & valueTxOutL %~ (v <+>)
   genEraTxOut _genenv genVal addrs = do
     values <- replicateM (length addrs) genVal
-    pure (zipWith mkBasicTxOut addrs values)
+    pure (zipWith mkBasicTxOutWithMinAda addrs values)

@@ -5,8 +5,8 @@ module Cardano.Ledger.Mary.Forecast () where
 
 import Cardano.Ledger.Mary.Era (MaryEra)
 import Cardano.Ledger.Mary.PParams ()
-import Cardano.Ledger.Mary.State.CertState ()
-import Cardano.Ledger.Mary.State.Stake ()
+import Cardano.Ledger.Mary.State.Accounting.InstantStake ()
+import Cardano.Ledger.Mary.State.Certificates ()
 import Cardano.Ledger.Mary.TxOut ()
 import Cardano.Ledger.Shelley (
   ShelleyForecast (..),

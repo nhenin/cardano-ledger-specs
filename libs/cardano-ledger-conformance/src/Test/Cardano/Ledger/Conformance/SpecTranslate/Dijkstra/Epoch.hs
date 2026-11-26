@@ -42,7 +42,7 @@ instance SpecTranslate DijkstraEra (EpochState DijkstraEra) where
 
   type SpecContext DijkstraEra (EpochState DijkstraEra) = Network
 
-  toSpecRep (EpochState {esLState = esLState@LedgerState {lsUTxOState}, ..}) = do
+  toSpecRep (EpochState {esLState = esLState@LedgerState {lsGovState}, ..}) = do
     netId <- askSpecTransM
     withCtxSpecTransM () $
       Agda.MkEpochState
@@ -52,9 +52,9 @@ instance SpecTranslate DijkstraEra (EpochState DijkstraEra) where
         <*> toSpecRep enactState
         <*> withCtxSpecTransM govActions (toSpecRep ratifyState)
     where
-      enactState = mkEnactState $ utxosGovState lsUTxOState
-      ratifyState = getRatifyState $ utxosGovState lsUTxOState
-      govActions = toList $ lsUTxOState ^. utxosGovStateL . proposalsGovStateL . pPropsL
+      enactState = mkEnactState lsGovState
+      ratifyState = getRatifyState lsGovState
+      govActions = toList $ lsGovState ^. proposalsGovStateL . pPropsL
 
 instance SpecTranslate DijkstraEra (SnapShots DijkstraEra) where
   type SpecRep DijkstraEra (SnapShots DijkstraEra) = Agda.Snapshots

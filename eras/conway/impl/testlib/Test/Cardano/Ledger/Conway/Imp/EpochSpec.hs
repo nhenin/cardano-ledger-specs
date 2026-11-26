@@ -150,7 +150,7 @@ dRepSpec =
     -- TODO: Re-enable after issue is resolved, by removing this override
     disableInConformanceIt "expiry is updated based on the number of dormant epochs" $ do
       modifyPParams $ ppGovActionLifetimeL .~ EpochInterval 2
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
 
       startEpochNo <- getsNES nesELL
       let
@@ -194,7 +194,7 @@ dRepSpec =
         pp
           & ppGovActionLifetimeL .~ EpochInterval 2
           & ppDRepActivityL .~ EpochInterval drepActivity
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       startEpochNo <- getsNES nesELL
       let
         -- compute the epoch number that is an offset from starting epoch number plus
@@ -251,9 +251,9 @@ dRepSpec =
         -- the ppDRepActivity parameter
         offDRepActivity offset =
           addEpochInterval startEpochNo $ EpochInterval (drepActivity + offset)
-      (drep1, _, _) <- setupSingleDRep 1_000_000 -- Receives an expiry update transaction certificate
-      (drep2, _, _) <- setupSingleDRep 1_000_000 -- Turns inactive due to natural expiry
-      (drep3, _, _) <- setupSingleDRep 1_000_000 -- Unregisters and gets deleted
+      (drep1, _, _) <- setupSingleDRep 2_000_000 -- Receives an expiry update transaction certificate
+      (drep2, _, _) <- setupSingleDRep 2_000_000 -- Turns inactive due to natural expiry
+      (drep3, _, _) <- setupSingleDRep 2_000_000 -- Unregisters and gets deleted
       expectNumDormantEpochs 0
 
       -- epoch 0: we submit a proposal
@@ -366,7 +366,7 @@ dRepVotingSpec =
       gid <- submitParameterChange SNothing proposedUpdate
 
       committeeHotCreds <- registerInitialCommittee
-      (dRepCred, _, _) <- setupSingleDRep 1_000_000
+      (dRepCred, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
       passEpoch
       logRatificationChecks gid
@@ -427,7 +427,7 @@ treasuryWithdrawalExpectation extraWithdrawals = do
   -- Before making a withdrawal, we need to make sure there is enough money in the treasury:
   donateToTreasury withdrawalAmount
   committeeHotCreds <- registerInitialCommittee
-  (dRepCred, _, _) <- setupSingleDRep 1_000_000
+  (dRepCred, _, _) <- setupSingleDRep 2_000_000
   treasuryStart <- getsNES treasuryL
   treasuryStart `shouldBe` withdrawalAmount
   accountAddress <- registerAccountAddress

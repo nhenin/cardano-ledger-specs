@@ -50,6 +50,7 @@ import qualified Data.Set.NonEmpty as NES
 import GHC.Exts (fromString)
 import Lens.Micro
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), mkWitnessesVKey)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Mary.Examples (testMaryNoDelegLEDGER)
 import qualified Test.Cardano.Ledger.Mary.Examples.Cast as Cast
 import Test.Tasty (TestTree, testGroup)
@@ -74,12 +75,12 @@ bootstrapTxId = txIdTxBody txb
     txb :: TxBody TopTx MaryEra
     txb = mkBasicTxBody
 
-initUTxO :: UTxO MaryEra
+initUTxO :: IndexedUTxOs MaryEra
 initUTxO =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
-      [ (mkTxInPartial bootstrapTxId 0, mkCoinTxOut Cast.aliceAddr aliceInitCoin)
-      , (mkTxInPartial bootstrapTxId 1, mkCoinTxOut Cast.bobAddr bobInitCoin)
+      [ (mkTxInPartial bootstrapTxId 0, MinAdaTxOut $ mkCoinTxOut Cast.aliceAddr aliceInitCoin)
+      , (mkTxInPartial bootstrapTxId 1, MinAdaTxOut $ mkCoinTxOut Cast.bobAddr bobInitCoin)
       ]
 
 pp :: PParams MaryEra
@@ -113,13 +114,14 @@ makeMaryTxBody ins outs interval minted =
     & mintTxBodyL .~ minted
 
 policyFailure ::
-  PolicyID -> Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (UTxO MaryEra)
+  PolicyID -> Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (IndexedUTxOs MaryEra)
 policyFailure p =
   Left . pure . Shelley.UtxowFailure . Shelley.ScriptWitnessNotValidatingUTXOW $
     NES.singleton (policyID p)
 
 outTooBigFailure ::
-  TxOut MaryEra -> Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (UTxO MaryEra)
+  TxOut MaryEra ->
+  Either (NonEmpty (PredicateFailure (Shelley.LEDGER MaryEra))) (IndexedUTxOs MaryEra)
 outTooBigFailure out =
   Left . pure . Shelley.UtxowFailure . Shelley.UtxoFailure $ Allegra.OutputTooBigUTxO $ pure out
 
@@ -164,7 +166,7 @@ txbodySimpleEx1 :: TxBody TopTx MaryEra
 txbodySimpleEx1 =
   makeMaryTxBody
     [mkTxInPartial bootstrapTxId 0]
-    [mkBasicTxOut Cast.aliceAddr tokensSimpleEx1]
+    [mkBasicTxOutWithMinAda Cast.aliceAddr tokensSimpleEx1]
     unboundedInterval
     mintSimpleEx1
 
@@ -176,12 +178,18 @@ txSimpleEx1 =
     atw = mkWitnessesVKey (hashAnnotated txbodySimpleEx1) [asWitness Cast.alicePay]
     stw = Map.fromList [(policyID purplePolicyId, purplePolicy)]
 
-expectedUTxOSimpleEx1 :: UTxO MaryEra
+expectedUTxOSimpleEx1 :: IndexedUTxOs MaryEra
 expectedUTxOSimpleEx1 =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodySimpleEx1) 0, mkBasicTxOut Cast.aliceAddr tokensSimpleEx1)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx1) 0
+        , mkBasicTxOutWithMinAda Cast.aliceAddr tokensSimpleEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 ----------------------------
@@ -211,8 +219,8 @@ txbodySimpleEx2 :: TxBody TopTx MaryEra
 txbodySimpleEx2 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodySimpleEx1) 0]
-    [ mkBasicTxOut Cast.aliceAddr aliceTokensSimpleEx2
-    , mkBasicTxOut Cast.bobAddr bobTokensSimpleEx2
+    [ mkBasicTxOutWithMinAda Cast.aliceAddr aliceTokensSimpleEx2
+    , mkBasicTxOutWithMinAda Cast.bobAddr bobTokensSimpleEx2
     ]
     unboundedInterval
     mempty
@@ -224,13 +232,22 @@ txSimpleEx2 =
   where
     atw = mkWitnessesVKey (hashAnnotated txbodySimpleEx2) [asWitness Cast.alicePay]
 
-expectedUTxOSimpleEx2 :: UTxO MaryEra
+expectedUTxOSimpleEx2 :: IndexedUTxOs MaryEra
 expectedUTxOSimpleEx2 =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodySimpleEx2) 0, mkBasicTxOut Cast.aliceAddr aliceTokensSimpleEx2)
-      , (mkTxInPartial (txIdTxBody txbodySimpleEx2) 1, mkBasicTxOut Cast.bobAddr bobTokensSimpleEx2)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx2) 0
+        , mkBasicTxOutWithMinAda Cast.aliceAddr aliceTokensSimpleEx2
+        )
+      ,
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx2) 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr bobTokensSimpleEx2
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 ------------------------------------------------------------
@@ -287,7 +304,7 @@ txbodyTimeEx1 :: StrictMaybe SlotNo -> StrictMaybe SlotNo -> TxBody TopTx MaryEr
 txbodyTimeEx1 s e =
   makeMaryTxBody
     [mkTxInPartial bootstrapTxId 0]
-    [mkBasicTxOut Cast.aliceAddr tokensTimeEx1]
+    [mkBasicTxOutWithMinAda Cast.aliceAddr tokensTimeEx1]
     (ValidityInterval s e)
     mintTimeEx1
 
@@ -317,12 +334,18 @@ txTimeEx1InvalidRHSfixed = txTimeEx1 $ txbodyTimeEx1 (SJust startInterval) (SJus
 txTimeEx1InvalidRHSopen :: Tx TopTx MaryEra
 txTimeEx1InvalidRHSopen = txTimeEx1 $ txbodyTimeEx1 (SJust startInterval) SNothing
 
-expectedUTxOTimeEx1 :: UTxO MaryEra
+expectedUTxOTimeEx1 :: IndexedUTxOs MaryEra
 expectedUTxOTimeEx1 =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodyTimeEx1Valid) 0, mkBasicTxOut Cast.aliceAddr tokensTimeEx1)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodyTimeEx1Valid) 0
+        , mkBasicTxOutWithMinAda Cast.aliceAddr tokensTimeEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 ----------------------------------------
@@ -346,8 +369,8 @@ txbodyTimeEx2 :: TxBody TopTx MaryEra
 txbodyTimeEx2 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodyTimeEx1Valid) 0]
-    [ mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
-    , mkBasicTxOut Cast.bobAddr bobTokensTimeEx2
+    [ mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
+    , mkBasicTxOutWithMinAda Cast.bobAddr bobTokensTimeEx2
     ]
     unboundedInterval
     mempty
@@ -359,16 +382,22 @@ txTimeEx2 =
   where
     witnesses = mkWitnessesVKey (hashAnnotated txbodyTimeEx2) [asWitness Cast.alicePay]
 
-expectedUTxOTimeEx2 :: UTxO MaryEra
+expectedUTxOTimeEx2 :: IndexedUTxOs MaryEra
 expectedUTxOTimeEx2 =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
       [
         ( mkTxInPartial (txIdTxBody txbodyTimeEx2) 0
-        , mkBasicTxOut Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
+        , mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceCoinsTimeEx2)
         )
-      , (mkTxInPartial (txIdTxBody txbodyTimeEx2) 1, mkBasicTxOut Cast.bobAddr bobTokensTimeEx2)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
+      ,
+        ( mkTxInPartial (txIdTxBody txbodyTimeEx2) 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr bobTokensTimeEx2
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
+        )
       ]
 
 --------------------------------------------------------------
@@ -407,7 +436,7 @@ txbodySingWitEx1 :: TxBody TopTx MaryEra
 txbodySingWitEx1 =
   makeMaryTxBody
     [mkTxInPartial bootstrapTxId 1]
-    [mkBasicTxOut Cast.bobAddr tokensSingWitEx1]
+    [mkBasicTxOutWithMinAda Cast.bobAddr tokensSingWitEx1]
     unboundedInterval
     mintSingWitEx1
 
@@ -419,12 +448,18 @@ txSingWitEx1Valid =
     atw = mkWitnessesVKey (hashAnnotated txbodySingWitEx1) [asWitness Cast.bobPay, asWitness Cast.alicePay]
     stw = Map.fromList [(policyID alicePolicyId, alicePolicy)]
 
-expectedUTxOSingWitEx1 :: UTxO MaryEra
+expectedUTxOSingWitEx1 :: IndexedUTxOs MaryEra
 expectedUTxOSingWitEx1 =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodySingWitEx1) 0, mkBasicTxOut Cast.bobAddr tokensSingWitEx1)
-      , (mkTxInPartial bootstrapTxId 0, mkBasicTxOut Cast.aliceAddr (Val.inject aliceInitCoin))
+      [
+        ( mkTxInPartial (txIdTxBody txbodySingWitEx1) 0
+        , mkBasicTxOutWithMinAda Cast.bobAddr tokensSingWitEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 0
+        , mkBasicTxOutWithMinAda Cast.aliceAddr (Val.inject aliceInitCoin)
+        )
       ]
 
 txSingWitEx1Invalid :: Tx TopTx MaryEra
@@ -461,7 +496,7 @@ txbodyNegEx1 :: TxBody TopTx MaryEra
 txbodyNegEx1 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodySimpleEx2) 0]
-    [mkBasicTxOut Cast.aliceAddr aliceTokensNegEx1]
+    [mkBasicTxOutWithMinAda Cast.aliceAddr aliceTokensNegEx1]
     unboundedInterval
     mintNegEx1
 
@@ -473,16 +508,25 @@ txNegEx1 =
     atw = mkWitnessesVKey (hashAnnotated txbodyNegEx1) [asWitness Cast.alicePay]
     stw = Map.fromList [(policyID purplePolicyId, purplePolicy)]
 
-initialUTxONegEx1 :: UTxO MaryEra
+initialUTxONegEx1 :: IndexedUTxOs MaryEra
 initialUTxONegEx1 = expectedUTxOSimpleEx2
 
-expectedUTxONegEx1 :: UTxO MaryEra
+expectedUTxONegEx1 :: IndexedUTxOs MaryEra
 expectedUTxONegEx1 =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList
-      [ (mkTxInPartial (txIdTxBody txbodyNegEx1) 0, mkBasicTxOut Cast.aliceAddr aliceTokensNegEx1)
-      , (mkTxInPartial bootstrapTxId 1, mkBasicTxOut Cast.bobAddr (Val.inject bobInitCoin))
-      , (mkTxInPartial (txIdTxBody txbodySimpleEx2) 1, mkBasicTxOut Cast.bobAddr bobTokensSimpleEx2)
+      [
+        ( mkTxInPartial (txIdTxBody txbodyNegEx1) 0
+        , mkBasicTxOutWithMinAda Cast.aliceAddr aliceTokensNegEx1
+        )
+      ,
+        ( mkTxInPartial bootstrapTxId 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr (Val.inject bobInitCoin)
+        )
+      ,
+        ( mkTxInPartial (txIdTxBody txbodySimpleEx2) 1
+        , mkBasicTxOutWithMinAda Cast.bobAddr bobTokensSimpleEx2
+        )
       ]
 
 --
@@ -505,7 +549,7 @@ txbodyNegEx2 :: TxBody TopTx MaryEra
 txbodyNegEx2 =
   makeMaryTxBody
     [mkTxInPartial (txIdTxBody txbodySimpleEx2) 0]
-    [mkBasicTxOut Cast.aliceAddr aliceTokensNegEx2]
+    [mkBasicTxOutWithMinAda Cast.aliceAddr aliceTokensNegEx2]
     unboundedInterval
     mintNegEx2
 
@@ -530,7 +574,7 @@ smallValue =
 
 smallOut :: TxOut MaryEra
 smallOut =
-  mkBasicTxOut Cast.aliceAddr $
+  mkBasicTxOutWithMinAda Cast.aliceAddr $
     MaryValue mempty smallValue
       <+> Val.inject (aliceInitCoin <-> (feeEx <+> minUtxoBigEx))
 
@@ -545,7 +589,9 @@ bigValue =
       (Map.fromList $ map (\x -> (AssetName . fromString $ show x, 1)) [1 .. numAssets])
 
 bigOut :: TxOut MaryEra
-bigOut = mkBasicTxOut Cast.aliceAddr $ MaryValue mempty bigValue <+> Val.inject minUtxoBigEx
+bigOut =
+  mkBasicTxOutWithMinAda Cast.aliceAddr $
+    MaryValue mempty bigValue <+> Val.inject minUtxoBigEx
 
 txbodyWithBigValue :: TxBody TopTx MaryEra
 txbodyWithBigValue =

@@ -27,9 +27,13 @@ import Test.Cardano.Ledger.Dijkstra.Binary.Annotator ()
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.CddlSpec as Cddl
 import qualified Test.Cardano.Ledger.Dijkstra.Binary.Golden as GoldenBinary
 import Test.Cardano.Ledger.Dijkstra.Binary.RoundTrip ()
+import qualified Test.Cardano.Ledger.Dijkstra.Binary.TxBodySpec as TxBodyBinary
+import qualified Test.Cardano.Ledger.Dijkstra.Binary.UTxOStoreSpec as OutputStoreBinary
+import qualified Test.Cardano.Ledger.Dijkstra.DepositStoreFixtureSpec as DepositStoreFixture
 import qualified Test.Cardano.Ledger.Dijkstra.GenesisSpec as GenesisSpec
 import qualified Test.Cardano.Ledger.Dijkstra.GoldenSpec as GoldenSpec
 import qualified Test.Cardano.Ledger.Dijkstra.Imp as Imp
+import qualified Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec as DepositStore
 import Test.Cardano.Ledger.Dijkstra.ImpTest ()
 import qualified Test.Cardano.Ledger.Dijkstra.Plutus.PlutusSpec as PlutusSpec
 import qualified Test.Cardano.Ledger.Dijkstra.TxInfoSpec as DijkstraTxInfoSpec
@@ -44,6 +48,10 @@ instance EraSpec DijkstraEra where
 main :: IO ()
 main =
   ledgerEraTestMain @DijkstraEra $ do
+    DepositStore.spec
+    describe "Test infrastructure" DepositStoreFixture.spec
+    TxBodyBinary.spec
+    OutputStoreBinary.spec
     describe "RoundTrip" $ do
       roundTripConwayCommonSpec @DijkstraEra
       roundTripEraSpec @DijkstraEra @EbReferences

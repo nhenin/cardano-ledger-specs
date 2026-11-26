@@ -30,6 +30,10 @@ instance ToExpr AssetName where
 
 deriving newtype instance ToExpr (CompactForm MaryValue)
 
+-- TxOut
+instance ToExpr (TxOut MaryEra) where
+  toExpr (MinAdaTxOut output) = App "MinAdaTxOut" [toExpr output]
+
 instance ToExpr (TxBody TopTx MaryEra)
 
 instance ToExpr (Tx TopTx MaryEra)

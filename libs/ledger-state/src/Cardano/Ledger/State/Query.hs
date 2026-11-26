@@ -13,13 +13,16 @@ import Cardano.Ledger.Babbage.TxOut (internBabbageTxOut)
 import Cardano.Ledger.BaseTypes (EpochInterval (..), EpochNo (..), unNonZero, unsafeNonZero)
 import Cardano.Ledger.Binary
 import Cardano.Ledger.Coin (Coin)
-import Cardano.Ledger.Core (TxOut, emptyPParams)
+import Cardano.Ledger.Core (TxOut (..), emptyPParams)
 import qualified Cardano.Ledger.Credential as Credential
 import qualified Cardano.Ledger.Keys as Keys
 import Cardano.Ledger.Shelley.LedgerState (curPParamsEpochStateL, prevPParamsEpochStateL)
 import qualified Cardano.Ledger.Shelley.LedgerState as Shelley
 import Cardano.Ledger.State (EraCertState (..))
 import qualified Cardano.Ledger.State as State
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs (IndexedUTxOs)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Unspent as UTxO
 import Cardano.Ledger.State.Orphans
 import Cardano.Ledger.State.Schema
 import Cardano.Ledger.State.Transform
@@ -59,36 +62,24 @@ insertGetKey ::
   ReaderT backend m (Key record)
 insertGetKey = fmap (either entityKey id) . insertBy
 
-insertUTxOState ::
-  MonadIO m =>
-  Shelley.UTxOState CurrentEra ->
-  ReaderT SqlBackend m (Key UtxoState)
-insertUTxOState Shelley.UTxOState {..} = do
-  insert $
-    UtxoState
-      { utxoStateDeposited = utxosDeposited
-      , utxoStateFees = utxosFees
-      , utxoStateGovState = utxosGovState
-      , utxoStateDonation = utxosDonation
-      }
-
 insertUTxO ::
   MonadIO m =>
-  Shelley.UTxO CurrentEra ->
+  State.IndexedUTxOs CurrentEra ->
   Key UtxoState ->
   ReaderT SqlBackend m ()
-insertUTxO utxo stateKey = do
-  mapM_ insertTxOut $ Map.toList (Shelley.unUTxO utxo)
+insertUTxO entries stateKey = do
+  forM_ (IndexedUTxOs.toList entries) $ \(input, entry) ->
+    insertTxOut (input, UTxO.toTxOut entry)
   where
-    insertTxOut (TxIn.TxIn txId txIx, out) = do
+    insertTxOut (TxIn.TxIn txId txIx, MinAdaTxOut output) = do
       txKey <-
-        insert $ Tx {txInIx = txIx, txInId = txId, txOut = out}
+        insert $ Tx {txInIx = txIx, txInId = txId, txOut = output}
       txsKey <-
         insert $
           Txs
             { txsInIx = txIx
             , txsInId = txId
-            , txsOut = out
+            , txsOut = output
             , txsStakeCredential = Nothing
             }
       insert_ $
@@ -126,8 +117,16 @@ insertDState Shelley.DState {..} = do
 insertLedgerState ::
   MonadIO m => EpochStateId -> Shelley.LedgerState CurrentEra -> ReaderT SqlBackend m ()
 insertLedgerState epochStateKey Shelley.LedgerState {..} = do
-  stateKey <- insertUTxOState lsUTxOState
-  insertUTxO (Shelley.utxosUtxo lsUTxOState) stateKey
+  -- Preserve the database schema: this row stores accounting pots and governance.
+  stateKey <-
+    insert $
+      UtxoState
+        { utxoStateDeposited = Shelley.asDeposited lsAccountingState
+        , utxoStateFees = Shelley.asFees lsAccountingState
+        , utxoStateGovState = lsGovState
+        , utxoStateDonation = Shelley.asDonation lsAccountingState
+        }
+  insertUTxO (State.allocations . Shelley.asUTxOStore $ lsAccountingState) stateKey
   dstateKey <- insertDState $ lsCertState ^. Shelley.certDStateL
   insert_
     LedgerState
@@ -538,14 +537,18 @@ sourceUTxO ::
   ConduitM () (TxIn.TxIn, TxOut CurrentEra) (ReaderT SqlBackend m) ()
 sourceUTxO =
   selectSource [] []
-    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, txOut))
+    .| mapC (\(Entity _ Tx {..}) -> (TxIn.TxIn txInId txInIx, MinAdaTxOut txOut))
 
 sourceWithSharingUTxO ::
   MonadResource m =>
   Map.Map (Credential.Credential Keys.Staking) a ->
   ConduitM () (TxIn.TxIn, TxOut CurrentEra) (ReaderT SqlBackend m) ()
 sourceWithSharingUTxO stakeCredentials =
-  sourceUTxO .| mapC (fmap (internBabbageTxOut (`intern` stakeCredentials)))
+  sourceUTxO
+    .| mapC
+      ( fmap $ \(MinAdaTxOut output) ->
+          MinAdaTxOut $ internBabbageTxOut (`intern` stakeCredentials) output
+      )
 
 foldDbUTxO ::
   MonadUnliftIO m =>
@@ -580,26 +583,27 @@ lsId = LedgerStateKey (SqlBackendKey 1)
 
 getLedgerState ::
   MonadIO m =>
-  Shelley.UTxO CurrentEra ->
+  Map.Map TxIn.TxIn (TxOut CurrentEra) ->
   LedgerState ->
   Shelley.DState CurrentEra ->
   ReaderT SqlBackend m (Shelley.LedgerState CurrentEra)
-getLedgerState utxo LedgerState {..} dstate = do
+getLedgerState outputs LedgerState {..} dstate = do
+  let entries = IndexedUTxOs.fromMinAdaTxOuts . Map.map (\(MinAdaTxOut output) -> output) $ outputs
   UtxoState {..} <- getJust ledgerStateUtxoId
   pure
     Shelley.LedgerState
-      { Shelley.lsUTxOState =
-          Shelley.smartUTxOState
+      { Shelley.lsAccountingState =
+          Shelley.smartAccountingState
             emptyPParams
-            utxo
+            entries
             utxoStateDeposited
             utxoStateFees
-            utxoStateGovState -- Maintain invariant
             utxoStateDonation
       , Shelley.lsCertState =
           def
             & certPStateL .~ ledgerStatePstateBin
             & certDStateL .~ dstate
+      , Shelley.lsGovState = utxoStateGovState
       }
 
 getDStateNoSharing ::
@@ -700,10 +704,12 @@ loadDStateNoSharing :: MonadUnliftIO m => T.Text -> m (Shelley.DState CurrentEra
 loadDStateNoSharing fp =
   runSqlite fp $ getDStateNoSharing (DStateKey (SqlBackendKey 1))
 
-loadUTxONoSharing ::
-  MonadUnliftIO m => T.Text -> m (Shelley.UTxO CurrentEra)
-loadUTxONoSharing fp =
-  runSqlite fp (Shelley.UTxO <$> runConduitFold sourceUTxO noSharingMap)
+loadIndexedUTxOsNoSharing ::
+  MonadUnliftIO m => T.Text -> m (IndexedUTxOs CurrentEra)
+loadIndexedUTxOsNoSharing fp =
+  runSqlite fp $
+    IndexedUTxOs.fromMinAdaTxOuts . Map.map (\(MinAdaTxOut output) -> output)
+      <$> runConduitFold sourceUTxO noSharingMap
 
 loadLedgerStateNoSharing ::
   MonadUnliftIO m => T.Text -> m (Shelley.LedgerState CurrentEra)
@@ -712,7 +718,7 @@ loadLedgerStateNoSharing fp =
     ledgerState@LedgerState {..} <- getJust lsId
     dstate <- getDStateNoSharing ledgerStateDstateId
     m <- runConduitFold sourceUTxO noSharingMap
-    getLedgerState (Shelley.UTxO m) ledgerState dstate
+    getLedgerState m ledgerState dstate
 
 loadLedgerStateDStateSharing ::
   MonadUnliftIO m => T.Text -> m (Shelley.LedgerState CurrentEra)
@@ -732,7 +738,7 @@ loadLedgerStateDStateTxIxSharing fp =
   runSqlite fp $ do
     ledgerState@LedgerState {..} <- getJust lsId
     dstate <- getDStateWithSharing ledgerStateDstateId
-    ls <- getLedgerState (Shelley.UTxO mempty) ledgerState dstate
+    ls <- getLedgerState mempty ledgerState dstate
     m <- runConduitFold sourceUTxO txIxSharing
     pure (ls, m)
 
@@ -762,7 +768,7 @@ getLedgerStateWithSharing ese = do
       =<< selectFirst [LedgerStateEpochStateId ==. entityKey ese] []
   dstate <- getDStateWithSharing ledgerStateDstateId
   m <- runConduitFold sourceUTxO noSharingMap
-  getLedgerState (Shelley.UTxO m) ledgerState dstate
+  getLedgerState m ledgerState dstate
 
 getLedgerStateNoSharing ::
   (MonadUnliftIO m, MonadResource m) =>
@@ -774,7 +780,7 @@ getLedgerStateNoSharing ese = do
       =<< selectFirst [LedgerStateEpochStateId ==. entityKey ese] []
   dstate <- getDStateNoSharing ledgerStateDstateId
   m <- runConduitFold sourceUTxO noSharingMap
-  getLedgerState (Shelley.UTxO m) ledgerState dstate
+  getLedgerState m ledgerState dstate
 
 loadEpochState :: MonadUnliftIO m => T.Text -> m (Shelley.EpochState CurrentEra)
 loadEpochState fp = runSqlite fp $ do

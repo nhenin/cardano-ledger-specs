@@ -95,7 +95,7 @@ genBlock ge cs = generate $ GenBlock.genBlock ge cs
 -- GenEnv, so that the addresses ind signatures in the UTxO are known and consistent.
 -- 1) genEnv from a (Proxy era)
 -- 2) genChainState from a GenEnv
--- 3) get a UTxOState from the ChainState
+-- 3) get a AccountingState from the ChainState
 -- 4) get a CertState from the ChainState
 -- 5) get a Transaction (Tx) from GenEnv and ChainState
 

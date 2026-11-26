@@ -80,7 +80,7 @@ jobs:
         df -h /
 
     - name: Install system dependencies
-      uses: input-output-hk/actions/base@latest
+      uses: ./.github/actions/install-system-dependencies
       with:
         use-sodium-vrf: false # default is true
 
@@ -249,7 +249,7 @@ jobs:
     - uses: actions/checkout@v7
 
     - name: Install system dependencies
-      uses: input-output-hk/actions/base@latest
+      uses: ./.github/actions/install-system-dependencies
       with:
         use-sodium-vrf: false # default is true
 
@@ -374,7 +374,7 @@ jobs:
     - uses: actions/checkout@v7
 
     - name: Install system dependencies
-      uses: input-output-hk/actions/base@latest
+      uses: ./.github/actions/install-system-dependencies
       with:
         use-sodium-vrf: false # default is true
 
@@ -462,9 +462,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
-      - uses: tfausak/cabal-gild-setup-action@v2
+      - name: Install cabal-gild
+        uses: ./.github/actions/install-binary
         with:
-          version: 1.5.0.1 # Should match `cabalGildVersion` in flake.nix
+          repo: tfausak/cabal-gild
+          release: 1.5.0.1 # Should match `cabalGildVersion` in flake.nix
+          pattern: 'cabal-gild-1.5.0.1-linux-x64.tar.gz'
+          name: cabal-gild
+          strip-components: '0'
       - name: Format all cabal files
         run: ./scripts/cabal-format.sh check
 

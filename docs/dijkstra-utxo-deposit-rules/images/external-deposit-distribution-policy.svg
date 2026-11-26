@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="936" height="221" viewBox="0 0 936 221"
+     role="img" aria-labelledby="title description">
+  <title id="title">How two policies weight the same deposit-backed output</title>
+  <desc id="description">At one snapshot, an eligible output carries 8 ADA and has a separate
+    2 ADA deposit. Both bars show the same 10 ADA. The prototype counts the 8 ADA of output
+    value for the credential. An illustrative policy also attributes the 2 ADA external
+    deposit to that credential, giving it 10 ADA of weight in the chosen distribution.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #192f3d; }
+    .label { font-size: 15px; fill: #4a606e; }
+    .policy { font-size: 18px; font-weight: 600; }
+    .segment { font-size: 16px; font-weight: 600; }
+    .weight { font-size: 23px; font-weight: 650; }
+  </style>
+  <rect width="936" height="221" fill="#fff"/>
+  <text class="label" x="16" y="30">Distribution policy</text>
+  <text class="label" x="235" y="30">Application value</text>
+  <text class="label" x="633" y="30">External deposit</text>
+  <text class="label" x="766" y="30">Credential weight</text>
+  <path d="M16 45h904" stroke="#c0cdd5"/>
+
+  <text class="policy" x="16" y="74">Prototype</text>
+  <text class="label" x="16" y="96">Exclude the deposit</text>
+  <rect x="235" y="58" width="400" height="42" rx="3" fill="#dce8ed"/>
+  <rect x="636" y="58" width="99" height="42" rx="3" fill="#fff" stroke="#879aa5" stroke-dasharray="5 3"/>
+  <text class="segment" x="249" y="85">8 ADA</text>
+  <text class="segment" x="685" y="85" text-anchor="middle" style="fill:#506474">2 ADA</text>
+  <text class="weight" x="766" y="87">8 ADA</text>
+
+  <text class="policy" x="16" y="137">Example alternative</text>
+  <text class="label" x="16" y="159">Include the deposit</text>
+  <rect x="235" y="121" width="400" height="42" rx="3" fill="#dce8ed"/>
+  <rect x="636" y="121" width="99" height="42" rx="3" fill="#3e6272"/>
+  <text class="segment" x="249" y="148">8 ADA</text>
+  <text class="segment" x="685" y="148" text-anchor="middle" style="fill:#fff">2 ADA</text>
+  <text class="weight" x="766" y="150">10 ADA</text>
+
+  <path d="M16 179h904" stroke="#c0cdd5"/>
+  <text class="label" x="16" y="205">Both rows use the same 10 ADA, the same eligible credential and the same snapshot.</text>
+</svg>

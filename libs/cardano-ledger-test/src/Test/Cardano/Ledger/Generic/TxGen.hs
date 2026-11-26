@@ -64,7 +64,7 @@ import Cardano.Ledger.Shelley.Scripts (
  )
 import Cardano.Ledger.Shelley.TxCert (ShelleyTxCert (..))
 import Cardano.Ledger.Slot (EpochNo (EpochNo))
-import Cardano.Ledger.State
+import Cardano.Ledger.State hiding (txOuts)
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val
 import Cardano.Slotting.Slot (SlotNo (..))
@@ -90,6 +90,7 @@ import GHC.Stack
 import Lens.Micro ((%~), (&), (.~), (<>~), (^.))
 import qualified Lens.Micro.Extras as L
 import Test.Cardano.Ledger.Core.KeyPair (mkAddr, mkWitnessVKey)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Examples.STSTestUtils (EraModel (..))
 import Test.Cardano.Ledger.Generic.ApplyTx (
   mkAlonzoPlutusPurposePointer,
@@ -167,7 +168,7 @@ genTxOut val = do
       ScriptHashObj scriptHash -> do
         maybeCoreScript <- lookupScript scriptHash (Just Spending)
         genDataHashField maybeCoreScript
-  pure . dataHashFields $ mkBasicTxOut addr val
+  pure . dataHashFields $ mkBasicTxOutWithMinAda addr val
 
 -- ====================================================================
 
@@ -303,13 +304,14 @@ makeDatumWitness :: forall era. Reflect era => TxOut era -> GenRS era (TxWits er
 makeDatumWitness txout =
   let proof = reify @era
    in case (proof, txout) of
-        (Babbage, BabbageTxOut _ _ (DatumHash h) _) -> mkDatumWit (SJust h)
-        (Babbage, BabbageTxOut _ _ (Datum _) _) -> pure id
-        (Babbage, BabbageTxOut _ _ NoDatum _) -> pure id
-        (Conway, BabbageTxOut _ _ (DatumHash h) _) -> mkDatumWit (SJust h)
-        (Conway, BabbageTxOut _ _ (Datum _) _) -> pure id
-        (Conway, BabbageTxOut _ _ NoDatum _) -> pure id
-        (Alonzo, AlonzoTxOut _ _ mDatum) -> mkDatumWit mDatum
+        (Babbage, MinAdaTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
+        (Babbage, MinAdaTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
+        (Babbage, MinAdaTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
+        (Conway, MinAdaTxOut (BabbageTxOut _ _ (DatumHash h) _)) -> mkDatumWit (SJust h)
+        (Conway, MinAdaTxOut (BabbageTxOut _ _ (Datum _) _)) -> pure id
+        (Conway, MinAdaTxOut (BabbageTxOut _ _ NoDatum _)) -> pure id
+        (Alonzo, MinAdaTxOut (AlonzoTxOut _ _ mDatum)) -> mkDatumWit mDatum
+        (_, DepositBackedTxOut _) -> error "makeDatumWitness: unexpected deposit-backed output"
         _ -> pure id -- No other era has data witnesses
   where
     mkDatumWit ::
@@ -679,7 +681,7 @@ genCollateralUTxO collateralAddresses (Coin fee) utxo = do
         txIn <- lift (resize 30 (arbitrary :: Gen TxIn))
         if Map.member txIn utxo || Map.member txIn coll || txIn `Map.member` entriesInUse
           then genNewCollateral addr coll um c
-          else pure (um, Map.insert txIn (mkBasicTxOut addr (inject c)) coll, c)
+          else pure (um, Map.insert txIn (mkBasicTxOutWithMinAda addr (inject c)) coll, c)
       -- Either pick a collateral from a map or generate a completely new one
       genCollateral addr coll um
         | Map.null um = genNewCollateral addr coll um =<< lift genPositiveVal
@@ -736,14 +738,14 @@ genRecipientsFrom txOuts = do
       goExtra e 0 s tx txs !rs = goNew e txs =<< genWithChange s tx rs
       goExtra e n !s txOut (tx : txs) !rs = goExtra e (n - 1) (s <+> v) tx txs rs
         where
-          v = txOut ^. valueTxOutL
+          v = requireImplicitTxOut txOut ^. valueTxOutL
       -- Potentially split 'txout' into two TxOuts. If the two piece path is used
       -- one of two TxOuts uses the same 'addr' as 'txout' and holds the 'change'
       -- (i.e. difference between the original and the second, non-change, TxOut).
       -- In either case whether it adds 1 or 2 TxOuts to 'rs', the coin value of
       -- the new TxOut(s), is the same as the coin value of 'txout'.
       genWithChange s txout rs = do
-        let v = txout ^. valueTxOutL
+        let v = requireImplicitTxOut txout ^. valueTxOutL
             vCoin = unCoin (coin v)
         if vCoin == 0 -- If the coin balance is 0, don't add any TxOuts to 'rs'
           then pure rs
@@ -753,7 +755,7 @@ genRecipientsFrom txOuts = do
             pure $
               if c < coin v
                 then
-                  let !change = txout & valueTxOutL %~ (<-> inject c)
+                  let !change = txout & coinTxOutL %~ (<-> c)
                    in newTxOut : change : rs
                 else newTxOut : rs
   goNew extra txOuts []
@@ -810,7 +812,7 @@ minus m (Just (txin, _)) = Map.delete txin m
 genAlonzoTx ::
   forall era.
   EraGenericGen era =>
-  SlotNo -> GenRS era (UTxO era, Tx TopTx era)
+  SlotNo -> GenRS era (IndexedUTxOs era, Tx TopTx era)
 genAlonzoTx slot = do
   (utxo, tx, _fee, _old) <- genAlonzoTxAndInfo slot
   pure (utxo, tx)
@@ -830,7 +832,7 @@ genAlonzoTxAndInfo ::
   SlotNo ->
   GenRS
     era
-    ( UTxO era
+    ( IndexedUTxOs era
     , Tx TopTx era
     , UtxoEntry era -- The fee key
     , Maybe (UtxoEntry era) -- from oldUtxO
@@ -918,7 +920,8 @@ genAlonzoTxAndInfo slot = do
           ]
   collateralAddresses <- replicateM maxCollateralCount genNoScriptRecipient
   bogusCollateralKeyWitsMakers <- fmap concat . forM collateralAddresses $ \a ->
-    fmap List.singleton . genTxOutKeyWitness Nothing $ mkBasicTxOut a (inject maxCoin)
+    fmap List.singleton . genTxOutKeyWitness Nothing $
+      mkBasicTxOutWithMinAda a (inject maxCoin)
   networkId <- lift $ elements [SNothing, SJust Testnet]
 
   -- 6. Generate bogus collateral fields, and functions for updating them when we know their real values
@@ -970,7 +973,7 @@ genAlonzoTxAndInfo slot = do
       bogusTxForFeeCalc =
         applyIsValid isValid $
           mkBasicTx txBodyNoFee & witsTxL .~ noFeeWits
-      fee = getMinFeeTxUtxo gePParams bogusTxForFeeCalc (UTxO refInputsUtxo)
+      fee = getMinFeeTxUtxo gePParams bogusTxForFeeCalc (legacyIndexedUTxOs refInputsUtxo)
   -- traceM $ "noFeeWits:\n" <> showExpr noFeeWits
 
   accounts <- gets (mAccounts . gsModel)
@@ -989,7 +992,9 @@ genAlonzoTxAndInfo slot = do
 
   -- 10. Construct the correct Tx with valid fee and collaterals
   let sNeeded = scriptsNeeded' utxo txBodyNoFee
-      langs = Set.toList $ languagesUsed (reify @era) bogusTxForFeeCalc (UTxO utxoNoCollateral) sNeeded
+      langs =
+        Set.toList $
+          languagesUsed (reify @era) bogusTxForFeeCalc (legacyIndexedUTxOs utxoNoCollateral) sNeeded
       mIntegrityHash = mkScriptIntegrityHash gePParams langs redeemerDatumWits
       balance =
         case bogusCollReturn of
@@ -1018,7 +1023,7 @@ genAlonzoTxAndInfo slot = do
   modifyModelIndex (Map.insert count (TxId txBodyHash))
   modifyModelUTxO (const utxo)
 
-  pure (UTxO utxo, validTx, feepair, maybeoldpair)
+  pure (legacyIndexedUTxOs utxo, validTx, feepair, maybeoldpair)
 
 -- | Keep only Script witnesses that are neccessary in 'era',
 onlyNecessaryScripts ::

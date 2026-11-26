@@ -48,6 +48,8 @@ import Cardano.Ledger.Shelley.Rules.Utxo (ShelleyUtxoPredFailure)
 import Cardano.Ledger.Shelley.Rules.Utxow (ShelleyUtxowPredFailure)
 import Cardano.Ledger.Slot (SlotNo)
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.DeepSeq (NFData)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (asks)
@@ -212,8 +214,12 @@ ledgersTransition = do
   foldM
     ( \ !curLedgerState (ix, tx) ->
         -- build the annotations against the same utxo snapshot that the rule will validate against
-        let utxo = curLedgerState ^. utxoL
-            stAnnTx = mkStAnnTx ei sysStart pp utxo mempty tx
+        let inputAllocations =
+              IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . (^. utxoStoreG)
+                $ curLedgerState
+            stAnnTx = mkStAnnTx ei sysStart pp inputAllocations mempty tx
          in trans @(EraRule "LEDGER" era) $
               TRC (LedgerEnv slot (Just epochNo) ix pp account, curLedgerState, stAnnTx)
     )

@@ -21,10 +21,8 @@ import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState,
   genesisState,
-  lsUTxOState,
-  utxosUtxo,
+  lsAccountingState,
  )
 import Cardano.Ledger.Shelley.Rules (
   DELPL,
@@ -39,6 +37,8 @@ import Cardano.Ledger.Shelley.Rules (
  )
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo (..))
+import qualified Cardano.Ledger.State as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Cardano.Protocol.Crypto (Crypto)
 import Control.Monad (foldM)
 import Control.Monad.Trans.Reader (runReaderT)
@@ -47,6 +47,7 @@ import Data.Functor.Identity (runIdentity)
 import Data.Sequence (Seq)
 import qualified Data.Sequence as Seq
 import GHC.Stack
+import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Shelley.Constants (Constants (..))
 import Test.Cardano.Ledger.Shelley.Generator.Core (GenEnv (..), genCoin)
 import Test.Cardano.Ledger.Shelley.Generator.EraGen (
@@ -91,7 +92,7 @@ instance
   , Embed (EraRule "DELEGS" era) (LEDGER era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Environment (EraRule "DELEGS" era) ~ DelegsEnv era
   , State (EraRule "DELEGS" era) ~ CertState era
@@ -114,7 +115,12 @@ instance
         (epochInfo testGlobals)
         (systemStart testGlobals)
         pParams
-        (utxosUtxo (lsUTxOState ls))
+        ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+            . Store.allocations
+            . asUTxOStore
+            . lsAccountingState
+            $ ls
+        )
         mempty
         tx
 
@@ -160,13 +166,18 @@ ledgersSigGen
         let ledgerEnv = LedgerEnv slotNo (Just epochNo) txIx pParams reserves
         tx <- genTx ge ledgerEnv ls'
 
-        let utxo = utxosUtxo (lsUTxOState ls')
+        let entries =
+              IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . Store.allocations
+                . asUTxOStore
+                . lsAccountingState
+                $ ls'
             stAnnTx =
               mkStAnnTx
                 (epochInfo testGlobals)
                 (systemStart testGlobals)
                 pParams
-                utxo
+                entries
                 mempty
                 tx
             res =

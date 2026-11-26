@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="532" viewBox="0 0 900 532" role="img" aria-labelledby="title desc">
+  <title id="title">Ledger state and the contents of UTxOStore</title>
+  <desc id="desc">Both trees show the live UTxO collection, certificate and governance deposits, fees, instant stake and donation. Upstream, governance is inside UTxOState. In Dijkstra, accounting, governance and certificates are siblings. A Store entry holds a TxOut and its allocation origin. The Store also holds the shared depositFormulaHistory and totalDepositAmount, the sum of external deposits on live outputs.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #172733; }
+    .heading { font-size: 22px; font-weight: 700; }
+    .type, .field, .example { font-family: ui-monospace, Menlo, Consolas, "Liberation Mono", monospace; }
+    .type { font-size: 18px; }
+    .field, .example { font-size: 16px; }
+    .weight { font-weight: 700; }
+    .read { fill: #224c63; font-weight: 700; }
+    .origin { fill: #933c32; font-weight: 700; }
+    .note { font-size: 15px; fill: #465d6b; }
+    .label { font-size: 17px; font-weight: 650; }
+    .tree { stroke: #8799a4; stroke-width: 1.5; fill: none; }
+  </style>
+  <rect width="900" height="532" fill="white"/>
+  <path d="M386 16V320" stroke="#d9e1e5"/>
+  <g aria-label="Upstream ledger">
+    <text x="20" y="33" class="heading">Upstream ledger</text>
+    <text x="20" y="70" class="type weight">LedgerState</text>
+    <path class="tree" d="M29 79V305H47 M29 99H47 M63 109V277H81 M63 134H81 M63 163H81 M63 191H81 M63 219H81 M63 247H81"/>
+    <text x="56" y="105" class="type">UTxOState</text>
+    <text x="91" y="140" class="type read">UTxO</text>
+    <text x="155" y="140" class="note">TxIn → TxOut</text>
+    <text x="91" y="169" class="field">deposited</text>
+    <text x="91" y="197" class="field">fees</text>
+    <text x="91" y="225" class="field">instantStake</text>
+    <text x="91" y="253" class="field">donation</text>
+    <text x="91" y="283" class="type">GovState</text>
+    <text x="56" y="311" class="type">CertState</text>
+  </g>
+  <g aria-label="Dijkstra prototype">
+    <text x="410" y="33" class="heading">Dijkstra prototype</text>
+    <text x="410" y="70" class="type weight">LedgerState</text>
+    <path class="tree" d="M419 79V305H437 M419 99H437 M419 277H437 M453 109V247H471 M453 134H471 M453 163H471 M453 191H471 M453 219H471"/>
+    <text x="446" y="105" class="type">AccountingState</text>
+    <text x="481" y="140" class="type read">UTxOStore</text>
+    <text x="617" y="140" class="note">TxIn → Unspent (TxOut era)</text>
+    <text x="481" y="169" class="field">deposited</text>
+    <text x="617" y="169" class="note">Certificate and governance deposits</text>
+    <text x="481" y="197" class="field">fees</text>
+    <text x="481" y="225" class="field">instantStake</text>
+    <text x="481" y="253" class="field">donation</text>
+    <text x="446" y="283" class="type">GovState</text>
+    <text x="446" y="311" class="type">CertState</text>
+  </g>
+  <g aria-label="Detail of the Dijkstra UTxOStore">
+    <rect x="20" y="335" width="860" height="185" rx="6" fill="#f1f5f7"/>
+    <text x="39" y="364" class="label read">Inside UTxOStore</text>
+    <path d="M39 377H861 M396 390V503" stroke="#c9d5db"/>
+    <text x="39" y="404" class="label">Per live output</text>
+    <text x="39" y="434" class="example weight">allocations[tx#0]</text>
+    <text x="58" y="463" class="example">output</text>
+    <text x="182" y="463" class="example">TxOut holding 5 ADA</text>
+    <text x="58" y="489" class="example origin">allocatedAt</text>
+    <text x="182" y="489" class="example origin">AtSlot 100</text>
+    <text x="414" y="404" class="label">Shared across all live outputs</text>
+    <text x="414" y="434" class="field weight">depositFormulaHistory</text>
+    <text x="414" y="454" class="note">The baseline and each dated change to the formula or rate.</text>
+    <text x="414" y="482" class="field weight">totalDepositAmount</text>
+    <text x="414" y="502" class="note">The sum of external deposits on live outputs.</text>
+  </g>
+</svg>

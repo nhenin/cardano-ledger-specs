@@ -98,12 +98,11 @@ import Cardano.Ledger.Conway.Governance (
  )
 import Cardano.Ledger.Conway.State (
   CanSetAccounts (accountsL),
-  CanSetUTxO (utxoL),
+  CanSetUTxOStore (utxoStoreL),
   ConwayEraCertState (certVStateL),
   EraAccounts (accountsMapL),
   EraCertState (certDStateL, certPStateL),
   FuturePParams (..),
-  UTxO (UTxO),
   csCommitteeCredsL,
   psFutureStakePoolParamsL,
   psRetiringL,
@@ -114,19 +113,22 @@ import Cardano.Ledger.Conway.State (
  )
 import Cardano.Ledger.Shelley.LedgerState (
   NewEpochState (..),
+  asDepositedL,
   curPParamsEpochStateL,
   esLStateL,
   futurePParamsEpochStateL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOStateL,
   nesBcurL,
   nesEpochStateL,
   nesEsL,
   newEpochStateGovStateL,
   prevPParamsEpochStateL,
   totalObligation,
-  utxosDepositedL,
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import Cardano.Ledger.TxOut (TxOut (..))
 import Cardano.SCLS.Internal.Entry.ChunkEntry (
   ChunkEntry (ChunkEntry),
  )
@@ -141,16 +143,23 @@ import Data.List (sortOn)
 import qualified Data.Map as Map
 import qualified Data.OMap.Strict as OMap
 import GHC.TypeLits (KnownSymbol)
-import Lens.Micro ((&), (.~), (^.))
+import Lens.Micro ((%~), (&), (.~), (^.))
 import qualified Streaming.Prelude as S
 import System.IO (Handle, IOMode (ReadMode), withBinaryFile)
 
 instance ImportCanonicalNamespace ConwayEra "utxo/v0" where
   importNamespaceEntries nes =
     S.fold_
-      (\utxos (ChunkEntry (UtxoKeyIn k) (UtxoOut v)) -> Map.insert k (getValue v) utxos)
+      ( \utxos (ChunkEntry (UtxoKeyIn k) (UtxoOut v)) ->
+          case getValue v of
+            MinAdaTxOut output -> Map.insert k output utxos
+      )
       mempty
-      (\utxos -> nes & utxoL .~ UTxO utxos)
+      ( \utxos ->
+          nes
+            & utxoStoreL %~ \store ->
+              Store.mkUTxOStore (Store.depositFormulaHistory store) . IndexedUTxOs.fromMinAdaTxOuts $ utxos
+      )
 
 instance ImportCanonicalNamespace ConwayEra "blocks/v0" where
   importNamespaceEntries nes =
@@ -405,6 +414,6 @@ instance ImportCanonicalState ConwayEra where
          in nes
               & nesEsL
                 . esLStateL
-                . lsUTxOStateL
-                . utxosDepositedL
+                . lsAccountingStateL
+                . asDepositedL
                 .~ totalObligation certState govState

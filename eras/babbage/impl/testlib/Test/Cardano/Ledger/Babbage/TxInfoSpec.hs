@@ -39,7 +39,7 @@ import Cardano.Ledger.Mary.Value (MaryValue)
 import Cardano.Ledger.Plutus.Data (Data (..), Datum (..), dataToBinaryData)
 import Cardano.Ledger.Plutus.Language (Language (..), SLanguage (..))
 import Cardano.Ledger.Plutus.TxInfo (TxOutSource (..))
-import Cardano.Ledger.State (EraUTxO (..), UTxO (..))
+import Cardano.Ledger.State (EraUTxO (..))
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..), mkTxInPartial)
 import Cardano.Slotting.EpochInfo (EpochInfo, fixedEpochInfo)
 import Cardano.Slotting.Slot (EpochSize (..))
@@ -59,6 +59,7 @@ import Test.Cardano.Ledger.Alonzo.Era (mkTestLedgerTxInfo)
 import Test.Cardano.Ledger.Binary.Random (mkDummyHash)
 import Test.Cardano.Ledger.Common
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), mkCredential, mkKeyPair)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Examples (exampleByronAddress)
 
 shelleyAddr :: Addr
@@ -83,10 +84,10 @@ unknownInput :: TxIn
 unknownInput = mkTxInPartial genesisId 1
 
 byronOutput :: forall era. EraTxOut era => TxOut era
-byronOutput = mkBasicTxOut exampleByronAddress (inject $ Coin 1)
+byronOutput = mkBasicTxOutWithMinAda exampleByronAddress (inject $ Coin 1)
 
 shelleyOutput :: forall era. EraTxOut era => TxOut era
-shelleyOutput = mkBasicTxOut shelleyAddr (inject $ Coin 2)
+shelleyOutput = mkBasicTxOutWithMinAda shelleyAddr (inject $ Coin 2)
 
 datumEx :: forall era. Era era => Datum era
 datumEx = Datum . dataToBinaryData . Data . PV1.I $ 123
@@ -98,12 +99,12 @@ inlineDatumOutput ::
   ) =>
   TxOut era
 inlineDatumOutput =
-  mkBasicTxOut shelleyAddr (inject $ Coin 3)
+  mkBasicTxOutWithMinAda shelleyAddr (inject $ Coin 3)
     & datumTxOutL .~ datumEx
 
 refScriptOutput :: (BabbageEraTxOut era, EraPlutusTxInfo 'PlutusV2 era) => TxOut era
 refScriptOutput =
-  mkBasicTxOut shelleyAddr (inject $ Coin 3)
+  mkBasicTxOutWithMinAda shelleyAddr (inject $ Coin 3)
     & referenceScriptTxOutL .~ (SJust $ alwaysSucceeds @'PlutusV2 3)
 
 -- This input is only a "Shelley input" in the sense
@@ -117,14 +118,14 @@ inputWithInlineDatum = mkTxInPartial genesisId 3
 inputWithRefScript :: TxIn
 inputWithRefScript = mkTxInPartial genesisId 4
 
-exampleUTxO ::
+exampleAllocations ::
   ( BabbageEraTxOut era
   , EraPlutusTxInfo 'PlutusV2 era
   , Value era ~ MaryValue
   ) =>
-  UTxO era
-exampleUTxO =
-  UTxO $
+  IndexedUTxOs era
+exampleAllocations =
+  legacyIndexedUTxOs $
     Map.fromList
       [ (byronInput, byronOutput)
       , (shelleyInput, shelleyOutput)
@@ -206,7 +207,9 @@ successfulTranslation ::
   (SLanguage l -> PlutusTxInfo l -> Expectation) ->
   Expectation
 successfulTranslation slang tx f =
-  let lti = mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss exampleUTxO tx $ LedgerTopTxInfo mempty
+  let lti =
+        mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss exampleAllocations tx $
+          LedgerTopTxInfo mempty
    in case toPlutusTxInfoForPurpose slang lti (SpendingPurpose AsPurpose) of
         Right txInfo -> f slang txInfo
         Left e -> assertFailure $ "No translation error was expected, but got: " <> show e
@@ -225,7 +228,9 @@ expectTranslationError ::
   ContextError era ->
   Expectation
 expectTranslationError slang tx expected =
-  let lti = mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss exampleUTxO tx $ LedgerTopTxInfo mempty
+  let lti =
+        mkTestLedgerTxInfo (ProtVer (eraProtVerLow @era) 0) ei ss exampleAllocations tx $
+          LedgerTopTxInfo mempty
    in case toPlutusTxInfoForPurpose slang lti (SpendingPurpose AsPurpose) of
         Right txInfo ->
           assertFailure $ "This translation was expected to fail, but it succeeded: " <> show txInfo
@@ -347,7 +352,8 @@ txInfoSpec lang =
         lang
         (txBare inputWithInlineDatum shelleyOutput)
         ( \l txInfo -> do
-            txInInfo <- expectRight $ toPlutusTxInInfo @_ @era l exampleUTxO inputWithInlineDatum
+            txInInfo <-
+              expectRight $ toPlutusTxInInfo @_ @era l exampleAllocations inputWithInlineDatum
             expectOneInput @era l txInInfo txInfo
         )
     it "use inline datum in output" $
@@ -360,7 +366,8 @@ txInfoSpec lang =
         lang
         (txBare inputWithRefScript shelleyOutput)
         ( \l txInfo -> do
-            txInInfo <- expectRight $ toPlutusTxInInfo @_ @era l exampleUTxO inputWithRefScript
+            txInInfo <-
+              expectRight $ toPlutusTxInInfo @_ @era l exampleAllocations inputWithRefScript
             expectOneInput @era l txInInfo txInfo
         )
     it "use reference script in output" $

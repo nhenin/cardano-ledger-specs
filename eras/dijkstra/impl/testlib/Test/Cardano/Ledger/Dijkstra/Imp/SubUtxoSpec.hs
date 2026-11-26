@@ -185,7 +185,8 @@ spec = describe "SUBUTXO" $ do
           [ mkBasicTx $ mkBasicTxBody & inputsTxBodyL .~ [txIn]
           , mkBasicTx $ mkBasicTxBody & referenceInputsTxBodyL .~ [txIn]
           ]
-      getUTxO >>= (`expectUTxOContent` [(txIn, isNothing)])
+      currentAllocations <- getIndexedUTxOs
+      expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "SubOutputBootAddrAttrsTooBig" $ do
     it "an output to a bootstrap address whose attributes exceed the limit" $ do
@@ -193,7 +194,7 @@ spec = describe "SUBUTXO" $ do
       let subTx :: Tx SubTx era
           subTx =
             mkBasicTx $
-              mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOut (AddrBootstrap bootAddr) mempty]
+              mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithMinAda (AddrBootstrap bootAddr) mempty]
       submitFailingTxM (mkTopTxWithSubTxs [subTx]) $ \fixedUpTx -> do
         txOuts <- subTxOutputs fixedUpTx
         pure [injectFailure $ SubOutputBootAddrAttrsTooBig @era txOuts]
@@ -201,8 +202,8 @@ spec = describe "SUBUTXO" $ do
     it "several such outputs, reported in their order in the body" $ do
       firstBootAddr <- freshBootstrapAddressOversizedPayload
       secondBootAddr <- freshBootstrapAddressOversizedPayload
-      let firstTxOut = mkBasicTxOut (AddrBootstrap firstBootAddr) mempty
-          secondTxOut = mkBasicTxOut (AddrBootstrap secondBootAddr) mempty
+      let firstTxOut = mkBasicTxOutWithMinAda (AddrBootstrap firstBootAddr) mempty
+          secondTxOut = mkBasicTxOutWithMinAda (AddrBootstrap secondBootAddr) mempty
           subTx :: Tx SubTx era
           subTx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [firstTxOut, secondTxOut]
       submitFailingTxM (mkTopTxWithSubTxs [subTx]) $ \fixedUpTx -> do
@@ -215,7 +216,9 @@ spec = describe "SUBUTXO" $ do
       txOut <- freshTxOutWithCoin $ Coin 1
       submitFailingSubTx
         (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [txOut])
-        [injectFailure $ SubBabbageOutputTooSmallUTxO @era [(txOut, getMinCoinTxOut pp txOut)]]
+        [ injectFailure $
+            SubBabbageOutputTooSmallUTxO @era [(txOut, getMinCoinTxOut pp (implicitDepositOutput txOut))]
+        ]
 
     it "several such outputs, reported in their order in the body" $ do
       pp <- getsPParams id
@@ -225,8 +228,8 @@ spec = describe "SUBUTXO" $ do
         (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [firstTxOut, secondTxOut])
         [ injectFailure $
             SubBabbageOutputTooSmallUTxO @era
-              [ (firstTxOut, getMinCoinTxOut pp firstTxOut)
-              , (secondTxOut, getMinCoinTxOut pp secondTxOut)
+              [ (firstTxOut, getMinCoinTxOut pp (implicitDepositOutput firstTxOut))
+              , (secondTxOut, getMinCoinTxOut pp (implicitDepositOutput secondTxOut))
               ]
         ]
 
@@ -234,7 +237,7 @@ spec = describe "SUBUTXO" $ do
     it "an output to a mainnet address" $ do
       addr <- freshMainnetKeyAddr_
       submitFailingSubTx
-        (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOut addr mempty])
+        (mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithMinAda addr mempty])
         [injectFailure . SubWrongNetwork @era Testnet $ NES.singleton addr]
 
     it "several outputs to mainnet addresses" $ do
@@ -243,7 +246,10 @@ spec = describe "SUBUTXO" $ do
       submitFailingSubTx
         ( mkBasicTx $
             mkBasicTxBody
-              & outputsTxBodyL .~ [mkBasicTxOut firstAddr mempty, mkBasicTxOut secondAddr mempty]
+              & outputsTxBodyL
+                .~ [ mkBasicTxOutWithMinAda firstAddr mempty
+                   , mkBasicTxOutWithMinAda secondAddr mempty
+                   ]
         )
         [ injectFailure . SubWrongNetwork @era Testnet $
             NES.singleton firstAddr <> NES.singleton secondAddr
@@ -260,7 +266,7 @@ spec = describe "SUBUTXO" $ do
   it "a sub-transaction larger than maxTxSize is rejected only by the top level rule" $ do
     pp <- getsPParams id
     addr <- freshKeyAddr_
-    let txOut = setMinCoinTxOut pp $ mkBasicTxOut addr mempty
+    let txOut = MinAdaTxOut . setMinCoinTxOut pp $ mkBasicMinAdaTxOut addr mempty
         subTx :: Tx SubTx era
         subTx = mkBasicTx $ mkBasicTxBody & outputsTxBodyL .~ SSeq.fromList (replicate 20 txOut)
         maxTxSize = subTx ^. sizeTxF - 1
@@ -277,7 +283,8 @@ spec = describe "SUBUTXO" $ do
       mkBasicTxBody
         & inputsTxBodyL .~ [txIn]
         & referenceInputsTxBodyL .~ [txIn]
-    getUTxO >>= (`expectUTxOContent` [(txIn, isNothing)])
+    currentAllocations <- getIndexedUTxOs
+    expectUTxOContent currentAllocations [(txIn, isNothing)]
 
   describe "Composite tests" $ do
     it
@@ -291,9 +298,11 @@ spec = describe "SUBUTXO" $ do
         mainnetAddr <- freshMainnetKeyAddr_
         let badReferenceInput = neverSubmittedTxIn @era 0
             validityInterval = ValidityInterval (SJust (currentSlot + 1)) SNothing
-            tooBigTxOut = setMinCoinTxOut pp assetTxOut
-            bootstrapAttrsTxOut = setMinCoinTxOut pp $ mkBasicTxOut (AddrBootstrap bootAddr) mempty
-            tooSmallTxOut = mkBasicTxOut mainnetAddr . inject $ Coin 1
+            tooBigTxOut = MinAdaTxOut . setMinCoinTxOut pp $ implicitDepositOutput assetTxOut
+            bootstrapAttrsTxOut =
+              MinAdaTxOut . setMinCoinTxOut pp $
+                mkBasicMinAdaTxOut (AddrBootstrap bootAddr) mempty
+            tooSmallTxOut = mkBasicTxOutWithMinAda mainnetAddr . inject $ Coin 1
         submitFailingSubTx
           ( mkBasicTx $
               mkBasicTxBody
@@ -309,7 +318,7 @@ spec = describe "SUBUTXO" $ do
           , injectFailure . SubWrongNetwork @era Testnet $ NES.singleton mainnetAddr
           , injectFailure $
               SubBabbageOutputTooSmallUTxO @era
-                [(tooSmallTxOut, getMinCoinTxOut pp tooSmallTxOut)]
+                [(tooSmallTxOut, getMinCoinTxOut pp (implicitDepositOutput tooSmallTxOut))]
           , injectFailure $ SubOutputBootAddrAttrsTooBig @era [bootstrapAttrsTxOut]
           , injectFailure $ SubOutputTooBigUTxO @era [outputTooBigEntry pp tooBigTxOut]
           , injectFailure $ SubOutsideValidityIntervalUTxO @era validityInterval currentSlot
@@ -338,12 +347,14 @@ spec = describe "SUBUTXO" $ do
       pp <- getsPParams id
       addr <- freshKeyAddr_
       submitTx_ . mkTopTxWithSubTxs . pure . mkBasicTx $
-        mkBasicTxBody & outputsTxBodyL .~ [setMinCoinTxOut pp $ mkBasicTxOut addr mempty]
+        mkBasicTxBody
+          & outputsTxBodyL
+            .~ [MinAdaTxOut . setMinCoinTxOut pp $ mkBasicMinAdaTxOut addr mempty]
 
     it "an output to a bootstrap address whose payload is the largest allowed size" $ do
       bootAddr <- freshBootstrapAddressWithPayloadSize $ Just largestBootstrapAddressAttrsSize
       submitTx_ . mkTopTxWithSubTxs . pure . mkBasicTx $
-        mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOut (AddrBootstrap bootAddr) mempty]
+        mkBasicTxBody & outputsTxBodyL .~ [mkBasicTxOutWithMinAda (AddrBootstrap bootAddr) mempty]
 
   describe "A phase-2 invalid top level transaction" $ do
     it "still rejects a sub-transaction with the wrong network id in its body" $ do
@@ -386,7 +397,8 @@ freshSubTxProducingOutput = do
         mkBasicTx $
           mkBasicTxBody
             & inputsTxBodyL .~ [spentTxIn]
-            & outputsTxBodyL .~ [setMinCoinTxOut pp $ mkBasicTxOut producedAddr mempty]
+            & outputsTxBodyL
+              .~ [MinAdaTxOut . setMinCoinTxOut pp $ mkBasicMinAdaTxOut producedAddr mempty]
   pure (subTx, mkTxInPartial (txIdTx subTx) 0)
 
 subTxOutputs :: DijkstraEraImp era => Tx TopTx era -> ImpTestM era (NonEmpty (TxOut era))
@@ -400,7 +412,7 @@ freshAssetOutput = do
   assetName <- arbitrary @AssetName
   addr <- freshKeyAddr_
   let multiAsset = multiAssetFromList [(policyId, assetName, 1)]
-  pure (multiAsset, mkBasicTxOut addr $ MaryValue mempty multiAsset)
+  pure (multiAsset, mkBasicTxOutWithMinAda addr $ MaryValue mempty multiAsset)
 
 subTxsSpendingOneInput :: DijkstraEraImp era => ImpTestM era (TxIn, [Tx SubTx era])
 subTxsSpendingOneInput = do
@@ -429,7 +441,13 @@ serializedValueSize protVer = fromIntegral . BSL.length . serialize (pvMajor pro
 
 outputTooBigEntry :: DijkstraEraImp era => PParams era -> TxOut era -> (Int, Int, TxOut era)
 outputTooBigEntry pp txOut =
-  ( serializedValueSize (pp ^. ppProtocolVersionL) $ txOut ^. valueTxOutL
+  ( serializedValueSize (pp ^. ppProtocolVersionL) $ implicitDepositOutput txOut ^. valueTxOutL
   , fromIntegral $ pp ^. ppMaxValSizeL
   , txOut
   )
+
+-- | Private: these test fixtures exercise outputs with implicit deposits.
+implicitDepositOutput :: TxOut era -> MinAdaTxOut era
+implicitDepositOutput (MinAdaTxOut implicitOutput) = implicitOutput
+implicitDepositOutput (DepositBackedTxOut _) =
+  error "SubUtxoSpec: expected an implicit-deposit output"

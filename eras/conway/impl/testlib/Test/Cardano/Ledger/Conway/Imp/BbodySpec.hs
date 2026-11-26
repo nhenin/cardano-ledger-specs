@@ -135,7 +135,8 @@ spec = describe "BBODY" $ do
     txsWithSizes <- simulateThenRestore $ do
       let mkTxWithExpectedSize expectedSize txAction = do
             tx <- txAction
-            totalRefScriptSizeInBlock protVer [tx] <$> getUTxO `shouldReturn` expectedSize
+            totalRefScriptSizeInBlock protVer [tx]
+              <$> getIndexedUTxOs `shouldReturn` expectedSize
             pure (tx, expectedSize)
 
       -- submit reference scripts
@@ -179,7 +180,8 @@ spec = describe "BBODY" $ do
       -- check and return the accumulated reference script size of all transactions,
       -- so we can check that the same sum for the unapplied transactions matches
       let (txs, sizes) = unzip txsWithRefScriptSizes
-      totalRefScriptSizeInBlock protVer (SSeq.fromList txs) <$> getUTxO `shouldReturn` sum sizes
+      totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
+        <$> getIndexedUTxOs `shouldReturn` sum sizes
 
       pure txsWithRefScriptSizes
 
@@ -187,7 +189,8 @@ spec = describe "BBODY" $ do
     for_ (drop 1 $ inits txsWithSizes) $ \prefix -> do
       let (txs, sizes) = unzip prefix
           expectedSize = if isPostV10 protVer then sum sizes else 0
-      totalRefScriptSizeInBlock protVer (SSeq.fromList txs) <$> getUTxO `shouldReturn` expectedSize
+      totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
+        <$> getIndexedUTxOs `shouldReturn` expectedSize
 
   -- disabled in conformance because submiting phase2-invalid transactions are not supported atm
   -- https://github.com/IntersectMBO/formal-ledger-specifications/issues/910
@@ -212,7 +215,9 @@ spec = describe "BBODY" $ do
         if pv < natVersion @12
           then freshKeyAddr_
           else freshKeyAddrNoPtr_
-      pure $ mkBasicTxOut addr mempty & referenceScriptTxOutL .~ pure (fromNativeScript script)
+      pure $
+        mkBasicTxOutWithMinAda addr mempty
+          & referenceScriptTxOutL .~ pure (fromNativeScript script)
 
     txs <- simulateThenRestore $ do
       -- submit an invalid transaction which attempts to consume the failing script
@@ -224,17 +229,18 @@ spec = describe "BBODY" $ do
                 & inputsTxBodyL .~ [failingPlutusTxIn]
                 & collateralReturnTxBodyL .~ pure collRefScriptTxOut
             )
-      totalRefScriptSizeInBlock protVer [createCollateralTx] <$> getUTxO `shouldReturn` 0
+      totalRefScriptSizeInBlock protVer [createCollateralTx]
+        <$> getIndexedUTxOs `shouldReturn` 0
 
       -- consume the script, passing the output from the previous collateral as reference input
       let refScriptTxIn = txInAt 1 createCollateralTx
       useCollateralTx <- submitTxWithRefInputs scriptTxIn [refScriptTxIn]
       totalRefScriptSizeInBlock protVer [createCollateralTx, useCollateralTx]
-        <$> getUTxO `shouldReturn` scriptSize
+        <$> getIndexedUTxOs `shouldReturn` scriptSize
       pure [createCollateralTx, useCollateralTx]
 
     totalRefScriptSizeInBlock protVer (SSeq.fromList txs)
-      <$> getUTxO
+      <$> getIndexedUTxOs
         `shouldReturn` (if isPostV10 protVer then scriptSize else 0)
   where
     isPostV10 protVer = pvMajor protVer >= natVersion @11

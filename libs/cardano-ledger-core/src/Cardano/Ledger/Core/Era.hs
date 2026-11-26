@@ -46,6 +46,7 @@ module Cardano.Ledger.Core.Era (
   eraProtVerLow,
   eraProtVerHigh,
   eraProtVersions,
+  isBeforeDijkstra,
   toEraCBOR,
   fromEraCBOR,
   fromEraShareCBOR,
@@ -55,7 +56,7 @@ module Cardano.Ledger.Core.Era (
 
 import Cardano.Ledger.Binary
 import qualified Cardano.Ledger.Binary.Plain as Plain
-import Cardano.Ledger.Internal.Era (ByronEra, Era (..), EraFromName)
+import Cardano.Ledger.Internal.Era (ByronEra, DijkstraEra, Era (..), EraFromName)
 import Control.DeepSeq (NFData (..))
 import Control.State.Transition.Extended (PredicateFailure, STS (..))
 import qualified Data.ByteString.Lazy as BSL
@@ -189,6 +190,11 @@ eraProtVerHigh = natVersion @(ProtVerHigh era)
 -- | List with all major versions that are used in the particular era.
 eraProtVersions :: forall era. Era era => [Version]
 eraProtVersions = [eraProtVerLow @era .. eraProtVerHigh @era]
+
+-- | Whether the era precedes Dijkstra. This compares era boundaries, not the
+-- active protocol version or the current epoch.
+isBeforeDijkstra :: forall era. Era era => Bool
+isBeforeDijkstra = eraProtVerLow @era < eraProtVerLow @DijkstraEra
 
 -- | Enforce era to be at least the specified era at the type level. In other words
 -- compiler will produce type error when applied to eras prior to the specified era.

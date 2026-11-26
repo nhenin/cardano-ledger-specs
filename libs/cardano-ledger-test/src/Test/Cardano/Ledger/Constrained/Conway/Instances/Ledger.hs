@@ -104,6 +104,7 @@ import Cardano.Ledger.MemoBytes
 import Cardano.Ledger.Plutus.Data
 import Cardano.Ledger.Plutus.Language
 import Cardano.Ledger.Rewards
+import Cardano.Ledger.Shelley (ShelleyEra)
 import Cardano.Ledger.Shelley.LedgerState
 import Cardano.Ledger.Shelley.PoolRank
 import Cardano.Ledger.Shelley.RewardUpdate (FreeVars, Pulser, RewardAns, RewardPulser (RSLP))
@@ -118,6 +119,7 @@ import Cardano.Ledger.Shelley.TxCert (
  )
 import Cardano.Ledger.Shelley.TxOut (ShelleyTxOut (..))
 import Cardano.Ledger.Shelley.TxWits (ShelleyTxWits (..))
+import Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs qualified as IndexedUTxOs
 import Cardano.Ledger.TxIn (TxId (..), TxIn (..))
 import Cardano.Ledger.Val (Val)
 import Constrained.API.Extend hiding (Sized)
@@ -129,6 +131,7 @@ import Data.ByteString qualified as BS
 import Data.ByteString.Short (ShortByteString)
 import Data.ByteString.Short qualified as SBS
 import Data.Coerce
+import Data.Default (def)
 import Data.Foldable
 import Data.Functor.Identity (Identity)
 import Data.Int
@@ -320,6 +323,30 @@ instance HasSpec Addr28Extra
 instance HasSimpleRep DataHash32
 
 instance HasSpec DataHash32
+
+-- The legacy specifications stop at Conway, where every output has an implicit
+-- deposit. Keep their existing field representation under the outer wrapper.
+instance
+  ( AtMostEra "Conway" era
+  , HasSimpleRep (MinAdaTxOut era)
+  , Typeable (SimpleRep (MinAdaTxOut era))
+  ) =>
+  HasSimpleRep (TxOut era)
+  where
+  type TheSop (TxOut era) = TheSop (MinAdaTxOut era)
+  type SimpleRep (TxOut era) = SimpleRep (MinAdaTxOut era)
+  toSimpleRep (MinAdaTxOut implicitOutput) = toSimpleRep implicitOutput
+  toSimpleRep (DepositBackedTxOut _) = error "toSimpleRep: unexpected deposit-backed output in legacy specifications"
+  fromSimpleRep = MinAdaTxOut . fromSimpleRep
+
+instance
+  ( EraTxOut era
+  , AtMostEra "Conway" era
+  , GenericallyInstantiated (TxOut era)
+  , HasSimpleRep (MinAdaTxOut era)
+  , HasSpec (SimpleRep (MinAdaTxOut era))
+  ) =>
+  HasSpec (TxOut era)
 
 type ShelleyTxOutTypes era =
   '[ Addr
@@ -1520,10 +1547,11 @@ instance HasSimpleRep (SnapShots era)
 
 instance Era era => HasSpec (SnapShots era)
 
-instance (Typeable (CertState era), EraTxOut era) => HasSimpleRep (LedgerState era)
+instance (Typeable (CertState era), Typeable (GovState era), EraTxOut era) => HasSimpleRep (LedgerState era)
 
 instance
   ( EraTxOut era
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1535,16 +1563,27 @@ instance
   ) =>
   HasSpec (LedgerState era)
 
-instance (Typeable (InstantStake era), Typeable (GovState era), Typeable era) => HasSimpleRep (UTxOState era)
+-- Conway generators use the canonical legacy Store representation: zero external
+-- deposits and canonical legacy compatibility metadata.
+-- They do not generate new outputs or arbitrary historical deposit metadata.
+instance HasSimpleRep (UTxOStore ConwayEra) where
+  type TheSop (UTxOStore ConwayEra) = '["UTxOStore" ::: '[IndexedUTxOs ConwayEra]]
+  type SimpleRep (UTxOStore ConwayEra) = IndexedUTxOs ConwayEra
+  toSimpleRep = allocations
+  fromSimpleRep = mkUTxOStore def
+
+instance HasSpec (UTxOStore ConwayEra)
+
+instance (Typeable (InstantStake era), Typeable era) => HasSimpleRep (AccountingState era)
 
 instance
   ( EraTxOut era
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
-  , HasSpec (GovState era)
   , HasSpec (InstantStake era)
   ) =>
-  HasSpec (UTxOState era)
+  HasSpec (AccountingState era)
 
 instance HasSimpleRep (ShelleyInstantStake era)
 
@@ -1554,11 +1593,24 @@ instance HasSimpleRep (ConwayInstantStake era)
 
 instance Typeable era => HasSpec (ConwayInstantStake era)
 
-instance Typeable (TxOut era) => HasSimpleRep (UTxO era)
+-- Shelley keeps stashed AVVM outputs in the same legacy representation. Both
+-- supported eras have only min-ADA outputs; this must not erase Dijkstra history.
+instance HasSimpleRep (IndexedUTxOs ShelleyEra) where
+  type TheSop (IndexedUTxOs ShelleyEra) = '["IndexedUTxOs" ::: '[Map TxIn (TxOut ShelleyEra)]]
+  type SimpleRep (IndexedUTxOs ShelleyEra) = Map TxIn (TxOut ShelleyEra)
+  toSimpleRep = IndexedUTxOs.mapTxOuts id
+  fromSimpleRep = legacyIndexedUTxOs
 
-instance
-  (Era era, HasSpec (TxOut era), IsNormalType (TxOut era)) =>
-  HasSpec (UTxO era)
+instance HasSpec (IndexedUTxOs ShelleyEra)
+
+-- The representation boundary reconstructs canonical legacy metadata explicitly.
+instance HasSimpleRep (IndexedUTxOs ConwayEra) where
+  type TheSop (IndexedUTxOs ConwayEra) = '["IndexedUTxOs" ::: '[Map TxIn (TxOut ConwayEra)]]
+  type SimpleRep (IndexedUTxOs ConwayEra) = Map TxIn (TxOut ConwayEra)
+  toSimpleRep = IndexedUTxOs.mapTxOuts id
+  fromSimpleRep = legacyIndexedUTxOs
+
+instance HasSpec (IndexedUTxOs ConwayEra)
 
 instance HasSimpleRep (ConwayGovState ConwayEra)
 
@@ -1888,6 +1940,7 @@ instance Era era => HasSimpleRep (EpochState era)
 
 instance
   ( EraTxOut era
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)
@@ -1939,6 +1992,7 @@ instance (Typeable (StashedAVVMAddresses era), Era era) => HasSimpleRep (NewEpoc
 
 instance
   ( EraTxOut era
+  , HasSpec (UTxOStore era)
   , HasSpec (TxOut era)
   , IsNormalType (TxOut era)
   , HasSpec (GovState era)

@@ -92,6 +92,7 @@ import Data.Word (Word64)
 import Numeric.Natural (Natural)
 import qualified PlutusLedgerApi.V1 as PV1
 import Test.Cardano.Ledger.Core.KeyPair (KeyPair (..), KeyPairs, mkAddr, mkCredential, vKey)
+import Test.Cardano.Ledger.Core.Utils (legacyIndexedUTxOs)
 import Test.Cardano.Ledger.Shelley.Constants (Constants (..))
 import Test.Cardano.Ledger.Shelley.Generator.ScriptClass (
   ScriptClass,
@@ -385,7 +386,7 @@ genTxOut ::
   Gen [TxOut era]
 genTxOut genEraVal addrs = do
   values <- replicateM (length addrs) genEraVal
-  return (uncurry mkBasicTxOut <$> zip addrs values)
+  return (uncurry mkBasicTxOutWithMinAda <$> zip addrs values)
 
 -- | Generates a list of 'Coin' values of length between 'lower' and 'upper'
 -- and with values between 'minCoin' and 'maxCoin'.
@@ -446,9 +447,9 @@ genesisChainAccountState =
 genesisCoins ::
   TxId ->
   [TxOut era] ->
-  UTxO era
+  IndexedUTxOs era
 genesisCoins genesisTxId outs =
-  UTxO $
+  legacyIndexedUTxOs $
     Map.fromList [(TxIn genesisTxId idx, out) | (idx, out) <- zip [minBound ..] outs]
 
 -- ==================================================================

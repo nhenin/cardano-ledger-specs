@@ -285,7 +285,7 @@ spec = describe "SUBGOV" $ do
 
   describe "GovActionsDoNotExist" $
     it "a vote on an unknown gov action index" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       govActionId <- submitGovAction InfoAction
       let unknownGovActionId = govActionId {gaidGovActionIx = GovActionIx 99}
       submitFailingSubTx
@@ -460,7 +460,7 @@ spec = describe "SUBGOV" $ do
       submitTx_ . mkTopTxWithSubTxs . pure $ proposeSubTx proposal
 
     it "DisallowedVotesDuringBootstrap does not fire for a DRep vote" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       anchor <- arbitrary
       govActionId <- submitGovAction . NewConstitution SNothing $ Constitution anchor SNothing
       submitTx_ . mkTopTxWithSubTxs . pure $ voteSubTx VoteYes (DRepVoter drep) govActionId
@@ -512,7 +512,7 @@ spec = describe "SUBGOV" $ do
       gasProposalProcedure secondGas `shouldBe` secondProposal
 
     it "a sub-transaction votes on a proposal made by an earlier sibling" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       proposal <- mkProposal InfoAction
       (proposingSubTx, govActionId) <- proposeSubTxWithStableId proposal
       submitTx_ $
@@ -520,7 +520,7 @@ spec = describe "SUBGOV" $ do
       expectVote govActionId (DRepVoter drep) VoteYes
 
     it "a sub-transaction cannot vote on a proposal made by a later sibling" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       proposal <- mkProposal InfoAction
       (proposingSubTx, govActionId) <- proposeSubTxWithStableId proposal
       submitFailingTx
@@ -528,7 +528,7 @@ spec = describe "SUBGOV" $ do
         [injectFailure . DijkstraSubGovPredFailure $ GovActionsDoNotExist [govActionId]]
 
     it "the top level votes on a proposal made by a sub-transaction" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       proposal <- mkProposal InfoAction
       (proposingSubTx, govActionId) <- proposeSubTxWithStableId proposal
       let votes = votingProceduresFor VoteYes [DRepVoter drep] govActionId
@@ -537,7 +537,7 @@ spec = describe "SUBGOV" $ do
       expectVote govActionId (DRepVoter drep) VoteYes
 
     it "a vote in a sub-transaction replaces one cast by an earlier sibling" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       govActionId <- submitGovAction InfoAction
       submitTx_ $
         mkTopTxWithSubTxs
@@ -582,7 +582,7 @@ spec = describe "SUBGOV" $ do
       expectVote govActionId (DRepVoter drepCredential) VoteYes
 
     it "a DRep unregistered in a sub-transaction loses the votes it has cast" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       govActionId <- submitGovAction InfoAction
       submitVote_ VoteYes (DRepVoter drep) govActionId
       expectVote govActionId (DRepVoter drep) VoteYes
@@ -593,7 +593,7 @@ spec = describe "SUBGOV" $ do
       Map.lookup drep (gasDRepVotes cleanedGas) `shouldBe` Nothing
 
     it "a sub-transaction proposes and votes in the same body" $ do
-      (drep, _, _) <- setupSingleDRep 1_000_000
+      (drep, _, _) <- setupSingleDRep 2_000_000
       existingGovActionId <- submitGovAction InfoAction
       proposal <- mkProposal InfoAction
       txIn <- freshFundedTxIn

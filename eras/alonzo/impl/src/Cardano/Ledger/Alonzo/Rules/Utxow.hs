@@ -61,16 +61,17 @@ import Cardano.Ledger.BaseTypes (
 import Cardano.Ledger.Binary (DecCBOR (..), EncCBOR (..), natVersion)
 import Cardano.Ledger.Binary.Coders
 import Cardano.Ledger.Rules.ValidationMode (Test, runTest, runTestOnSignal)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
+import Cardano.Ledger.Shelley.LedgerState (AccountingState (..), LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Shelley.UTxO (ShelleyScriptsNeeded (..))
 import Cardano.Ledger.State (
   EraCertState (..),
   EraUTxO (..),
   ScriptsProvided (..),
-  UTxO (..),
   dsGenDelegsL,
  )
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Cardano.Ledger.TxIn (TxIn (..))
 import Control.DeepSeq (NFData)
 import Control.Monad.Trans.Reader (asks)
@@ -225,15 +226,15 @@ missingRequiredDatums ::
   , AlonzoEraUTxO era
   ) =>
   ScriptsProvided era ->
-  UTxO era ->
+  IndexedUTxOs era ->
   Tx l era ->
   Test (AlonzoUtxowPredFailure era)
-missingRequiredDatums scriptsProvided utxo tx = do
+missingRequiredDatums scriptsProvided inputAllocations tx = do
   let txBody = tx ^. bodyTxL
-      (inputHashes, txInsNoDataHash) = getInputDataHashesTxBody utxo txBody scriptsProvided
+      (inputHashes, txInsNoDataHash) = getInputDataHashesTxBody inputAllocations txBody scriptsProvided
       txHashes = Map.keysSet (tx ^. witsTxL . datsTxWitsL . unTxDatsL)
       unmatchedDatumHashes = Set.difference inputHashes txHashes
-      allowedSupplementalDataHashes = getSupplementalDataHashes utxo txBody
+      allowedSupplementalDataHashes = getSupplementalDataHashes inputAllocations txBody
       supplimentalDatumHashes = Set.difference txHashes inputHashes
       (okSupplimentalDHs, notOkSupplimentalDHs) =
         Set.partition (`Set.member` allowedSupplementalDataHashes) supplimentalDatumHashes
@@ -315,7 +316,7 @@ alonzoStyleWitness ::
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , EraCertState era
   ) =>
@@ -328,7 +329,12 @@ alonzoStyleWitness = do
   {-  txb := txbody tx  -}
   {-  txw := txwits tx  -}
   {-  witsKeyHashes := { hashKey vk | vk ∈ dom(txwitsVKey txw) }  -}
-  let utxo = utxosUtxo u
+  let inputAllocations =
+        IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+          . Store.allocations
+          . asUTxOStore
+          . lsAccountingState
+          $ u
       txBody = tx ^. bodyTxL
       witsKeyHashes = keyHashWitnessesTxWits (tx ^. witsTxL)
       scriptsProvided = scriptsProvidedStAnnTx stAnnTx
@@ -345,7 +351,7 @@ alonzoStyleWitness = do
 
   {- inputHashes := { h | (_ → (a,_,h)) ∈ txins tx ◁ utxo, isTwoPhaseScriptAddress tx a} -}
   {-  inputHashes ⊆ dom(txdats txw)  -}
-  runTest $ missingRequiredDatums scriptsProvided utxo tx
+  runTest $ missingRequiredDatums scriptsProvided inputAllocations tx
 
   {- dom(txdats txw) ⊆ inputHashes ∪ {h | ( , , h) ∈ txouts tx -}
   -- This is incorporated into missingRequiredDatums, see the
@@ -360,7 +366,7 @@ alonzoStyleWitness = do
   runTestOnSignal $ Shelley.validateVerifiedWits tx
 
   {-  witsVKeyNeeded utxo tx genDelegs ⊆ witsKeyHashes                   -}
-  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState utxo txBody
+  runTest $ Shelley.validateNeededWitnesses witsKeyHashes certState inputAllocations txBody
 
   -- check genesis keys signatures for instantaneous rewards certificates
   {-  genSig := { hashKey gkey | gkey ∈ dom(genDelegs)} ∩ witsKeyHashes  -}
@@ -410,13 +416,13 @@ instance
   , -- Allow UTXOW to call UTXO
     Embed (EraRule "UTXO" era) (UTXOW era)
   , Environment (EraRule "UTXO" era) ~ Shelley.UtxoEnv era
-  , State (EraRule "UTXO" era) ~ UTxOState era
+  , State (EraRule "UTXO" era) ~ LedgerState era
   , Signal (EraRule "UTXO" era) ~ StAnnTx TopTx era
   , EraCertState era
   ) =>
   STS (UTXOW era)
   where
-  type State (UTXOW era) = UTxOState era
+  type State (UTXOW era) = LedgerState era
   type Signal (UTXOW era) = StAnnTx TopTx era
   type Environment (UTXOW era) = Shelley.UtxoEnv era
   type BaseM (UTXOW era) = ShelleyBase

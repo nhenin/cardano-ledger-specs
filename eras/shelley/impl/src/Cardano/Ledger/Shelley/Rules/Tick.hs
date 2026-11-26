@@ -41,7 +41,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   PulsingRewUpdate,
-  UTxOState (..),
   curPParamsEpochStateL,
   esSnapshotsL,
   lsCertStateL,
@@ -229,7 +228,7 @@ validatingTickTransitionFORECAST nes0 slot = do
 
       let pp = es ^. curPParamsEpochStateL
           ls = esLState es
-          updates = utxosGovState $ lsUTxOState ls
+          updates = lsGovState ls
       ss' <-
         trans @(EraRule "SNAP" era) $ TRC (SnapEnv ls pp, ss, curEpochNo)
 

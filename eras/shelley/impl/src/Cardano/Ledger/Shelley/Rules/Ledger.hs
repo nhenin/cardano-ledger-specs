@@ -51,8 +51,6 @@ import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.Era (LEDGER, ShelleyEra)
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
-  utxosDepositedL,
  )
 import Cardano.Ledger.Shelley.LedgerState.Types (allObligations, potEqualsObligation)
 import Cardano.Ledger.Shelley.Rules.Deleg (AccountAlreadyRegistered, ShelleyDelegPredFailure)
@@ -70,6 +68,8 @@ import Cardano.Ledger.Shelley.Rules.Utxo (ShelleyUtxoPredFailure (..), UtxoEnv (
 import Cardano.Ledger.Shelley.Rules.Utxow (ShelleyUtxowPredFailure, UTXOW)
 import Cardano.Ledger.Shelley.State
 import Cardano.Ledger.Slot (EpochNo (..), SlotNo, epochFromSlot)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.DeepSeq (NFData (..))
 import Control.Monad (guard)
 import Control.Monad.Trans.Reader (asks)
@@ -269,12 +269,16 @@ shelleyLedgerAssertions =
   [ PostCondition
       "Deposit pot must equal obligation (LEDGER)"
       ( \(TRC (_, _, _))
-         (LedgerState utxoSt dpstate) -> potEqualsObligation dpstate utxoSt
+         ledgerState ->
+            potEqualsObligation
+              (lsCertState ledgerState)
+              (lsGovState ledgerState)
+              (lsAccountingState ledgerState)
       )
   , PostCondition
       "Reverse stake pool delegations must match"
       ( \(TRC (_, _, _))
-         (LedgerState _ certState) ->
+         LedgerState {lsCertState = certState} ->
             uncurry (==) $ calculateDelegatorsPerStakePool certState
       )
   ]
@@ -286,7 +290,7 @@ instance
   , Embed (EraRule "DELEGS" era) (LEDGER era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , Environment (EraRule "DELEGS" era) ~ DelegsEnv era
   , State (EraRule "DELEGS" era) ~ CertState era
@@ -323,14 +327,18 @@ ledgerTransition ::
   , Signal (EraRule "DELEGS" era) ~ Seq (TxCert era)
   , Embed (EraRule "UTXOW" era) (LEDGER era)
   , Environment (EraRule "UTXOW" era) ~ UtxoEnv era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , Signal (EraRule "UTXOW" era) ~ StAnnTx TopTx era
   , EraRule "LEDGER" era ~ LEDGER era
   , InjectRuleFailure "LEDGER" ShelleyLedgerPredFailure era
   ) =>
   TransitionRule (LEDGER era)
 ledgerTransition = do
-  TRC (LedgerEnv slot mbCurEpochNo txIx pp account, LedgerState utxoSt certState, stAnnTx) <-
+  TRC
+    ( LedgerEnv slot mbCurEpochNo txIx pp account
+      , ledgerState@LedgerState {lsCertState = certState}
+      , stAnnTx
+      ) <-
     judgmentContext
   let tx = stAnnTx ^. txStAnnTxG
   curEpochNo <- maybe (liftSTS $ epochFromSlot slot) pure mbCurEpochNo
@@ -344,14 +352,14 @@ ledgerTransition = do
         , StrictSeq.fromStrict $ tx ^. bodyTxL . certsTxBodyL
         )
 
-  utxoSt' <-
+  ledgerStateAfterUtxow <-
     trans @(EraRule "UTXOW" era) $
       TRC
         ( UtxoEnv slot pp certState
-        , utxoSt
+        , ledgerState
         , stAnnTx
         )
-  pure (LedgerState utxoSt' certState')
+  pure $ ledgerStateAfterUtxow {lsCertState = certState'}
 
 testIncompleteAndMissingWithdrawals ::
   ( EraAccounts era
@@ -414,10 +422,14 @@ renderDepositEqualsObligationViolation
           Just lstate
             | avMsg == "Deposit pot must equal obligation (LEDGER)" ->
                 let certstate = lsCertState lstate
-                    utxoSt = lsUTxOState lstate
-                    utxo = utxosUtxo utxoSt
+                    utxoSt = lsAccountingState lstate
+                    inputAllocations =
+                      IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                        . Store.allocations
+                        . asUTxOStore
+                        $ utxoSt
                     txb = tx ^. bodyTxL
-                    pot = utxoSt ^. utxosDepositedL
+                    pot = utxoSt ^. asDepositedL
                  in "\n\nAssertionViolation ("
                       <> avSTS
                       <> ")\n\n  "
@@ -426,12 +438,12 @@ renderDepositEqualsObligationViolation
                       <> showTxCerts txb
                       <> "\n(slot,keyDeposit,poolDeposit) "
                       <> show (slot, pp ^. ppKeyDepositL, pp ^. ppPoolDepositL)
-                      <> "\nThe Pot (utxosDeposited) = "
+                      <> "\nThe Pot (asDeposited) = "
                       <> show pot
                       <> "\n"
-                      <> show (allObligations certstate (utxosGovState utxoSt))
+                      <> show (allObligations certstate (lsGovState lstate))
                       <> "\nConsumed = "
-                      <> show (consumedTxBody txb pp certstate utxo)
+                      <> show (consumedTxBody txb pp certstate inputAllocations)
                       <> "\nProduced = "
                       <> show (producedTxBody txb pp certstate)
             | avMsg == "Reverse stake pool delegations must match" ->

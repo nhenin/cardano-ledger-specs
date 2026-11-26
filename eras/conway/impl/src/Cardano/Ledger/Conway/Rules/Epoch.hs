@@ -71,17 +71,14 @@ import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Shelley.LedgerState (
   EpochState (..),
   LedgerState (..),
-  UTxOState (..),
   curPParamsEpochStateL,
   esLStateL,
   esSnapshotsL,
+  lsAccountingStateL,
   lsCertStateL,
-  lsUTxOStateL,
+  lsGovStateL,
   prevPParamsEpochStateL,
   totalObligation,
-  utxosDepositedL,
-  utxosDonationL,
-  utxosGovStateL,
  )
 import Cardano.Ledger.Shelley.Rewards ()
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
@@ -155,7 +152,7 @@ instance
   , State (EraRule "SNAP" era) ~ SnapShots era
   , Signal (EraRule "SNAP" era) ~ EpochNo
   , Embed (EraRule "POOLREAP" era) (EPOCH era)
-  , Environment (EraRule "POOLREAP" era) ~ ()
+  , Environment (EraRule "POOLREAP" era) ~ GovState era
   , State (EraRule "POOLREAP" era) ~ Shelley.ShelleyPoolreapState era
   , Signal (EraRule "POOLREAP" era) ~ EpochNo
   , Embed (EraRule "RATIFY" era) (EPOCH era)
@@ -206,7 +203,7 @@ updateNumDormantEpochs currentEpoch ps vState =
 
 -- | Apply TreasuryWithdrawals to the EpochState
 --
---   acnt' = record acnt { treasury = treasury + UTxOState.fees utxoSt
+--   acnt' = record acnt { treasury = treasury + AccountingState.fees utxoSt
 --                                  + getCoin unclaimed + donations ∸ totWithdrawals }
 --
 -- The utxo fees and donations are applied in the remaining body of EPOCH transition
@@ -255,7 +252,7 @@ epochTransition ::
   , Signal (EraRule "SNAP" era) ~ EpochNo
   , Embed (EraRule "SNAP" era) (EPOCH era)
   , Embed (EraRule "POOLREAP" era) (EPOCH era)
-  , Environment (EraRule "POOLREAP" era) ~ ()
+  , Environment (EraRule "POOLREAP" era) ~ GovState era
   , State (EraRule "POOLREAP" era) ~ Shelley.ShelleyPoolreapState era
   , Signal (EraRule "POOLREAP" era) ~ EpochNo
   , Embed (EraRule "RATIFY" era) (EPOCH era)
@@ -281,17 +278,17 @@ epochTransition = do
       ) <-
     judgmentContext
   let chainAccountState0 = epochState0 ^. chainAccountStateL
-      govState0 = utxosGovState utxoState0
+      govState0 = lsGovState ledgerState0
       curPParams = govState0 ^. curPParamsGovStateL
-      utxoState0 = lsUTxOState ledgerState0
+      accountingState0 = lsAccountingState ledgerState0
       certState0 = ledgerState0 ^. lsCertStateL
       vState = certState0 ^. certVStateL
   snapshots1 <-
     trans @(EraRule "SNAP" era) $ TRC (Shelley.SnapEnv ledgerState0 curPParams, snapshots0, eNo)
 
-  Shelley.PoolreapState utxoState1 chainAccountState1 certState1 <-
+  Shelley.PoolreapState accountingState1 chainAccountState1 certState1 <-
     trans @(EraRule "POOLREAP" era) $
-      TRC ((), Shelley.PoolreapState utxoState0 chainAccountState0 certState0, eNo)
+      TRC (govState0, Shelley.PoolreapState accountingState0 chainAccountState0 certState0, eNo)
 
   let
     stakePoolDistr = msStakePoolDistr (ssStakeMark snapshots1)
@@ -351,17 +348,17 @@ epochTransition = do
     chainAccountState3 =
       chainAccountState2
         -- Move donations and unclaimed rewards from proposals to treasury:
-        & casTreasuryL <>~ (utxoState0 ^. utxosDonationL <> fold unclaimed)
-    utxoState2 =
-      utxoState1
-        & utxosDepositedL .~ totalObligation certState2 govState1
+        & casTreasuryL <>~ (accountingState0 ^. asDonationL <> fold unclaimed)
+    accountingState2 =
+      accountingState1
+        & asDepositedL .~ totalObligation certState2 govState1
         -- Clear the donations field:
-        & utxosDonationL .~ zero
-        & utxosGovStateL .~ govState1
+        & asDonationL .~ zero
     ledgerState1 =
       ledgerState0
         & lsCertStateL .~ certState2
-        & lsUTxOStateL .~ utxoState2
+        & lsAccountingStateL .~ accountingState2
+        & lsGovStateL .~ govState1
     epochState1 =
       epochState0
         & chainAccountStateL .~ chainAccountState3

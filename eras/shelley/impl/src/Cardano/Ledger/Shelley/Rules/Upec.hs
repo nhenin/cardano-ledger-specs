@@ -28,8 +28,8 @@ import Cardano.Ledger.Shelley.Era (UPEC)
 import Cardano.Ledger.Shelley.Governance
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState,
+  lsAccountingState,
   lsCertState,
-  lsUTxOState,
  )
 import Cardano.Ledger.Shelley.Rules.Newpp (
   NEWPP,
@@ -80,11 +80,11 @@ instance
             ) <-
           judgmentContext
 
-        let utxoState = lsUTxOState ls
+        let accountingState = lsAccountingState ls
             ppNew = nextEpochPParams ppupState
         NewppState pp' ppupState' <-
           trans @(NEWPP era) $
-            TRC (NewppEnv (lsCertState ls) utxoState, NewppState pp ppupState, ppNew)
+            TRC (NewppEnv (lsCertState ls) accountingState, NewppState pp ppupState, ppNew)
         pure $! UpecState pp' ppupState'
     ]
 

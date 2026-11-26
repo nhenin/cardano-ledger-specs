@@ -12,6 +12,7 @@
 module Cardano.Ledger.Keys.WitVKey (
   WitVKey (WitVKey),
   witVKeyHash,
+  verifyWitVKey,
 ) where
 
 import Cardano.Crypto.DSIGN.Class (
@@ -37,12 +38,14 @@ import Cardano.Ledger.Keys.Internal (
   KeyRole (..),
   VKey (..),
   asWitness,
+  verifySignedDSIGN,
  )
 import Control.DeepSeq
 import Data.Aeson (FromJSON (..), ToJSON (..), (.:), (.=))
 import qualified Data.Aeson as Aeson
 import Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Base16 as B16
+import Data.Coerce (coerce)
 import Data.Ord (comparing)
 import Data.Text (Text)
 import qualified Data.Text.Encoding as Text
@@ -125,3 +128,11 @@ pattern WitVKey k s <-
 -- | Access computed hash. Evaluated lazily
 witVKeyHash :: WitVKey kr -> KeyHash Witness
 witVKeyHash = wvkKeyHash
+
+-- | Verify a transaction body witness
+verifyWitVKey ::
+  Hash HASH EraIndependentTxBody ->
+  WitVKey kr ->
+  Bool
+verifyWitVKey txbodyHash (WitVKey vkey sig) = verifySignedDSIGN vkey txbodyHash (coerce sig)
+{-# INLINE verifyWitVKey #-}

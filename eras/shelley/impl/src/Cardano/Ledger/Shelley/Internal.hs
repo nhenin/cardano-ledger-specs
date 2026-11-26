@@ -55,6 +55,7 @@ compareAdaPots xlabel x ylabel y =
     , oneline "rewardsAdaPot" rewardsAdaPot
     , oneline "utxoAdaPot" utxoAdaPot
     , oneline "feesAdaPot" feesAdaPot
+    , oneline "depositStoreAdaPot" depositStoreAdaPot
     , oneline "oblStakePot" (oblStake . obligationsPot)
     , oneline "oblPoolPot" (oblPool . obligationsPot)
     , oneline "oblDRepPot" (oblDRep . obligationsPot)

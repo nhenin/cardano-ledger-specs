@@ -79,6 +79,9 @@ instance EraTx ConwayEra where
   bodyTxL = conwayTxL . bodyAlonzoTxL
   {-# INLINE bodyTxL #-}
 
+  isPhase2ValidTxG = isPhase2ValidTxL
+  {-# INLINE isPhase2ValidTxG #-}
+
   witsTxL = conwayTxL . witsAlonzoTxL
   {-# INLINE witsTxL #-}
 

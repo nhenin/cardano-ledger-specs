@@ -40,6 +40,8 @@ import Cardano.Ledger.Conway.Rules.Ledger (ConwayLedgerEvent, ConwayLedgerPredFa
 import Cardano.Ledger.Conway.State
 import Cardano.Ledger.Shelley.LedgerState
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
 import Control.Monad (unless)
 import Control.State.Transition (
   BaseM,
@@ -59,7 +61,6 @@ import Control.State.Transition (
  )
 import Control.State.Transition.Extended (Embed (..), trans)
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Map.Strict as Map
 import Data.Sequence (Seq)
 import Data.Text as T (pack)
 import Lens.Micro ((^.))
@@ -116,8 +117,8 @@ mempoolTransition = do
   -- Detect whether the transaction is probably a duplicate
   let
     inputs = tx ^. bodyTxL . inputsTxBodyL
-    UTxO utxo = ledgerState ^. utxoG
-    notAllSpent = any (`Map.member` utxo) inputs
+    allocatedOutputs = Store.allocations . (^. utxoStoreG) $ ledgerState
+    notAllSpent = any (`IndexedUTxOs.member` allocatedOutputs) inputs
   notAllSpent
     ?! ConwayMempoolFailure
       "All inputs are spent. Transaction has probably already been included"
@@ -133,7 +134,7 @@ mempoolTransition = do
       let addPrefix = ("Unelected committee members are not allowed to cast votes: " <>)
        in failOnNonEmpty
             ( unelectedCommitteeVoters
-                (ledgerState ^. lsUTxOStateL . utxosGovStateL . committeeGovStateL)
+                (ledgerState ^. lsGovStateL . committeeGovStateL)
                 (ledgerState ^. lsCertStateL . certVStateL . vsCommitteeStateL)
                 (tx ^. bodyTxL . votingProceduresTxBodyL)
             )
@@ -158,7 +159,7 @@ instance
   , Environment (EraRule "LEDGER" era) ~ Shelley.LedgerEnv era
   , State (EraRule "CERTS" era) ~ CertState era
   , State (EraRule "GOV" era) ~ Proposals era
-  , State (EraRule "UTXOW" era) ~ UTxOState era
+  , State (EraRule "UTXOW" era) ~ LedgerState era
   , State (EraRule "LEDGER" era) ~ LedgerState era
   , GovState era ~ ConwayGovState era
   , Signal (EraRule "CERTS" era) ~ Seq (TxCert era)

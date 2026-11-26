@@ -102,6 +102,9 @@ instance ToExpr DataHash32
 
 instance ToExpr (CompactForm (Value era)) => ToExpr (AlonzoTxOut era)
 
+instance ToExpr (TxOut AlonzoEra) where
+  toExpr (MinAdaTxOut output) = App "MinAdaTxOut" [toExpr output]
+
 -- TxBody
 instance ToExpr (AlonzoTxBodyRaw TopTx AlonzoEra) where
   toExpr AlonzoTxBodyRaw {..} =

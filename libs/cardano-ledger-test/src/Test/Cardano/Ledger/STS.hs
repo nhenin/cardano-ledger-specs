@@ -18,8 +18,10 @@ import Cardano.Ledger.Coin (Coin)
 import Cardano.Ledger.Conway.Core
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Shelley.API.Mempool (ApplyTx (..))
-import Cardano.Ledger.Shelley.LedgerState (utxosUtxo)
+import Cardano.Ledger.Shelley.LedgerState (asUTxOStore, lsAccountingState)
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
+import Cardano.Ledger.State (allocations)
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
 import Constrained.API hiding (forAll)
 import Control.Monad.Reader
 import Control.State.Transition.Extended
@@ -27,6 +29,7 @@ import Data.Functor.Identity (Identity)
 import qualified Data.List.NonEmpty as NE
 import Data.Map (Map)
 import Data.Set (Set)
+import Lens.Micro ((^.))
 import Test.Cardano.Ledger.Common hiding (witness)
 import Test.Cardano.Ledger.Constrained.Conway.Cert
 import Test.Cardano.Ledger.Constrained.Conway.Deleg
@@ -334,7 +337,12 @@ prop_UTXOW =
             (epochInfo testGlobals)
             (systemStart testGlobals)
             (Shelley.uePParams env)
-            (utxosUtxo st)
+            ( IndexedUTxOs.restrictToInputs (tx ^. bodyTxL . allInputsTxBodyF)
+                . allocations
+                . asUTxOStore
+                . lsAccountingState
+                $ st
+            )
             mempty
             tx
     )

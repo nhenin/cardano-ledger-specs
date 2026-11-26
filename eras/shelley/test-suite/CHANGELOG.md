@@ -2,7 +2,7 @@
 
 ## 1.10.0.1
 
-*
+* Adapt UTxO state fixtures to initialize the separate DepositStore balance and allocations.
 
 ## 1.10.0.0
 

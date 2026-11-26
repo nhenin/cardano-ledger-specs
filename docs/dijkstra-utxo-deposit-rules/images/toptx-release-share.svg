@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="295" viewBox="0 0 900 295"
+     role="img" aria-labelledby="title description">
+  <title id="title">Two batches that both declare a release of 2 ADA</title>
+  <desc id="description">On the left, a SubTx locally releases 5 ADA and TopTx allocates 3 ADA.
+    The SubTx names an output covering 5 ADA. TopTx declares Release 2 ADA with no TopTx settlement.
+    On the right, the SubTx locally allocates 3 ADA and TopTx releases 5 ADA. TopTx declares the
+    same 2 ADA total but must name one of its own outputs containing at least 5 ADA.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #192f3d; }
+    .label { font-size: 16px; fill: #465d6d; }
+    .heading { font-size: 20px; font-weight: 650; }
+    .amount { font-size: 17px; font-weight: 600; }
+    .rule { fill: none; stroke: #b9c9d3; stroke-width: 1.5; }
+  </style>
+  <rect width="900" height="295" fill="#fff"/>
+  <rect x="294" y="8" width="312" height="44" rx="5" fill="#233e4d"/>
+  <text x="450" y="36" text-anchor="middle" class="heading" style="fill:white">Batch declares Release 2 ADA</text>
+  <path class="rule" d="M450 52v11M229 76v-8q0-5 5-5h432q5 0 5 5v8"/>
+
+  <g transform="translate(16 80)">
+    <rect width="426" height="202" rx="6" fill="#f4f7f8" stroke="#becdd4"/>
+    <text x="18" y="32" class="heading">SubTx settles the release</text>
+    <text x="18" y="68" class="label">SubTx releases locally</text>
+    <text x="407" y="68" text-anchor="end" class="amount">5 ADA</text>
+    <text x="18" y="95" class="label">TopTx allocates</text>
+    <text x="407" y="95" text-anchor="end" class="amount">3 ADA</text>
+    <path class="rule" d="M18 114h389"/>
+    <text x="18" y="144" class="amount">NoTopTxSettlement</text>
+    <text x="18" y="172" class="label">The SubTx names a local output holding ≥ 5 ADA.</text>
+  </g>
+  <g transform="translate(458 80)">
+    <rect width="426" height="202" rx="6" fill="#f4f7f8" stroke="#becdd4"/>
+    <text x="18" y="32" class="heading">TopTx settles the release</text>
+    <text x="18" y="68" class="label">SubTx allocates locally</text>
+    <text x="407" y="68" text-anchor="end" class="amount">3 ADA</text>
+    <text x="18" y="95" class="label">TopTx releases</text>
+    <text x="407" y="95" text-anchor="end" class="amount">5 ADA</text>
+    <path class="rule" d="M18 114h389"/>
+    <text x="18" y="144" class="amount">TopTxSettlementOutput index</text>
+    <text x="18" y="172" class="label">TopTx names its own output holding ≥ 5 ADA.</text>
+  </g>
+</svg>

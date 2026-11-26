@@ -25,7 +25,6 @@ import Cardano.Ledger.Shelley.API (
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
-  UTxOState (..),
  )
 import Cardano.Ledger.Shelley.Rules (
   LEDGER,
@@ -270,26 +269,26 @@ aliceGivesBobLovelace
           & inputsTxBodyL .~ Set.singleton input
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOut aliceAddr aliceCoin
-              , mkBasicTxOut bobAddr toBob
+              [ mkBasicTxOutWithMinAda aliceAddr aliceCoin
+              , mkBasicTxOutWithMinAda bobAddr toBob
               ]
           & certsTxBodyL .~ StrictSeq.fromList certs
           & feeTxBodyL .~ fee
           & ttlTxBodyL .~ ttl
       awits = mkWitnessesVKey (hashAnnotated txbody) signers
 
-utxoState :: UTxOState ShelleyEra
-utxoState =
-  UTxOState
-    ( genesisCoins
-        genesisId
-        [ mkBasicTxOut aliceAddr aliceInitCoin
-        , mkBasicTxOut bobAddr (Coin 1000)
-        ]
+accountingState :: AccountingState ShelleyEra
+accountingState =
+  AccountingState
+    ( mkUTxOStore def $
+        genesisCoins
+          genesisId
+          [ mkBasicTxOutWithMinAda aliceAddr aliceInitCoin
+          , mkBasicTxOutWithMinAda bobAddr (Coin 1000)
+          ]
     )
     (Coin 0)
     (Coin 0)
-    def
     mempty
     mempty
 
@@ -297,7 +296,7 @@ dpState :: CertState ShelleyEra
 dpState = def
 
 ledgerState :: LedgerState ShelleyEra
-ledgerState = LedgerState utxoState dpState
+ledgerState = LedgerState accountingState dpState def
 
 addReward :: CertState ShelleyEra -> Credential Staking -> Coin -> CertState ShelleyEra
 addReward dp cred c =
@@ -344,8 +343,8 @@ testWitnessNotIncluded =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOut aliceAddr (Coin 6404)
-              , mkBasicTxOut bobAddr (Coin 3000)
+              [ mkBasicTxOutWithMinAda aliceAddr (Coin 6404)
+              , mkBasicTxOutWithMinAda bobAddr (Coin 3000)
               ]
           & feeTxBodyL .~ Coin 596
           & ttlTxBodyL .~ SlotNo 100
@@ -362,7 +361,7 @@ testSpendNotOwnedUTxO =
   let txbody =
         mkBasicTxBody
           & inputsTxBodyL .~ Set.fromList [mkGenesisTxIn 1]
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut aliceAddr (Coin 232))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithMinAda aliceAddr (Coin 232))
           & feeTxBodyL .~ Coin 768
           & ttlTxBodyL .~ SlotNo 100
       aliceWit = mkWitnessVKey (hashAnnotated txbody) alicePay
@@ -381,13 +380,13 @@ testWitnessWrongUTxO =
   let txbody =
         mkBasicTxBody @ShelleyEra
           & inputsTxBodyL .~ Set.fromList [mkGenesisTxIn 1]
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut aliceAddr (Coin 230))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithMinAda aliceAddr (Coin 230))
           & feeTxBodyL .~ Coin 770
           & ttlTxBodyL .~ SlotNo 100
       tx2body =
         mkBasicTxBody @ShelleyEra
           & inputsTxBodyL .~ Set.fromList [mkGenesisTxIn 1]
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut aliceAddr (Coin 230))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithMinAda aliceAddr (Coin 230))
           & feeTxBodyL .~ Coin 770
           & ttlTxBodyL .~ SlotNo 101
       aliceWit = mkWitnessVKey (hashAnnotated tx2body) alicePay
@@ -409,7 +408,7 @@ testEmptyInputSet =
   let aliceWithdrawal = Map.singleton (mkVKeyAccountAddress Testnet aliceStake) (Coin 2000)
       txb =
         mkBasicTxBody
-          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOut aliceAddr (Coin 1000))
+          & outputsTxBodyL .~ StrictSeq.singleton (mkBasicTxOutWithMinAda aliceAddr (Coin 1000))
           & withdrawalsTxBodyL .~ Withdrawals aliceWithdrawal
           & feeTxBodyL .~ Coin 1000
           & ttlTxBodyL .~ SlotNo 0
@@ -422,7 +421,7 @@ testEmptyInputSet =
           (mkVKeyAccountAddress Testnet aliceStake ^. accountAddressCredentialL)
           (Coin 2000)
    in testLEDGER
-        (LedgerState utxoState dpState')
+        (LedgerState accountingState dpState' def)
         tx
         ledgerEnv
         (Left [UtxowFailure (UtxoFailure InputSetEmptyUTxO)])
@@ -470,8 +469,8 @@ testInvalidWintess =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOut aliceAddr (Coin 6000)
-              , mkBasicTxOut bobAddr (Coin 3000)
+              [ mkBasicTxOutWithMinAda aliceAddr (Coin 6000)
+              , mkBasicTxOutWithMinAda bobAddr (Coin 3000)
               ]
           & feeTxBodyL .~ Coin 1000
           & ttlTxBodyL .~ SlotNo 1
@@ -492,8 +491,8 @@ testWithdrawalNoWit =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOut aliceAddr (Coin 6000)
-              , mkBasicTxOut bobAddr (Coin 3010)
+              [ mkBasicTxOutWithMinAda aliceAddr (Coin 6000)
+              , mkBasicTxOutWithMinAda bobAddr (Coin 3010)
               ]
           & withdrawalsTxBodyL .~ Withdrawals (Map.singleton (mkVKeyAccountAddress Testnet bobStake) (Coin 10))
           & feeTxBodyL .~ Coin 1000
@@ -509,7 +508,7 @@ testWithdrawalNoWit =
           dpState
           (mkVKeyAccountAddress Testnet bobStake ^. accountAddressCredentialL)
           (Coin 10)
-   in testLEDGER (LedgerState utxoState dpState') tx ledgerEnv (Left errs)
+   in testLEDGER (LedgerState accountingState dpState' def) tx ledgerEnv (Left errs)
 
 testWithdrawalWrongAmt :: Assertion
 testWithdrawalWrongAmt =
@@ -518,8 +517,8 @@ testWithdrawalWrongAmt =
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
           & outputsTxBodyL
             .~ StrictSeq.fromList
-              [ mkBasicTxOut aliceAddr (Coin 6000)
-              , mkBasicTxOut bobAddr (Coin 3011)
+              [ mkBasicTxOutWithMinAda aliceAddr (Coin 6000)
+              , mkBasicTxOutWithMinAda bobAddr (Coin 3011)
               ]
           & withdrawalsTxBodyL .~ Withdrawals (Map.singleton (mkVKeyAccountAddress Testnet bobStake) (Coin 11))
           & feeTxBodyL .~ Coin 1000
@@ -538,12 +537,12 @@ testWithdrawalWrongAmt =
             NEM.singleton rAccount $
               Mismatch (Coin 11) (Coin 10)
         ]
-   in testLEDGER (LedgerState utxoState dpState') tx ledgerEnv (Left errs)
+   in testLEDGER (LedgerState accountingState dpState' def) tx ledgerEnv (Left errs)
 
 testOutputTooSmall :: Assertion
 testOutputTooSmall =
   testInvalidTx
-    [UtxowFailure (UtxoFailure $ OutputTooSmallUTxO [mkBasicTxOut bobAddr (Coin 1)])]
+    [UtxowFailure (UtxoFailure $ OutputTooSmallUTxO [mkBasicTxOutWithMinAda bobAddr (Coin 1)])]
     $ aliceGivesBobLovelace
     $ AliceToBob
       { input = TxIn genesisId minBound
@@ -615,7 +614,7 @@ testProducedOverMaxWord64 =
       txbody =
         mkBasicTxBody
           & inputsTxBodyL .~ Set.fromList [TxIn genesisId minBound]
-          & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOut bobAddr (Coin biggestCoin)]
+          & outputsTxBodyL .~ StrictSeq.fromList [mkBasicTxOutWithMinAda bobAddr (Coin biggestCoin)]
           & feeTxBodyL .~ Coin 1 -- @produced@ will return biggestCoin + 1, which is > 2^64.
           & ttlTxBodyL .~ SlotNo 100
       txwits = mkBasicTxWits & addrTxWitsL .~ mkWitnessesVKey (hashAnnotated txbody) [alicePay]

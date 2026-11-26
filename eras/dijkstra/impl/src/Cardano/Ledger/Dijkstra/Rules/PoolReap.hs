@@ -16,7 +16,6 @@ import Cardano.Ledger.Compactible (fromCompact)
 import Cardano.Ledger.Credential (Credential)
 import Cardano.Ledger.Dijkstra.Core
 import Cardano.Ledger.Dijkstra.Era (DijkstraEra, POOLREAP)
-import Cardano.Ledger.Shelley.LedgerState (UTxOState (..))
 import Cardano.Ledger.Shelley.Rules (
   ShelleyPoolreapEvent (..),
   ShelleyPoolreapState (..),
@@ -65,7 +64,7 @@ instance
   where
   type State (POOLREAP era) = ShelleyPoolreapState era
   type Signal (POOLREAP era) = EpochNo
-  type Environment (POOLREAP era) = ()
+  type Environment (POOLREAP era) = GovState era
   type BaseM (POOLREAP era) = ShelleyBase
   type PredicateFailure (POOLREAP era) = Void
   type Event (POOLREAP era) = ShelleyPoolreapEvent era
@@ -196,7 +195,7 @@ poolReapTransition = do
           }
   pure $
     PoolreapState
-      us {utxosDeposited = utxosDeposited us <-> fromCompact (unclaimed <> refunded)}
+      us {asDeposited = asDeposited us <-> fromCompact (unclaimed <> refunded)}
       a {casTreasury = casTreasury a <+> fromCompact unclaimed}
       ( cs
           & certDStateL . accountsL

@@ -74,9 +74,10 @@ import Cardano.Ledger.Dijkstra.Rules.Ledgers ()
 import Cardano.Ledger.Dijkstra.Rules.Utxo (DijkstraUtxoPredFailure)
 import Cardano.Ledger.Dijkstra.Rules.Utxow (DijkstraUtxowPredFailure)
 import Cardano.Ledger.Shelley.API (incrBlocks)
-import Cardano.Ledger.Shelley.LedgerState (LedgerState (..), utxoL)
+import Cardano.Ledger.Shelley.LedgerState (LedgerState (..))
 import qualified Cardano.Ledger.Shelley.Rules as Shelley
 import Cardano.Ledger.Slot (slotToEpochBoundary)
+import Cardano.Ledger.State (allocations, utxoStoreG)
 import Control.DeepSeq (NFData)
 import Control.State.Transition
 import Data.Sequence (Seq)
@@ -391,7 +392,7 @@ dijkstraBbodyTransition = do
 
   Alonzo.validateExUnits @era txs $ pp ^. ppMaxBlockExUnitsL
 
-  Conway.validateBodyRefScriptsSizeTooBig @era pp blockBody (ls ^. utxoL)
+  Conway.validateBodyRefScriptsSizeTooBig @era pp blockBody (allocations $ ls ^. utxoStoreG)
 
   case blockBody ^. perasCertBlockBodyL of
     SNothing -> pure ()

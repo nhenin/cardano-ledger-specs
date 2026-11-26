@@ -65,7 +65,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
         curEpochNo <- getsNES nesELL
         let drepActivity = 3
         modifyPParams $ ppDRepActivityL .~ EpochInterval drepActivity
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         nes <- getsNES id
         drepState <- drepStateFromQuery drep nes
         drepState ^. drepExpiryL `shouldBe` addEpochInterval curEpochNo (EpochInterval drepActivity)
@@ -83,7 +83,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
         let n = 2
         passNEpochs n
         expectNumDormantEpochs $ EpochNo (fromIntegral n)
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
 
         let expectedExpiry = do
               epochNo <- getsNES nesELL
@@ -107,7 +107,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
         curEpochNo <- getsNES nesELL
         let drepActivity = 3
         modifyPParams $ ppDRepActivityL .~ EpochInterval drepActivity
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         nes <- getsNES id
         drepState <- drepStateFromQuery drep nes
         drepState ^. drepExpiryL `shouldBe` addEpochInterval curEpochNo (EpochInterval drepActivity)
@@ -130,7 +130,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
         curEpochNo <- getsNES nesELL
         let drepActivity = 3
         modifyPParams $ ppDRepActivityL .~ EpochInterval drepActivity
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         nes <- getsNES id
         drepState <- drepStateFromQuery drep nes
         drepState ^. drepExpiryL `shouldBe` addEpochInterval curEpochNo (EpochInterval drepActivity)
@@ -183,7 +183,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
 
     it "members should remain authorized if authorized during the epoch after their election" $
       whenPostBootstrap $ do
-        (drep, _, _) <- setupSingleDRep 1_000_000
+        (drep, _, _) <- setupSingleDRep 2_000_000
         (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
 
         c1 <- KeyHashObj <$> freshKeyHash
@@ -207,7 +207,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
           [(c1, CommitteeMemberState (MemberAuthorized hk1) Active (Just c1Expiry) NoChangeExpected)]
 
   it "queryDRepDelegationState" $ do
-    (credDrep, delegator, _) <- setupSingleDRep 1_000_000
+    (credDrep, delegator, _) <- setupSingleDRep 2_000_000
 
     kh <- freshKeyHash
     let cred = KeyHashObj kh
@@ -240,7 +240,7 @@ spec = withImpInitEachEraVersion (Proxy @era) $ do
       `shouldBe` realDRepDelegations
 
   it "Committee queries" $ whenPostBootstrap $ do
-    (drep, _, _) <- setupSingleDRep 1_000_000
+    (drep, _, _) <- setupSingleDRep 2_000_000
     (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
     curEpochNo <- getsNES nesELL
     let offsetEpochInterval n = addEpochInterval curEpochNo (EpochInterval n)

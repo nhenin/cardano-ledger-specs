@@ -94,7 +94,7 @@ spec = describe "UTXOS" $ do
         it "Passes with proposing purpose" $ whenPostBootstrap $ do
           let sh = hashPlutusScript $ purposeIsWellformedNoDatum slang
           committee <- registerInitialCommittee
-          (dRep, _, _) <- setupSingleDRep 1_000_000
+          (dRep, _, _) <- setupSingleDRep 2_000_000
           anchor <- arbitrary
           void $ enactConstitution SNothing (Constitution anchor (SJust sh)) dRep committee
           account <- registerAccountAddress
@@ -433,7 +433,7 @@ govPolicySpec = do
     -- So we cannot run these tests during bootstrap
     it "failing native script govPolicy" $ whenPostBootstrap $ do
       committeeMembers' <- registerInitialCommittee
-      (dRep, _, _) <- setupSingleDRep 1_000_000
+      (dRep, _, _) <- setupSingleDRep 2_000_000
       scriptHash <- impAddNativeScript $ RequireTimeStart (SlotNo 1)
       anchor <- arbitrary
       void $
@@ -466,7 +466,7 @@ govPolicySpec = do
     it "alwaysSucceeds Plutus govPolicy validates" $ whenPostBootstrap $ do
       let alwaysSucceedsSh = hashPlutusScript (alwaysSucceedsNoDatum SPlutusV3)
       committeeMembers' <- registerInitialCommittee
-      (dRep, _, _) <- setupSingleDRep 1_000_000
+      (dRep, _, _) <- setupSingleDRep 2_000_000
       anchor <- arbitrary
       void $
         enactConstitution
@@ -488,7 +488,7 @@ govPolicySpec = do
     it "alwaysFails Plutus govPolicy does not validate" $ whenPostBootstrap $ do
       let alwaysFailsSh = hashPlutusScript (alwaysFailsNoDatum SPlutusV3)
       committeeMembers' <- registerInitialCommittee
-      (dRep, _, _) <- setupSingleDRep 1_000_000
+      (dRep, _, _) <- setupSingleDRep 2_000_000
       anchor <- arbitrary
       void $
         enactConstitution SNothing (Constitution anchor (SJust alwaysFailsSh)) dRep committeeMembers'
@@ -518,7 +518,7 @@ costModelsSpec =
       modifyPParams $ ppCostModelsL .~ testingCostModels [PlutusV1 .. PlutusV2]
 
       committeeMembers' <- registerInitialCommittee
-      (dRep, _, _) <- setupSingleDRep 1_000_000
+      (dRep, _, _) <- setupSingleDRep 2_000_000
       anchor <- arbitrary
       govIdConstitution1 <-
         enactConstitution SNothing (Constitution anchor SNothing) dRep committeeMembers'
@@ -546,7 +546,7 @@ costModelsSpec =
         modifyPParams $ ppCostModelsL .~ testingCostModels [PlutusV1 .. PlutusV2]
 
         committeeMembers' <- registerInitialCommittee
-        (dRep, _, _) <- setupSingleDRep 1_000_000
+        (dRep, _, _) <- setupSingleDRep 2_000_000
         anchor <- arbitrary
         let alwaysSucceedsSh = hashPlutusScript (alwaysSucceedsNoDatum SPlutusV3)
         void $
@@ -609,7 +609,7 @@ scriptLockedTxOut ::
   ScriptHash ->
   TxOut era
 scriptLockedTxOut shSpending =
-  mkBasicTxOut
+  mkBasicTxOutWithMinAda
     (mkAddr shSpending StakeRefNull)
     mempty
     & dataHashTxOutL .~ SJust (hashData @era $ Data spendDatum)
@@ -627,7 +627,7 @@ mkRefTxOut sh = do
       | plutusScriptLanguage plutusScript >= PlutusV4 -> freshKeyAddrNoPtr_
     _ -> freshKeyAddr_
   pure $
-    mkBasicTxOut addr mempty
+    mkBasicTxOutWithMinAda addr mempty
       & referenceScriptTxOutL .~ maybeToStrictMaybe (fromPlutusScript <$> mbyPlutusScript)
 
 setupRefTx ::

@@ -20,6 +20,7 @@ module Cardano.Ledger.Address (
   bootstrapAddressAttrsSize,
   isBootstrapRedeemer,
   getNetwork,
+  getScriptHash,
   AccountAddress (..),
   AccountId (..),
   accountAddressIdL,
@@ -176,6 +177,11 @@ getNetwork (AddrBootstrap (BootstrapAddress byronAddr)) =
   case Byron.aaNetworkMagic . Byron.attrData . Byron.addrAttributes $ byronAddr of
     Byron.NetworkMainOrStage -> Mainnet
     Byron.NetworkTestnet _ -> Testnet
+
+-- | Extract script hash from value address with script.
+getScriptHash :: Addr -> Maybe ScriptHash
+getScriptHash (Addr _ (ScriptHashObj hs) _) = Just hs
+getScriptHash _ = Nothing
 
 instance NoThunks Addr
 

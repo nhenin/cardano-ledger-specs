@@ -69,7 +69,9 @@ assertTranslationComparison (TranslationInstance protVer supportedLanguage utxo 
       let actual = mkPlutusTxInfo slang lti plutusPurpose
       assertEqual errorMessage expected $ toVersionedTxInfo slang actual
   where
-    lti = mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+    lti =
+      mkTestLedgerTxInfo protVer epochInfo systemStart utxo tx $
+        LedgerTopTxInfo mempty
     errorMessage =
       unlines
         [ "Unexpected TxInfo with arguments: "

@@ -30,9 +30,9 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       (_, shelleyAddr) <- freshKeyAddr
       byronAddr <- AddrBootstrap <$> freshBootstrapAddress
       shelleyTxIn <- sendCoinTo shelleyAddr mempty
-      utxo <- getUTxO
+      entries <- getIndexedUTxOs
       let
-        byronTxOut = mkBasicTxOut byronAddr . inject $ Coin 1
+        byronTxOut = mkBasicTxOutWithMinAda byronAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
         tx =
           mkBasicTx @AlonzoEra mkBasicTxBody
@@ -42,7 +42,7 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton byronTxOut
-        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+        lti = mkTestLedgerTxInfo pv epochInfo systemStart entries tx $ LedgerTopTxInfo mempty
       void $ expectRight $ unPlutusTxInfoResult $ toPlutusTxInfo SPlutusV1 lti
     it "toPlutusTxInfo does not fail when Byron scripts are present in TxIns" $ do
       pv <- getProtVer
@@ -50,9 +50,9 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
       (_, shelleyAddr) <- freshKeyAddr
       byronAddr <- AddrBootstrap <$> freshBootstrapAddress
       byronTxIn <- sendCoinTo byronAddr mempty
-      utxo <- getUTxO
+      entries <- getIndexedUTxOs
       let
-        shelleyTxOut = mkBasicTxOut shelleyAddr . inject $ Coin 1
+        shelleyTxOut = mkBasicTxOutWithMinAda shelleyAddr . inject $ Coin 1
         tx :: Tx TopTx AlonzoEra
         tx =
           mkBasicTx @AlonzoEra mkBasicTxBody
@@ -62,5 +62,5 @@ spec = withImpInit @(LedgerSpec AlonzoEra) $ describe "TxInfo" $ do
             & bodyTxL
               . outputsTxBodyL
               .~ SSeq.singleton shelleyTxOut
-        lti = mkTestLedgerTxInfo pv epochInfo systemStart utxo tx $ LedgerTopTxInfo mempty
+        lti = mkTestLedgerTxInfo pv epochInfo systemStart entries tx $ LedgerTopTxInfo mempty
       void $ expectRight $ unPlutusTxInfoResult $ toPlutusTxInfo SPlutusV1 lti

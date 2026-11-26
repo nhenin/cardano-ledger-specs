@@ -34,7 +34,7 @@ import Cardano.Ledger.Dijkstra.PParams (
   ppPerasTargetCommitteeSizeL,
  )
 import Cardano.Ledger.Dijkstra.Rules.Snap ()
-import Cardano.Ledger.Dijkstra.State.CertState ()
+import Cardano.Ledger.Dijkstra.State.Certificates ()
 import Cardano.Ledger.Plutus.ExUnits (OrdExUnits)
 import Cardano.Ledger.Shelley.API.Forecast (
   EraForecast (..),

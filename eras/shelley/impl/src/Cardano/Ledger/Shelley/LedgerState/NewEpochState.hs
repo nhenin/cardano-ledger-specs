@@ -22,6 +22,10 @@ import Cardano.Ledger.Keys (GenDelegPair (..), GenDelegs (..))
 import Cardano.Ledger.Shelley.Core
 import Cardano.Ledger.Shelley.LedgerState.Types
 import Cardano.Ledger.State
+import qualified Cardano.Ledger.State.Accounting.UTxOs.IndexedUTxOs as IndexedUTxOs
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store as Store
+import qualified Cardano.Ledger.State.Accounting.UTxOs.Store.Internals as StoreInternals
+import Cardano.Ledger.TxOut (sumAllCoin)
 import Cardano.Ledger.Val ((<+>), (<->))
 import Data.Default (def)
 import Data.Foldable (fold)
@@ -56,23 +60,23 @@ getGKeys nes = Map.keysSet $ unGenDelegs (ls ^. lsCertStateL . certDStateL . dsG
 --  contains the specified transaction outputs.
 genesisState ::
   forall era.
-  (EraGov era, EraCertState era, EraStake era) =>
+  (EraGov era, EraCertState era, EraStake era, EraDepositBackedTxOut era) =>
   Map (KeyHash GenesisRole) GenDelegPair ->
-  UTxO era ->
+  IndexedUTxOs era ->
   LedgerState era
 genesisState genDelegs0 utxo0 =
   LedgerState
-    ( UTxOState
-        utxo0
+    ( AccountingState
+        (mkUTxOStore def utxo0)
         (Coin 0)
         (Coin 0)
-        emptyGovState
         mempty
         mempty
     )
     ( def
         & certDStateL .~ dState
     )
+    emptyGovState
   where
     dState :: DState era
     dState =
@@ -130,15 +134,21 @@ returnRedeemAddrsToReserves ::
 returnRedeemAddrsToReserves es = es {esChainAccountState = acnt', esLState = ls'}
   where
     ls = esLState es
-    us = lsUTxOState ls
-    UTxO utxo = utxosUtxo us
-    (redeemers, nonredeemers) =
-      Map.partition (maybe False isBootstrapRedeemer . view bootAddrTxOutF) utxo
+    us = lsAccountingState ls
+    redeemers =
+      IndexedUTxOs.filterByTxOut (maybe False isBootstrapRedeemer . view bootAddrTxOutF)
+        . Store.allocations
+        . asUTxOStore
+        $ us
     acnt = esChainAccountState es
-    utxoR = UTxO redeemers :: UTxO era
     acnt' =
       acnt
-        { casReserves = casReserves acnt <+> sumCoinUTxO utxoR
+        { casReserves =
+            casReserves acnt <+> (sumAllCoin . IndexedUTxOs.txOuts $ redeemers)
         }
-    us' = us {utxosUtxo = UTxO nonredeemers :: UTxO era}
-    ls' = ls {lsUTxOState = us'}
+    us' =
+      us
+        { asUTxOStore =
+            StoreInternals.release (IndexedUTxOs.inputIds redeemers) $ asUTxOStore us
+        }
+    ls' = ls {lsAccountingState = us'}

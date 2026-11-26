@@ -1,0 +1,47 @@
+name: Install Linux library dependencies
+description: Install the native libraries required by the ledger build
+
+inputs:
+  use-sodium-vrf:
+    description: Use libsodium with the VRF extension
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+  - name: Install library dependencies
+    shell: bash
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SODIUM_PACKAGE: ${{ inputs.use-sodium-vrf == 'true' && 'libsodium-vrf' || 'libsodium' }}
+    run: |
+      set -euo pipefail
+
+      sudo apt-get update
+      sudo apt-get -y install libsystemd-dev liburing-dev
+
+      package_dir=$(mktemp -d)
+      trap 'rm -rf "$package_dir"' EXIT
+
+      # Pin the release previously selected by actions/base's latest URL.
+      for attempt in 1 2 3 4 5; do
+        if gh release download v3.2 --repo input-output-hk/iohk-nix \
+          --pattern "debian.$SODIUM_PACKAGE.deb" \
+          --pattern debian.libsecp256k1.deb \
+          --pattern debian.libblst.deb \
+          --clobber --dir "$package_dir"; then
+          break
+        fi
+        if (( attempt == 5 )); then
+          echo 'Native library download failed after five attempts.' >&2
+          exit 1
+        fi
+        sleep "$((attempt * 5))"
+      done
+
+      for package in "$package_dir"/*.deb; do
+        sudo dpkg -i "$package"
+      done
+
+      echo "PKG_CONFIG_PATH=/usr/local/opt/cardano/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> "$GITHUB_ENV"
+      echo "LD_LIBRARY_PATH=/usr/local/opt/cardano/lib:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"

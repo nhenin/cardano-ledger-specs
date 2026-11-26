@@ -85,7 +85,6 @@ import Cardano.Ledger.Plutus.TxInfo (
   transTxIn,
   txOutSourceToText,
  )
-import Cardano.Ledger.State (UTxO (..))
 import Cardano.Ledger.TxIn (TxIn (..), txInToText)
 import Control.DeepSeq (NFData)
 import Control.Monad (unless, when, zipWithM)
@@ -139,7 +138,9 @@ transTxOutV2 ::
   TxOut era ->
   Either (ContextError era) PV2.TxOut
 transTxOutV2 txOutSource txOut = do
-  let val = txOut ^. valueTxOutL
+  let val = case txOut of
+        MinAdaTxOut output -> output ^. valueTxOutL
+        DepositBackedTxOut _ -> error "Babbage.transTxOutV2: unexpected DepositBackedTxOut"
       referenceScript = transReferenceScript $ txOut ^. referenceScriptTxOutL
       datum =
         case txOut ^. datumTxOutF of
@@ -157,7 +158,7 @@ transTxOutV2 txOutSource txOut = do
     Just addr ->
       Right (PV2.TxOut addr (Alonzo.transValue val) datum referenceScript)
 
--- | Given a TxIn, look it up in the UTxO. If it exists, translate it to the V1 context
+-- | Given a TxIn, look it up in the allocations. If it exists, translate it to the V1 context
 transTxInInfoV1 ::
   forall era.
   ( Inject (Alonzo.AlonzoContextError era) (ContextError era)
@@ -165,15 +166,15 @@ transTxInInfoV1 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  UTxO era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV1.TxInInfo
-transTxInInfoV1 utxo txIn = do
-  txOut <- Alonzo.transLookupTxOut utxo txIn
+transTxInInfoV1 entries txIn = do
+  txOut <- Alonzo.transLookupTxOut entries txIn
   plutusTxOut <- transTxOutV1 (TxOutFromInput txIn) txOut
   Right (PV1.TxInInfo (transTxIn txIn) plutusTxOut)
 
--- | Given a TxIn, look it up in the UTxO. If it exists, translate it to the V2 context
+-- | Given a TxIn, look it up in the allocations. If it exists, translate it to the V2 context
 transTxInInfoV2 ::
   forall era.
   ( Inject (Alonzo.AlonzoContextError era) (ContextError era)
@@ -181,11 +182,11 @@ transTxInInfoV2 ::
   , Value era ~ MaryValue
   , BabbageEraTxOut era
   ) =>
-  UTxO era ->
+  IndexedUTxOs era ->
   TxIn ->
   Either (ContextError era) PV2.TxInInfo
-transTxInInfoV2 utxo txIn = do
-  txOut <- Alonzo.transLookupTxOut utxo txIn
+transTxInInfoV2 entries txIn = do
+  txOut <- Alonzo.transLookupTxOut entries txIn
   plutusTxOut <- transTxOutV2 (TxOutFromInput txIn) txOut
   Right (PV2.TxInInfo (transTxIn txIn) plutusTxOut)
 
@@ -361,7 +362,7 @@ instance EraPlutusTxInfo 'PlutusV1 BabbageEra where
 
   toPlutusScriptPurpose proxy lti = Alonzo.transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     PlutusTxInfoResult $ withTopTxLevelOnly ltiTx $ \tx -> do
       let
         txBody = tx ^. bodyTxL
@@ -370,7 +371,7 @@ instance EraPlutusTxInfo 'PlutusV1 BabbageEra where
 
       timeRange <-
         Alonzo.transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputs <- mapM (transTxInInfoV1 ltiUTxO) (Set.toList (txBody ^. inputsTxBodyL))
+      inputs <- mapM (transTxInInfoV1 ltiAllocations) (Set.toList (txBody ^. inputsTxBodyL))
       outputs <-
         zipWithM
           (transTxOutV1 . TxOutFromOutput)
@@ -400,13 +401,13 @@ instance EraPlutusTxInfo 'PlutusV2 BabbageEra where
 
   toPlutusScriptPurpose proxy lti = Alonzo.transPlutusPurpose proxy (ltiProtVer lti)
 
-  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiUTxO, ltiTx} =
+  toPlutusTxInfo proxy lti@LedgerTxInfo {ltiProtVer, ltiEpochInfo, ltiSystemStart, ltiAllocations, ltiTx} =
     PlutusTxInfoResult $ withTopTxLevelOnly ltiTx $ \tx -> do
       let txBody = tx ^. bodyTxL
       timeRange <-
         Alonzo.transValidityInterval tx ltiEpochInfo ltiSystemStart (txBody ^. vldtTxBodyL)
-      inputs <- mapM (transTxInInfoV2 ltiUTxO) (Set.toList (txBody ^. inputsTxBodyL))
-      refInputs <- mapM (transTxInInfoV2 ltiUTxO) (Set.toList (txBody ^. referenceInputsTxBodyL))
+      inputs <- mapM (transTxInInfoV2 ltiAllocations) (Set.toList (txBody ^. inputsTxBodyL))
+      refInputs <- mapM (transTxInInfoV2 ltiAllocations) (Set.toList (txBody ^. referenceInputsTxBodyL))
       outputs <-
         zipWithM
           (transTxOutV2 . TxOutFromOutput)
@@ -455,4 +456,4 @@ toPlutusV2Args proxy lti@LedgerTxInfo {..} txInfo scriptPurpose redeemerData =
       redeemerData
   where
     maybeSpendingDatum =
-      getSpendingDatum ltiUTxO ltiTx $ hoistPlutusPurpose toAsItem scriptPurpose
+      getSpendingDatum ltiAllocations ltiTx $ hoistPlutusPurpose toAsItem scriptPurpose

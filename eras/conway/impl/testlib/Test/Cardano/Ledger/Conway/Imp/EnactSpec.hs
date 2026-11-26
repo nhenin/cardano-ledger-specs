@@ -108,7 +108,7 @@ treasuryWithdrawalsSpec =
     it "Withdrawals exceeding treasury submitted in a single proposal" $ whenPostBootstrap $ do
       disableTreasuryExpansion
       committeeCs <- registerInitialCommittee
-      (drepC, _, _) <- setupSingleDRep 1_000_000
+      (drepC, _, _) <- setupSingleDRep 2_000_000
       initialTreasury <- getsNES treasuryL
       numWithdrawals <- choose (1, 10)
       withdrawals <- genWithdrawalsExceeding initialTreasury numWithdrawals
@@ -129,7 +129,7 @@ treasuryWithdrawalsSpec =
     it "Withdrawals exceeding maxBound Word64 submitted in a single proposal" $ whenPostBootstrap $ do
       disableTreasuryExpansion
       committeeCs <- registerInitialCommittee
-      (drepC, _, _) <- setupSingleDRep 1_000_000
+      (drepC, _, _) <- setupSingleDRep 2_000_000
       initialTreasury <- getsNES treasuryL
       numWithdrawals <- choose (1, 10)
       withdrawals <- genWithdrawalsExceeding (Coin (fromIntegral (maxBound :: Word64))) numWithdrawals
@@ -141,7 +141,7 @@ treasuryWithdrawalsSpec =
         do
           disableTreasuryExpansion
           committeeCs <- registerInitialCommittee
-          (drepC, _, _) <- setupSingleDRep 1_000_000
+          (drepC, _, _) <- setupSingleDRep 2_000_000
           donateToTreasury $ Coin 5_000_000
           initialTreasury <- getsNES treasuryL
           numWithdrawals <- choose (1, 10)
@@ -307,7 +307,7 @@ noConfidenceSpec =
     khCC <- freshKeyHash
     initialCommitteeMembers <- getCommitteeMembers
 
-    (drep, _, _) <- setupSingleDRep 1_000_000
+    (drep, _, _) <- setupSingleDRep 2_000_000
     startEpochNo <- getsNES nesELL
     let committeeMap =
           Map.fromList
@@ -338,7 +338,7 @@ constitutionSpec ::
 constitutionSpec =
   it "Constitution" $ do
     (committeeMember1 :| [committeeMember2]) <- registerInitialCommittee
-    (dRep, _, _) <- setupSingleDRep 1_000_000
+    (dRep, _, _) <- setupSingleDRep 2_000_000
     initialConstitution <- getConstitution
     (proposal, constitution) <- mkConstitutionProposal SNothing
     mbGovActionId <-
@@ -406,8 +406,8 @@ actionPrioritySpec :: forall era. ConwayEraImp era => SpecWith (ImpInit (LedgerS
 actionPrioritySpec =
   describe "Competing proposals" $ do
     it "higher action priority wins" $ do
-      (drepC, _, _) <- setupSingleDRep 1_000_000
-      (poolKH, _, _) <- setupPoolWithStake $ Coin 1_000_000
+      (drepC, _, _) <- setupSingleDRep 2_000_000
+      (poolKH, _, _) <- setupPoolWithStake $ Coin 2_000_000
       cc <- KeyHashObj <$> freshKeyHash
       proposal <-
         mkUpdateCommitteeProposal Nothing mempty [(cc, EpochInterval 30)] (1 %! 3)
@@ -431,7 +431,7 @@ actionPrioritySpec =
 
         committee <-
           getsNES $
-            nesEsL . esLStateL . lsUTxOStateL . utxosGovStateL . committeeGovStateL
+            nesEsL . esLStateL . lsGovStateL . committeeGovStateL
         committee `shouldBe` SNothing
 
     -- distinct constitutional values for minFee
@@ -534,7 +534,7 @@ committeeSpec =
     it "Enact UpdateCommitee with lengthy lifetime" $ do
       NonNegative n <- arbitrary
       passNEpochs n
-      (drepCred, _, _) <- setupSingleDRep 1_000_000
+      (drepCred, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
       cc <- KeyHashObj <$> freshKeyHash
       EpochInterval committeeMaxTermLength <-
@@ -555,7 +555,7 @@ committeeSpec =
 
     -- A CC that has resigned will need to be first voted out and then voted in to be considered active
     it "CC re-election" $ do
-      (drepCred, _, _) <- setupSingleDRep 1_000_000
+      (drepCred, _, _) <- setupSingleDRep 2_000_000
       (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
       passNEpochs 2
       -- Add a fresh CC
@@ -604,7 +604,7 @@ committeeSpec =
         ccShouldNotBeResigned cc
     describe "Removing CC with UpdateCommittee" $ do
       it "Non registered" $ do
-        (drepCred, _, _) <- setupSingleDRep 1_000_000
+        (drepCred, _, _) <- setupSingleDRep 2_000_000
         (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
         passNEpochs 2
         initialCommittee <- getCommitteeMembers
@@ -623,7 +623,7 @@ committeeSpec =
           logToExpr finalCommittee
           finalCommittee `shouldSatisfy` Set.null
       it "Registered" $ do
-        (drepCred, _, _) <- setupSingleDRep 1_000_000
+        (drepCred, _, _) <- setupSingleDRep 2_000_000
         (spoC, _, _) <- setupPoolWithStake $ Coin 42_000_000
         passNEpochs 2
         initialCommittee <- getCommitteeMembers

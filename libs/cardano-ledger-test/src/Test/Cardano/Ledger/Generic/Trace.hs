@@ -27,7 +27,6 @@ import Cardano.Ledger.Shelley.LedgerState (
   LedgerState (..),
   NewEpochState (..),
   StashedAVVMAddresses,
-  UTxOState (..),
   curPParamsEpochStateL,
   esLStateL,
   esSnapshotsL,
@@ -190,14 +189,20 @@ makeEpochState gstate ledgerstate =
 
 snaps ::
   (EraTxOut era, EraCertState era, ShelleyEraAccounts era) => LedgerState era -> SnapShots era
-snaps (LedgerState UTxOState {utxosUtxo = u, utxosFees = f} certState) =
-  SnapShots mark set (mkGoSnapShot set) f
-  where
-    pstate = certState ^. certPStateL
-    dstate = certState ^. certDStateL
-    snap = stakeDistr u dstate pstate
-    mark = mkMarkSnapShot snap (EpochNo 0) 0 (EpochInterval 0)
-    set = mkSetSnapShot mark
+snaps
+  ( LedgerState
+      AccountingState {asUTxOStore = store, asFees = f}
+      certState
+      _
+    ) =
+    SnapShots mark set (mkGoSnapShot set) f
+    where
+      pstate = certState ^. certPStateL
+      dstate = certState ^. certDStateL
+      u = allocations $ store
+      snap = stakeDistr u dstate pstate
+      mark = mkMarkSnapShot snap (EpochNo 0) 0 (EpochInterval 0)
+      set = mkSetSnapShot mark
 
 -- ==============================================================================
 
