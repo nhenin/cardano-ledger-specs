@@ -12,15 +12,19 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
 
 ## Table of contents
 
-Select a title to open it. Use the arrow to expand its subsections.
-
-[Domain model](#1-domain-model) · [Transaction rules](#2-transaction-rules) · [Ledger effects](#3-ledger-effects) · [Derived distributions](#4-derived-distributions) · [Appendices](#appendices) · [Verification record](#verification-record)
+| Chapter | Scope |
+| --- | --- |
+| [1. Domain model](#1-domain-model) | Output forms, Store records and deposit calculation |
+| [2. Transaction rules](#2-transaction-rules) | TopTx and SubTx declarations, accounting, authorization, settlement, minimum coin and collateral |
+| [3. Ledger effects](#3-ledger-effects) | Changes to UTxOs, Store allocations and fees on success or phase-2 failure |
+| [4. Derived distributions](#4-derived-distributions) | Stake and voting power |
+| [Appendices](#appendices) | Open design questions, tag migration, code references and net-change test cases |
+| [Verification record](#verification-record) | Test coverage and results by date |
 
 <a id="1-domain-model" name="1-domain-model"></a>
 
 <details open>
   <summary><strong><a href="chapters/domain-model.md">1. Domain model</a></strong></summary>
-  <p>What does each form of output carry, what does the Store record, and how is the required deposit calculated?</p>
   <dl><dd>
     <div><a href="chapters/domain-model.md#section-1">1.1 Outputs</a></div>
     <div><a href="chapters/domain-model.md#section-1-1">1.2 DepositStore</a></div>
@@ -44,7 +48,6 @@ Select a title to open it. Use the arrow to expand its subsections.
 
 <details open>
   <summary><strong><a href="chapters/transaction-rules.md">2. Transaction rules</a></strong></summary>
-  <p>What must TopTx and SubTx declare, who authorizes a release, and how does the ledger check accounting, settlement, minimum coin and collateral?</p>
   <dl><dd>
     <details open>
       <summary><a href="chapters/transaction-rules.md#ds-tx">2.1 Tx</a></summary>
@@ -428,7 +431,6 @@ Select a title to open it. Use the arrow to expand its subsections.
 
 <details open>
   <summary><strong><a href="chapters/ledger-effects.md">3. Ledger effects</a></strong></summary>
-  <p>After validation, which inputs, outputs, deposits and fees change on ordinary success or on a phase-2 failure?</p>
   <dl><dd>
     <details>
       <summary><a href="chapters/ledger-effects.md#ds-state-utxo">3.1 UTxO</a></summary>
@@ -508,7 +510,6 @@ Select a title to open it. Use the arrow to expand its subsections.
 
 <details open>
   <summary><strong><a href="chapters/derived-distributions.md">4. Derived distributions</a></strong></summary>
-  <p>How do stake and voting power follow from the resulting ledger state?</p>
   <dl><dd>
     <details>
       <summary><a href="chapters/derived-distributions.md#ds-stake">4.1 Stake</a></summary>
@@ -536,7 +537,6 @@ Select a title to open it. Use the arrow to expand its subsections.
 
 <details open>
   <summary><strong><a href="chapters/appendices.md">Appendices</a></strong></summary>
-  <p>Where are the open design questions, tag migration, implementation references and detailed net-change test cases?</p>
   <dl><dd>
     <details>
       <summary><a href="chapters/appendices.md#section-8">A. Remaining design work</a></summary>
@@ -619,7 +619,6 @@ Select a title to open it. Use the arrow to expand its subsections.
 
 <details open>
   <summary><strong><a href="verification.md">Verification record</a></strong></summary>
-  <p>Which rules have been tested, and what were the results at each checkpoint?</p>
   <dl><dd>
     <div><a href="verification.md#verification-baselines">Verification baselines</a></div>
     <div><a href="verification.md#current-implementation-status">Current implementation status</a></div>
