@@ -1,5 +1,5 @@
 -- | Executable DepositStore specification. Domain groups follow the business
--- specification in docs/dijkstra-deposit-store/README.md; semantic tags identify
+-- specification in docs/dijkstra-utxo-deposit-rules/README.md; semantic tags identify
 -- each invariant and case independently of document section numbers.
 --
 -- Scenario tables and properties stay with the invariant they check. Adapters
@@ -8,7 +8,7 @@
 --
 -- Agreed contracts awaiting implementation are explicitly pending, not passing
 -- checks or fabricated failures. Existing coverage is referenced rather than copied.
--- Implementation evidence belongs in docs/dijkstra-deposit-store/verification.md.
+-- Implementation evidence belongs in docs/dijkstra-utxo-deposit-rules/verification.md.
 module Test.Cardano.Ledger.Dijkstra.Imp.DepositStoreSpec (spec) where
 
 import Test.Cardano.Ledger.Common (Spec, describe)
