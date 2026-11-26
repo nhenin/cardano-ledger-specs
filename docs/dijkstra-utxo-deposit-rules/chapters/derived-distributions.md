@@ -4,9 +4,9 @@
 
 [Specification contents](../README.md#table-of-contents) · [← Ledger effects](ledger-effects.md) · [Appendices →](appendices.md) · [Verification record](../verification.md) · [CIP draft](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) · [Latest version of this page](https://github.com/nhenin/cardano-ledger-specs/blob/v2-minutxo/docs/dijkstra-utxo-deposit-rules/chapters/derived-distributions.md)
 
-> **Scope:** These rules and examples remain documented; stake and voting tests are deferred.
+**Should an external deposit carry stake or voting weight while its output is unspent?** The deposit rules determine how much ADA the ledger holds and when it releases it. The protocol can choose separately how that ADA contributes to the stake distribution and to delegated voting power.
 
-> **Determine stake and voting power from the resulting ledger under their existing rules.**
+The **prototype** uses the ADA in the output’s value for both distributions. For an eligible minimum-ADA output, that includes its embedded reserve. For an eligible deposit-backed output, only its application ADA carries weight.
 
 ## Table of contents
 
@@ -14,146 +14,71 @@
 <details>
   <summary><a href="#ds-stake">4.1 Stake</a></summary>
   <div><ul type="none"><li>
-      <div>•&numsp;<a href="#ds-stake-n01">4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules</a></div>
-      <div>•&numsp;<a href="#ds-stake-n02">4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules</a></div>
-      <div>•&numsp;<a href="#ds-stake-n03">4.1.3 N03 - does not add the global Store balance to stake totals</a></div>
-      <div>•&numsp;<a href="#ds-stake-n04">4.1.4 N04 - Derive stake from applied allocations</a></div>
-      <div>•&numsp;<a href="#ds-stake-n05">4.1.5 N05 - Derive stake from applied releases</a></div>
-      <div>•&numsp;<a href="#ds-stake-n06">4.1.6 N06 - Ignore unapplied collateral</a></div>
-      <div>•&numsp;<a href="#ds-stake-n07">4.1.7 N07 - Derive stake from collateral on phase-2 failure</a></div>
-      <div>•&numsp;<a href="#ds-stake-n08">4.1.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects</a></div>
+      <div>•&numsp;<a href="#ds-stake-n01">4.1.1 N01 - Full ADA in a minimum-ADA output</a></div>
+      <div>•&numsp;<a href="#ds-stake-n02">4.1.2 N02 - Application ADA in a deposit-backed output</a></div>
+      <div>•&numsp;<a href="#ds-stake-n03">4.1.3 N03 - Several deposits in the Store</a></div>
+      <div>•&numsp;<a href="#ds-stake-n04">4.1.4 N04 - Allocate a deposit</a></div>
+      <div>•&numsp;<a href="#ds-stake-n05">4.1.5 N05 - Release a deposit</a></div>
+      <div>•&numsp;<a href="#ds-stake-n06">4.1.6 N06 - Ordinary success with collateral</a></div>
+      <div>•&numsp;<a href="#ds-stake-n07">4.1.7 N07 - Accepted phase-2 failure</a></div>
+      <div>•&numsp;<a href="#ds-stake-n08">4.1.8 N08 - Eligibility, delegation and snapshots</a></div>
   </li></ul></div>
 </details>
 <details>
   <summary><a href="#ds-voting">4.2 Voting</a></summary>
   <div><ul type="none"><li>
-      <div>•&numsp;<a href="#ds-voting-n01">4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance</a></div>
+      <div>•&numsp;<a href="#ds-voting-n01">4.2.1 N01 - Weight delegated to two DReps</a></div>
   </li></ul></div>
 </details>
 </li></ul>
+
+Consider one eligible deposit-backed output holding **8 ADA** in its value, with **2 ADA** held separately. The figure compares two ways to calculate its contribution to a distribution from the same ledger state.
+
+![An eligible output carries 8 ADA and requires a separate 2 ADA deposit. The prototype attributes 8 ADA to the credential. A policy that also attributes the external deposit gives it 10 ADA. The ledger accounts for 10 ADA in both cases.](../images/external-deposit-distribution-policy.svg)
+
+The prototype can derive both distributions from the output values it already tracks. An **alternative** could credit each live external deposit to its output’s staking credential at the relevant snapshot. For an eligible credential, converting a 10 ADA minimum-ADA output into the 8 + 2 ADA form would then preserve its weight. Such a policy would need to specify the recipient, eligibility and snapshot for each distribution. All nodes must agree on those rules.
+
+Under either policy, the 2 ADA remains in the deposit until the output is spent. The ledger counts it once in the monetary total. [Deposit accounting](domain-model.md#section-1-1) · [ADA conservation](ledger-effects.md#ds-state-conservation)
 
 <a id="ds-stake" name="ds-stake"></a>
 
 ## 4.1 Stake
 
-> **Determine which output ADA contributes under the existing staking rules.**
->
-> Min-ADA output: full ADA · Deposit-backed output: application ADA · External deposit: no additional stake.
+The prototype updates instant stake from the outputs the ledger actually consumes and creates. For each output with a base staking credential, it uses the ADA in the output’s value. Registration and pool delegation determine which credentials contribute to the pool distribution at its usual snapshot. [Stake update](../../../libs/cardano-ledger-core/src/Cardano/Ledger/State/Accounting/Stake.hs#L19-L24) · [Output ADA by credential](../../../eras/conway/impl/src/Cardano/Ledger/Conway/State/Accounting/InstantStake.hs#L102-L123) · [Pool snapshot](../../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/Rules/Snap.hs#L124-L130)
 
-**Decision:** Exclude DepositStore UTxO capacity deposits from stake for the current prototype.
+**While the output is live.** Assume the examples below use eligible, delegated credentials.
 
-Apply the existing staking eligibility and delegation rules to the output's ADA contribution:
+| Case | Live outputs | Contribution under the prototype |
+| --- | --- | --- |
+| <a id="ds-stake-n01" name="ds-stake-n01"></a><a id="411-n01---counts-the-full-ada-in-min-ada-outputs-under-the-existing-staking-rules" name="411-n01---counts-the-full-ada-in-min-ada-outputs-under-the-existing-staking-rules"></a>**4.1.1 N01** | A minimum-ADA output holds **10 ADA**, including its embedded reserve. | The credential contributes **10 ADA**. |
+| <a id="ds-stake-n02" name="ds-stake-n02"></a><a id="412-n02---counts-only-application-ada-in-deposit-backed-outputs-under-the-existing-staking-rules" name="412-n02---counts-only-application-ada-in-deposit-backed-outputs-under-the-existing-staking-rules"></a>**4.1.2 N02** | A deposit-backed output holds **8 ADA** and has a **2 ADA** external deposit. | The credential contributes **8 ADA**. An output carrying only tokens contributes **0 ADA**, even with a positive deposit. |
+| <a id="ds-stake-n03" name="ds-stake-n03"></a><a id="413-n03---does-not-add-the-global-store-balance-to-stake-totals" name="413-n03---does-not-add-the-global-store-balance-to-stake-totals"></a>**4.1.3 N03** | Two deposit-backed outputs carry **8 ADA** and **4 ADA** for different credentials. Their deposits are 2 ADA and 1 ADA. | The credentials contribute **8 ADA** and **4 ADA** respectively. The Store’s 3 ADA total adds no weight to either credential. |
 
-```math
-\text{stakeContribution}(\text{output}) =
-\begin{cases}
-\text{full ADA in output} & \text{if output is implicit} \\
-\text{application ADA in output} & \text{if output is deposit-backed}
-\end{cases}
-```
+**When a transaction is applied.** The ledger updates each credential’s UTxO stake as it spends and creates outputs. The pool distribution uses those amounts at the applicable snapshot. The allocation and release examples below keep the same credential and fund fees separately.
 
-An eligible min-ADA output containing 10 ADA therefore contributes 10 ADA. A deposit-backed output containing 8 application ADA with a 2 ADA allocated deposit contributes only 8 ADA where otherwise eligible. Do not attribute its external allocated deposit to its staking credential or add the global Store balance separately to stake totals.
-
-An allocation or release affects stake through the outputs and other existing stake updates actually applied. It creates no independent Store attribution. Ordinary success leaves collateral settlement and collateral return unapplied; accepted phase-2 failure derives stake effects from collateral consumption and return, without applying ordinary outputs or ordinary Store operations.
-
-Existing registration, eligibility, delegation and snapshot timing remain in force. A contribution amount is not a claim that every output currently participates in stake. The exclusion also does not remove Store ADA from monetary conservation under `DS-STATE-CONSERVATION`. Voting weight is checked separately under `DS-VOTING`.
-
-<a id="ds-stake-n01" name="ds-stake-n01"></a>
-
-### 4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules
-
-Given a min-ADA output eligible under the existing staking rules, use its full output ADA as its stake contribution. Keeping the legacy minimum inside that value does not create an external amount to subtract.
-
-<a id="ds-stake-n02" name="ds-stake-n02"></a>
-
-### 4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules
-
-Given an eligible deposit-backed output, count its application ADA and exclude its externally allocated deposit. For 8 application ADA and a 2 ADA deposit, the contribution base is 8 ADA.
-
-<a id="ds-stake-n03" name="ds-stake-n03"></a>
-
-### 4.1.3 N03 - does not add the global Store balance to stake totals
-
-Given a nonzero global Store balance, do not add that pot separately to stake totals or assign it to output credentials. Only otherwise eligible output ADA follows the existing stake rules.
-
-<a id="ds-stake-n04" name="ds-stake-n04"></a>
-
-### 4.1.4 N04 - Derive stake from applied allocations
-
-```math
-\begin{aligned}
-\text{ordinary success} \land \text{net allocation}>0
-\implies\quad
-\text{stake effects}
-&= \text{existing stake rules}(\text{applied ordinary UTxO effects})
-\end{aligned}
-```
-
-Given an ordinary successful allocation, derive stake effects from the ordinary outputs and existing stake updates actually applied. Funding the external deposit creates no separate credited stake.
-
-<a id="ds-stake-n05" name="ds-stake-n05"></a>
-
-### 4.1.5 N05 - Derive stake from applied releases
-
-```math
-\begin{aligned}
-\text{ordinary success} \land \text{net release}>0
-\implies\quad
-\text{stake effects}
-&= \text{existing stake rules}(\text{applied ordinary UTxO effects})
-\end{aligned}
-```
-
-Given an ordinary successful release, derive stake effects from the resulting ordinary outputs under existing eligibility rules. The released amount does not create an additional Store attribution beside those effects.
-
-<a id="ds-stake-n06" name="ds-stake-n06"></a>
-
-### 4.1.6 N06 - Ignore unapplied collateral
-
-```math
-\text{ordinary success} \implies
-\text{additional stake effects from collateral} = 0
-```
-
-Given ordinary success with supplied collateral and a possible return, do not apply additional stake effects from collateral settlement or that return. Include an input shared with ordinary spending: its ordinary consumption affects stake once, while inputs used only as collateral remain live.
-
-<a id="ds-stake-n07" name="ds-stake-n07"></a>
-
-### 4.1.7 N07 - Derive stake from collateral on phase-2 failure
-
-```math
-\begin{aligned}
-\text{accepted phase-2 failure} \implies\quad
-\text{stake effects}
-&= \text{existing stake rules}(\text{applied collateral UTxO effects}) \\
-\text{stake effects from unapplied ordinary activity} &= 0
-\end{aligned}
-```
-
-Given an accepted phase-2 failure, compare the resulting stake distribution with the independently selected collateral consumption and return effects under existing rules. Cover absent, min-ADA and deposit-backed returns and an input shared with ordinary spending. Unapplied ordinary outputs, allocations and releases add no stake effects.
-
-<a id="ds-stake-n08" name="ds-stake-n08"></a>
-
-### 4.1.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects
-
-Given allocation, release or collateral effects, observe positive eligible stake alongside ineligible credentials and distinct delegation destinations before and after the existing snapshot boundary. Compare the expected distribution under unchanged registration, eligibility, delegation and timing rules. Excluding external deposits must neither remove eligible application ADA nor create eligibility or apply a snapshot early.
+| Case | Applied transaction | Effect on stake |
+| --- | --- | --- |
+| <a id="ds-stake-n04" name="ds-stake-n04"></a><a id="414-n04---derive-stake-from-applied-allocations" name="414-n04---derive-stake-from-applied-allocations"></a>**4.1.4 N04** | Spend the 10 ADA minimum-ADA output. Create an output carrying 8 ADA with a 2 ADA external deposit. | The credential’s base goes from **10 to 8 ADA**. The new output supplies the 8 ADA. |
+| <a id="ds-stake-n05" name="ds-stake-n05"></a><a id="415-n05---derive-stake-from-applied-releases" name="415-n05---derive-stake-from-applied-releases"></a>**4.1.5 N05** | Spend that deposit-backed output. Put its 8 ADA of value and the released 2 ADA into a 10 ADA minimum-ADA output. | The base goes from **8 to 10 ADA**. The new output already includes the released ADA. |
+| <a id="ds-stake-n06" name="ds-stake-n06"></a><a id="416-n06---ignore-unapplied-collateral" name="416-n06---ignore-unapplied-collateral"></a>**4.1.6 N06** | Ordinary execution succeeds. | Remove the ordinary inputs and add the ordinary outputs. Collateral-only inputs stay live. A reference used for both ordinary spending and collateral is consumed once. The proposed collateral return adds no stake. |
+| <a id="ds-stake-n07" name="ds-stake-n07"></a><a id="417-n07---derive-stake-from-collateral-on-phase-2-failure" name="417-n07---derive-stake-from-collateral-on-phase-2-failure"></a>**4.1.7 N07** | An accepted phase-2 failure spends collateral. | Remove the spent collateral inputs, including an input also named for ordinary spending. Add the ADA carried by the actual return, if any, if its address supplies a staking credential. This applies to both return forms. Unapplied ordinary outputs contribute nothing. |
+| <a id="ds-stake-n08" name="ds-stake-n08"></a><a id="418-n08---preserves-existing-staking-eligibility-delegation-and-snapshot-timing-after-allocation-release-and-collateral-effects" name="418-n08---preserves-existing-staking-eligibility-delegation-and-snapshot-timing-after-allocation-release-and-collateral-effects"></a>**4.1.8 N08** | An allocation, release or collateral spend changes which outputs are live before a snapshot. | At the usual boundary, each eligible credential contributes to its delegated pool. An output without an eligible delegation adds no pool stake. The transaction itself does not advance the snapshot. |
 
 <a id="ds-voting" name="ds-voting"></a>
 
 ## 4.2 Voting
 
-> **Exclude external deposits from additional voting power.**
->
-> Application ADA follows existing eligibility rules. Store ADA remains part of monetary conservation, but adds no voting weight.
+The prototype makes the same choice for **delegated representative (DRep) voting power**. The UTxO contribution comes from the ADA attributed to each eligible staking credential. Its DRep delegation determines who receives that weight. The existing voting calculation also includes eligible account balances and governance proposal deposits under their own rules. [DRep distribution calculation](../../../eras/conway/impl/src/Cardano/Ledger/Conway/Governance/DRepPulser.hs#L210-L242)
 
-**Decision:** Exclude DepositStore UTxO capacity deposits from voting power for the current prototype.
+<a id="ds-voting-n01" name="ds-voting-n01"></a><a id="421-n01---preserves-the-expected-voting-distribution-from-eligible-funds-while-excluding-allocated-utxo-capacity-deposits-and-store-balance" name="421-n01---preserves-the-expected-voting-distribution-from-eligible-funds-while-excluding-allocated-utxo-capacity-deposits-and-store-balance"></a>
 
-ADA held in the Store creates no additional voting weight. Do not attribute a deposit-backed output's allocated deposit to its credential or count the global Store balance separately in voting distributions. The application ADA remaining in outputs continues through existing eligibility, delegation and snapshot rules.
+### 4.2.1 N01 - Weight delegated to two DReps
 
-This concerns the resulting voting distribution, separately from the stake observations in `DS-STAKE`. The excluded Store ADA still exists in the monetary total checked by `DS-STATE-CONSERVATION`.
+At the voting snapshot, consider two credentials with eligible delegations.
 
-<a id="ds-voting-n01" name="ds-voting-n01"></a>
+- **DRep A** receives **10 ADA** of weight from a minimum-ADA output carrying 10 ADA. Its embedded reserve is included in that value.
+- **DRep B** receives **8 ADA** of weight from the deposit-backed output in the figure. Crediting the external deposit as well would give B **10 ADA** under the alternative policy.
 
-### 4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance
+To check the prototype’s policy, compare the complete distribution across a snapshot after ordinary success and after an accepted phase-2 failure. Include other eligible funds, a credential without an eligible DRep delegation, and external deposits on multiple live outputs. Check the amount attributed to **each DRep**. A grand total alone would miss weight credited to the wrong representative.
 
-Compare the complete resulting voting distribution with an independent expectation under existing eligibility, delegation and snapshot rules. Include positive eligible min-ADA output ADA and deposit-backed application ADA, other existing eligible funds, ineligible and differently delegated controls, nonzero recorded deposits across multiple live outputs. Observe ordinary success and accepted phase-2 failure before and after the existing snapshot boundary. Neither records nor the global Store balance add weight, while eligible funds retain their expected weight; an all-zero distribution must fail the positive controls.
+**Verification status.** The eight stake cases and the voting case above describe expected prototype behavior. Their dedicated distribution tests are deferred. [Verification record](../verification.md#current-implementation-status)

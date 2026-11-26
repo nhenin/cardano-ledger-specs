@@ -6,7 +6,7 @@ The *UTxO Deposit versus UTxO Minimum ADA* proposal describes two ways to back a
 
 ## How the documents fit together
 
-The [domain model](chapters/domain-model.md) defines the amounts used by the [transaction rules](chapters/transaction-rules.md). A transaction's [deposit declaration](chapters/transaction-rules.md#ds-tx-declarations) is one part of those checks. [Ledger effects](chapters/ledger-effects.md) describes how the accepted outcome updates state, and [derived distributions](chapters/derived-distributions.md) describes how that state contributes to stake and voting power.
+The [domain model](chapters/domain-model.md) defines the amounts used by the [transaction rules](chapters/transaction-rules.md). A transaction's [deposit declaration](chapters/transaction-rules.md#ds-tx-declarations) is one part of those checks. [Ledger effects](chapters/ledger-effects.md) describes how the accepted outcome updates state, and [derived distributions](chapters/derived-distributions.md) explains the prototype’s choice about whether external deposits carry stake or voting weight.
 
 For example, an input with 1.6 ADA of embedded reserve can fund a new output requiring a 2 ADA external deposit. The [net-change rule](chapters/transaction-rules.md#ds-tx-accounting-net-change) requires `Allocate 0.4 ADA`, while the [Store balance](chapters/ledger-effects.md#ds-state-balance) increases by 2 ADA. [Verification of the mixed-output case](verification.md#signed-backing-change-for-mixed-output-forms--24-november-2026)
 
@@ -21,7 +21,7 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
 | [1. Domain model](#1-domain-model) | Output forms, Store records and deposit calculation |
 | [2. Transaction rules](#2-transaction-rules) | TopTx and SubTx declarations, accounting, authorization, settlement, minimum coin and collateral |
 | [3. Ledger effects](#3-ledger-effects) | Changes to UTxOs, Store allocations and fees on success or phase-2 failure |
-| [4. Derived distributions](#4-derived-distributions) | Stake and voting power |
+| [4. Derived distributions](#4-derived-distributions) | Prototype policy for external deposits in stake and DRep voting weight |
 | [Appendices](#appendices) | Ledger interfaces and encodings, SubTx and TopTx net-change conformance cases |
 | [Verification record](#verification-record) | Test coverage and results by date |
 
@@ -521,20 +521,20 @@ For example, an input with 1.6 ADA of embedded reserve can fund a new output req
     <details>
       <summary><a href="chapters/derived-distributions.md#ds-stake">4.1 Stake</a></summary>
       <div><ul type="none"><li>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n01">4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n02">4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n03">4.1.3 N03 - does not add the global Store balance to stake totals</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n04">4.1.4 N04 - Derive stake from applied allocations</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n05">4.1.5 N05 - Derive stake from applied releases</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n06">4.1.6 N06 - Ignore unapplied collateral</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n07">4.1.7 N07 - Derive stake from collateral on phase-2 failure</a></div>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n08">4.1.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n01">4.1.1 N01 - Full ADA in a minimum-ADA output</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n02">4.1.2 N02 - Application ADA in a deposit-backed output</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n03">4.1.3 N03 - Several deposits in the Store</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n04">4.1.4 N04 - Allocate a deposit</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n05">4.1.5 N05 - Release a deposit</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n06">4.1.6 N06 - Ordinary success with collateral</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n07">4.1.7 N07 - Accepted phase-2 failure</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-stake-n08">4.1.8 N08 - Eligibility, delegation and snapshots</a></div>
       </li></ul></div>
     </details>
     <details>
       <summary><a href="chapters/derived-distributions.md#ds-voting">4.2 Voting</a></summary>
       <div><ul type="none"><li>
-        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-voting-n01">4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance</a></div>
+        <div>•&numsp;<a href="chapters/derived-distributions.md#ds-voting-n01">4.2.1 N01 - Weight delegated to two DReps</a></div>
       </li></ul></div>
     </details>
   </li></ul></div>
