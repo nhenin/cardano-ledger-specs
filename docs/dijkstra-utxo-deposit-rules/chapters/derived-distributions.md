@@ -10,31 +10,27 @@
 
 ## Table of contents
 
-<div>
+<ul type="none"><li>
 <details>
   <summary><a href="#ds-stake">4.1 Stake</a></summary>
-  <dl>
-    <dd>
-      <a href="#ds-stake-n01">4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules</a><br>
-      <a href="#ds-stake-n02">4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules</a><br>
-      <a href="#ds-stake-n03">4.1.3 N03 - does not add the global Store balance to stake totals</a><br>
-      <a href="#ds-stake-n04">4.1.4 N04 - Derive stake from applied allocations</a><br>
-      <a href="#ds-stake-n05">4.1.5 N05 - Derive stake from applied releases</a><br>
-      <a href="#ds-stake-n06">4.1.6 N06 - Ignore unapplied collateral</a><br>
-      <a href="#ds-stake-n07">4.1.7 N07 - Derive stake from collateral on phase-2 failure</a><br>
-      <a href="#ds-stake-n08">4.1.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects</a><br>
-    </dd>
-  </dl>
+  <div><ul type="none"><li>
+      <div>•&numsp;<a href="#ds-stake-n01">4.1.1 N01 - counts the full ADA in min-ADA outputs under the existing staking rules</a></div>
+      <div>•&numsp;<a href="#ds-stake-n02">4.1.2 N02 - counts only application ADA in deposit-backed outputs under the existing staking rules</a></div>
+      <div>•&numsp;<a href="#ds-stake-n03">4.1.3 N03 - does not add the global Store balance to stake totals</a></div>
+      <div>•&numsp;<a href="#ds-stake-n04">4.1.4 N04 - Derive stake from applied allocations</a></div>
+      <div>•&numsp;<a href="#ds-stake-n05">4.1.5 N05 - Derive stake from applied releases</a></div>
+      <div>•&numsp;<a href="#ds-stake-n06">4.1.6 N06 - Ignore unapplied collateral</a></div>
+      <div>•&numsp;<a href="#ds-stake-n07">4.1.7 N07 - Derive stake from collateral on phase-2 failure</a></div>
+      <div>•&numsp;<a href="#ds-stake-n08">4.1.8 N08 - preserves existing staking eligibility, delegation and snapshot timing after allocation, release and collateral effects</a></div>
+  </li></ul></div>
 </details>
 <details>
   <summary><a href="#ds-voting">4.2 Voting</a></summary>
-  <dl>
-    <dd>
-      <a href="#ds-voting-n01">4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance</a><br>
-    </dd>
-  </dl>
+  <div><ul type="none"><li>
+      <div>•&numsp;<a href="#ds-voting-n01">4.2.1 N01 - preserves the expected voting distribution from eligible funds while excluding allocated UTxO capacity deposits and Store balance</a></div>
+  </li></ul></div>
 </details>
-</div>
+</li></ul>
 
 <a id="ds-stake" name="ds-stake"></a>
 

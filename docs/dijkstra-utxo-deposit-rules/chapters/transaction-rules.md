@@ -10,489 +10,368 @@
 
 ## Table of contents
 
-The ordinary transaction rules cover declarations, accounting, authorization, settlement and minimum coin. The collateral rules apply to the shared inputs and return. Expand each group to find its individual cases. The detailed net-change cases link to [Appendix D](appendices.md#net-change-test-cases).
+The ordinary transaction rules cover declarations, accounting, authorization, settlement and minimum coin. The collateral rules apply to the shared inputs and return. Expand each group to find its individual cases. [Appendix B](appendices.md#net-change-conformance-cases) lists the expected result and executable test for each net-change case.
 
+<ul type="none"><li>
 <details open>
   <summary><a href="#ds-tx">2.1 Tx</a></summary>
-  <dl>
-    <dd>
+  <div><ul type="none"><li>
       <details>
         <summary><a href="#ds-tx-declarations">2.1.1 Declarations</a></summary>
-        <dl>
-          <dd>
+        <div><ul type="none"><li>
             <details>
               <summary><a href="#ds-tx-declarations-grammar">2.1.1.1 Grammar</a></summary>
-              <dl>
-                <dd>
+              <div><ul type="none"><li>
                   <details>
                     <summary><a href="#ds-tx-declarations-grammar-toptx">2.1.1.1.1 TopTx</a></summary>
-                    <dl>
-                      <dd>
+                    <div><ul type="none"><li>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-toptx-amounts">2.1.1.1.1.1 Amounts</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-p01">2.1.1.1.1.1.1 P01 - Positive amounts survive encoding</a><br>
-                              <a href="#ds-tx-declarations-grammar-f01">2.1.1.1.1.1.2 F01 - Zero operation amount</a><br>
-                              <a href="#ds-tx-declarations-grammar-f12">2.1.1.1.1.1.3 F12 - Negative operation amount</a><br>
-                              <a href="#ds-tx-declarations-grammar-f13">2.1.1.1.1.1.4 F13 - Overflowing operation amount</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-p01">2.1.1.1.1.1.1 P01 - Positive amounts survive encoding</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f01">2.1.1.1.1.1.2 F01 - Zero operation amount</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f12">2.1.1.1.1.1.3 F12 - Negative operation amount</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f13">2.1.1.1.1.1.4 F13 - Overflowing operation amount</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-toptx-absence">2.1.1.1.1.2 Absence</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-n03">2.1.1.1.1.2.1 N03 - Absence remains distinct from zero</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-n03">2.1.1.1.1.2.1 N03 - Absence remains distinct from zero</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-toptx-forms">2.1.1.1.1.3 Forms</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-n05">2.1.1.1.1.3.1 N05 - Every TopTx declaration form</a><br>
-                              <a href="#ds-tx-declarations-grammar-f06">2.1.1.1.1.3.2 F06 - Funding request in TopTx</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-n05">2.1.1.1.1.3.1 N05 - Every TopTx declaration form</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f06">2.1.1.1.1.3.2 F06 - Funding request in TopTx</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-toptx-structure">2.1.1.1.1.4 Structure</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-f02">2.1.1.1.1.4.1 F02 - Malformed declarations</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f02">2.1.1.1.1.4.1 F02 - Malformed declarations</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-toptx-destinations">2.1.1.1.1.5 Destinations</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-f04">2.1.1.1.1.5.1 F04 - Malformed release settlements</a><br>
-                              <a href="#ds-tx-declarations-grammar-f14">2.1.1.1.1.5.2 F14 - Negative output index</a><br>
-                              <a href="#ds-tx-declarations-grammar-f15">2.1.1.1.1.5.3 F15 - Overflowing output index</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f04">2.1.1.1.1.5.1 F04 - Malformed release settlements</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f14">2.1.1.1.1.5.2 F14 - Negative output index</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f15">2.1.1.1.1.5.3 F15 - Overflowing output index</a></div>
+                          </li></ul></div>
                         </details>
-                      </dd>
-                    </dl>
+                    </li></ul></div>
                   </details>
                   <details>
                     <summary><a href="#ds-tx-declarations-grammar-subtx">2.1.1.1.2 SubTx</a></summary>
-                    <dl>
-                      <dd>
+                    <div><ul type="none"><li>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-subtx-amounts">2.1.1.1.2.1 Amounts</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-p02">2.1.1.1.2.1.1 P02 - Positive amounts survive encoding</a><br>
-                              <a href="#ds-tx-declarations-grammar-f07">2.1.1.1.2.1.2 F07 - Zero operation amount</a><br>
-                              <a href="#ds-tx-declarations-grammar-f08">2.1.1.1.2.1.3 F08 - Negative operation amount</a><br>
-                              <a href="#ds-tx-declarations-grammar-f09">2.1.1.1.2.1.4 F09 - Overflowing operation amount</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-p02">2.1.1.1.2.1.1 P02 - Positive amounts survive encoding</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f07">2.1.1.1.2.1.2 F07 - Zero operation amount</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f08">2.1.1.1.2.1.3 F08 - Negative operation amount</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f09">2.1.1.1.2.1.4 F09 - Overflowing operation amount</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-subtx-absence">2.1.1.1.2.2 Absence</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-n04">2.1.1.1.2.2.1 N04 - Absence remains distinct from zero</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-n04">2.1.1.1.2.2.1 N04 - Absence remains distinct from zero</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-subtx-forms">2.1.1.1.2.3 Forms</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-n06">2.1.1.1.2.3.1 N06 - Every SubTx declaration form</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-n06">2.1.1.1.2.3.1 N06 - Every SubTx declaration form</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-subtx-structure">2.1.1.1.2.4 Structure</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-f03">2.1.1.1.2.4.1 F03 - Malformed declarations</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f03">2.1.1.1.2.4.1 F03 - Malformed declarations</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-grammar-subtx-destinations">2.1.1.1.2.5 Destinations</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-grammar-f05">2.1.1.1.2.5.1 F05 - Malformed release targets</a><br>
-                              <a href="#ds-tx-declarations-grammar-f10">2.1.1.1.2.5.2 F10 - Negative output index</a><br>
-                              <a href="#ds-tx-declarations-grammar-f11">2.1.1.1.2.5.3 F11 - Overflowing output index</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f05">2.1.1.1.2.5.1 F05 - Malformed release targets</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f10">2.1.1.1.2.5.2 F10 - Negative output index</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-grammar-f11">2.1.1.1.2.5.3 F11 - Overflowing output index</a></div>
+                          </li></ul></div>
                         </details>
-                      </dd>
-                    </dl>
+                    </li></ul></div>
                   </details>
-                </dd>
-              </dl>
+              </li></ul></div>
             </details>
             <details>
               <summary><a href="#ds-tx-declarations-requirements">2.1.1.2 Requirements</a></summary>
-              <dl>
-                <dd>
+              <div><ul type="none"><li>
                   <details>
                     <summary><a href="#ds-tx-declarations-requirements-operations">2.1.1.2.1 Operations</a></summary>
-                    <dl>
-                      <dd>
-                        <a href="#ds-tx-declarations-requirements-operations-p01">2.1.1.2.1.1 P01 - Every body requiring a Store operation declares</a><br>
+                    <div><ul type="none"><li>
+                        <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-p01">2.1.1.2.1.1 P01 - Every body requiring a Store operation declares</a></div>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-operations-allocation">2.1.1.2.1.2 Allocation</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n01">2.1.1.2.1.2.1 N01 - Every explicit declaration satisfies allocation presence</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n02">2.1.1.2.1.2.2 N02 - Absence satisfies allocation presence for empty or implicit-only own outputs</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f01">2.1.1.2.1.2.3 F01 - Missing declaration fails allocation presence at every own-output position</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n03">2.1.1.2.1.2.4 N03 - accepts a TopTx creating only min-ADA outputs without a declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n04">2.1.1.2.1.2.5 N04 - accepts a SubTx creating only min-ADA outputs without either body's declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n05">2.1.1.2.1.2.6 N05 - Standalone TopTx, exact allocation declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f02">2.1.1.2.1.2.7 F02 - Standalone TopTx, allocation without a declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f03">2.1.1.2.1.2.8 F03 - rejects a SubTx creating a deposit-backed output without its own declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f04">2.1.1.2.1.2.9 F04 - rejects a TopTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f05">2.1.1.2.1.2.10 F05 - rejects a SubTx creating a deposit-backed output without its own declaration even when phase 2 fails</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f06">2.1.1.2.1.2.11 F06 - rejects a missing own declaration when spending a translated min-ADA output to create deposit-backed outputs</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n06">2.1.1.2.1.2.12 N06 - SubTx outputs do not trigger TopTx allocation presence</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n07">2.1.1.2.1.2.13 N07 - Collateral return does not trigger allocation presence</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n08">2.1.1.2.1.2.14 N08 - Reference and collateral input identifiers do not trigger allocation presence</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f07">2.1.1.2.1.2.15 F07 - A SubTx declaration cannot satisfy TopTx allocation presence</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-f08">2.1.1.2.1.2.16 F08 - TopTx zero cannot satisfy its allocating SubTx's declaration requirement</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-allocation-n09">2.1.1.2.1.2.17 N09 - TopTx and SubTx allocate deposits, each with an exact declaration</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n01">2.1.1.2.1.2.1 N01 - Every explicit declaration satisfies allocation presence</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n02">2.1.1.2.1.2.2 N02 - Absence satisfies allocation presence for empty or implicit-only own outputs</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f01">2.1.1.2.1.2.3 F01 - Missing declaration fails allocation presence at every own-output position</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n03">2.1.1.2.1.2.4 N03 - accepts a TopTx creating only min-ADA outputs without a declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n04">2.1.1.2.1.2.5 N04 - accepts a SubTx creating only min-ADA outputs without either body's declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n05">2.1.1.2.1.2.6 N05 - Standalone TopTx, exact allocation declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f02">2.1.1.2.1.2.7 F02 - Standalone TopTx, allocation without a declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f03">2.1.1.2.1.2.8 F03 - rejects a SubTx creating a deposit-backed output without its own declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f04">2.1.1.2.1.2.9 F04 - rejects a TopTx creating a deposit-backed output without its own declaration even when phase 2 fails</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f05">2.1.1.2.1.2.10 F05 - rejects a SubTx creating a deposit-backed output without its own declaration even when phase 2 fails</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f06">2.1.1.2.1.2.11 F06 - rejects a missing own declaration when spending a translated min-ADA output to create deposit-backed outputs</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n06">2.1.1.2.1.2.12 N06 - SubTx outputs do not trigger TopTx allocation presence</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n07">2.1.1.2.1.2.13 N07 - Collateral return does not trigger allocation presence</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n08">2.1.1.2.1.2.14 N08 - Reference and collateral input identifiers do not trigger allocation presence</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f07">2.1.1.2.1.2.15 F07 - A SubTx declaration cannot satisfy TopTx allocation presence</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-f08">2.1.1.2.1.2.16 F08 - TopTx zero cannot satisfy its allocating SubTx's declaration requirement</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-allocation-n09">2.1.1.2.1.2.17 N09 - TopTx and SubTx allocate deposits, each with an exact declaration</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-operations-release">2.1.1.2.1.3 Release</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n01">2.1.1.2.1.3.1 N01 - Standalone TopTx, any output form</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only min-ADA outputs</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n03">2.1.1.2.1.3.3 N03 - One SubTx releases its deposit into its own output</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-f01">2.1.1.2.1.3.4 F01 - Standalone TopTx, release without its own declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-f02">2.1.1.2.1.3.5 F02 - SubTx release without its own declaration, despite TopTx declaring</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n04">2.1.1.2.1.3.6 N04 - Phase 2 fails with valid declarations</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-f03">2.1.1.2.1.3.7 F03 - Missing release declaration in a phase-2-invalid proposal</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n05">2.1.1.2.1.3.8 N05 - Several SubTxs release their deposits</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-f04">2.1.1.2.1.3.9 F04 - One SubTx releasing deposits omits its declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n06">2.1.1.2.1.3.10 N06 - Only some SubTxs release Store deposits</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n07">2.1.1.2.1.3.11 N07 - TopTx and several SubTxs release deposits</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n08">2.1.1.2.1.3.12 N08 - Phase 2 fails with several proposed SubTx releases</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-f05">2.1.1.2.1.3.13 F05 - One SubTx declaration is missing in a phase-2-invalid proposal</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n09">2.1.1.2.1.3.14 N09 - Standalone TopTx, reference-only Store access</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-n10">2.1.1.2.1.3.15 N10 - Standalone TopTx, collateral-only Store operations</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-release-f06">2.1.1.2.1.3.16 F06 - A SubTx declaration cannot satisfy TopTx release presence</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n01">2.1.1.2.1.3.1 N01 - Standalone TopTx, any output form</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n02">2.1.1.2.1.3.2 N02 - Standalone TopTx, only min-ADA outputs</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n03">2.1.1.2.1.3.3 N03 - One SubTx releases its deposit into its own output</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-f01">2.1.1.2.1.3.4 F01 - Standalone TopTx, release without its own declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-f02">2.1.1.2.1.3.5 F02 - SubTx release without its own declaration, despite TopTx declaring</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n04">2.1.1.2.1.3.6 N04 - Phase 2 fails with valid declarations</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-f03">2.1.1.2.1.3.7 F03 - Missing release declaration in a phase-2-invalid proposal</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n05">2.1.1.2.1.3.8 N05 - Several SubTxs release their deposits</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-f04">2.1.1.2.1.3.9 F04 - One SubTx releasing deposits omits its declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n06">2.1.1.2.1.3.10 N06 - Only some SubTxs release Store deposits</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n07">2.1.1.2.1.3.11 N07 - TopTx and several SubTxs release deposits</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n08">2.1.1.2.1.3.12 N08 - Phase 2 fails with several proposed SubTx releases</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-f05">2.1.1.2.1.3.13 F05 - One SubTx declaration is missing in a phase-2-invalid proposal</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n09">2.1.1.2.1.3.14 N09 - Standalone TopTx, reference-only Store access</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-n10">2.1.1.2.1.3.15 N10 - Standalone TopTx, collateral-only Store operations</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-release-f06">2.1.1.2.1.3.16 F06 - A SubTx declaration cannot satisfy TopTx release presence</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-operations-zero-net-change">2.1.1.2.1.4 Zero net change</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-n01">2.1.1.2.1.4.1 N01 - Standalone TopTx, equal allocations and releases with explicit zero</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f01">2.1.1.2.1.4.2 F01 - Standalone TopTx, equal allocations and releases without a declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-n02">2.1.1.2.1.4.3 N02 - One SubTx replaces its deposit with explicit zero</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f02">2.1.1.2.1.4.4 F02 - One active SubTx omits its declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f03">2.1.1.2.1.4.5 F03 - TopTx omits the declaration required by its child</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-n03">2.1.1.2.1.4.6 N03 - Several SubTxs each replace their deposits</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f04">2.1.1.2.1.4.7 F04 - One of several active SubTxs omits its declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-n04">2.1.1.2.1.4.8 N04 - Only some SubTxs replace Store deposits</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f05">2.1.1.2.1.4.9 F05 - One active SubTx omits its declaration among inactive siblings</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-n05">2.1.1.2.1.4.10 N05 - TopTx and several SubTxs each replace their deposits</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f06">2.1.1.2.1.4.11 F06 - Active TopTx omits its own declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-n06">2.1.1.2.1.4.12 N06 - Phase 2 fails with explicit zero at every active body</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f07">2.1.1.2.1.4.13 F07 - One SubTx declaration is missing in a phase-2-invalid proposal</a><br>
-                              <a href="#ds-tx-declarations-requirements-operations-zero-net-change-f08">2.1.1.2.1.4.14 F08 - TopTx's own declaration is missing in a phase-2-invalid proposal</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-n01">2.1.1.2.1.4.1 N01 - Standalone TopTx, equal allocations and releases with explicit zero</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f01">2.1.1.2.1.4.2 F01 - Standalone TopTx, equal allocations and releases without a declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-n02">2.1.1.2.1.4.3 N02 - One SubTx replaces its deposit with explicit zero</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f02">2.1.1.2.1.4.4 F02 - One active SubTx omits its declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f03">2.1.1.2.1.4.5 F03 - TopTx omits the declaration required by its child</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-n03">2.1.1.2.1.4.6 N03 - Several SubTxs each replace their deposits</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f04">2.1.1.2.1.4.7 F04 - One of several active SubTxs omits its declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-n04">2.1.1.2.1.4.8 N04 - Only some SubTxs replace Store deposits</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f05">2.1.1.2.1.4.9 F05 - One active SubTx omits its declaration among inactive siblings</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-n05">2.1.1.2.1.4.10 N05 - TopTx and several SubTxs each replace their deposits</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f06">2.1.1.2.1.4.11 F06 - Active TopTx omits its own declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-n06">2.1.1.2.1.4.12 N06 - Phase 2 fails with explicit zero at every active body</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f07">2.1.1.2.1.4.13 F07 - One SubTx declaration is missing in a phase-2-invalid proposal</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-operations-zero-net-change-f08">2.1.1.2.1.4.14 F08 - TopTx's own declaration is missing in a phase-2-invalid proposal</a></div>
+                          </li></ul></div>
                         </details>
-                      </dd>
-                    </dl>
+                    </li></ul></div>
                   </details>
                   <details>
                     <summary><a href="#ds-tx-declarations-requirements-subtx-declarations">2.1.1.2.2 SubTx declarations</a></summary>
-                    <dl>
-                      <dd>
+                    <div><ul type="none"><li>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-subtx-declarations-c01">2.1.1.2.2.1 TopTx requirement</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c01-p01">2.1.1.2.2.1.1 P01 - SubTx declarations require TopTx's declaration</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c01-p01">2.1.1.2.2.1.1 P01 - SubTx declarations require TopTx's declaration</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-subtx-declarations-c02">2.1.1.2.2.2 Absence and explicit zero</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c02-n01">2.1.1.2.2.2.1 N01 - accepts absent declarations at both levels</a><br>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c02-n02">2.1.1.2.2.2.2 N02 - accepts explicit zero at both levels</a><br>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c02-n03">2.1.1.2.2.2.3 N03 - accepts TopTx zero without a SubTx declaration</a><br>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c02-f01">2.1.1.2.2.2.4 F01 - rejects SubTx zero without a TopTx declaration</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c02-n01">2.1.1.2.2.2.1 N01 - accepts absent declarations at both levels</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c02-n02">2.1.1.2.2.2.2 N02 - accepts explicit zero at both levels</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c02-n03">2.1.1.2.2.2.3 N03 - accepts TopTx zero without a SubTx declaration</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c02-f01">2.1.1.2.2.2.4 F01 - rejects SubTx zero without a TopTx declaration</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-subtx-declarations-c03">2.1.1.2.2.3 Offsetting SubTx contributions</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c03-n01">2.1.1.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a><br>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c03-f01">2.1.1.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c03-n01">2.1.1.2.2.3.1 N01 - passes declaration presence with TopTx declaring the zero net amount</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c03-f01">2.1.1.2.2.3.2 F01 - rejects an absent TopTx declaration despite the zero net amount</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-subtx-declarations-c04">2.1.1.2.2.4 Local and delegated accounting</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c04-n01">2.1.1.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a><br>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c04-f01">2.1.1.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c04-n01">2.1.1.2.2.4.1 N01 - passes declaration presence with TopTx zero for every explicit SubTx form</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c04-f01">2.1.1.2.2.4.2 F01 - rejects an absent TopTx declaration for every explicit SubTx form</a></div>
+                          </li></ul></div>
                         </details>
                         <details>
                           <summary><a href="#ds-tx-declarations-requirements-subtx-declarations-c05">2.1.1.2.2.5 Phase-2 failure</a></summary>
-                          <dl>
-                            <dd>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c05-n01">2.1.1.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a><br>
-                              <a href="#ds-tx-declarations-requirements-subtx-declarations-c05-f01">2.1.1.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a><br>
-                            </dd>
-                          </dl>
+                          <div><ul type="none"><li>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c05-n01">2.1.1.2.2.5.1 N01 - accepts zero declarations at both levels on the phase-2 failure path</a></div>
+                              <div>•&numsp;<a href="#ds-tx-declarations-requirements-subtx-declarations-c05-f01">2.1.1.2.2.5.2 F01 - rejects SubTx zero without a TopTx declaration on the phase-2 failure path</a></div>
+                          </li></ul></div>
                         </details>
-                      </dd>
-                    </dl>
+                    </li></ul></div>
                   </details>
-                </dd>
-              </dl>
+              </li></ul></div>
             </details>
-          </dd>
-        </dl>
+        </li></ul></div>
       </details>
       <details>
         <summary><a href="#ds-tx-accounting">2.1.2 Accounting</a></summary>
-        <dl>
-          <dd>
+        <div><ul type="none"><li>
             <details>
               <summary><a href="#ds-tx-accounting-net-change">2.1.2.1 Net change</a></summary>
-              <dl>
-                <dd>
+              <div><ul type="none"><li>
                   <details>
                     <summary><a href="#ds-tx-accounting-net-change-subtx">2.1.2.1.1 SubTx</a></summary>
-                    <dl>
-                      <dd>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-p01">2.1.2.1.1.1 P01 - Each SubTx declares its own exact change</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n01">2.1.2.1.1.2 N01 - Exact own change, with any allocation and release combination</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f01">2.1.2.1.1.3 F01 - Net allocation understated by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f02">2.1.2.1.1.4 F02 - Net allocation overstated by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f03">2.1.2.1.1.5 F03 - Net release understated by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f04">2.1.2.1.1.6 F04 - Net release overstated by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f05">2.1.2.1.1.7 F05 - Opposing SubTx errors cancel in the total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n02">2.1.2.1.1.8 N02 - Equal own allocations and releases, explicit zero</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f06">2.1.2.1.1.9 F06 - Explicit zero cannot replace a required allocation</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n03">2.1.2.1.1.10 N03 - Exact allocation requested from TopTx</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n04">2.1.2.1.1.11 N04 - Exact release delegated to TopTx</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n05">2.1.2.1.1.12 N05 - Released deposits, only min-ADA outputs</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f07">2.1.2.1.1.13 F07 - Explicit zero cannot replace a required release</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n06">2.1.2.1.1.14 N06 - Another body offsets the SubTx release</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n07">2.1.2.1.1.15 N07 - An output without application assets still requires a deposit</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n08">2.1.2.1.1.16 N08 - A translated min-ADA input funds an exact allocation</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f08">2.1.2.1.1.17 F08 - A translated min-ADA input does not excuse an inexact allocation</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f09">2.1.2.1.1.18 F09 - Unspent outputs cannot increase a SubTx release</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f10">2.1.2.1.1.19 F10 - A release cannot replace a required allocation</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f11">2.1.2.1.1.20 F11 - An allocation cannot replace a required release</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-n09">2.1.2.1.1.21 N09 - Exact SubTx declarations when phase 2 fails</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-subtx-f12">2.1.2.1.1.22 F12 - An inexact SubTx declaration still fails before the collateral outcome</a><br>
-                      </dd>
-                    </dl>
+                    <div><ul type="none"><li>
+                        <div>•&numsp;<a href="appendices.md#subtx-net-change-test-cases">SubTx conformance cases and tests</a></div>
+                    </li></ul></div>
                   </details>
                   <details>
                     <summary><a href="#ds-tx-accounting-net-change-toptx">2.1.2.1.2 TopTx</a></summary>
-                    <dl>
-                      <dd>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-p01">2.1.2.1.2.1 P01 - TopTx declares the exact transaction total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-p02">2.1.2.1.2.2 P02 - Delegation preserves the transaction total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n01">2.1.2.1.2.3 N01 - TopTx and SubTxs contribute to the total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n02">2.1.2.1.2.4 N02 - TopTx's own change is derived from its total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n03">2.1.2.1.2.5 N03 - 5 ADA allocated, 3 ADA released</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n04">2.1.2.1.2.6 N04 - 3 ADA allocated, 5 ADA released</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n05">2.1.2.1.2.7 N05 - Nonzero body changes produce a zero total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f01">2.1.2.1.2.8 F01 - Standalone TopTx understates its net allocation by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f02">2.1.2.1.2.9 F02 - Standalone TopTx overstates its net allocation by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f03">2.1.2.1.2.10 F03 - Standalone TopTx understates its net release by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f04">2.1.2.1.2.11 F04 - Standalone TopTx overstates its net release by one lovelace</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f05">2.1.2.1.2.12 F05 - Explicit zero cannot replace a nonzero total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f06">2.1.2.1.2.13 F06 - A nonzero declaration cannot replace a zero total</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f07">2.1.2.1.2.14 F07 - TopTx declares the opposite direction</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n06">2.1.2.1.2.15 N06 - TopTx releases while SubTxs allocate</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n07">2.1.2.1.2.16 N07 - TopTx allocates while SubTxs release</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-n08">2.1.2.1.2.17 N08 - An exact total remains valid when phase 2 fails</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f08">2.1.2.1.2.18 F08 - An inexact total is rejected even when phase 2 fails</a><br>
-                        <a href="appendices.md#ds-tx-accounting-net-change-toptx-f09">2.1.2.1.2.19 F09 - A delegated change belongs in the total exactly once</a><br>
-                      </dd>
-                    </dl>
+                    <div><ul type="none"><li>
+                        <div>•&numsp;<a href="appendices.md#toptx-net-change-test-cases">TopTx conformance cases and tests</a></div>
+                    </li></ul></div>
                   </details>
-                </dd>
-              </dl>
+              </li></ul></div>
             </details>
             <details>
               <summary><a href="#ds-tx-accounting-attribution">2.1.2.2 Attribution</a></summary>
-              <dl>
-                <dd>
-                  <a href="#ds-tx-accounting-attribution-p01">2.1.2.2.1 P01 - Local and delegated contributions determine TopTx's share</a><br>
-                  <a href="#ds-tx-accounting-attribution-p02">2.1.2.2.2 P02 - Delegation moves the signed contribution to TopTx</a><br>
-                  <a href="#ds-tx-accounting-attribution-n01">2.1.2.2.3 N01 - Explicit zero adds no delegated contribution</a><br>
-                </dd>
-              </dl>
+              <div><ul type="none"><li>
+                  <div>•&numsp;<a href="#ds-tx-accounting-attribution-p01">2.1.2.2.1 P01 - Local and delegated contributions determine TopTx's share</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-attribution-p02">2.1.2.2.2 P02 - Delegation moves the signed contribution to TopTx</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-attribution-n01">2.1.2.2.3 N01 - Explicit zero adds no delegated contribution</a></div>
+              </li></ul></div>
             </details>
             <details>
               <summary><a href="#ds-tx-accounting-balance">2.1.2.3 Balance</a></summary>
-              <dl>
-                <dd>
-                  <a href="#ds-tx-accounting-balance-p01">2.1.2.3.1 P01 - The transaction conserves value when phase 2 is valid</a><br>
-                  <a href="#ds-tx-accounting-balance-p02">2.1.2.3.2 P02 - Complete balance determines acceptance</a><br>
-                  <a href="#ds-tx-accounting-balance-n01">2.1.2.3.3 N01 - Fund a net allocation once</a><br>
-                  <a href="#ds-tx-accounting-balance-n02">2.1.2.3.4 N02 - Use a net release once</a><br>
-                  <a href="#ds-tx-accounting-balance-n03">2.1.2.3.5 N03 - One SubTx funds another</a><br>
-                  <a href="#ds-tx-accounting-balance-n04">2.1.2.3.6 N04 - A SubTx funds TopTx fees</a><br>
-                  <a href="#ds-tx-accounting-balance-f01">2.1.2.3.7 F01 - One-lovelace deficit or surplus</a><br>
-                  <a href="#ds-tx-accounting-balance-f02">2.1.2.3.8 F02 - Native-asset quantity or identity mismatch</a><br>
-                  <a href="#ds-tx-accounting-balance-f03">2.1.2.3.9 F03 - An exact delegated allocation lacks funding</a><br>
-                  <a href="#ds-tx-accounting-balance-n05">2.1.2.3.10 N05 - Equal delegated allocations and releases</a><br>
-                  <a href="#ds-tx-accounting-balance-n06">2.1.2.3.11 N06 - Ten input ADA plus two released ADA</a><br>
-                  <a href="#ds-tx-accounting-balance-n07">2.1.2.3.12 N07 - Released ADA contributes to TopTx fees</a><br>
-                  <a href="#ds-tx-accounting-balance-f04">2.1.2.3.13 F04 - Released ADA cannot disappear</a><br>
-                  <a href="#ds-tx-accounting-balance-n08">2.1.2.3.14 N08 - Balanced proposal, failed phase 2</a><br>
-                </dd>
-              </dl>
+              <div><ul type="none"><li>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-p01">2.1.2.3.1 P01 - The transaction conserves value when phase 2 is valid</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-p02">2.1.2.3.2 P02 - Complete balance determines acceptance</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n01">2.1.2.3.3 N01 - Fund a net allocation once</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n02">2.1.2.3.4 N02 - Use a net release once</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n03">2.1.2.3.5 N03 - One SubTx funds another</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n04">2.1.2.3.6 N04 - A SubTx funds TopTx fees</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-f01">2.1.2.3.7 F01 - One-lovelace deficit or surplus</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-f02">2.1.2.3.8 F02 - Native-asset quantity or identity mismatch</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-f03">2.1.2.3.9 F03 - An exact delegated allocation lacks funding</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n05">2.1.2.3.10 N05 - Equal delegated allocations and releases</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n06">2.1.2.3.11 N06 - Ten input ADA plus two released ADA</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n07">2.1.2.3.12 N07 - Released ADA contributes to TopTx fees</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-f04">2.1.2.3.13 F04 - Released ADA cannot disappear</a></div>
+                  <div>•&numsp;<a href="#ds-tx-accounting-balance-n08">2.1.2.3.14 N08 - Balanced proposal, failed phase 2</a></div>
+              </li></ul></div>
             </details>
-          </dd>
-        </dl>
+        </li></ul></div>
       </details>
       <details>
         <summary><a href="#ds-tx-authorization">2.1.3 Authorization</a></summary>
-        <dl>
-          <dd>
-            <a href="#ds-tx-authorization-n01">2.1.3.1 N01 - Bob spends an output funded by Alice</a><br>
-            <a href="#ds-tx-authorization-f01">2.1.3.2 F01 - Alice's signature cannot replace Bob's</a><br>
-          </dd>
-        </dl>
+        <div><ul type="none"><li>
+            <div>•&numsp;<a href="#ds-tx-authorization-n01">2.1.3.1 N01 - Bob spends an output funded by Alice</a></div>
+            <div>•&numsp;<a href="#ds-tx-authorization-f01">2.1.3.2 F01 - Alice's signature cannot replace Bob's</a></div>
+        </li></ul></div>
       </details>
       <details>
         <summary><a href="#ds-tx-settlement">2.1.4 Settlement</a></summary>
-        <dl>
-          <dd>
+        <div><ul type="none"><li>
             <details>
               <summary><a href="#ds-tx-settlement-designation">2.1.4.1 Designation</a></summary>
-              <dl>
-                <dd>
-                  <a href="#ds-tx-settlement-designation-p01">2.1.4.1.1 P01 - Designation follows TopTx's release share</a><br>
-                  <a href="#ds-tx-settlement-designation-n01">2.1.4.1.2 N01 - SubTxs settle the entire release</a><br>
-                  <a href="#ds-tx-settlement-designation-n02">2.1.4.1.3 N02 - Standalone TopTx settles its release</a><br>
-                  <a href="#ds-tx-settlement-designation-n03">2.1.4.1.4 N03 - TopTx and SubTxs each settle a share</a><br>
-                  <a href="#ds-tx-settlement-designation-n04">2.1.4.1.5 N04 - TopTx's share exceeds the transaction release</a><br>
-                  <a href="#ds-tx-settlement-designation-f01">2.1.4.1.6 F01 - TopTx omits a required output</a><br>
-                  <a href="#ds-tx-settlement-designation-f02">2.1.4.1.7 F02 - TopTx designates an unnecessary output</a><br>
-                  <a href="#ds-tx-settlement-designation-n05">2.1.4.1.8 N05 - Net allocation, even though TopTx releases</a><br>
-                  <a href="#ds-tx-settlement-designation-n06">2.1.4.1.9 N06 - Explicit-zero total, even though TopTx releases</a><br>
-                  <a href="#ds-tx-settlement-designation-n07">2.1.4.1.10 N07 - Net release, while TopTx allocates</a><br>
-                  <a href="#ds-tx-settlement-designation-n08">2.1.4.1.11 N08 - Valid designation when phase 2 fails</a><br>
-                  <a href="#ds-tx-settlement-designation-f03">2.1.4.1.12 F03 - Invalid designation when phase 2 fails</a><br>
-                </dd>
-              </dl>
+              <div><ul type="none"><li>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-p01">2.1.4.1.1 P01 - Designation follows TopTx's release share</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n01">2.1.4.1.2 N01 - SubTxs settle the entire release</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n02">2.1.4.1.3 N02 - Standalone TopTx settles its release</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n03">2.1.4.1.4 N03 - TopTx and SubTxs each settle a share</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n04">2.1.4.1.5 N04 - TopTx's share exceeds the transaction release</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-f01">2.1.4.1.6 F01 - TopTx omits a required output</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-f02">2.1.4.1.7 F02 - TopTx designates an unnecessary output</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n05">2.1.4.1.8 N05 - Net allocation, even though TopTx releases</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n06">2.1.4.1.9 N06 - Explicit-zero total, even though TopTx releases</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n07">2.1.4.1.10 N07 - Net release, while TopTx allocates</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-n08">2.1.4.1.11 N08 - Valid designation when phase 2 fails</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-designation-f03">2.1.4.1.12 F03 - Invalid designation when phase 2 fails</a></div>
+              </li></ul></div>
             </details>
             <details>
               <summary><a href="#ds-tx-settlement-output-index">2.1.4.2 Output index</a></summary>
-              <dl>
-                <dd>
-                  <a href="#ds-tx-settlement-output-index-p01">2.1.4.2.1 P01 - The index belongs to the declaring body</a><br>
-                  <a href="#ds-tx-settlement-output-index-f01">2.1.4.2.2 F01 - The first missing own index is rejected</a><br>
-                  <a href="#ds-tx-settlement-output-index-f02">2.1.4.2.3 F02 - A SubTx cannot select TopTx's output</a><br>
-                  <a href="#ds-tx-settlement-output-index-f03">2.1.4.2.4 F03 - Collateral return is outside the ordinary output sequence</a><br>
-                  <a href="#ds-tx-settlement-output-index-f04">2.1.4.2.5 F04 - A SubTx without outputs cannot settle locally</a><br>
-                  <a href="#ds-tx-settlement-output-index-n01">2.1.4.2.6 N01 - The first and last own outputs are valid</a><br>
-                  <a href="#ds-tx-settlement-output-index-f05">2.1.4.2.7 F05 - TopTx cannot select a SubTx's output</a><br>
-                  <a href="#ds-tx-settlement-output-index-f06">2.1.4.2.8 F06 - A SubTx cannot select a sibling's output</a><br>
-                  <a href="#ds-tx-settlement-output-index-n02">2.1.4.2.9 N02 - Valid output indices when phase 2 fails</a><br>
-                  <a href="#ds-tx-settlement-output-index-f07">2.1.4.2.10 F07 - An invalid output index still fails when phase 2 fails</a><br>
-                  <a href="#ds-tx-settlement-output-index-n03">2.1.4.2.11 N03 - A SubTx without outputs delegates its final release</a><br>
-                </dd>
-              </dl>
+              <div><ul type="none"><li>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-p01">2.1.4.2.1 P01 - The index belongs to the declaring body</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f01">2.1.4.2.2 F01 - The first missing own index is rejected</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f02">2.1.4.2.3 F02 - A SubTx cannot select TopTx's output</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f03">2.1.4.2.4 F03 - Collateral return is outside the ordinary output sequence</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f04">2.1.4.2.5 F04 - A SubTx without outputs cannot settle locally</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-n01">2.1.4.2.6 N01 - The first and last own outputs are valid</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f05">2.1.4.2.7 F05 - TopTx cannot select a SubTx's output</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f06">2.1.4.2.8 F06 - A SubTx cannot select a sibling's output</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-n02">2.1.4.2.9 N02 - Valid output indices when phase 2 fails</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-f07">2.1.4.2.10 F07 - An invalid output index still fails when phase 2 fails</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-index-n03">2.1.4.2.11 N03 - A SubTx without outputs delegates its final release</a></div>
+              </li></ul></div>
             </details>
             <details>
               <summary><a href="#ds-tx-settlement-output-coin">2.1.4.3 Output coin</a></summary>
-              <dl>
-                <dd>
-                  <a href="#ds-tx-settlement-output-coin-p01">2.1.4.3.1 P01 - Output ADA must cover the required share</a><br>
-                  <a href="#ds-tx-settlement-output-coin-f01">2.1.4.3.2 F01 - Min-ADA output, one lovelace short</a><br>
-                  <a href="#ds-tx-settlement-output-coin-n01">2.1.4.3.3 N01 - Min-ADA output, exact amount</a><br>
-                  <a href="#ds-tx-settlement-output-coin-n02">2.1.4.3.4 N02 - Min-ADA output, extra ADA</a><br>
-                  <a href="#ds-tx-settlement-output-coin-f02">2.1.4.3.5 F02 - An external deposit cannot fill the ADA shortfall</a><br>
-                  <a href="#ds-tx-settlement-output-coin-n03">2.1.4.3.6 N03 - Deposit-backed output, exact application ADA</a><br>
-                  <a href="#ds-tx-settlement-output-coin-n04">2.1.4.3.7 N04 - TopTx's share is smaller than the transaction release</a><br>
-                  <a href="#ds-tx-settlement-output-coin-n05">2.1.4.3.8 N05 - Exact output ADA when phase 2 fails</a><br>
-                  <a href="#ds-tx-settlement-output-coin-f03">2.1.4.3.9 F03 - One lovelace short when phase 2 fails</a><br>
-                  <a href="#ds-tx-settlement-output-coin-f04">2.1.4.3.10 F04 - The transaction release is smaller than TopTx's share</a><br>
-                </dd>
-              </dl>
+              <div><ul type="none"><li>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-p01">2.1.4.3.1 P01 - Output ADA must cover the required share</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-f01">2.1.4.3.2 F01 - Min-ADA output, one lovelace short</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-n01">2.1.4.3.3 N01 - Min-ADA output, exact amount</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-n02">2.1.4.3.4 N02 - Min-ADA output, extra ADA</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-f02">2.1.4.3.5 F02 - An external deposit cannot fill the ADA shortfall</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-n03">2.1.4.3.6 N03 - Deposit-backed output, exact application ADA</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-n04">2.1.4.3.7 N04 - TopTx's share is smaller than the transaction release</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-n05">2.1.4.3.8 N05 - Exact output ADA when phase 2 fails</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-f03">2.1.4.3.9 F03 - One lovelace short when phase 2 fails</a></div>
+                  <div>•&numsp;<a href="#ds-tx-settlement-output-coin-f04">2.1.4.3.10 F04 - The transaction release is smaller than TopTx's share</a></div>
+              </li></ul></div>
             </details>
-          </dd>
-        </dl>
+        </li></ul></div>
       </details>
       <details>
         <summary><a href="#ds-tx-minimum-coin">2.1.5 Minimum coin</a></summary>
-        <dl>
-          <dd>
-            <a href="#ds-tx-minimum-coin-n01">2.1.5.1 N01 - Native assets without ADA</a><br>
-            <a href="#ds-tx-minimum-coin-n02">2.1.5.2 N02 - Datum or reference script without assets</a><br>
-            <a href="#ds-tx-minimum-coin-n03">2.1.5.3 N03 - Address-only output</a><br>
-            <a href="#ds-tx-minimum-coin-n04">2.1.5.4 N04 - Exact minimum for a min-ADA output</a><br>
-            <a href="#ds-tx-minimum-coin-f01">2.1.5.5 F01 - Min-ADA output one lovelace short</a><br>
-          </dd>
-        </dl>
+        <div><ul type="none"><li>
+            <div>•&numsp;<a href="#ds-tx-minimum-coin-n01">2.1.5.1 N01 - Native assets without ADA</a></div>
+            <div>•&numsp;<a href="#ds-tx-minimum-coin-n02">2.1.5.2 N02 - Datum or reference script without assets</a></div>
+            <div>•&numsp;<a href="#ds-tx-minimum-coin-n03">2.1.5.3 N03 - Address-only output</a></div>
+            <div>•&numsp;<a href="#ds-tx-minimum-coin-n04">2.1.5.4 N04 - Exact minimum for a min-ADA output</a></div>
+            <div>•&numsp;<a href="#ds-tx-minimum-coin-f01">2.1.5.5 F01 - Min-ADA output one lovelace short</a></div>
+        </li></ul></div>
       </details>
-    </dd>
-  </dl>
+  </li></ul></div>
 </details>
 <details open>
   <summary><a href="#ds-collateral">2.2 Collateral</a></summary>
-  <dl>
-    <dd>
-      <a href="#ds-collateral-existing-rules">Existing collateral rules</a><br>
+  <div><ul type="none"><li>
+      <div>•&numsp;<a href="#ds-collateral-existing-rules">Existing collateral rules</a></div>
       <details>
         <summary><a href="#ds-collateral-funding">2.2.1 Funding</a></summary>
-        <dl>
-          <dd>
-            <a href="#ds-collateral-funding-n01">2.2.1.1 N01 - Funded collateral</a><br>
-            <a href="#ds-collateral-funding-f01">2.2.1.2 F01 - Underfunded collateral</a><br>
-            <a href="#ds-collateral-funding-p02">2.2.1.3 P02 - Independent ordinary declarations</a><br>
-            <a href="#ds-collateral-funding-p03">2.2.1.4 P03 - Min-ADA return at the active minimum</a><br>
-          </dd>
-        </dl>
+        <div><ul type="none"><li>
+            <div>•&numsp;<a href="#ds-collateral-funding-n01">2.2.1.1 N01 - Funded collateral</a></div>
+            <div>•&numsp;<a href="#ds-collateral-funding-f01">2.2.1.2 F01 - Underfunded collateral</a></div>
+            <div>•&numsp;<a href="#ds-collateral-funding-p02">2.2.1.3 P02 - Independent ordinary declarations</a></div>
+            <div>•&numsp;<a href="#ds-collateral-funding-p03">2.2.1.4 P03 - Min-ADA return at the active minimum</a></div>
+        </li></ul></div>
       </details>
       <details>
         <summary><a href="#ds-collateral-total">2.2.2 Total</a></summary>
-        <dl>
-          <dd>
-            <a href="#ds-collateral-total-n01">2.2.2.1 N01 - Absent or exact total</a><br>
-            <a href="#ds-collateral-total-f01">2.2.2.2 F01 - Incorrect total</a><br>
-          </dd>
-        </dl>
+        <div><ul type="none"><li>
+            <div>•&numsp;<a href="#ds-collateral-total-n01">2.2.2.1 N01 - Absent or exact total</a></div>
+            <div>•&numsp;<a href="#ds-collateral-total-f01">2.2.2.2 F01 - Incorrect total</a></div>
+        </li></ul></div>
       </details>
       <details>
         <summary><a href="#ds-collateral-assets">2.2.3 Assets</a></summary>
-        <dl>
-          <dd>
-            <a href="#ds-collateral-assets-n01">2.2.3.1 N01 - Exact asset map</a><br>
-            <a href="#ds-collateral-assets-f01">2.2.3.2 F01 - Missing or altered assets</a><br>
-          </dd>
-        </dl>
+        <div><ul type="none"><li>
+            <div>•&numsp;<a href="#ds-collateral-assets-n01">2.2.3.1 N01 - Exact asset map</a></div>
+            <div>•&numsp;<a href="#ds-collateral-assets-f01">2.2.3.2 F01 - Missing or altered assets</a></div>
+        </li></ul></div>
       </details>
-    </dd>
-  </dl>
+  </li></ul></div>
 </details>
+</li></ul>
 
 <a id="section-1-2" name="section-1-2"></a>
 <a id="ds-tx" name="ds-tx"></a>
@@ -3097,7 +2976,7 @@ For F01–F04, both the original and changed magnitudes remain representable. Po
 allocation amounts and release magnitudes are checked by Grammar; these cases test
 exactness within that valid range.
 
-Appendix D.1 gives the [detailed SubTx net-change cases](appendices.md#subtx-net-change-test-cases) for this rule.
+[SubTx conformance cases and tests](appendices.md#subtx-net-change-test-cases)
 
 <a id="ds-tx-exactness-netting" name="ds-tx-exactness-netting"></a>
 <a id="ds-tx-exactness-toptx" name="ds-tx-exactness-toptx"></a>
@@ -3133,7 +3012,7 @@ On ordinary success, the Store receives external output deposits and pays out
 external input deposits. On accepted phase-2 failure, only collateral effects
 apply. [Requirements](#ds-tx-declarations-requirements) determines field presence.
 
-Appendix D.2 gives the [detailed TopTx net-change cases](appendices.md#toptx-net-change-test-cases) for this rule.
+[TopTx conformance cases and tests](appendices.md#toptx-net-change-test-cases)
 
 <a id="ds-tx-attribution" name="ds-tx-attribution"></a>
 <a id="ds-tx-accounting-attribution" name="ds-tx-accounting-attribution"></a>

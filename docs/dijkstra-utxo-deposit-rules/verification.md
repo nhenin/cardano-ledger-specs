@@ -14,6 +14,7 @@ The dated entries below link to the checks and results recorded at each checkpoi
 
 - [Verification baselines](#verification-baselines)
 - [Current implementation status](#current-implementation-status)
+  - [Plutus support by version](#plutus-context-status)
 - [Test infrastructure and verification method](#test-infrastructure-and-verification-method)
   - [Fixture cardinality](#fixture-cardinality)
 - [Historical results](#historical-results)
@@ -499,8 +500,25 @@ have been replaced by real ledger submissions.
 Historical V1 allocations retain their price across ordinary parameter changes.
 The V2 experiment activates new base and per-asset coefficients for subsequent
 allocations. Repricing existing entries would require a separate proposal.
-The script-context contract for each supported version remains open.
-[Historical pricing](chapters/domain-model.md#ds-pricing-history) · [Plutus compatibility](chapters/appendices.md#ds-plutus-compatibility)
+[Historical pricing](chapters/domain-model.md#ds-pricing-history)
+
+<a id="plutus-context-status" name="plutus-context-status"></a>
+
+### Plutus support by version
+
+The proposal targets V1 through V4 within each version’s existing feature
+restrictions.
+
+| Plutus version | Current behavior for a deposit-backed output |
+| --- | --- |
+| V1 | The Alonzo translator raises an error when it reads the output value. [V1 output translation](../../eras/alonzo/impl/src/Cardano/Ledger/Alonzo/Plutus/TxInfo.hs#L348-L357) |
+| V2 and V3 | Both use the Babbage translator, which raises an error on this output form. [V2 call](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs#L404-L411) · [V3 call](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs#L448-L455) · [Shared translator](../../eras/babbage/impl/src/Cardano/Ledger/Babbage/TxInfo.hs#L140-L143) |
+| V4 | Created outputs and resolved inputs expose the application ADA and native assets. A minimum-ADA output exposes its full value. [V4 inputs and outputs](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs#L589-L596) · [Resolved input](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs#L646-L649) · [Value by output form](../../eras/dijkstra/impl/src/Cardano/Ledger/Dijkstra/TxInfo.hs#L661-L665) |
+
+V1–V3 still need translation for deposit-backed inputs and outputs. The CIP
+leaves open which backing and declaration details each version should expose.
+Compatibility tests must cover validators that check exact output ADA.
+[Script-visible output value](chapters/domain-model.md#script-visible-output-value) · [CIP compatibility work](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md#61-plutus-compatibility)
 
 ## Deposit formula history on 6 November 2026
 
@@ -1063,8 +1081,8 @@ Legacy CBOR, snapshot and JSON encoders traverse entries directly.
 The `UTxO` type, `txouts` contract and `LegacyUTxOMap` module remain. Inherited
 validator, script-context and stake APIs still require output-only representations;
 full projections remain local to explicit output APIs, initialization and test
-oracles. Retiring those interfaces is tracked in
-[State representation](chapters/appendices.md#ds-state-representation).
+oracles. For the current output and allocation APIs, see
+[Ledger state APIs and snapshots](chapters/appendices.md#state-modules-apis-and-encoding).
 This pass does not change the agreed deferred output-construction API.
 
 All 13 build targets passed (the Shelley benchmark was built separately):
@@ -1142,8 +1160,8 @@ Verified the working-tree migration based on `2bafe7223`. Shared state now owns
 `UTxOStore` directly through `CanGetUTxOStore` / `CanSetUTxOStore`. Earlier-era
 initialization, updates and translations retain min-ADA output formats; Dijkstra
 retains complete historical allocations. The `UTxO` type name remains unchanged.
-The proposed `txouts` / `Allocations` API revision is deferred in
-[State representation](chapters/appendices.md#ds-state-representation).
+This change deferred the proposed `txouts` / `Allocations` API revision.
+For the current APIs, see [Ledger state APIs and snapshots](chapters/appendices.md#state-modules-apis-and-encoding).
 
 All 12 build targets passed:
 
@@ -1894,7 +1912,7 @@ outputs, overlapping input roles, local/delegated batches, zero-net changes, his
 recorded amounts and positive Store surplus remain scenario dimensions under the
 exact transitions. No requirement is considered implemented merely by consolidation.
 
-The rules document retains former anchors with a migration table. Generic snapshot
+The [tag mapping for this checkpoint](https://github.com/nhenin/cardano-ledger-specs/blob/36ed51739e3491cb740979b4c43cbc09b799b3a8/docs/dijkstra-utxo-deposit-rules/chapters/appendices.md#section-9) records how the cases were regrouped. Generic snapshot
 round trips refer to the inherited executable tests. The real defensive solvency
 validator still needs focused boundary coverage, identified separately from accepted
 ledger effects. Consensus rollback needs an owning integration/API before a test
@@ -2495,8 +2513,8 @@ The four implemented property bodies are unchanged. Each passed 100 generated ca
 
 The complete DepositStore run registered **257 examples: 89 passed, 168 deliberate
 placeholders failed**, in **9.1290 s wall time / 12.7818 s CPU time**, with seed
-`739231514`. After applying the documented tag migration, the failing case IDs
-exactly match the preceding Operations-completion run; no implemented check regressed.
+`739231514`. After matching the renamed cases, the same placeholders failed as in the preceding
+Operations-completion run. All previously implemented checks still passed.
 The executable and Markdown case order, titles, formulas and source links agree.
 The Cabal build and Fourmolu checks passed; ctags were regenerated.
 
@@ -3449,11 +3467,11 @@ Local run evidence is in `/private/tmp/ds-business-after-adapter-removal.log`,
 not committed verification inputs. The additional codec, UTXO, SUBUTXO and LEDGER
 selections recorded on 9 October below were not rerun for this change.
 
-The document is grouped into Domain model, Transaction rules, Ledger effects and
-Derived distributions, followed by appendices. Domain model now introduces Outputs,
-DepositStore, Transaction bodies and Deposit calculation directly. API details live
-in Appendix C; transaction validity and state transitions stay in their rule chapters.
-Ledger effects directly contains the former State responsibilities.
+At this checkpoint the document grouped Domain model, Transaction rules, Ledger
+effects and Derived distributions before the appendices. Domain model introduced
+Outputs, DepositStore, Transaction bodies and Deposit calculation. Appendix C
+held the API details. Transaction rules covered validity and Ledger effects
+covered state transitions.
 
 The document-only checks preserve all 189 case titles, descriptions and source links.
 All 249 TOC entries match their target titles in reading order; all 251 explicit
@@ -3480,6 +3498,12 @@ witness or fee requirements only when that leaves the condition under test uncha
 Acceptance fixtures must satisfy the other ledger rules; rejection fixtures isolate the
 condition being rejected and include a corresponding valid control. Preserve existing
 SubTx contributions to TopTx fees when checking DepositStore conservation.
+
+Once a case signs its transaction, `submitTx` submits it with fixture fixup
+disabled so the ledger sees the exact inputs, outputs and declarations under
+test. `isAccepted` checks for success. `isRejectedWith` checks that the named
+failure appears among the ledger’s reasons. `isRejectedOnlyWith` checks that
+it is the sole reason. [Submission](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Submission.hs#L76-L84) · [Outcome checks](../../eras/dijkstra/impl/test/Test/Cardano/Ledger/Dijkstra/Imp/DepositStore/Core/Submission.hs#L98-L126)
 
 Scenario tables keep the description, domain input, phase-2 outcome and expected decision
 visible in the executable spec. Each row gets fresh ledger state. Properties compare

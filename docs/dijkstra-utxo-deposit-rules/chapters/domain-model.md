@@ -8,26 +8,24 @@
 
 ## Table of contents
 
-<div>
-<a href="#section-1">1.1 Outputs</a><br>
-<a href="#section-1-1">1.2 DepositStore</a><br>
-<a href="#section-1-4">1.3 Transaction bodies</a><br>
+<ul type="none"><li>
+<div>•&numsp;<a href="#section-1">1.1 Outputs</a></div>
+<div>•&numsp;<a href="#section-1-1">1.2 DepositStore</a></div>
+<div>•&numsp;<a href="#section-1-4">1.3 Transaction bodies</a></div>
 <details>
   <summary><a href="#ds-pricing">1.4 Deposit calculation</a></summary>
-  <dl>
-    <dd>
-      <a href="#ds-pricing-p01">1.4.1 P01 - Price each created output</a><br>
-      <a href="#ds-pricing-n01">1.4.2 N01 - Count distinct native assets</a><br>
-      <a href="#ds-pricing-n02">1.4.3 N02 - Price an applied collateral return</a><br>
-      <a href="#ds-pricing-n03">1.4.4 N03 - Measure datum and reference script payloads</a><br>
-      <a href="#ds-pricing-n04">1.4.5 N04 - Vary the declaration independently</a><br>
-      <a href="#ds-pricing-n05">1.4.6 N05 - Preserve the price across ADA encoding boundaries</a><br>
-      <a href="#ds-pricing-n06">1.4.7 N06 - Keep a min-ADA reserve inside its output</a><br>
-    </dd>
-  </dl>
+  <div><ul type="none"><li>
+      <div>•&numsp;<a href="#ds-pricing-p01">1.4.1 P01 - Price each created output</a></div>
+      <div>•&numsp;<a href="#ds-pricing-n01">1.4.2 N01 - Count distinct native assets</a></div>
+      <div>•&numsp;<a href="#ds-pricing-n02">1.4.3 N02 - Price an applied collateral return</a></div>
+      <div>•&numsp;<a href="#ds-pricing-n03">1.4.4 N03 - Measure datum and reference script payloads</a></div>
+      <div>•&numsp;<a href="#ds-pricing-n04">1.4.5 N04 - Vary the declaration independently</a></div>
+      <div>•&numsp;<a href="#ds-pricing-n05">1.4.6 N05 - Preserve the price across ADA encoding boundaries</a></div>
+      <div>•&numsp;<a href="#ds-pricing-n06">1.4.7 N06 - Keep a min-ADA reserve inside its output</a></div>
+  </li></ul></div>
 </details>
-<a href="#ds-pricing-history">1.5 Historical pricing</a><br>
-</div>
+<div>•&numsp;<a href="#ds-pricing-history">1.5 Historical pricing</a></div>
+</li></ul>
 
 <a id="section-1" name="section-1"></a>
 
@@ -51,6 +49,16 @@ live output. [Deposit calculation](#ds-pricing) defines the required amount;
 Outputs are indexed occurrences. Equal output values at different indices represent
 separate outputs and have separate allocated deposits when deposit-backed. The external
 deposit metadata is outside the serialized output.
+
+<a id="script-visible-output-value" name="script-visible-output-value"></a>
+
+**What does a script see?** In the Dijkstra prototype, a Plutus V4 validator
+sees the full value of a minimum-ADA output, including its embedded reserve.
+For a deposit-backed output, it sees the application ADA and native assets.
+For example, if an output carries 5 ADA and the Store holds its 2 ADA deposit,
+an exact-ADA check sees 5 ADA both when the output is created and when it is
+later spent. Plutus V1–V3 still need support for this output form.
+[Plutus support by version](../verification.md#plutus-context-status)
 
 <a id="section-1-1" name="section-1-1"></a>
 
@@ -187,9 +195,10 @@ not recovery of each output's original minimum deposit.
 
 Empty Stores retain their baseline and dated changes. Zero-priced new outputs still receive allocation records.
 
-[Ledger effects](ledger-effects.md#ds-state) specifies the resulting allocations
-and exact cached total. [State representation](appendices.md#ds-state-representation)
-gives the Haskell types, module responsibilities and snapshot formats.
+For the effect of spending and creating outputs on the Store's allocations and
+cached total, see [How a transaction updates ledger state](ledger-effects.md#ds-state-representation).
+For the Haskell types, module responsibilities and snapshot formats, see
+[Ledger state APIs and snapshots](appendices.md#state-modules-apis-and-encoding).
 
 <a id="section-1-4" name="section-1-4"></a>
 

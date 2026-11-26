@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="346" viewBox="0 0 880 346"
+     role="img" aria-labelledby="title description">
+  <title id="title">UTxO effects of accepted Dijkstra transactions</title>
+  <desc id="description">On phase-2 success the ledger applies each SubTx in order, then
+    the TopTx. Each body spends ordinary inputs, inserts ordinary outputs and emits
+    TxUTxODiff. The TopTx credits its declared fee once. On accepted phase-2 failure,
+    the TopTx spends collateral, can insert a collateral return, and credits the
+    collateral fee once. It emits no TxUTxODiff. Both paths update instant stake from
+    the actual consumed and produced Store entries.</desc>
+  <style>
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; fill: #172733; }
+    .heading { font-size: 21px; font-weight: 700; }
+    .order { font-size: 16px; }
+    .label { font-size: 14px; font-weight: 700; fill: #506577; }
+    .value { font-size: 16px; }
+    .delta { font-size: 15px; font-weight: 600; }
+    .stake { font-size: 18px; font-weight: 700; }
+    .code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 15px; }
+    .failure { fill: #993e34; }
+  </style>
+  <rect width="880" height="346" fill="#fff"/>
+
+  <!-- The two routes through ledger accounting. -->
+  <rect x="12" y="10" width="418" height="238" rx="10" fill="#fff" stroke="#b8cbd7"/>
+  <path d="M22 10h398a10 10 0 0 1 10 10v52H12V20a10 10 0 0 1 10-10Z" fill="#eaf2f6"/>
+  <text x="30" y="37" class="heading">Accepted phase-2 success</text>
+  <text x="30" y="60" class="order">Apply each SubTx in order, then the TopTx.</text>
+  <text x="30" y="102" class="label">Store</text>
+  <text x="104" y="102" class="value">Spend ordinary inputs and insert</text>
+  <text x="104" y="123" class="value">ordinary outputs for each body.</text>
+  <text x="30" y="157" class="label">Fee</text>
+  <text x="104" y="157" class="value">Credit the declared TopTx fee once.</text>
+  <text x="30" y="189" class="label">Event</text>
+  <text x="104" y="189" class="value">Each body emits <tspan class="code">TxUTxODiff</tspan>.</text>
+  <path d="M12.5 208h417v30a9.5 9.5 0 0 1-9.5 9.5H22a9.5 9.5 0 0 1-9.5-9.5Z" fill="#f1f6f9"/>
+  <text x="30" y="233" class="delta">Ordinary entries removed and inserted</text>
+
+  <rect x="450" y="10" width="418" height="238" rx="10" fill="#fff" stroke="#d9c2bc"/>
+  <path d="M460 10h398a10 10 0 0 1 10 10v52H450V20a10 10 0 0 1 10-10Z" fill="#faefec"/>
+  <text x="468" y="37" class="heading failure">Accepted phase-2 failure</text>
+  <text x="468" y="60" class="order">Apply TopTx collateral only.</text>
+  <text x="468" y="102" class="label">Store</text>
+  <text x="542" y="102" class="value">Spend collateral inputs and insert</text>
+  <text x="542" y="123" class="value">the collateral return if present.</text>
+  <text x="468" y="157" class="label">Fee</text>
+  <text x="542" y="157" class="value">Credit the TopTx collateral fee once.</text>
+  <text x="468" y="189" class="label">Event</text>
+  <text x="542" y="189" class="value">No <tspan class="code">TxUTxODiff</tspan> is emitted.</text>
+  <path d="M450.5 208h417v30a9.5 9.5 0 0 1-9.5 9.5H460a9.5 9.5 0 0 1-9.5-9.5Z" fill="#fcf5f3"/>
+  <text x="468" y="233" class="delta">Collateral entries removed and inserted</text>
+
+  <!-- The stake input comes from the Store changes on either route. -->
+  <g fill="none" stroke="#687c8b" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M221 248v20h438v-20"/>
+    <path d="M440 268v17m-5-6 5 6 5-6"/>
+  </g>
+  <rect x="99" y="288" width="682" height="46" rx="9" fill="#eaf2f6" stroke="#bfccd7"/>
+  <text x="440" y="317" text-anchor="middle" class="stake">Update instant stake from the actual consumed and produced entries</text>
+</svg>
