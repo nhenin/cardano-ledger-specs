@@ -1,6 +1,6 @@
 # Dijkstra ledger rules for minimum-ADA and deposit-backed outputs
 
-The [UTxO Deposit versus UTxO Minimum ADA proposal](https://github.com/input-output-hk/arc-minutxo/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) describes two ways
+The [UTxO Deposit versus UTxO Minimum ADA proposal](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md) describes two ways
 to back an output's storage. A minimum-ADA output carries its reserve in its
 own value. For a deposit-backed output, the ledger accounts for the deposit
 separately. These rules specify how Dijkstra prices that backing, checks the
