@@ -8,7 +8,8 @@
 
 [Ledger rules](README.md) · [Verification record](verification.md) · [CIP declaration fields](https://github.com/input-output-hk/arc-cardano-minutxo-alternatives/blob/codex/cip-output-coexistence/CIP-%3F%3F%3F%3F/README.md#33-txbody-deposit-declarations-and-encoding) · [Latest version of this page](https://github.com/nhenin/cardano-ledger-specs/blob/v2-minutxo/docs/dijkstra-deposit-store/declarations.md)
 
-This chapter defines the deposit declarations that TopTx and SubTx bodies can carry and when each body must declare.
+Section 2.1.1 of the [ordinary transaction rules](README.md#ds-tx) defines the deposit
+declarations that TopTx and SubTx bodies can carry and when each body must declare.
 
 > **Valid form → required field.**
 
@@ -21,6 +22,20 @@ This chapter defines the deposit declarations that TopTx and SubTx bodies can ca
 must nevertheless declare. Grammar accepts the form; Requirements checks whether
 it is allowed in that transaction. [Net change](README.md#ds-tx-accounting-net-change) then checks
 the declared amount.
+
+## Table of contents
+
+- [2.1.1.1 Grammar](#ds-tx-declarations-grammar)
+  - [TopTx](#ds-tx-declarations-grammar-toptx) — [Amounts](#ds-tx-declarations-grammar-toptx-amounts) · [Absence](#ds-tx-declarations-grammar-toptx-absence) · [Forms](#ds-tx-declarations-grammar-toptx-forms) · [Structure](#ds-tx-declarations-grammar-toptx-structure) · [Destinations](#ds-tx-declarations-grammar-toptx-destinations)
+  - [SubTx](#ds-tx-declarations-grammar-subtx) — [Amounts](#ds-tx-declarations-grammar-subtx-amounts) · [Absence](#ds-tx-declarations-grammar-subtx-absence) · [Forms](#ds-tx-declarations-grammar-subtx-forms) · [Structure](#ds-tx-declarations-grammar-subtx-structure) · [Destinations](#ds-tx-declarations-grammar-subtx-destinations)
+- [2.1.1.2 Requirements](#ds-tx-declarations-requirements)
+  - [Operations](#ds-tx-declarations-requirements-operations) — [Declaration presence](#ds-tx-declarations-requirements-operations-p01) · [Allocation](#ds-tx-declarations-requirements-operations-allocation) · [Release](#ds-tx-declarations-requirements-operations-release) · [Zero net change](#ds-tx-declarations-requirements-operations-zero-net-change)
+  - [SubTx declarations](#ds-tx-declarations-requirements-subtx-declarations)
+    - [TopTx requirement](#ds-tx-declarations-requirements-subtx-declarations-c01)
+    - [Absence and explicit zero](#ds-tx-declarations-requirements-subtx-declarations-c02)
+    - [Offsetting SubTx contributions](#ds-tx-declarations-requirements-subtx-declarations-c03)
+    - [Local and delegated accounting](#ds-tx-declarations-requirements-subtx-declarations-c04)
+    - [Phase-2 failure](#ds-tx-declarations-requirements-subtx-declarations-c05)
 
 <a id="ds-tx-grammar" name="ds-tx-grammar"></a>
 <a id="ds-tx-declarations-grammar" name="ds-tx-declarations-grammar"></a>

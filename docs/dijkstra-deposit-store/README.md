@@ -8,16 +8,25 @@ own value. For a deposit-backed output, the ledger accounts for the deposit
 separately. These rules specify how Dijkstra prices that backing, checks the
 transaction's declaration and settles the change.
 
-The declarations chapter covers TopTx and SubTx forms and when each body must
-declare. Rule identifiers link each contract to its executable cases. The
-verification record gives their implementation status and dated test results.
+## How the documents fit together
+
+| Document | What to look up |
+| --- | --- |
+| [Ledger rules](#table-of-contents) | Start here for the domain model, transaction checks and effects on ledger state. |
+| [§2.1.1 Deposit declarations](declarations.md#table-of-contents) | This chapter of the transaction rules has its own page. It defines which forms TopTx and SubTx can use and when a declaration is required. |
+| [Verification record](verification.md#table-of-contents) | This record covers both pages. Use it to find a rule’s implementation status, the cases that exercised it and the dated test results. |
+
+For example, the [net-change rule](#ds-tx-accounting-net-change) explains why replacing
+1.6 ADA of embedded reserve with a 2 ADA external deposit requires `Allocate 0.4 ADA`.
+The [declaration grammar](declarations.md#ds-tx-declarations-grammar) defines that form.
+The [24 November test record](verification.md#signed-backing-change-for-mixed-output-forms--24-november-2026)
+checks both the declared 0.4 ADA and the 2 ADA credited to the Store.
 
 ## Table of contents
 
-Use the arrows to expand a domain, responsibility or case group. Select a title to jump
-to it. The parent sections remain visible and follow the reading order:
-**Domain model → Transaction rules → Ledger effects → Derived distributions**.
-Appendices contain the open design questions and supporting references.
+Expand a domain, responsibility or case group to find an individual rule.
+Links under §2.1.1 open the declarations chapter. For test results, browse the
+[verification record by date](verification.md#table-of-contents).
 
 <dl>
   <dt><strong><a href="#domain-model">1. Domain model</a></strong></dt>

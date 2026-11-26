@@ -6,6 +6,149 @@
 
 **Latest recorded tests:** [24 November 2026](#signed-backing-change-for-mixed-output-forms--24-november-2026)
 
+## Table of contents
+
+Use the implementation status to find test coverage for the [ledger rules](README.md#table-of-contents),
+including the [TopTx and SubTx declaration rules](declarations.md#table-of-contents).
+The dated entries below link to the checks and results recorded at each checkpoint.
+
+- [Verification baselines](#verification-baselines)
+- [Current implementation status](#current-implementation-status)
+- [Test infrastructure and verification method](#test-infrastructure-and-verification-method)
+  - [Fixture cardinality](#fixture-cardinality)
+- [Historical results](#historical-results)
+
+**Verification runs by date**
+
+<details open>
+<summary>November 2026</summary>
+
+- **24 November**
+  - [Signed backing change for mixed output forms](#signed-backing-change-for-mixed-output-forms--24-november-2026)
+- **10 November**
+  - [Output variant naming](#output-variant-naming--10-november-2026)
+- **8 November**
+  - [Will's deposit formula](#wills-deposit-formula--8-november-2026)
+  - [Typed deposit calculation](#typed-deposit-calculation--8-november-2026)
+  - [Active-formula minimum coin](#active-formula-minimum-coin--8-november-2026)
+  - [CI fixtures](#ci-fixtures--8-november-2026)
+  - [Remaining suites and CI seed](#remaining-suites-and-ci-seed--8-november-2026)
+- **6 November**
+  - [Deposit formula history](#deposit-formula-history-on-6-november-2026)
+  - [Slot-based deposit history](#slot-based-deposit-history-on-6-november-2026)
+- **2 November**
+  - [Store transaction projection](#store-transaction-projection-on-2-november-2026)
+    - [Public Store interface and Internals](#public-store-interface-and-internals)
+  - [Leios integration checkpoint](#leios-integration-checkpoint-on-2-november-2026)
+
+</details>
+
+<details>
+<summary>26–30 October 2026</summary>
+
+- **30 October**
+  - [Ledger state domains](#ledger-state-domains-on-30-october-2026)
+  - [Stored entries in output events](#stored-entries-in-output-events-on-30-october-2026)
+  - [Shared body update](#shared-body-update-on-30-october-2026)
+  - [Store body updates](#store-body-updates-on-30-october-2026)
+  - [Store operation cleanup checkpoint](#store-operation-cleanup-checkpoint-on-30-october-2026)
+  - [Active calculation and indexed outputs](#active-calculation-and-indexed-outputs-on-30-october-2026)
+  - [Output map interface](#output-map-interface-on-30-october-2026)
+  - [Allocation operations](#allocation-operations--30-october-2026)
+    - [Mary translation review](#mary-translation-review)
+- **29 October**
+  - [Allocation-based read contracts](#allocation-based-read-contracts-on-29-october-2026)
+  - [Store translations and composed reads](#store-translations-and-composed-reads-on-29-october-2026)
+  - [Direct Store reads](#direct-store-reads-on-29-october-2026)
+  - [Shared Store access](#shared-store-access-on-29-october-2026)
+  - [Allocation reads](#allocation-reads-on-29-october-2026)
+- **27 October**
+  - [TxOut module extraction](#txout-module-extraction-on-27-october-2026)
+  - [UTxOs module extraction and deposit calculation](#utxos-module-extraction-and-deposit-calculation-on-27-october-2026)
+  - [Pre-namespace Store API simplification and wrapper module](#pre-namespace-store-api-simplification-and-wrapper-module-on-27-october-2026)
+  - [Unspent field naming](#unspent-field-naming-on-27-october-2026)
+  - [Generic Unspent metadata at 52d2c835e](#generic-unspent-metadata-at-52d2c835e-on-27-october-2026)
+  - [Pre-Unspent UTxO module hierarchy](#pre-unspent-utxo-module-hierarchy-on-27-october-2026)
+  - [Pre-hierarchy output names and Store vocabulary](#pre-hierarchy-output-names-and-store-vocabulary-on-27-october-2026)
+  - [Pre-vocabulary storage layout](#pre-vocabulary-storage-layout-on-27-october-2026)
+  - [Pre-edit style-cleanup build](#pre-edit-style-cleanup-build-on-27-october-2026)
+- **26 October**
+  - [DepositStore API removal and record fields](#depositstore-api-removal-and-record-fields-on-26-october-2026)
+  - [Verified integration checkpoint](#verified-integration-checkpoint-on-26-october-2026)
+  - [Historical map-only Store revision](#historical-map-only-store-revision-on-26-october-2026)
+
+</details>
+
+<details>
+<summary>19–23 October 2026</summary>
+
+- **23 October**
+  - [LedgerEffects implementation](#ledgereffects-implementation-on-23-october-2026)
+- **20 October**
+  - [LedgerEffects contracts revised](#ledgereffects-contracts-revised-on-20-october-2026)
+  - [Store-specific collateral implemented](#store-specific-collateral-implemented-on-20-october-2026)
+  - [Initial collateral scope alignment](#initial-collateral-scope-alignment-on-20-october-2026)
+  - [Minimum coin implemented](#minimum-coin-implemented-on-20-october-2026)
+  - [Authorization implemented](#authorization-implemented-on-20-october-2026)
+  - [Settlement requirements implemented](#settlement-requirements-implemented-on-20-october-2026)
+- **19 October**
+  - [Attribution redistributed and implemented](#attribution-redistributed-and-implemented-on-19-october-2026)
+  - [Balance implemented](#balance-implemented-on-19-october-2026)
+  - [Accounting hierarchy](#accounting-hierarchy-verified-on-19-october-2026)
+  - [Declarations grouping](#declarations-grouping-verified-on-19-october-2026)
+  - [Accounting implementation](#accounting-implementation-verified-on-19-october-2026)
+    - [SubTx exactness](#subtx)
+    - [TopTx exactness](#toptx)
+    - [Regression checks](#regression)
+  - [Exactness scope and contracts](#exactness-scope-and-contracts-verified-on-19-october-2026)
+  - [Operations completion](#operations-completion-verified-on-19-october-2026)
+  - [SubTx zero net change](#subtx-zero-net-change-verified-on-19-october-2026)
+  - [Required declarations rename](#required-declarations-rename-verified-on-19-october-2026)
+  - [Presence narrative](#presence-narrative-verified-on-19-october-2026)
+  - [Zero net change](#zero-net-change-verified-on-19-october-2026)
+  - [Store operations vocabulary](#store-operations-vocabulary-verified-on-19-october-2026)
+
+</details>
+
+<details>
+<summary>9–16 October 2026</summary>
+
+- **16 October**
+  - [Standalone allocation pair](#standalone-allocation-pair-on-16-october-2026)
+- **15 October**
+  - [Leios rebase verification](#leios-rebase-verification-on-15-october-2026)
+    - [Upstream batch script failures](#upstream-batch-script-failures)
+- **13 October**
+  - [Release verification](#release-verification-on-13-october-2026)
+  - [Initial recorded DepositStore implementation](#initial-recorded-depositstore-implementation-verified-on-13-october-2026)
+  - [Earlier standalone TopTx contract split](#earlier-standalone-toptx-contract-split-on-13-october-2026)
+  - [Earlier release-presence run](#earlier-release-presence-run-on-13-october-2026)
+- **12 October**
+  - [Domain support consolidated](#domain-support-consolidated-on-12-october-2026)
+  - [Typed fixture generators](#typed-fixture-generators-verified-on-12-october-2026)
+  - [Decoder-input generation consolidated](#decoder-input-generation-consolidated-on-12-october-2026)
+  - [TopTx grammar generators](#toptx-grammar-generators-verified-on-12-october-2026)
+  - [SubTx grammar generators](#subtx-grammar-generators-verified-on-12-october-2026)
+  - [Combined codec checks](#combined-codec-checks-verified-on-12-october-2026)
+  - [SubTx invalid-amount cases](#subtx-invalid-amount-cases-verified-on-12-october-2026)
+  - [TopTx and SubTx Grammar split](#toptx-and-subtx-grammar-split-verified-on-12-october-2026)
+  - [Grammar assertion readability](#grammar-assertion-readability-verified-on-12-october-2026)
+  - [StrictlyPositiveCoin extraction and test ownership](#strictlypositivecoin-extraction-and-test-ownership-verified-on-12-october-2026)
+  - [Grammar implementation structure](#grammar-implementation-structure-verified-on-12-october-2026)
+  - [Grammar grouping verification](#grammar-grouping-verification-on-12-october-2026)
+  - [Scope reduction verification](#scope-reduction-verification-on-12-october-2026)
+  - [Folder alignment verification](#folder-alignment-verification-on-12-october-2026)
+  - [Coherence verification](#coherence-verification-on-12-october-2026)
+  - [Earlier structural verification](#earlier-structural-verification-on-12-october-2026)
+- **9 October**
+  - [Historical focused results](#historical-focused-results-recorded-on-9-october-2026)
+    - [Allocation presence evidence](#allocation-presence-evidence)
+    - [Dependency evidence](#dependency-evidence)
+
+</details>
+
+## Verification baselines
+
 **Release presence baseline:** `8ac3c67f2`, with the working-tree changes verified below.
 
 **Coherence revision baseline:** `f06c329e3`, with the working-tree changes verified below.
